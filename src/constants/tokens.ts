@@ -1,96 +1,94 @@
 /**
  * AFS Advocates — Design Tokens
- * Single source of truth for all colours and visual constants.
- * These match the original app exactly. Change here to change everywhere.
+ * Professional legal workspace. Clean, serious, no distractions.
  */
 
 export const T = {
-  bg:    '#07070f',
-  card:  '#0d0d18',
-  bdr:   '#181828',
-  gold:  '#c4a030',
-  goldL: '#d4b050',
-  mute:  '#3a3a52',
-  dim:   '#5a5a72',
-  text:  '#e0dcd0',
-  sub:   '#b8b4a8',
+  bg:    '#0e0e0e',
+  card:  '#151515',
+  bdr:   '#2a2a2a',
+  gold:  '#7a1f2e',
+  goldL: '#9a2f3e',
+  mute:  '#4a4a4a',
+  dim:   '#8a8a9a',
+  text:  '#f0ede8',
+  sub:   '#c0bcb8',
 } as const;
 
-/** Shared inline style objects used across components */
 export const S = {
   label: {
-    fontSize: 10, color: T.dim,
-    fontFamily: 'Inter, sans-serif',
+    fontSize: 10, color: '#8a8a9a',
+    fontFamily: 'Georgia, "Times New Roman", serif',
     letterSpacing: '.1em', textTransform: 'uppercase' as const,
     fontWeight: 600, display: 'block', marginBottom: 6,
   },
   hint: {
-    fontSize: 12, color: T.mute,
-    fontFamily: 'Inter, sans-serif',
+    fontSize: 12, color: '#4a4a4a',
+    fontFamily: 'Georgia, "Times New Roman", serif',
     lineHeight: 1.55, marginBottom: 7,
   },
   sel: {
-    width: '100%', background: T.bg, border: `1px solid #1e1e2e`,
-    borderRadius: 5, color: T.text, padding: '12px 14px',
-    fontSize: 15, fontFamily: "'Cormorant Garamond', serif",
+    width: '100%', background: '#0e0e0e', border: '1px solid #2a2a2a',
+    borderRadius: 5, color: '#f0ede8', padding: '12px 14px',
+    fontSize: 15, fontFamily: 'Georgia, "Times New Roman", serif',
     outline: 'none', appearance: 'none' as const,
     WebkitAppearance: 'none' as const, cursor: 'pointer',
   },
   inp: {
-    width: '100%', background: T.bg, border: `1px solid #1e1e2e`,
-    borderRadius: 5, color: T.text, padding: '11px 14px',
-    fontSize: 14, fontFamily: "'Cormorant Garamond', serif", outline: 'none',
+    width: '100%', background: '#0e0e0e', border: '1px solid #2a2a2a',
+    borderRadius: 5, color: '#f0ede8', padding: '11px 14px',
+    fontSize: 14, fontFamily: 'Georgia, "Times New Roman", serif', outline: 'none',
   },
   ta: {
-    width: '100%', background: T.bg, border: `1px solid #1e1e2e`,
-    borderRadius: 5, color: T.text, padding: '12px 14px',
-    fontSize: 15, fontFamily: "'Cormorant Garamond', serif",
+    width: '100%', background: '#0e0e0e', border: '1px solid #2a2a2a',
+    borderRadius: 5, color: '#f0ede8', padding: '12px 14px',
+    fontSize: 15, fontFamily: 'Georgia, "Times New Roman", serif',
     outline: 'none', resize: 'vertical' as const,
     lineHeight: 1.82, minHeight: 130,
   },
   btn: {
-    background: 'linear-gradient(135deg,#c4a030,#a07820)',
-    color: '#05050c', border: 'none', borderRadius: 6,
+    background: '#7a1f2e',
+    color: '#f0ede8', border: 'none', borderRadius: 6,
     padding: '14px 28px', fontSize: 17,
-    fontFamily: "'Cormorant Garamond', serif",
+    fontFamily: 'Georgia, "Times New Roman", serif',
     cursor: 'pointer', width: '100%', marginTop: 18,
     letterSpacing: '.04em', fontWeight: 600, transition: 'opacity .2s',
   },
   btnOff: {
-    background: '#101018', color: '#2a2a38',
-    border: `1px solid ${T.bdr}`, borderRadius: 6,
+    background: '#1a1a1a', color: '#3a3a3a',
+    border: '1px solid #2a2a2a', borderRadius: 6,
     padding: '14px 28px', fontSize: 17,
-    fontFamily: "'Cormorant Garamond', serif",
+    fontFamily: 'Georgia, "Times New Roman", serif',
     cursor: 'not-allowed', width: '100%', marginTop: 18,
   },
   h1: {
-    fontSize: 22, color: T.goldL, fontWeight: 400,
-    borderBottom: `1px solid ${T.bdr}`,
+    fontSize: 22, color: '#f0ede8', fontWeight: 400,
+    borderBottom: '1px solid #2a2a2a',
     paddingBottom: 10, marginTop: 30, marginBottom: 14,
-    fontFamily: "'Cormorant Garamond', serif", letterSpacing: '.02em',
+    fontFamily: 'Georgia, "Times New Roman", serif', letterSpacing: '.02em',
   },
   h2: {
-    fontSize: 17, color: '#b8985a', fontWeight: 400,
+    fontSize: 17, color: '#c0bcb8', fontWeight: 400,
     marginTop: 24, marginBottom: 8,
-    fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic',
+    fontFamily: 'Georgia, "Times New Roman", serif', fontStyle: 'italic',
   },
   h3: {
-    fontSize: 10, color: '#606070', fontWeight: 600,
+    fontSize: 10, color: '#606060', fontWeight: 600,
     marginTop: 18, marginBottom: 6,
     textTransform: 'uppercase' as const, letterSpacing: '.1em',
-    fontFamily: 'Inter, sans-serif',
+    fontFamily: 'Georgia, "Times New Roman", serif',
   },
   p: {
-    margin: '7px 0', fontSize: 16, color: '#cac6ba',
-    lineHeight: 1.95, fontFamily: "'Cormorant Garamond', serif",
+    margin: '7px 0', fontSize: 16, color: '#c0bcb8',
+    lineHeight: 1.95, fontFamily: 'Georgia, "Times New Roman", serif',
   },
   li: {
-    margin: '5px 0 5px 22px', fontSize: 16, color: '#c2beb2',
+    margin: '5px 0 5px 22px', fontSize: 16, color: '#c0bcb8',
     lineHeight: 1.85, listStyleType: 'disc',
-    fontFamily: "'Cormorant Garamond', serif",
+    fontFamily: 'Georgia, "Times New Roman", serif',
   },
   empty: {
-    color: T.mute, fontStyle: 'italic',
-    fontFamily: 'Inter, sans-serif', fontSize: 14,
+    color: '#4a4a4a', fontStyle: 'italic',
+    fontFamily: 'Georgia, "Times New Roman", serif', fontSize: 14,
   },
 } as const;
