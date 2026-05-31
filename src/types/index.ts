@@ -284,12 +284,36 @@ export interface ApiMessage {
   content: string | ContentBlock[];
 }
 
+/** Options for per-call library RAG tuning */
+export interface LibraryQueryOpts {
+  /** Extra semantic hint to improve embedding quality (e.g. "cross-examination Nigerian Evidence Act") */
+  queryHint?:  string;
+  /** How many Vectorize results to pull. Default: 8 */
+  topK?:       number;
+  /** Vectorize namespace (e.g. 'statutes', 'authorities') */
+  namespace?:  string;
+  /** Metadata filter e.g. { type: 'statute' } or { caseId: 'abc123' } */
+  filter?:     Record<string, string>;
+  /** Minimum similarity score 0–1. Default: 0.70 */
+  threshold?:  number;
+}
+
 export interface ApiRequestOptions {
-  system?:    string;
-  userMsg?:   string;
-  messages?:  ApiMessage[];
-  maxTokens?: number;
-  mcpDrive?:  boolean;
+  system?:       string;
+  userMsg?:      string;
+  messages?:     ApiMessage[];
+  maxTokens?:    number;
+  mcpDrive?:     boolean;
+  /**
+   * Set true to bypass the library RAG layer entirely.
+   * Use only for non-legal utility calls (formatting, password checks, etc.)
+   */
+  skipLibrary?:  boolean;
+  /**
+   * Per-call library options — tune topK, namespace, filter, threshold.
+   * Defaults are sensible for general legal queries.
+   */
+  libraryOpts?:  LibraryQueryOpts;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

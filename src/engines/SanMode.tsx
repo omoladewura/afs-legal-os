@@ -13,6 +13,7 @@ import { useState, useRef, useEffect } from 'react';
 import type { Case, ApiMessage, ContentBlock } from '@/types';
 import { T } from '@/constants/tokens';
 import { CLAUDE_MODEL } from '@/services/api';
+import { queryLibrary, deriveQuery } from '@/services/library';
 import { Md } from '@/components/common/ui';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -251,10 +252,25 @@ export function SanMode({ activeCase }: Props) {
     });
     apiMsgs.push({ role: 'user', content: userContent });
 
+    // ── LIBRARY FIRST: Query Vectorize before building the request ─────────────
+    let effectiveSystem = SAN_SYSTEM;
+    try {
+      const query = deriveQuery(SAN_SYSTEM, txt);
+      if (query.trim()) {
+        const ctx = await queryLibrary(query, { topK: 8, threshold: 0.70 });
+        if (ctx.ok && ctx.block) {
+          effectiveSystem = `${ctx.block}\n${SAN_SYSTEM}`;
+        }
+      }
+    } catch {
+      // Library unavailable — proceed with original SAN_SYSTEM
+    }
+    // ── END LIBRARY QUERY ──────────────────────────────────────────────────────
+
     const reqBody: Record<string, unknown> = {
       model:      CLAUDE_MODEL,
       max_tokens: 3000,
-      system:     SAN_SYSTEM,
+      system:     effectiveSystem,
       messages:   apiMsgs,
     };
     if (useDrive) {

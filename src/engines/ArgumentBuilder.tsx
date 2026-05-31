@@ -7,8 +7,13 @@
  *   2. Build & Generate   — choose argument type, add context, generate
  *   3. Version History    — every saved draft, retrieve / copy / delete
  *
+ * Statute RAG: automatically queries your Cloudflare Vectorize statute
+ * collection before generation. Gracefully skipped if pipeline not yet live.
+ * Set STATUTE_RAG_ENDPOINT in src/services/statuteRag.ts to activate.
+ *
  * Google Drive RAG toggle. Intelligence import is always structured,
- * never raw narration. [RESEARCH NEEDED] tags for unverified citations.
+ * never raw narration. [RESEARCH NEEDED] blocks with LawPavilion search
+ * queries for unverified case citations.
  * Every draft saveable to IndexedDB per case.
  */
 
@@ -19,6 +24,13 @@ import { callClaude } from '@/services/api';
 import { Spinner, RoleBadge, Md } from '@/components/common/ui';
 import { copyToClipboard, uid } from '@/utils';
 import { loadArgVersions, saveArgVersion, deleteArgVersion } from '@/storage/helpers';
+import {
+  queryStatutes,
+  formatStatutesForPrompt,
+  buildRagQuery,
+  isRagConfigured,
+  type StatuteChunk,
+} from '@/services/statuteRag';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ARGUMENT TYPES
@@ -34,7 +46,7 @@ const AB_ARG_TYPES = [
   { id: 'opening_statement',         label: 'Opening Statement',                 icon: '◉',   hint: 'Roadmap for the court — what the case is about, what we will prove, and how.' },
   { id: 'objection_argument',        label: 'Objection / Preliminary Objection', icon: '✗',   hint: 'Jurisdictional or threshold objection — before the substance is heard.' },
   { id: 'reply_address',             label: 'Reply on Points of Law',            icon: '↩',   hint: "Responding only to new legal points raised in opposing counsel's address — no new facts." },
-  { id: 'strategy_argument',         label: 'Case Strategy Argument',            icon: '◈',   hint: 'Internal strategic brief — options, probability, recommended approach and sequence.' },
+  { id: 'strategy_argument',         label: 'Case Strategy Argument',            icon: '◈',   hint: 'Internal strategic brief — options, probability, recommended approach and approach.' },
 ] as const;
 
 type ArgTypeId = typeof AB_ARG_TYPES[number]['id'];
@@ -48,10 +60,10 @@ interface Props {
 }
 
 interface IntelExtraction {
-  legal_issues?:   string[];
-  disputed_areas?: string[];
+  legal_issues?:    string[];
+  disputed_areas?:  string[];
   gaps_identified?: string[];
-  initial_risks?:  Array<{ risk: string; severity: string }>;
+  initial_risks?:   Array<{ risk: string; severity: string }>;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -69,6 +81,64 @@ const lbS: React.CSSProperties = {
   display: 'block', marginBottom: 5,
 };
 const ACC = '#c4a030';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STATUTE CHUNKS DISPLAY — shown after retrieval
+// ─────────────────────────────────────────────────────────────────────────────
+
+function StatuteChunksPanel({ chunks, error }: { chunks: StatuteChunk[]; error?: string }) {
+  const [expanded, setExpanded] = useState(false);
+  if (error) {
+    return (
+      <div style={{ background: '#0e0a04', border: '1px solid #2a1808', borderRadius: 6, padding: '10px 14px', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ fontSize: 12 }}>⚠</span>
+        <p style={{ fontSize: 11, color: '#8a5030', fontFamily: 'Inter, sans-serif', lineHeight: 1.5 }}>
+          Statute RAG: {error} — argument will proceed without statute sections.
+        </p>
+      </div>
+    );
+  }
+  if (!chunks.length) return null;
+  return (
+    <div style={{ background: '#050d06', border: '1px solid #1a3020', borderRadius: 8, padding: '14px 18px', marginBottom: 16, animation: 'fadeUp .2s ease' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: expanded ? 14 : 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#40b060', display: 'inline-block' }} />
+          <p style={{ fontSize: 9, color: '#40b060', fontFamily: 'Inter, sans-serif', letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 600 }}>
+            Statute RAG — {chunks.length} section{chunks.length !== 1 ? 's' : ''} retrieved
+          </p>
+        </div>
+        <button
+          onClick={() => setExpanded(v => !v)}
+          style={{ background: 'transparent', border: '1px solid #1a3020', color: '#40b060', borderRadius: 3, padding: '3px 10px', fontSize: 9, fontFamily: 'Inter, sans-serif', cursor: 'pointer', letterSpacing: '.04em' }}
+        >
+          {expanded ? 'Collapse' : 'Preview ↓'}
+        </button>
+      </div>
+      {expanded && chunks.map((c, i) => (
+        <div key={i} style={{ background: '#030a04', border: '1px solid #0e2014', borderRadius: 6, padding: '12px 14px', marginBottom: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+            <span style={{ fontSize: 9, color: '#40b060', fontFamily: 'Inter, sans-serif', fontWeight: 700 }}>{c.section}</span>
+            <span style={{ fontSize: 9, color: '#2a4030', fontFamily: 'Inter, sans-serif' }}>·</span>
+            <span style={{ fontSize: 10, color: '#3a6040', fontFamily: "'Cormorant Garamond', serif" }}>{c.actName}</span>
+            <span style={{ marginLeft: 'auto', fontSize: 8, color: '#1a3020', fontFamily: 'Inter, sans-serif', border: '1px solid #0a1a10', padding: '1px 5px', borderRadius: 2 }}>
+              {Math.round(c.score * 100)}% match
+            </span>
+          </div>
+          {c.sectionTitle && (
+            <p style={{ fontSize: 11, color: '#2a5038', fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic', marginBottom: 5 }}>{c.sectionTitle}</p>
+          )}
+          <p style={{ fontSize: 12, color: '#507858', fontFamily: "'Cormorant Garamond', serif", lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
+            {c.text.slice(0, 280)}{c.text.length > 280 ? '…' : ''}
+          </p>
+        </div>
+      ))}
+      <p style={{ fontSize: 10, color: '#1a3020', fontFamily: 'Inter, sans-serif', marginTop: expanded ? 8 : 0 }}>
+        These sections are injected into the prompt — Claude will cite them directly from your verified statute collection.
+      </p>
+    </div>
+  );
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MAIN COMPONENT
@@ -96,9 +166,14 @@ export function ArgumentBuilder({ activeCase }: Props) {
   const [extraCtx,    setExtraCtx]    = useState('');
 
   // ── Build config ──────────────────────────────────────────────────────────
-  const [argType,    setArgType]    = useState<ArgTypeId | ''>('');
-  const [argIssue,   setArgIssue]   = useState('');
-  const [driveRAG,   setDriveRAG]   = useState(false);
+  const [argType,  setArgType]  = useState<ArgTypeId | ''>('');
+  const [argIssue, setArgIssue] = useState('');
+  const [driveRAG, setDriveRAG] = useState(false);
+
+  // ── Statute RAG state ─────────────────────────────────────────────────────
+  const [statuteChunks,   setStatuteChunks]   = useState<StatuteChunk[]>([]);
+  const [statuteRagError, setStatuteRagError] = useState('');
+  const [ragFetching,     setRagFetching]     = useState(false);
 
   // ── Generation ────────────────────────────────────────────────────────────
   const [generating, setGenerating] = useState(false);
@@ -106,8 +181,8 @@ export function ArgumentBuilder({ activeCase }: Props) {
   const [draft,      setDraft]      = useState('');
 
   // ── Version history ───────────────────────────────────────────────────────
-  const [versions,  setVersions]  = useState<ArgumentVersion[]>([]);
-  const [viewVer,   setViewVer]   = useState<ArgumentVersion | null>(null);
+  const [versions,    setVersions]    = useState<ArgumentVersion[]>([]);
+  const [viewVer,     setViewVer]     = useState<ArgumentVersion | null>(null);
   const [versLoading, setVersLoading] = useState(true);
 
   // ── Copy ──────────────────────────────────────────────────────────────────
@@ -119,19 +194,19 @@ export function ArgumentBuilder({ activeCase }: Props) {
   }, [caseId]);
 
   // ── Extracted intel ───────────────────────────────────────────────────────
-  const ex         = intel?.extraction || {} as IntelExtraction;
-  const legalIss   = ex.legal_issues    || [];
-  const disputed   = ex.disputed_areas  || [];
-  const gaps       = ex.gaps_identified || [];
-  const risks      = ex.initial_risks   || [];
-  const hasIntel   = !!(intel?.rawFacts || intel?.intPkg || legalIss.length);
+  const ex       = intel?.extraction || {} as IntelExtraction;
+  const legalIss = ex.legal_issues    || [];
+  const disputed = ex.disputed_areas  || [];
+  const gaps     = ex.gaps_identified || [];
+  const risks    = ex.initial_risks   || [];
+  const hasIntel = !!(intel?.rawFacts || intel?.intPkg || legalIss.length);
 
   function toggleArr(arr: number[], setArr: React.Dispatch<React.SetStateAction<number[]>>, idx: number) {
     setArr(a => a.includes(idx) ? a.filter(x => x !== idx) : [...a, idx]);
   }
 
   // ── Build prompt ──────────────────────────────────────────────────────────
-  function buildPrompt(): string {
+  function buildPrompt(statuteSections: string): string {
     const c = activeCase;
     const lines: string[] = [];
     lines.push(`CASE: ${c.caseName}`);
@@ -140,6 +215,12 @@ export function ArgumentBuilder({ activeCase }: Props) {
     lines.push(`ROLE: ${c.role || 'Claimant'} — we act for the ${c.role || 'Claimant'}`);
     lines.push(`CLAIMANTS: ${c.claimants.map(p => p.name).filter(Boolean).join(', ') || 'Not specified'}`);
     lines.push(`DEFENDANTS: ${c.defendants.map(p => p.name).filter(Boolean).join(', ') || 'Not specified'}`);
+
+    // ── Statute sections from RAG (injected first — highest authority) ──────
+    if (statuteSections) {
+      lines.push('');
+      lines.push(statuteSections);
+    }
 
     if (hasIntel) {
       lines.push('\n══ VETTED INTELLIGENCE — IMPORTED ITEMS ══');
@@ -168,10 +249,39 @@ export function ArgumentBuilder({ activeCase }: Props) {
   // ── Generate ──────────────────────────────────────────────────────────────
   async function generate() {
     if (!argType || generating) return;
-    setGenerating(true); setGenError(''); setDraft('');
+    setGenerating(true);
+    setGenError('');
+    setDraft('');
+    setStatuteChunks([]);
+    setStatuteRagError('');
 
     const typeObj = AB_ARG_TYPES.find(t => t.id === argType);
-    const context = buildPrompt();
+
+    // ── Step 1: Query statute RAG (non-blocking) ───────────────────────────
+    let statuteSections = '';
+    if (isRagConfigured()) {
+      setRagFetching(true);
+      const ragQuery = buildRagQuery({
+        argIssue,
+        argType,
+        legalIssues: selIssues.map(i => legalIss[i]),
+        caseName: activeCase.caseName,
+      });
+      const ragResult = await queryStatutes(ragQuery, { topK: 6 });
+      setRagFetching(false);
+
+      if (!ragResult.skipped && ragResult.chunks.length > 0) {
+        setStatuteChunks(ragResult.chunks);
+        statuteSections = formatStatutesForPrompt(ragResult.chunks);
+      } else if (ragResult.error) {
+        setStatuteRagError(ragResult.error);
+      }
+    }
+
+    // ── Step 2: Build prompt with statute sections injected ────────────────
+    const context = buildPrompt(statuteSections);
+    const hasStatutes = statuteSections.length > 0;
+
     const prompt =
 `You are drafting a ${typeObj?.label || argType} for Nigerian litigation. Using ONLY the vetted intelligence provided below (never raw client narration — the intelligence engine has already processed and structured these findings), produce a rigorous, authoritative legal argument suitable for submission to a Nigerian court.
 
@@ -179,8 +289,22 @@ FORMAT YOUR OUTPUT:
 - Use ## headings for major sections
 - Use sub-headings (###) for argument sub-points
 - Apply IRAC structure within each issue (Issue → Rule → Application → Conclusion)
-- Where you cite a case, use the format: [Case Name] (Year) Court
-- Where you cannot confirm a specific authority, write [RESEARCH NEEDED: describe the type of authority required] — NEVER invent citations
+${hasStatutes ? `- STATUTES: You have been provided with verified statute sections from the firm's library (marked [STATUTE N]...[/STATUTE N] below). Cite these directly and accurately using the format: Section [X], [Full Act Name] — you may quote the section text verbatim. These are VERIFIED — use them without any [RESEARCH NEEDED] block.` : '- Where a statute is relevant but not provided, note the Act and section by name only — do not invent section text.'}
+- CASES: Where you cite a case you are CERTAIN exists, use the format: [Case Name] (Year) Court — [brief holding relevant to the point]
+- Where you need a case authority but cannot be certain it exists, output a RESEARCH BLOCK in this EXACT format (do not deviate — no exceptions):
+
+[RESEARCH NEEDED]
+Proposition: [the exact legal proposition this authority must establish — one sentence]
+Area of law: [e.g. Land Law / Contract / Criminal Procedure / Evidence / Constitutional Law]
+Court level needed: [Supreme Court | Court of Appeal | High Court — specify which is strongest for this point]
+LawPavilion search 1: [3–5 keyword phrase optimised for LawPavilion full-text search]
+LawPavilion search 2: [alternative keyword phrase — different angle on the same point]
+LawPavilion search 3: [narrower phrase using legal terms of art for this proposition]
+What the case must decide: [one sentence — what the ratio or holding must say to support the argument]
+[/RESEARCH NEEDED]
+
+- NEVER invent a case name, citation, year, volume, or law report — if in doubt, output the RESEARCH BLOCK above
+- NEVER invent section text for a statute not provided in the verified sections below
 - Be direct, persuasive, and precise — write as a senior Nigerian advocate addressing the court directly
 - Document type guidance: ${typeObj?.hint || ''}
 - Role posture: we represent the ${activeCase.role || 'Claimant'} — apply ${activeCase.role || 'Claimant'} strategy throughout
@@ -192,7 +316,7 @@ Now produce the ${typeObj?.label || argType}:`;
 
     try {
       const text = await callClaude({
-        system: 'You are Senior Counsel at AFS Advocates, a Nigerian litigation firm. You produce court-ready legal arguments grounded in Nigerian law, procedure, and practice. You never invent case citations — where you need an authority, you flag it as [RESEARCH NEEDED: description]. You write with the authority and precision of a silk addressing a superior court. You always structure arguments with clear headings, IRAC logic, and a definitive conclusion.',
+        system: 'You are Senior Counsel at AFS Advocates, a Nigerian litigation firm. You produce court-ready legal arguments grounded in Nigerian law, procedure, and practice. You NEVER invent case citations, names, years, volumes, or law reports — fabricating authorities is a professional disciplinary offence. Where you need a case authority, you output a structured [RESEARCH NEEDED]...[/RESEARCH NEEDED] block with the exact LawPavilion search terms specified in the instruction. Where statute sections are provided from the firm verified library, you cite them directly. You write with the authority and precision of a silk addressing a superior court. You always structure arguments with clear headings, IRAC logic, and a definitive conclusion.',
         userMsg: prompt,
         maxTokens: 4000,
         mcpDrive: driveRAG,
@@ -290,6 +414,11 @@ Now produce the ${typeObj?.label || argType}:`;
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5, flexWrap: 'wrap' }}>
             <span style={{ fontSize: 9, color: ACC, fontFamily: 'Inter, sans-serif', letterSpacing: '.2em', textTransform: 'uppercase', fontWeight: 600 }}>Argument Builder · Step 10</span>
             <RoleBadge role={activeCase.role || 'Claimant'} />
+            {isRagConfigured() && (
+              <span style={{ fontSize: 8, color: '#40b060', fontFamily: 'Inter, sans-serif', letterSpacing: '.1em', border: '1px solid #1a4028', background: '#020e06', padding: '1px 7px', borderRadius: 2, textTransform: 'uppercase' }}>
+                § Statute RAG Active
+              </span>
+            )}
             {versions.length > 0 && (
               <span style={{ fontSize: 8, color: '#40a860', fontFamily: 'Inter, sans-serif', letterSpacing: '.1em', border: '1px solid #1a4028', background: '#02100a', padding: '1px 7px', borderRadius: 2, textTransform: 'uppercase' }}>
                 {versions.length} Version{versions.length > 1 ? 's' : ''} Saved
@@ -300,7 +429,7 @@ Now produce the ${typeObj?.label || argType}:`;
             Argument Builder
           </h2>
           <p style={{ fontSize: 13, color: T.dim, fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic', lineHeight: 1.65 }}>
-            Imports ONLY vetted intelligence — never raw narration. Select your facts and legal issues, pick the argument type, and generate a court-ready structured argument. Every draft saved to version history. Nothing lost.
+            Imports vetted intelligence + verified statutes from your library. Case citations use structured LawPavilion search queries — never invented. Every draft saved to version history.
           </p>
         </div>
       </div>
@@ -505,7 +634,7 @@ Now produce the ${typeObj?.label || argType}:`;
           <div style={{ marginBottom: 20 }}>
             <label style={lbS}>Specific Issue / Focus (Optional)</label>
             <p style={{ fontSize: 11, color: T.mute, fontFamily: 'Inter, sans-serif', lineHeight: 1.5, marginBottom: 8 }}>
-              State the precise legal or factual issue. More specific = sharper output.
+              State the precise legal or factual issue. More specific = sharper statute retrieval + sharper output.
             </p>
             <textarea
               value={argIssue}
@@ -515,6 +644,29 @@ Now produce the ${typeObj?.label || argType}:`;
               style={{ ...iS, resize: 'vertical', lineHeight: 1.75 }}
             />
           </div>
+
+          {/* Statute RAG status banner */}
+          {!isRagConfigured() && (
+            <div style={{ background: '#07070f', border: '1px solid #1a1a2e', borderRadius: 7, padding: '11px 15px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 13, flexShrink: 0 }}>§</span>
+              <p style={{ fontSize: 11, color: '#3a3a58', fontFamily: 'Inter, sans-serif', lineHeight: 1.55 }}>
+                <strong style={{ color: '#4a4a70' }}>Statute RAG not yet active.</strong> Set <code style={{ fontSize: 10, color: '#4a4a70', background: '#0a0a18', padding: '1px 5px', borderRadius: 3 }}>STATUTE_RAG_ENDPOINT</code> in <code style={{ fontSize: 10, color: '#4a4a70', background: '#0a0a18', padding: '1px 5px', borderRadius: 3 }}>src/services/statuteRag.ts</code> when your Cloudflare Worker is deployed. Statute sections will then be auto-retrieved and injected before generation.
+              </p>
+            </div>
+          )}
+
+          {/* Statute chunks preview (shown after generation attempt) */}
+          {(statuteChunks.length > 0 || statuteRagError) && (
+            <StatuteChunksPanel chunks={statuteChunks} error={statuteRagError} />
+          )}
+
+          {/* RAG fetching indicator */}
+          {ragFetching && (
+            <div style={{ background: '#050d06', border: '1px solid #1a3020', borderRadius: 6, padding: '10px 14px', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Spinner size={10} />
+              <p style={{ fontSize: 11, color: '#308040', fontFamily: 'Inter, sans-serif' }}>Searching statute library…</p>
+            </div>
+          )}
 
           {/* Drive RAG toggle */}
           <div style={{ background: '#0d0d18', border: `1px solid ${T.bdr}`, borderRadius: 8, padding: '14px 18px', marginBottom: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
@@ -562,7 +714,7 @@ Now produce the ${typeObj?.label || argType}:`;
             style={{ width: '100%', background: !argType || generating ? '#0e0e18' : `linear-gradient(135deg,${ACC},#a07820)`, color: !argType || generating ? T.mute : '#05050c', border: !argType || generating ? '1px solid #1e1e2e' : 'none', borderRadius: 7, padding: '14px 24px', fontSize: 17, fontFamily: "'Cormorant Garamond', serif", cursor: !argType || generating ? 'not-allowed' : 'pointer', fontWeight: 600, letterSpacing: '.04em', transition: 'all .2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}
           >
             {generating
-              ? <><Spinner size={14} /> Drafting argument…</>
+              ? <><Spinner size={14} /> {ragFetching ? 'Searching statute library…' : 'Drafting argument…'}</>
               : argType
                 ? <>✍ Generate {AB_ARG_TYPES.find(t => t.id === argType)?.label || 'Argument'}</>
                 : <>Select an argument type above to continue</>
@@ -589,9 +741,16 @@ Now produce the ${typeObj?.label || argType}:`;
                       {argIssue.slice(0, 90)}{argIssue.length > 90 ? '…' : ''}
                     </p>
                   )}
-                  {driveRAG && (
-                    <span style={{ fontSize: 8, color: '#4a7ed0', fontFamily: 'Inter, sans-serif', border: '1px solid #1a3060', background: '#040c18', padding: '1px 6px', borderRadius: 2, marginTop: 5, display: 'inline-block' }}>Drive RAG used</span>
-                  )}
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
+                    {driveRAG && (
+                      <span style={{ fontSize: 8, color: '#4a7ed0', fontFamily: 'Inter, sans-serif', border: '1px solid #1a3060', background: '#040c18', padding: '1px 6px', borderRadius: 2 }}>Drive RAG</span>
+                    )}
+                    {statuteChunks.length > 0 && (
+                      <span style={{ fontSize: 8, color: '#40b060', fontFamily: 'Inter, sans-serif', border: '1px solid #1a4028', background: '#020e06', padding: '1px 6px', borderRadius: 2 }}>
+                        § {statuteChunks.length} statute section{statuteChunks.length !== 1 ? 's' : ''} used
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <div style={{ display: 'flex', gap: 8, flexShrink: 0, flexWrap: 'wrap' }}>
                   <button
@@ -620,7 +779,7 @@ Now produce the ${typeObj?.label || argType}:`;
               </div>
 
               <p style={{ fontSize: 10, color: '#1e1e2e', fontFamily: 'Inter, sans-serif', marginTop: 10, textAlign: 'center', lineHeight: 1.7 }}>
-                AI-generated from vetted intelligence. Verify every authority before filing. [RESEARCH NEEDED] tags require confirmed Nigerian citations before court use.
+                Statutes: from your verified library. Cases: every [RESEARCH NEEDED] block has ready-made LawPavilion queries — use Research Resolver to plug them in. Never file without confirmed authorities.
               </p>
             </div>
           )}

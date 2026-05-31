@@ -1,5 +1,6 @@
 /**
  * AFS Advocates — Legal Reference Constants
+ * Courts, practice areas, and jurisdictions used across the system.
  */
 
 export const AREAS: string[] = [
@@ -25,34 +26,3 @@ export const COURTS: string[] = [
   'Court of Appeal', 'Supreme Court', 'Election Petitions Tribunal',
   'Tribunal', 'Arbitral Panel',
 ];
-
-export const CASE_STATUSES: string[] = [
-  'Active', 'Pending', 'Adjourned', 'Closed', 'Settled',
-  'Struck Out', 'Judgment Delivered', 'On Appeal', 'Discontinued',
-];
-
-export const CASE_DOC_TYPES: string[] = [
-  'Writ of Summons', 'Statement of Claim', 'Statement of Defence', 'Reply',
-  'Motion on Notice', 'Ex-Parte Motion', 'Affidavit', 'Counter-Affidavit',
-  'Written Address', 'Brief of Argument', 'Judgment', 'Order', 'Ruling',
-  'Notice of Appeal', 'Grounds of Appeal', 'Record of Appeal',
-  'Originating Summons', 'Witness Statement', 'Exhibit', 'Other',
-];
-
-export const DEADLINE_TYPES: string[] = [
-  'Limitation Period', 'Filing Deadline', 'Response Deadline',
-  'Compliance Date', 'Appeal Window', 'Hearing Date', 'Payment Deadline', 'Custom',
-];
-
-export const STATUS_C: Record<string, { bg: string; bdr: string; col: string }> = {
-  'Filed':             { bg: '#0a0a14', bdr: '#1e1e3a', col: '#5a5a8a' },
-  'Served':            { bg: '#081810', bdr: '#1a3828', col: '#40a868' },
-  'Pending':           { bg: '#1a1400', bdr: '#4a3800', col: '#c09030' },
-  'Adjourned':         { bg: '#1a0e08', bdr: '#5a2010', col: '#d06040' },
-  'Ruled Upon':        { bg: '#0a0818', bdr: '#2a1848', col: '#8060c0' },
-  'Withdrawn':         { bg: '#0f0f0f', bdr: '#2a2a2a', col: '#505050' },
-  'Dismissed':         { bg: '#1a0808', bdr: '#4a1818', col: '#c05050' },
-  'Judgment':          { bg: '#0a1410', bdr: '#1a3828', col: '#30a870' },
-  'Settled':           { bg: '#081418', bdr: '#183848', col: '#3090b0' },
-  'On Appeal':         { bg: '#14080a', bdr: '#3a1828', col: '#b04070' },
-};

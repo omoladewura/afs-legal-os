@@ -24,6 +24,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import type { Case, EvidenceItem }                          from '@/types';
 import { T }                                               from '@/constants/tokens';
 import { CLAUDE_MODEL }                                    from '@/services/api';
+import { queryLibrary, deriveQuery }                       from '@/services/library';
 import { Md }                                              from '@/components/common/ui';
 import { uid }                                             from '@/utils';
 import {
@@ -478,6 +479,12 @@ export function EvidenceVault({ activeCase }: Props) {
       };
 
       const apiKey = localStorage.getItem('afs_api_key') || '';
+      const evSystem = 'You are SAN — Senior Advocate at AFS Advocates. Analyse legal documents with precision and honesty. Your assessments go directly into active litigation strategy. Be specific to the Nigerian legal context — Evidence Act, Rules of Court, documentary evidence requirements.';
+      let effectiveEvSystem = evSystem;
+      try {
+        const ctx = await queryLibrary(deriveQuery(evSystem, meta.filename), { topK: 6, threshold: 0.70 });
+        if (ctx.ok && ctx.block) effectiveEvSystem = `${ctx.block}\n${evSystem}`;
+      } catch { /* library unavailable — proceed */ }
       const resp = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
@@ -489,7 +496,7 @@ export function EvidenceVault({ activeCase }: Props) {
         body: JSON.stringify({
           model: CLAUDE_MODEL,
           max_tokens: 1200,
-          system: 'You are SAN — Senior Advocate at AFS Advocates. Analyse legal documents with precision and honesty. Your assessments go directly into active litigation strategy. Be specific to the Nigerian legal context — Evidence Act, Rules of Court, documentary evidence requirements.',
+          system: effectiveEvSystem,
           messages: [{ role: 'user', content: [contentBlock, textBlock] }],
         }),
       });

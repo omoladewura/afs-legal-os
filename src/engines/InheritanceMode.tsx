@@ -20,6 +20,7 @@
 import { useState, useRef } from 'react';
 import { T } from '@/constants/tokens';
 import { callClaude } from '@/services/api';
+import { queryLibrary, deriveQuery } from '@/services/library';
 import { uid } from '@/storage/helpers';
 import { Spinner } from '@/components/common/ui';
 import type { Case, InheritanceData, InheritanceRisk } from '@/types';
@@ -279,6 +280,11 @@ Return ONLY the JSON object. No additional text.`;
 
       // Use direct fetch for multi-part content (callClaude only handles text)
       const apiKey = localStorage.getItem('afs_api_key') || '';
+      let effectiveSystem = system;
+      try {
+        const ctx = await queryLibrary(deriveQuery(system, ''), { topK: 8, threshold: 0.70 });
+        if (ctx.ok && ctx.block) effectiveSystem = `${ctx.block}\n${system}`;
+      } catch { /* library unavailable — proceed */ }
       const res = await fetch('https://api.anthropic.com/v1/messages', {
         method:  'POST',
         headers: {
@@ -290,7 +296,7 @@ Return ONLY the JSON object. No additional text.`;
         body: JSON.stringify({
           model:      'claude-sonnet-4-20250514',
           max_tokens: 4000,
-          system,
+          system:     effectiveSystem,
           messages: [{ role: 'user', content }],
         }),
       });

@@ -20,7 +20,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import type { Case }                               from '@/types';
 import { T }                                       from '@/constants/tokens';
-import { CLAUDE_MODEL }                            from '@/services/api';
+import { callClaude }                              from '@/services/api';
 import { Md, Spinner }                             from '@/components/common/ui';
 import { uid }                                     from '@/utils';
 
@@ -67,39 +67,12 @@ function loadAve<T>(caseId: string, key: string, def: T): T {
 // API HELPER
 // ─────────────────────────────────────────────────────────────────────────────
 
-function getHeaders(): Record<string, string> {
-  const key = (typeof localStorage !== 'undefined'
-    ? localStorage.getItem('afs_api_key')
-    : '') ?? '';
-  return {
-    'Content-Type':                              'application/json',
-    'x-api-key':                                 key,
-    'anthropic-version':                         '2023-06-01',
-    'anthropic-dangerous-direct-browser-access': 'true',
-  };
-}
-
 async function aveCall(
   system: string,
   prompt: string,
   maxTokens = 1500,
 ): Promise<string> {
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method:  'POST',
-    headers: getHeaders(),
-    body: JSON.stringify({
-      model:      CLAUDE_MODEL,
-      max_tokens: maxTokens,
-      ...(system ? { system } : {}),
-      messages: [{ role: 'user', content: prompt }],
-    }),
-  });
-  const data = await res.json();
-  if (data.error) throw new Error(data.error.message ?? 'API error');
-  return (data.content as Array<{ type: string; text?: string }>)
-    .filter(b => b.type === 'text')
-    .map(b => b.text ?? '')
-    .join('');
+  return callClaude({ system, userMsg: prompt, maxTokens });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
