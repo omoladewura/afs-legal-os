@@ -26,3 +26,28 @@ export const COURTS: string[] = [
   'Court of Appeal', 'Supreme Court', 'Election Petitions Tribunal',
   'Tribunal', 'Arbitral Panel',
 ];
+
+export const CASE_STATUSES: string[] = [
+  'Filed', 'Active', 'Adjourned', 'Judgment', 'Appeal', 'Settled', 'Closed',
+];
+
+export const CASE_DOC_TYPES: string[] = [
+  'Writ / Originating Process', 'Statement of Claim', 'Statement of Defence',
+  'Reply', 'Motion / Application', 'Affidavit', 'Written Address',
+  'Witness Statement', 'Brief of Argument', 'Judgment', 'Order', 'Other',
+];
+
+export const DEADLINE_TYPES: string[] = [
+  'Filing Deadline', 'Service Deadline', 'Response Deadline', 'Hearing Date',
+  'Court Date', 'Limitation Deadline', 'Payment Deadline', 'Other',
+];
+
+export const STATUS_C: Record<string, string> = {
+  'Filed':    '#4a7ed0',
+  'Active':   '#40a868',
+  'Adjourned':'#c4a030',
+  'Judgment': '#8050d0',
+  'Appeal':   '#c06040',
+  'Settled':  '#5a9a70',
+  'Closed':   '#5a5a78',
+};
