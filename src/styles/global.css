@@ -15,19 +15,87 @@
 html, body {
   background:  #ffffff;
   color:       #000000;
-  font-family: 'Times New Roman', Times, serif;
+  font-family: 'Times New Roman', Times, serif !important;
   font-size:   14px;
   min-height:  100vh;
 }
 
 body {
-  padding-top: 48px; /* height of fixed nav */
+  padding-top: 48px;
 }
 
 #root {
   max-width: 860px;
   margin:    0 auto;
   padding:   32px 24px 80px;
+}
+
+/* ── Global font + colour override (all elements except preserved) ── */
+/* Targets every div, p, span, button, input, textarea, select, label */
+div, p, span, h1, h2, h3, h4, h5, h6,
+button, input, textarea, select, label, a, li, ul, ol, td, th {
+  font-family: 'Times New Roman', Times, serif !important;
+  font-size:   14px;
+}
+
+/* ── Background override — white everywhere ── */
+div, section, article, aside, main {
+  background-color: transparent;
+}
+
+/* Root backgrounds */
+#root, #root-inner {
+  background: #ffffff !important;
+}
+
+/* ── Text colour — black everywhere ── */
+* {
+  color: #000000;
+}
+
+/* ── Border colour — light grey everywhere ── */
+/* We can't override inline border with CSS alone, but we set defaults */
+input, textarea, select {
+  background: #ffffff !important;
+  color:      #000000 !important;
+  border:     1px solid #cccccc !important;
+}
+
+/* ── Buttons — clean black/white ── */
+button {
+  background:   #ffffff !important;
+  color:        #000000 !important;
+  border:       1px solid #cccccc !important;
+  font-family:  'Times New Roman', Times, serif !important;
+  font-size:    14px !important;
+}
+
+button:disabled {
+  background: #eeeeee !important;
+  color:      #aaaaaa !important;
+  border:     1px solid #dddddd !important;
+  cursor:     not-allowed !important;
+}
+
+button:hover:not(:disabled) {
+  background:   #f0f0f0 !important;
+  border-color: #999999 !important;
+}
+
+/* Active/selected tab buttons — black filled */
+button[data-active="true"] {
+  background: #000000 !important;
+  color:      #ffffff !important;
+}
+
+/* ── PRESERVE: Alert colours ── */
+/* Error / danger states */
+.alert-error,
+[class*="error"],
+[class*="danger"] {
+  background-color: #fff5f5 !important;
+  border-color:     #ffcccc !important;
+  color:            #cc0000 !important;
 }
 
 /* ── Navigation ── */
@@ -40,47 +108,53 @@ body {
   justify-content: space-between;
   padding:         0 24px;
   height:          48px;
-  background:      #ffffff;
+  background:      #ffffff !important;
   border-bottom:   1px solid #cccccc;
 }
 
 .nav-logo {
-  font-family:     'Times New Roman', Times, serif;
-  font-size:       15px;
-  color:           #000000;
-  letter-spacing:  0.08em;
+  font-family:     'Times New Roman', Times, serif !important;
+  font-size:       16px !important;
+  color:           #000000 !important;
+  letter-spacing:  0.05em;
   font-weight:     700;
   text-decoration: none;
   cursor:          default;
+  white-space:     nowrap;
 }
 
 .nav-right {
   display:     flex;
   align-items: center;
-  gap:         10px;
+  gap:         8px;
+  flex-shrink: 0;
 }
 
 .nav-tag {
-  font-family:     'Times New Roman', Times, serif;
-  font-size:       11px;
-  color:           #666666;
-  letter-spacing:  0.1em;
-  text-transform:  uppercase;
+  font-family:    'Times New Roman', Times, serif !important;
+  font-size:      11px !important;
+  color:          #666666 !important;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space:    nowrap;
 }
 
 .nav-back {
-  background:      transparent;
-  border:          1px solid #cccccc;
-  color:           #444444;
-  border-radius:   4px;
-  padding:         5px 12px;
-  font-size:       13px;
-  font-family:     'Times New Roman', Times, serif;
-  cursor:          pointer;
-  letter-spacing:  0.04em;
-  transition:      color 0.15s, border-color 0.15s;
+  background:    #ffffff !important;
+  border:        1px solid #cccccc !important;
+  color:         #000000 !important;
+  border-radius: 4px;
+  padding:       5px 14px;
+  font-size:     13px !important;
+  font-family:   'Times New Roman', Times, serif !important;
+  cursor:        pointer;
+  white-space:   nowrap;
+  transition:    background 0.15s;
 }
-.nav-back:hover { color: #000000; border-color: #000000; }
+.nav-back:hover {
+  background:   #f0f0f0 !important;
+  border-color: #999999 !important;
+}
 
 /* ── Password Gate ── */
 .pw-gate {
@@ -100,12 +174,34 @@ body {
 
 /* ── Tab Scroll Strip ── */
 .tab-scroll {
-  display:           flex;
-  overflow-x:        auto;
-  scrollbar-width:   none;
+  display:            flex;
+  overflow-x:         auto;
+  scrollbar-width:    none;
   -ms-overflow-style: none;
+  gap:                4px;
+  padding-bottom:     4px;
+  border-bottom:      1px solid #cccccc;
+  margin-bottom:      20px;
 }
 .tab-scroll::-webkit-scrollbar { display: none; }
+
+/* Tab buttons inside scroll strip */
+.tab-scroll button {
+  background:    #ffffff !important;
+  border:        1px solid #cccccc !important;
+  color:         #444444 !important;
+  border-radius: 4px;
+  padding:       6px 14px !important;
+  font-size:     13px !important;
+  white-space:   nowrap;
+  flex-shrink:   0;
+}
+
+.tab-scroll button:hover {
+  background:   #f0f0f0 !important;
+  border-color: #999999 !important;
+  color:        #000000 !important;
+}
 
 /* ── Animations ── */
 @keyframes fadeUp {
@@ -130,13 +226,19 @@ body {
 
 /* ── Error Boundary ── */
 .error-boundary {
-  background:    #fff5f5;
-  border:        1px solid #ffcccc;
+  background:    #fff5f5 !important;
+  border:        1px solid #ffcccc !important;
   border-radius: 8px;
   padding:       24px;
   margin:        16px 0;
-  font-family:   'Times New Roman', Times, serif;
+  font-family:   'Times New Roman', Times, serif !important;
+  color:         #cc0000 !important;
 }
+
+/* ── Scrollbars ── */
+::-webkit-scrollbar       { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #f5f5f5; }
+::-webkit-scrollbar-thumb { background: #cccccc; border-radius: 3px; }
 
 /* ── Print ── */
 @media print {
@@ -147,6 +249,7 @@ body {
 
 /* ── Responsive ── */
 @media (max-width: 600px) {
-  #root       { padding: 20px 14px 60px; }
-  .mode-grid  { grid-template-columns: 1fr; }
+  #root      { padding: 20px 14px 60px; }
+  .mode-grid { grid-template-columns: 1fr; }
+  .nav-tag   { display: none; }
 }
