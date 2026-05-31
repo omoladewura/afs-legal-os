@@ -34,7 +34,7 @@ interface SanTurn {
 }
 
 interface Props {
-  activeCase: Case;
+  activeCase: Case | null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -459,7 +459,7 @@ export function SanMode({ activeCase }: Props) {
             onClick={() => setUseCtx(v => !v)}
             style={{ background: useCtx ? '#100f20' : 'transparent', border: `1px solid ${useCtx ? acc + '50' : '#1e1e2e'}`, color: useCtx ? acc : T.mute, borderRadius: 4, padding: '4px 11px', fontSize: 10, fontFamily: 'Inter, sans-serif', cursor: 'pointer', letterSpacing: '.04em', display: 'flex', alignItems: 'center', gap: 5, transition: 'all .15s' }}>
             <span style={{ width: 5, height: 5, borderRadius: '50%', background: useCtx ? acc : '#2a2a3e', transition: 'background .15s', display: 'inline-block', flexShrink: 0 }} />
-            Case: {activeCase.caseName.length > 26 ? activeCase.caseName.slice(0, 23) + '…' : activeCase.caseName}
+            Case: {activeCase ? (activeCase.caseName.length > 26 ? activeCase.caseName.slice(0, 23) + '…' : activeCase.caseName) : 'No case'}
           </button>
 
           {/* Drive RAG toggle */}
