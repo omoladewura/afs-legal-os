@@ -325,7 +325,8 @@ export type AppView =
   | 'home'        // mode selector
   | 'docket'      // case docket overlay
   | 'engine'      // active case dashboard
-  | 'resolver';   // Research Resolver standalone tool
+  | 'resolver'    // Research Resolver standalone tool
+  | 'san';        // SAN Mode standalone
 
 export type DashTabId =
   | 'overview' | 'intelligence' | 'appeal' | 'builder' | 'docket'
