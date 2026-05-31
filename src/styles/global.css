@@ -4,8 +4,6 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ── Google Fonts are loaded via index.html <link> for performance ── */
-
 /* ── Reset ── */
 *, *::before, *::after {
   box-sizing: border-box;
@@ -15,9 +13,10 @@
 
 /* ── Base ── */
 html, body {
-  background:  #07070f;
-  color:       #e0dcd0;
-  font-family: 'Cormorant Garamond', serif;
+  background:  #ffffff;
+  color:       #000000;
+  font-family: 'Times New Roman', Times, serif;
+  font-size:   14px;
   min-height:  100vh;
 }
 
@@ -41,16 +40,16 @@ body {
   justify-content: space-between;
   padding:         0 24px;
   height:          48px;
-  background:      #07070f;
-  border-bottom:   1px solid #131320;
+  background:      #ffffff;
+  border-bottom:   1px solid #cccccc;
 }
 
 .nav-logo {
-  font-family:     'Cormorant Garamond', serif;
+  font-family:     'Times New Roman', Times, serif;
   font-size:       15px;
-  color:           #c4a030;
+  color:           #000000;
   letter-spacing:  0.08em;
-  font-weight:     400;
+  font-weight:     700;
   text-decoration: none;
   cursor:          default;
 }
@@ -62,26 +61,26 @@ body {
 }
 
 .nav-tag {
-  font-family:     Inter, sans-serif;
-  font-size:       9px;
-  color:           #2a2a3a;
-  letter-spacing:  0.14em;
+  font-family:     'Times New Roman', Times, serif;
+  font-size:       11px;
+  color:           #666666;
+  letter-spacing:  0.1em;
   text-transform:  uppercase;
 }
 
 .nav-back {
   background:      transparent;
-  border:          1px solid #1e1e2e;
-  color:           #5a5a72;
+  border:          1px solid #cccccc;
+  color:           #444444;
   border-radius:   4px;
   padding:         5px 12px;
-  font-size:       11px;
-  font-family:     Inter, sans-serif;
+  font-size:       13px;
+  font-family:     'Times New Roman', Times, serif;
   cursor:          pointer;
   letter-spacing:  0.04em;
   transition:      color 0.15s, border-color 0.15s;
 }
-.nav-back:hover { color: #c4a030; border-color: #c4a030; }
+.nav-back:hover { color: #000000; border-color: #000000; }
 
 /* ── Password Gate ── */
 .pw-gate {
@@ -131,12 +130,12 @@ body {
 
 /* ── Error Boundary ── */
 .error-boundary {
-  background:    #180808;
-  border:        1px solid #4a1818;
+  background:    #fff5f5;
+  border:        1px solid #ffcccc;
   border-radius: 8px;
   padding:       24px;
   margin:        16px 0;
-  font-family:   Inter, sans-serif;
+  font-family:   'Times New Roman', Times, serif;
 }
 
 /* ── Print ── */
