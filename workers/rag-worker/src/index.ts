@@ -2,6 +2,7 @@ export interface Env {
   VECTORIZE: Vectorize;
   AI: Ai;
   AUTH_TOKEN?: string;
+  ANTHROPIC_API_KEY: string;
 }
 
 function cors(origin = '*'): Record<string, string> {
@@ -56,6 +57,41 @@ async function handleQuery(req: Request, env: Env): Promise<Response> {
   return json({ matches: results.matches }, 200, origin);
 }
 
+async function handleChat(req: Request, env: Env): Promise<Response> {
+  const origin = req.headers.get('Origin') || '*';
+  const body = await req.json() as {
+    model?: string;
+    max_tokens?: number;
+    system?: string;
+    messages: unknown[];
+    mcp_servers?: unknown[];
+  };
+  if (!body.messages || !Array.isArray(body.messages)) {
+    return json({ error: 'messages array is required' }, 400, origin);
+  }
+  const payload: Record<string, unknown> = {
+    model:      body.model      ?? 'claude-sonnet-4-20250514',
+    max_tokens: body.max_tokens ?? 1500,
+    messages:   body.messages,
+  };
+  if (body.system)      payload.system      = body.system;
+  if (body.mcp_servers) payload.mcp_servers = body.mcp_servers;
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type':                              'application/json',
+      'x-api-key':                                 env.ANTHROPIC_API_KEY,
+      'anthropic-version':                         '2023-06-01',
+      'anthropic-beta':                            'mcp-client-2025-04-04',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const data = await res.json();
+  return json(data, res.status, origin);
+}
+
 export default {
   async fetch(req: Request, env: Env): Promise<Response> {
     const origin = req.headers.get('Origin') || '*';
@@ -72,7 +108,8 @@ export default {
     switch (url.pathname) {
       case '/embed': return handleEmbed(req, env);
       case '/query': return handleQuery(req, env);
-      default: return json({ error: 'Not found' }, 404, origin);
+      case '/chat':  return handleChat(req, env);
+      default:       return json({ error: 'Not found' }, 404, origin);
     }
   },
 };
