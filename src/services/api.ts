@@ -100,6 +100,7 @@ async function callDirect(body: Record<string, unknown>): Promise<string> {
         'x-api-key':                                 key,
         'anthropic-version':                         '2023-06-01',
         'anthropic-dangerous-direct-browser-access': 'true',
+        'anthropic-beta':                            'mcp-client-2025-04-04',
       },
       body: JSON.stringify(body),
     });
@@ -128,7 +129,7 @@ export async function callClaude(opts: ApiRequestOptions): Promise<string> {
     messages,
     maxTokens   = 1500,
     mcpDrive    = false,
-    skipLibrary = true,
+    skipLibrary = false,
     libraryOpts = {},
   } = opts;
 
@@ -184,5 +185,9 @@ export async function callClaude(opts: ApiRequestOptions): Promise<string> {
   if (mcpDrive)       body.mcp_servers = [DRIVE_MCP_SERVER];
 
   // ── STEP 4: Call via Worker (preferred) or direct (fallback) ─────────────
-   return callDirect(body);
+  if (workerUrl) {
+    return callViaWorker(workerUrl, body);
+  } else {
+    return callDirect(body);
+  }
 }
