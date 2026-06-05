@@ -1,0 +1,10 @@
+name = "afs-legal-rag"
+main = "src/index.ts"
+compatibility_date = "2024-09-23"
+
+[ai]
+binding = "AI"
+
+[[vectorize]]
+binding = "VECTORIZE"
+index_name = "afs-legal-library"
