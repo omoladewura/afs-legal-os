@@ -100,7 +100,6 @@ async function callDirect(body: Record<string, unknown>): Promise<string> {
         'x-api-key':                                 key,
         'anthropic-version':                         '2023-06-01',
         'anthropic-dangerous-direct-browser-access': 'true',
-        'anthropic-beta':                            'mcp-client-2025-04-04',
       },
       body: JSON.stringify(body),
     });
