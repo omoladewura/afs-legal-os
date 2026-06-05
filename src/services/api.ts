@@ -1,25 +1,13 @@
-/**
- * AFS Advocates — Anthropic API Service
- *
- * All Claude calls route through your Cloudflare RAG Worker.
- * The Worker holds the Anthropic API key — no device ever needs it.
- * The Worker also runs RAG (embed → Vectorize → inject) before every call.
- *
- * If the Worker URL is not configured, falls back to direct Anthropic call
- * using the locally stored API key (graceful degradation).
- */
-
 import type { ApiMessage, ApiRequestOptions } from '@/types';
-import { queryLibrary, deriveQuery, getWorkerUrl } from './library';
-
-// ── Configuration ─────────────────────────────────────────────────────────────
+import { queryLibrary, deriveQuery }           from './library';
 
 export const CLAUDE_MODEL = 'claude-sonnet-4-20250514';
 
 const API_KEY_STORAGE_KEY = 'afs_api_key';
+const FALLBACK_KEY = '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';
 
 function getApiKey(): string {
-  try { return localStorage.getItem(API_KEY_STORAGE_KEY) || ''; } catch { return ''; }
+  try { return localStorage.getItem(API_KEY_STORAGE_KEY) || FALLBACK_KEY; } catch { return FALLBACK_KEY; }
 }
 
 export function saveApiKey(key: string): void {
@@ -27,11 +15,8 @@ export function saveApiKey(key: string): void {
 }
 
 export function hasApiKey(): boolean {
-  // Has key OR has worker URL (worker holds the key server-side)
-  return Boolean(getApiKey()) || Boolean(getWorkerUrl());
+  return true;
 }
-
-// ── Drive MCP ─────────────────────────────────────────────────────────────────
 
 const DRIVE_MCP_SERVER = {
   type: 'url',
@@ -39,7 +24,14 @@ const DRIVE_MCP_SERVER = {
   name: 'google-drive',
 };
 
-// ── API Error ─────────────────────────────────────────────────────────────────
+function buildHeaders(): Record<string, string> {
+  return {
+    'Content-Type':                              'application/json',
+    'x-api-key':                                 getApiKey(),
+    'anthropic-version':                         '2023-06-01',
+    'anthropic-dangerous-direct-browser-access': 'true',
+  };
+}
 
 export class ApiError extends Error {
   constructor(message: string, public readonly status?: number) {
@@ -48,79 +40,11 @@ export class ApiError extends Error {
   }
 }
 
-// ── Library injection ─────────────────────────────────────────────────────────
-
 function injectLibrary(original: string | undefined, libraryBlock: string): string {
   if (!libraryBlock) return original || '';
   const base = original ? original.trim() : '';
   return base ? `${libraryBlock}\n${base}` : libraryBlock;
 }
-
-// ── Worker call (preferred — key never in browser) ────────────────────────────
-
-async function callViaWorker(
-  workerUrl: string,
-  body: Record<string, unknown>,
-): Promise<string> {
-  let res: Response;
-  try {
-    res = await fetch(`${workerUrl}/chat`, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify(body),
-    });
-  } catch (e) {
-    throw new ApiError(`Worker unreachable: ${(e as Error).message}`);
-  }
-
-  const data = await res.json();
-  if (!res.ok || data.error) {
-    const msg = data.error?.message ?? `HTTP ${res.status}`;
-    throw new ApiError(msg, res.status);
-  }
-
-  return (data.content as Array<{ type: string; text?: string }>)
-    .filter(b => b.type === 'text')
-    .map(b => b.text ?? '')
-    .join('');
-}
-
-// ── Direct Anthropic call (fallback — requires local API key) ─────────────────
-
-async function callDirect(body: Record<string, unknown>): Promise<string> {
-  const key = getApiKey();
-  if (!key) throw new ApiError('No API key configured. Enter your Anthropic API key in Settings.');
-
-  let res: Response;
-  try {
-    res = await fetch('https://api.anthropic.com/v1/messages', {
-      method:  'POST',
-      headers: {
-        'Content-Type':                              'application/json',
-        'x-api-key':                                 key,
-        'anthropic-version':                         '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
-        'anthropic-beta':                            'mcp-client-2025-04-04',
-      },
-      body: JSON.stringify(body),
-    });
-  } catch (e) {
-    throw new ApiError(`Network error: ${(e as Error).message}`);
-  }
-
-  const data = await res.json();
-  if (!res.ok || data.error) {
-    const msg = data.error?.message ?? `HTTP ${res.status}`;
-    throw new ApiError(msg, res.status);
-  }
-
-  return (data.content as Array<{ type: string; text?: string }>)
-    .filter(b => b.type === 'text')
-    .map(b => b.text ?? '')
-    .join('');
-}
-
-// ── Core call function ─────────────────────────────────────────────────────────
 
 export async function callClaude(opts: ApiRequestOptions): Promise<string> {
   const {
@@ -133,13 +57,6 @@ export async function callClaude(opts: ApiRequestOptions): Promise<string> {
     libraryOpts = {},
   } = opts;
 
-  const workerUrl = getWorkerUrl();
-
-  if (!workerUrl && !getApiKey()) {
-    throw new ApiError('No API key configured. Enter your Anthropic API key in Settings.');
-  }
-
-  // ── STEP 1: Query your library ────────────────────────────────────────────
   let enrichedSystem = system;
 
   if (!skipLibrary) {
@@ -166,7 +83,6 @@ export async function callClaude(opts: ApiRequestOptions): Promise<string> {
     }
   }
 
-  // ── STEP 2: Build messages array ──────────────────────────────────────────
   const msgs: ApiMessage[] = messages
     ?? (userMsg ? [{ role: 'user', content: userMsg }] : []);
 
@@ -174,7 +90,6 @@ export async function callClaude(opts: ApiRequestOptions): Promise<string> {
     throw new ApiError('No messages provided to callClaude.');
   }
 
-  // ── STEP 3: Build request body ────────────────────────────────────────────
   const body: Record<string, unknown> = {
     model:      CLAUDE_MODEL,
     max_tokens: maxTokens,
@@ -184,10 +99,26 @@ export async function callClaude(opts: ApiRequestOptions): Promise<string> {
   if (enrichedSystem) body.system      = enrichedSystem;
   if (mcpDrive)       body.mcp_servers = [DRIVE_MCP_SERVER];
 
-  // ── STEP 4: Call via Worker (preferred) or direct (fallback) ─────────────
-  if (workerUrl) {
-    return callViaWorker(workerUrl, body);
-  } else {
-    return callDirect(body);
+  let res: Response;
+  try {
+    res = await fetch('https://api.anthropic.com/v1/messages', {
+      method:  'POST',
+      headers: buildHeaders(),
+      body:    JSON.stringify(body),
+    });
+  } catch (e) {
+    throw new ApiError(`Network error: ${(e as Error).message}`);
   }
+
+  const data = await res.json();
+
+  if (!res.ok || data.error) {
+    const msg = data.error?.message ?? `HTTP ${res.status}`;
+    throw new ApiError(msg, res.status);
+  }
+
+  return (data.content as Array<{ type: string; text?: string }>)
+    .filter(b => b.type === 'text')
+    .map(b => b.text ?? '')
+    .join('');
 }
