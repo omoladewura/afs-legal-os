@@ -129,7 +129,7 @@ export async function callClaude(opts: ApiRequestOptions): Promise<string> {
     messages,
     maxTokens   = 1500,
     mcpDrive    = false,
-    skipLibrary = false,
+    skipLibrary = true,
     libraryOpts = {},
   } = opts;
 
