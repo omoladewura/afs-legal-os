@@ -83,7 +83,6 @@ async function handleChat(req: Request, env: Env): Promise<Response> {
       'Content-Type':                              'application/json',
       'x-api-key':                                 env.ANTHROPIC_API_KEY,
       'anthropic-version':                         '2023-06-01',
-      'anthropic-beta':                            'mcp-client-2025-04-04',
     },
     body: JSON.stringify(payload),
   });
