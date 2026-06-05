@@ -1,38 +1,16 @@
 /**
  * AFS Advocates — Anthropic API Service
  *
- * Thin, clean wrapper around the Anthropic /v1/messages endpoint.
- * All AI calls in the system route through here — never raw fetch().
+ * All Claude calls route through your Cloudflare RAG Worker.
+ * The Worker holds the Anthropic API key — no device ever needs it.
+ * The Worker also runs RAG (embed → Vectorize → inject) before every call.
  *
- * ── LIBRARY-FIRST ARCHITECTURE ───────────────────────────────────────────────
- *
- * Every callClaude() call now runs a Cloudflare Vectorize RAG query
- * BEFORE building the request body. The top matching materials from
- * your private legal library are prepended to the system prompt.
- *
- * This means EVERY engine — ArgumentBuilder, CrossExamEngine,
- * IntelligenceEngine, CriminalDefence, MatrimonialEngine, BriefMe,
- * CommandConsole, SanMode (via callClaude), ResearchResolver, all of
- * them — consults your library first, automatically.
- *
- * No engine file needs to change.
- *
- * ── GRACEFUL DEGRADATION ─────────────────────────────────────────────────────
- *
- * If the library is unreachable or not configured, callClaude() proceeds
- * with the original prompt unchanged. The library layer never blocks generation.
- *
- * ── CONTROLLING RAG DEPTH ────────────────────────────────────────────────────
- *
- * Pass libraryOpts in ApiRequestOptions to tune per-call:
- *   { topK: 12, filter: { type: 'statute' }, threshold: 0.75 }
- *
- * Pass skipLibrary: true to bypass for non-legal utility calls
- * (e.g. password-check calls, pure formatting tasks).
+ * If the Worker URL is not configured, falls back to direct Anthropic call
+ * using the locally stored API key (graceful degradation).
  */
 
 import type { ApiMessage, ApiRequestOptions } from '@/types';
-import { queryLibrary, deriveQuery }           from './library';
+import { queryLibrary, deriveQuery, getWorkerUrl } from './library';
 
 // ── Configuration ─────────────────────────────────────────────────────────────
 
@@ -49,7 +27,8 @@ export function saveApiKey(key: string): void {
 }
 
 export function hasApiKey(): boolean {
-  return Boolean(getApiKey());
+  // Has key OR has worker URL (worker holds the key server-side)
+  return Boolean(getApiKey()) || Boolean(getWorkerUrl());
 }
 
 // ── Drive MCP ─────────────────────────────────────────────────────────────────
@@ -59,17 +38,6 @@ const DRIVE_MCP_SERVER = {
   url:  'https://drivemcp.googleapis.com/mcp/v1',
   name: 'google-drive',
 };
-
-// ── Headers ───────────────────────────────────────────────────────────────────
-
-function buildHeaders(): Record<string, string> {
-  return {
-    'Content-Type':                              'application/json',
-    'x-api-key':                                 getApiKey(),
-    'anthropic-version':                         '2023-06-01',
-    'anthropic-dangerous-direct-browser-access': 'true',
-  };
-}
 
 // ── API Error ─────────────────────────────────────────────────────────────────
 
@@ -82,27 +50,78 @@ export class ApiError extends Error {
 
 // ── Library injection ─────────────────────────────────────────────────────────
 
-/**
- * Prepend the library RAG block to a system prompt string.
- * If the library returned nothing, returns the original system string unchanged.
- */
 function injectLibrary(original: string | undefined, libraryBlock: string): string {
   if (!libraryBlock) return original || '';
   const base = original ? original.trim() : '';
-  return base
-    ? `${libraryBlock}\n${base}`
-    : libraryBlock;
+  return base ? `${libraryBlock}\n${base}` : libraryBlock;
+}
+
+// ── Worker call (preferred — key never in browser) ────────────────────────────
+
+async function callViaWorker(
+  workerUrl: string,
+  body: Record<string, unknown>,
+): Promise<string> {
+  let res: Response;
+  try {
+    res = await fetch(`${workerUrl}/chat`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(body),
+    });
+  } catch (e) {
+    throw new ApiError(`Worker unreachable: ${(e as Error).message}`);
+  }
+
+  const data = await res.json();
+  if (!res.ok || data.error) {
+    const msg = data.error?.message ?? `HTTP ${res.status}`;
+    throw new ApiError(msg, res.status);
+  }
+
+  return (data.content as Array<{ type: string; text?: string }>)
+    .filter(b => b.type === 'text')
+    .map(b => b.text ?? '')
+    .join('');
+}
+
+// ── Direct Anthropic call (fallback — requires local API key) ─────────────────
+
+async function callDirect(body: Record<string, unknown>): Promise<string> {
+  const key = getApiKey();
+  if (!key) throw new ApiError('No API key configured. Enter your Anthropic API key in Settings.');
+
+  let res: Response;
+  try {
+    res = await fetch('https://api.anthropic.com/v1/messages', {
+      method:  'POST',
+      headers: {
+        'Content-Type':                              'application/json',
+        'x-api-key':                                 key,
+        'anthropic-version':                         '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+        'anthropic-beta':                            'mcp-client-2025-04-04',
+      },
+      body: JSON.stringify(body),
+    });
+  } catch (e) {
+    throw new ApiError(`Network error: ${(e as Error).message}`);
+  }
+
+  const data = await res.json();
+  if (!res.ok || data.error) {
+    const msg = data.error?.message ?? `HTTP ${res.status}`;
+    throw new ApiError(msg, res.status);
+  }
+
+  return (data.content as Array<{ type: string; text?: string }>)
+    .filter(b => b.type === 'text')
+    .map(b => b.text ?? '')
+    .join('');
 }
 
 // ── Core call function ─────────────────────────────────────────────────────────
 
-/**
- * Make a request to the Anthropic /v1/messages API.
- * Returns the full text response as a string.
- * Throws ApiError on failure.
- *
- * Library RAG runs automatically on every call unless skipLibrary: true.
- */
 export async function callClaude(opts: ApiRequestOptions): Promise<string> {
   const {
     system,
@@ -114,7 +133,9 @@ export async function callClaude(opts: ApiRequestOptions): Promise<string> {
     libraryOpts = {},
   } = opts;
 
-  if (!getApiKey()) {
+  const workerUrl = getWorkerUrl();
+
+  if (!workerUrl && !getApiKey()) {
     throw new ApiError('No API key configured. Enter your Anthropic API key in Settings.');
   }
 
@@ -122,8 +143,6 @@ export async function callClaude(opts: ApiRequestOptions): Promise<string> {
   let enrichedSystem = system;
 
   if (!skipLibrary) {
-    // Build a semantic query from whatever context we have.
-    // Priority: extra hint > first user message > system prompt.
     const firstUserText = userMsg
       ?? (Array.isArray(messages) && messages.length > 0
            ? (typeof messages[messages.length - 1].content === 'string'
@@ -144,7 +163,6 @@ export async function callClaude(opts: ApiRequestOptions): Promise<string> {
       if (ctx.ok && ctx.block) {
         enrichedSystem = injectLibrary(system, ctx.block);
       }
-      // If ctx.ok is false, we silently continue with the original system prompt.
     }
   }
 
@@ -166,27 +184,10 @@ export async function callClaude(opts: ApiRequestOptions): Promise<string> {
   if (enrichedSystem) body.system      = enrichedSystem;
   if (mcpDrive)       body.mcp_servers = [DRIVE_MCP_SERVER];
 
-  // ── STEP 4: Call Claude ───────────────────────────────────────────────────
-  let res: Response;
-  try {
-    res = await fetch('https://api.anthropic.com/v1/messages', {
-      method:  'POST',
-      headers: buildHeaders(),
-      body:    JSON.stringify(body),
-    });
-  } catch (e) {
-    throw new ApiError(`Network error: ${(e as Error).message}`);
+  // ── STEP 4: Call via Worker (preferred) or direct (fallback) ─────────────
+  if (workerUrl) {
+    return callViaWorker(workerUrl, body);
+  } else {
+    return callDirect(body);
   }
-
-  const data = await res.json();
-
-  if (!res.ok || data.error) {
-    const msg = data.error?.message ?? `HTTP ${res.status}`;
-    throw new ApiError(msg, res.status);
-  }
-
-  return (data.content as Array<{ type: string; text?: string }>)
-    .filter(b => b.type === 'text')
-    .map(b => b.text ?? '')
-    .join('');
 }
