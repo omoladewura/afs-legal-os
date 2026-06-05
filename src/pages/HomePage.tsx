@@ -4,16 +4,56 @@
  *   1. Case Docket — manage and open cases
  *   2. SAN Mode    — standalone, also available inside cases
  *   3. Billions Voice — standalone rhetoric & letter tool
+ *
+ * Settings panel: Worker URL + API key configuration
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAppStore } from '@/state/appStore';
 import { T } from '@/constants/tokens';
 import { BillionsVoiceWidget } from '@/components/BillionsVoiceWidget';
+import { saveWorkerUrl, getWorkerUrl } from '@/services/library';
+import { saveApiKey, hasApiKey } from '@/services/api';
 
 export function HomePage() {
   const { setView, setDocketOpen } = useAppStore();
-  const [showBillions, setShowBillions] = useState(false);
+  const [showBillions, setShowBillions]   = useState(false);
+  const [showSettings, setShowSettings]   = useState(false);
+  const [workerUrl, setWorkerUrl]         = useState('');
+  const [apiKey, setApiKey]               = useState('');
+  const [saved, setSaved]                 = useState(false);
+  const [ragStatus, setRagStatus]         = useState<'untested'|'ok'|'fail'>('untested');
+  const [testing, setTesting]             = useState(false);
+
+  // Load saved values on mount
+  useEffect(() => {
+    setWorkerUrl(getWorkerUrl());
+  }, []);
+
+  function handleSave() {
+    if (workerUrl.trim()) saveWorkerUrl(workerUrl.trim());
+    if (apiKey.trim())    saveApiKey(apiKey.trim());
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  }
+
+  async function handleTest() {
+    if (!workerUrl.trim()) return;
+    setTesting(true);
+    setRagStatus('untested');
+    try {
+      const res = await fetch(`${workerUrl.trim()}/embed`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: 'test connection' }),
+      });
+      setRagStatus(res.ok ? 'ok' : 'fail');
+    } catch {
+      setRagStatus('fail');
+    } finally {
+      setTesting(false);
+    }
+  }
 
   if (showBillions) {
     return (
@@ -30,6 +70,88 @@ export function HomePage() {
           ← Back
         </button>
         <BillionsVoiceWidget />
+      </div>
+    );
+  }
+
+  if (showSettings) {
+    return (
+      <div style={{ animation: 'fadeUp .3s ease', maxWidth: 640, margin: '0 auto' }}>
+
+        <button
+          onClick={() => setShowSettings(false)}
+          style={{
+            background: 'none', border: `1px solid ${T.bdr}`,
+            borderRadius: 5, color: T.mute, padding: '7px 16px',
+            fontSize: 12, fontFamily: 'Inter, sans-serif',
+            cursor: 'pointer', marginBottom: 32,
+          }}
+        >
+          ← Back
+        </button>
+
+        <p style={{ fontSize: 10, color: T.mute, fontFamily: 'Inter, sans-serif', letterSpacing: '.2em', textTransform: 'uppercase', marginBottom: 6 }}>
+          AFS Advocates · Settings
+        </p>
+        <h1 style={{ fontSize: 28, color: T.goldL, fontWeight: 300, fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic', marginBottom: 32 }}>
+          System Configuration
+        </h1>
+
+        {/* RAG Worker URL */}
+        <div style={{ marginBottom: 28 }}>
+          <label style={labelStyle}>
+            RAG Worker URL
+          </label>
+          <p style={hintStyle}>
+            Your Cloudflare Worker URL. This connects all engines to your legal library.
+          </p>
+          <input
+            type="url"
+            value={workerUrl}
+            onChange={e => setWorkerUrl(e.target.value)}
+            placeholder="https://afs-legal-rag.sobamboadeshupo.workers.dev"
+            style={inputStyle}
+          />
+          <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
+            <button onClick={handleTest} disabled={testing || !workerUrl.trim()} style={secondaryBtnStyle}>
+              {testing ? 'Testing…' : 'Test Connection'}
+            </button>
+            {ragStatus === 'ok'   && <span style={{ color: '#4caf50', fontSize: 12, alignSelf: 'center' }}>✓ Connected</span>}
+            {ragStatus === 'fail' && <span style={{ color: '#e53935', fontSize: 12, alignSelf: 'center' }}>✗ Unreachable</span>}
+          </div>
+        </div>
+
+        {/* Anthropic API Key */}
+        <div style={{ marginBottom: 28 }}>
+          <label style={labelStyle}>
+            Anthropic API Key
+          </label>
+          <p style={hintStyle}>
+            Your API key from console.anthropic.com. Stored locally, never sent anywhere except Anthropic.
+            {hasApiKey() && <span style={{ color: '#4caf50' }}> (Key saved)</span>}
+          </p>
+          <input
+            type="password"
+            value={apiKey}
+            onChange={e => setApiKey(e.target.value)}
+            placeholder="sk-ant-…"
+            style={inputStyle}
+          />
+        </div>
+
+        {/* Save */}
+        <button onClick={handleSave} style={primaryBtnStyle}>
+          {saved ? '✓ Saved' : 'Save Settings'}
+        </button>
+
+        {/* Status summary */}
+        <div style={{ marginTop: 40, padding: '16px 20px', background: T.card, borderRadius: 8, border: `1px solid ${T.bdr}` }}>
+          <p style={{ fontSize: 11, color: T.mute, fontFamily: 'Inter, sans-serif', letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 12 }}>System Status</p>
+          <StatusRow label="Anthropic API Key" ok={hasApiKey()} />
+          <StatusRow label="RAG Worker URL"     ok={Boolean(getWorkerUrl())} />
+          <StatusRow label="Library Connected"  ok={ragStatus === 'ok'} pending={ragStatus === 'untested'} />
+        </div>
+
       </div>
     );
   }
@@ -102,25 +224,77 @@ export function HomePage() {
         </button>
 
       </div>
+
+      {/* Settings link */}
+      <div style={{ marginTop: 40, textAlign: 'center' }}>
+        <button
+          onClick={() => setShowSettings(true)}
+          style={{
+            background: 'none', border: 'none', color: T.mute,
+            fontSize: 12, fontFamily: 'Inter, sans-serif',
+            cursor: 'pointer', textDecoration: 'underline',
+          }}
+        >
+          ⚙ Settings & Library Configuration
+        </button>
+      </div>
+
+    </div>
+  );
+}
+
+// ── Sub-component ─────────────────────────────────────────────────────────────
+
+function StatusRow({ label, ok, pending }: { label: string; ok: boolean; pending?: boolean }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+      <span style={{ fontSize: 12, color: T.dim, fontFamily: 'Inter, sans-serif' }}>{label}</span>
+      <span style={{ fontSize: 12, fontFamily: 'Inter, sans-serif', color: pending ? T.mute : ok ? '#4caf50' : '#e53935' }}>
+        {pending ? '— not tested' : ok ? '✓ Ready' : '✗ Not set'}
+      </span>
     </div>
   );
 }
 
 // ── Styles ────────────────────────────────────────────────────────────────────
 
+const labelStyle: React.CSSProperties = {
+  fontSize: 11, color: T.dim, fontFamily: 'Inter, sans-serif',
+  letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 600,
+  display: 'block', marginBottom: 6,
+};
+
+const hintStyle: React.CSSProperties = {
+  fontSize: 12, color: T.mute, fontFamily: 'Inter, sans-serif',
+  lineHeight: 1.6, marginBottom: 8,
+};
+
+const inputStyle: React.CSSProperties = {
+  width: '100%', padding: '10px 14px',
+  background: T.card, border: `1px solid ${T.bdr}`,
+  borderRadius: 6, color: T.text, fontSize: 13,
+  fontFamily: 'Inter, sans-serif', boxSizing: 'border-box',
+};
+
+const primaryBtnStyle: React.CSSProperties = {
+  background: '#c4a030', border: 'none', borderRadius: 6,
+  color: '#fff', padding: '11px 28px', fontSize: 13,
+  fontFamily: 'Inter, sans-serif', fontWeight: 600, cursor: 'pointer',
+};
+
+const secondaryBtnStyle: React.CSSProperties = {
+  background: 'none', border: `1px solid ${T.bdr}`, borderRadius: 6,
+  color: T.dim, padding: '8px 16px', fontSize: 12,
+  fontFamily: 'Inter, sans-serif', cursor: 'pointer',
+};
+
 function cardStyle(accent: string): React.CSSProperties {
   return {
-    background: T.card,
-    border: `1px solid ${T.bdr}`,
-    borderRadius: 10,
-    padding: '20px 22px',
-    textAlign: 'left',
-    cursor: 'pointer',
+    background: T.card, border: `1px solid ${T.bdr}`,
+    borderRadius: 10, padding: '20px 22px',
+    textAlign: 'left', cursor: 'pointer',
     transition: 'border-color .15s, background .15s',
-    display: 'flex',
-    alignItems: 'flex-start',
-    gap: 16,
-    width: '100%',
+    display: 'flex', alignItems: 'flex-start', gap: 16, width: '100%',
   };
 }
 
@@ -135,49 +309,28 @@ function hoverOut(e: React.MouseEvent<HTMLButtonElement>) {
 }
 
 function cardIconStyle(accent: string): React.CSSProperties {
-  return {
-    fontSize: 22,
-    color: accent,
-    flexShrink: 0,
-    lineHeight: 1,
-    marginTop: 2,
-  };
+  return { fontSize: 22, color: accent, flexShrink: 0, lineHeight: 1, marginTop: 2 };
 }
 
 const cardTitleStyle: React.CSSProperties = {
-  fontSize: 16,
-  color: T.text,
+  fontSize: 16, color: T.text,
   fontFamily: "'Cormorant Garamond', serif",
-  fontWeight: 600,
-  lineHeight: 1.3,
-  marginBottom: 3,
+  fontWeight: 600, lineHeight: 1.3, marginBottom: 3,
 };
 
 function cardSubStyle(accent: string): React.CSSProperties {
   return {
-    fontSize: 8,
-    color: accent,
-    fontFamily: 'Inter, sans-serif',
-    letterSpacing: '.14em',
-    textTransform: 'uppercase',
-    fontWeight: 600,
-    marginBottom: 6,
+    fontSize: 8, color: accent, fontFamily: 'Inter, sans-serif',
+    letterSpacing: '.14em', textTransform: 'uppercase',
+    fontWeight: 600, marginBottom: 6,
   };
 }
 
 const cardDescStyle: React.CSSProperties = {
-  fontSize: 12,
-  color: T.mute,
-  fontFamily: 'Inter, sans-serif',
-  lineHeight: 1.6,
+  fontSize: 12, color: T.mute,
+  fontFamily: 'Inter, sans-serif', lineHeight: 1.6,
 };
 
 function arrowStyle(accent: string): React.CSSProperties {
-  return {
-    fontSize: 18,
-    color: accent,
-    flexShrink: 0,
-    alignSelf: 'center',
-    opacity: 0.7,
-  };
+  return { fontSize: 18, color: accent, flexShrink: 0, alignSelf: 'center', opacity: 0.7 };
 }
