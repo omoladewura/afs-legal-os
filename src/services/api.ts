@@ -185,9 +185,5 @@ export async function callClaude(opts: ApiRequestOptions): Promise<string> {
   if (mcpDrive)       body.mcp_servers = [DRIVE_MCP_SERVER];
 
   // ── STEP 4: Call via Worker (preferred) or direct (fallback) ─────────────
-  if (workerUrl) {
-    return callViaWorker(workerUrl, body);
-  } else {
-    return callDirect(body);
-  }
+   return callDirect(body);
 }
