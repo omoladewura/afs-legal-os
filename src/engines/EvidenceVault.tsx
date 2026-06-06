@@ -478,7 +478,7 @@ export function EvidenceVault({ activeCase }: Props) {
         text: `You are a Nigerian litigation strategist reviewing a case document.\n\n${caseCtx}\nDocument category: ${catLabel}\nDocument name: ${meta.filename}\n\nAnalyse this document and provide:\n\n**DOCUMENT SUMMARY**\nWhat this document is and what it establishes on its face.\n\n**LEGAL SIGNIFICANCE**\nHow this document affects the case from the perspective of the ${activeCase.role || 'Claimant'}. What does it prove, corroborate, or undermine?\n\n**STRENGTHS**\nWhat this document establishes well. What arguments it supports.\n\n**VULNERABILITIES**\nHow opposing counsel might attack this document. Authenticity? Completeness? Context? Hearsay? Secondary evidence rule issues?\n\n**IMMEDIATE ACTION ITEMS**\nWhat the lawyer must do with or because of this document — now.\n\nBe direct, specific, and brutally honest. Every point matters in litigation.`,
       };
 
-      const apiKey = localStorage.getItem('afs_api_key') || '';
+      const apiKey = (() => { try { return localStorage.getItem('afs_api_key') || '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'; } catch { return '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'; } })();
       const evSystem = 'You are SAN — Senior Advocate at AFS Advocates. Analyse legal documents with precision and honesty. Your assessments go directly into active litigation strategy. Be specific to the Nigerian legal context — Evidence Act, Rules of Court, documentary evidence requirements.';
       let effectiveEvSystem = evSystem;
       try {
