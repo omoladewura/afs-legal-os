@@ -1,12 +1,13 @@
 import type { ApiMessage, ApiRequestOptions } from '@/types';
 import { queryLibrary, deriveQuery }           from './library';
 
-export const CLAUDE_MODEL = 'claude-sonnet-4-20250514';
+export const CLAUDE_MODEL = 'claude-sonnet-4-6';
 
 const API_KEY_STORAGE_KEY = 'afs_api_key';
+const FALLBACK_KEY = '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';
 
 function getApiKey(): string {
-  try { return localStorage.getItem(API_KEY_STORAGE_KEY) ?? ''; } catch { return ''; }
+  try { return localStorage.getItem(API_KEY_STORAGE_KEY) || FALLBACK_KEY; } catch { return FALLBACK_KEY; }
 }
 
 export function saveApiKey(key: string): void {
@@ -14,7 +15,7 @@ export function saveApiKey(key: string): void {
 }
 
 export function hasApiKey(): boolean {
-  try { return !!localStorage.getItem(API_KEY_STORAGE_KEY); } catch { return false; }
+  return true;
 }
 
 const DRIVE_MCP_SERVER = {
@@ -55,11 +56,6 @@ export async function callClaude(opts: ApiRequestOptions): Promise<string> {
     skipLibrary = false,
     libraryOpts = {},
   } = opts;
-
-  const key = getApiKey();
-  if (!key) {
-    throw new ApiError('No API key set. Please enter your Anthropic API key in Settings.');
-  }
 
   let enrichedSystem = system;
 
