@@ -1,8 +1,9 @@
 /**
- * AFS Advocates — Cloudflare Worker: Legal Library RAG + Case Sync
+ * AFS Advocates — Cloudflare Worker: Legal Library RAG + Case Sync + Claude Chat
  *
  * Endpoints:
  *
+ *   POST /chat                      — proxy Claude API call (key never in browser)
  *   POST /embed                     — embed a query string via Workers AI
  *   POST /query                     — query Vectorize with an embedding vector
  *
@@ -24,10 +25,11 @@
  */
 
 export interface Env {
-  VECTORIZE:   Vectorize;
-  AI:          Ai;
-  DB:          D1Database;
-  AUTH_TOKEN?: string;
+  VECTORIZE:        Vectorize;
+  AI:               Ai;
+  DB:               D1Database;
+  AUTH_TOKEN?:      string;
+  ANTHROPIC_API_KEY?: string;
 }
 
 // ── CORS ──────────────────────────────────────────────────────────────────────
@@ -77,6 +79,36 @@ async function ensureTables(env: Env): Promise<void> {
     case_id TEXT NOT NULL,
     data    TEXT NOT NULL
   )`).run();
+}
+
+// ── Chat (Claude proxy) ───────────────────────────────────────────────────────
+
+async function handleChat(req: Request, env: Env): Promise<Response> {
+  const origin = req.headers.get('Origin') || '*';
+
+  if (!env.ANTHROPIC_API_KEY) {
+    return json({ error: 'API key not configured' }, 500, origin);
+  }
+
+  const body = await req.json() as Record<string, unknown>;
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type':    'application/json',
+      'x-api-key':       env.ANTHROPIC_API_KEY,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model:      body.model      ?? 'claude-sonnet-4-20250514',
+      max_tokens: body.max_tokens ?? 1500,
+      system:     body.system,
+      messages:   body.messages,
+    }),
+  });
+
+  const data = await res.json();
+  return json(data, res.status, origin);
 }
 
 // ── Embed ─────────────────────────────────────────────────────────────────────
@@ -274,6 +306,7 @@ export default {
     const path   = url.pathname;
     const method = req.method;
 
+    if (method === 'POST' && path === '/chat')   return handleChat(req, env);
     if (method === 'POST' && path === '/embed')  return handleEmbed(req, env);
     if (method === 'POST' && path === '/query')  return handleQuery(req, env);
 
