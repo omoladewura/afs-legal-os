@@ -246,18 +246,28 @@ const P = {
 // HELPERS
 // ─────────────────────────────────────────────────────────────────────────────
 
+const BILLIONS_API_KEY = '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';
+
+function buildBillionsHeaders(): Record<string, string> {
+  let key = BILLIONS_API_KEY;
+  try { key = localStorage.getItem('afs_api_key') || BILLIONS_API_KEY; } catch { /* ignore */ }
+  return {
+    'Content-Type': 'application/json',
+    'x-api-key': key,
+    'anthropic-version': '2023-06-01',
+    'anthropic-dangerous-direct-browser-access': 'true',
+  };
+}
+
 async function apiCall(systemPrompt: string, userContent: string, maxTokens = 1800): Promise<string> {
-  const response = await fetch('https://afs-legal-rag.sobambodeshupo.workers.dev/chat', {
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
-    headers: {
-      'Content-Type':  'application/json',
-      'Authorization': 'Bearer AFS2026SecureToken99',
-    },
+    headers: buildBillionsHeaders(),
     body: JSON.stringify({
-      model:      'claude-sonnet-4-6',
+      model: 'claude-sonnet-4-6',
       max_tokens: maxTokens,
-      system:     systemPrompt,
-      messages:   [{ role: 'user', content: userContent }],
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userContent }],
     }),
   });
   const data = await response.json();
@@ -540,8 +550,8 @@ function BillionsVoiceModal({ onClose }: { onClose: () => void }) {
     setScribePhase('interviewing'); setScribeLoading(true); setScribeError(null);
     try {
       const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 300, system: SCRIBE_INTERVIEWER_PROMPT, messages: [{ role: 'user', content: 'I need to write something. Begin the interview.' }] }),
+        method: 'POST', headers: buildBillionsHeaders(),
+        body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 300, system: SCRIBE_INTERVIEWER_PROMPT, messages: [{ role: 'user', content: 'I need to write something. Begin the interview.' }] }),
       });
       const data = await res.json();
       const text = data.content?.map((b: any) => b.text || '').join('').trim();
@@ -561,8 +571,8 @@ function BillionsVoiceModal({ onClose }: { onClose: () => void }) {
       try {
         const convoText = newMsgs.map(m => `${m.role === 'scribe' ? 'THE SCRIBE' : 'PERSON'}: ${m.text}`).join('\n\n');
         const res = await fetch('https://api.anthropic.com/v1/messages', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 1800, system: SCRIBE_COMPOSER_PROMPT, messages: [{ role: 'user', content: `Here is the full intake conversation:\n\n${convoText}\n\nNow write the piece.` }] }),
+          method: 'POST', headers: buildBillionsHeaders(),
+          body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 1800, system: SCRIBE_COMPOSER_PROMPT, messages: [{ role: 'user', content: `Here is the full intake conversation:\n\n${convoText}\n\nNow write the piece.` }] }),
         });
         const data = await res.json();
         const full = data.content?.map((b: any) => b.text || '').join('').trim();
@@ -577,8 +587,8 @@ function BillionsVoiceModal({ onClose }: { onClose: () => void }) {
       try {
         const apiMsgs = newMsgs.map(m => ({ role: m.role === 'scribe' ? 'assistant' : 'user', content: m.text }));
         const res = await fetch('https://api.anthropic.com/v1/messages', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 300, system: SCRIBE_INTERVIEWER_PROMPT, messages: apiMsgs }),
+          method: 'POST', headers: buildBillionsHeaders(),
+          body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 300, system: SCRIBE_INTERVIEWER_PROMPT, messages: apiMsgs }),
         });
         const data = await res.json();
         const text = data.content?.map((b: any) => b.text || '').join('').trim();
