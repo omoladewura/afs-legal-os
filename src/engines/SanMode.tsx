@@ -109,19 +109,6 @@ const DRIVE_MCP_SERVER = {
 // HELPERS
 // ─────────────────────────────────────────────────────────────────────────────
 
-const FALLBACK_API_KEY = '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';
-
-function getHeaders(): Record<string, string> {
-  let key = FALLBACK_API_KEY;
-  try { key = localStorage.getItem('afs_api_key') || FALLBACK_API_KEY; } catch { /* ignore */ }
-  return {
-    'Content-Type':                               'application/json',
-    'x-api-key':                                  key,
-    'anthropic-version':                          '2023-06-01',
-    'anthropic-dangerous-direct-browser-access':  'true',
-  };
-}
-
 function copyToClipboard(text: string): void {
   try {
     navigator.clipboard.writeText(text);
@@ -279,9 +266,12 @@ export function SanMode({ activeCase }: Props) {
     }
 
     try {
-      const res  = await fetch('https://api.anthropic.com/v1/messages', {
+      const res  = await fetch('https://afs-legal-rag.sobamboadeshupo.workers.dev/chat', {
         method:  'POST',
-        headers: getHeaders(),
+        headers: {
+          'Content-Type':  'application/json',
+          'Authorization': 'Bearer AFS2026SecureToken99',
+        },
         body:    JSON.stringify(reqBody),
       });
       const data = await res.json();
