@@ -32,8 +32,6 @@ export interface Env {
   ANTHROPIC_API_KEY?: string;
 }
 
-// ── CORS ──────────────────────────────────────────────────────────────────────
-
 function cors(origin = '*'): Record<string, string> {
   return {
     'Access-Control-Allow-Origin':  origin,
@@ -49,15 +47,11 @@ function json(data: unknown, status = 200, origin?: string): Response {
   });
 }
 
-// ── Auth ──────────────────────────────────────────────────────────────────────
-
 function authorized(req: Request, env: Env): boolean {
   if (!env.AUTH_TOKEN) return true;
   const header = req.headers.get('Authorization') || '';
   return header === `Bearer ${env.AUTH_TOKEN}`;
 }
-
-// ── D1 table init ─────────────────────────────────────────────────────────────
 
 async function ensureTables(env: Env): Promise<void> {
   await env.DB.prepare(`CREATE TABLE IF NOT EXISTS cases (
@@ -81,8 +75,6 @@ async function ensureTables(env: Env): Promise<void> {
   )`).run();
 }
 
-// ── Chat (Claude proxy) ───────────────────────────────────────────────────────
-
 async function handleChat(req: Request, env: Env): Promise<Response> {
   const origin = req.headers.get('Origin') || '*';
 
@@ -90,13 +82,17 @@ async function handleChat(req: Request, env: Env): Promise<Response> {
     return json({ error: 'API key not configured' }, 500, origin);
   }
 
+  // DEBUG - remove after fix
+  const keyPreview = env.ANTHROPIC_API_KEY.slice(0, 20) + '...' + env.ANTHROPIC_API_KEY.slice(-4);
+  console.log('Key preview:', keyPreview);
+
   const body = await req.json() as Record<string, unknown>;
 
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
-      'Content-Type':    'application/json',
-      'x-api-key':       env.ANTHROPIC_API_KEY,
+      'Content-Type':      'application/json',
+      'x-api-key':         env.ANTHROPIC_API_KEY,
       'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify({
@@ -111,21 +107,15 @@ async function handleChat(req: Request, env: Env): Promise<Response> {
   return json(data, res.status, origin);
 }
 
-// ── Embed ─────────────────────────────────────────────────────────────────────
-
 async function handleEmbed(req: Request, env: Env): Promise<Response> {
   const origin = req.headers.get('Origin') || '*';
   const body = await req.json() as { text?: string };
   if (!body.text) return json({ error: 'text is required' }, 400, origin);
-
   const result = await env.AI.run('@cf/baai/bge-base-en-v1.5', {
     text: [body.text.slice(0, 2048)],
   }) as { data: number[][] };
-
   return json({ embedding: result.data[0] }, 200, origin);
 }
-
-// ── Query ─────────────────────────────────────────────────────────────────────
 
 async function handleQuery(req: Request, env: Env): Promise<Response> {
   const origin = req.headers.get('Origin') || '*';
@@ -134,25 +124,19 @@ async function handleQuery(req: Request, env: Env): Promise<Response> {
     topK?:           number;
     namespace?:      string;
     filter?:         Record<string, string>;
-    returnMetadata?: string;
   };
-
   if (!body.embedding || !Array.isArray(body.embedding)) {
     return json({ error: 'embedding array is required' }, 400, origin);
   }
-
   const queryOpts: VectorizeQueryOptions = {
     topK:           Math.min(body.topK ?? 8, 20),
     returnMetadata: 'all',
   };
   if (body.namespace) queryOpts.namespace = body.namespace;
   if (body.filter)    queryOpts.filter    = body.filter;
-
   const results = await env.VECTORIZE.query(body.embedding, queryOpts);
   return json({ matches: results.matches }, 200, origin);
 }
-
-// ── Cases ─────────────────────────────────────────────────────────────────────
 
 async function handleGetCases(req: Request, env: Env): Promise<Response> {
   const origin = req.headers.get('Origin') || '*';
@@ -168,8 +152,7 @@ async function handlePutCase(req: Request, env: Env): Promise<Response> {
   const body = await req.json() as { id?: string };
   if (!body.id) return json({ error: 'id is required' }, 400, origin);
   await env.DB.prepare('INSERT OR REPLACE INTO cases (id, data) VALUES (?, ?)')
-    .bind(body.id, JSON.stringify(body))
-    .run();
+    .bind(body.id, JSON.stringify(body)).run();
   return json({ ok: true }, 200, origin);
 }
 
@@ -185,8 +168,6 @@ async function handleDeleteCase(req: Request, env: Env): Promise<Response> {
   await env.DB.prepare('DELETE FROM research WHERE case_id = ?').bind(id).run();
   return json({ ok: true }, 200, origin);
 }
-
-// ── Docket Entries ────────────────────────────────────────────────────────────
 
 async function handleGetEntries(req: Request, env: Env): Promise<Response> {
   const origin = req.headers.get('Origin') || '*';
@@ -205,8 +186,7 @@ async function handlePutEntry(req: Request, env: Env): Promise<Response> {
   const body = await req.json() as { id?: string; caseId?: string };
   if (!body.id || !body.caseId) return json({ error: 'id and caseId are required' }, 400, origin);
   await env.DB.prepare('INSERT OR REPLACE INTO entries (id, case_id, data) VALUES (?, ?, ?)')
-    .bind(body.id, body.caseId, JSON.stringify(body))
-    .run();
+    .bind(body.id, body.caseId, JSON.stringify(body)).run();
   return json({ ok: true }, 200, origin);
 }
 
@@ -219,8 +199,6 @@ async function handleDeleteEntry(req: Request, env: Env): Promise<Response> {
   await env.DB.prepare('DELETE FROM entries WHERE id = ?').bind(id).run();
   return json({ ok: true }, 200, origin);
 }
-
-// ── Deadlines ─────────────────────────────────────────────────────────────────
 
 async function handleGetDeadlines(req: Request, env: Env): Promise<Response> {
   const origin = req.headers.get('Origin') || '*';
@@ -239,8 +217,7 @@ async function handlePutDeadline(req: Request, env: Env): Promise<Response> {
   const body = await req.json() as { id?: string; caseId?: string };
   if (!body.id || !body.caseId) return json({ error: 'id and caseId are required' }, 400, origin);
   await env.DB.prepare('INSERT OR REPLACE INTO deadlines (id, case_id, data) VALUES (?, ?, ?)')
-    .bind(body.id, body.caseId, JSON.stringify(body))
-    .run();
+    .bind(body.id, body.caseId, JSON.stringify(body)).run();
   return json({ ok: true }, 200, origin);
 }
 
@@ -253,8 +230,6 @@ async function handleDeleteDeadline(req: Request, env: Env): Promise<Response> {
   await env.DB.prepare('DELETE FROM deadlines WHERE id = ?').bind(id).run();
   return json({ ok: true }, 200, origin);
 }
-
-// ── Research ──────────────────────────────────────────────────────────────────
 
 async function handleGetResearch(req: Request, env: Env): Promise<Response> {
   const origin = req.headers.get('Origin') || '*';
@@ -273,8 +248,7 @@ async function handlePutResearch(req: Request, env: Env): Promise<Response> {
   const body = await req.json() as { id?: string; caseId?: string };
   if (!body.id || !body.caseId) return json({ error: 'id and caseId are required' }, 400, origin);
   await env.DB.prepare('INSERT OR REPLACE INTO research (id, case_id, data) VALUES (?, ?, ?)')
-    .bind(body.id, body.caseId, JSON.stringify(body))
-    .run();
+    .bind(body.id, body.caseId, JSON.stringify(body)).run();
   return json({ ok: true }, 200, origin);
 }
 
@@ -287,8 +261,6 @@ async function handleDeleteResearch(req: Request, env: Env): Promise<Response> {
   await env.DB.prepare('DELETE FROM research WHERE id = ?').bind(id).run();
   return json({ ok: true }, 200, origin);
 }
-
-// ── Main handler ──────────────────────────────────────────────────────────────
 
 export default {
   async fetch(req: Request, env: Env): Promise<Response> {
