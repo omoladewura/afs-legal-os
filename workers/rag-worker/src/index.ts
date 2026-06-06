@@ -82,10 +82,6 @@ async function handleChat(req: Request, env: Env): Promise<Response> {
     return json({ error: 'API key not configured' }, 500, origin);
   }
 
-  // DEBUG - remove after fix
-  const keyPreview = env.ANTHROPIC_API_KEY.slice(0, 20) + '...' + env.ANTHROPIC_API_KEY.slice(-4);
-  return json({ debug_key: keyPreview }, 200, origin);
-
   const body = await req.json() as Record<string, unknown>;
 
   const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -96,7 +92,7 @@ async function handleChat(req: Request, env: Env): Promise<Response> {
       'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify({
-      model:      body.model      ?? 'claude-sonnet-4-20250514',
+      model:      body.model      ?? 'claude-sonnet-4-5',
       max_tokens: body.max_tokens ?? 1500,
       system:     body.system,
       messages:   body.messages,
