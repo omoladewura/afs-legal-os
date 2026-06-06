@@ -38,7 +38,7 @@ export function LoadingBlock({ label = 'Processing…' }: LoadingBlockProps) {
   return (
     <div style={{ textAlign: 'center', padding: '32px 0' }}>
       <Spinner size={28} />
-      <p style={{ ...T, fontSize: 15, color: T.dim, fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic', marginTop: 14 }}>
+      <p style={{ fontSize: 15, color: T.dim, fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic', marginTop: 14 }}>
         {label}
       </p>
     </div>
@@ -55,10 +55,10 @@ export function ErrorBlock({ message }: ErrorBlockProps) {
   if (!message) return null;
   return (
     <div style={{
-      background: '#180808', border: '1px solid #4a1818',
+      background: '#fff0f0', border: '1px solid #ffcccc',
       borderRadius: 6, padding: '12px 16px', marginBottom: 12,
     }}>
-      <p style={{ fontSize: 13, color: '#c05050', fontFamily: 'Inter, sans-serif', margin: 0 }}>
+      <p style={{ fontSize: 13, color: '#c00000', fontFamily: "'Times New Roman', Times, serif", margin: 0 }}>
         {message}
       </p>
     </div>
@@ -66,7 +66,6 @@ export function ErrorBlock({ message }: ErrorBlockProps) {
 }
 
 // ── Md — Markdown-like renderer ───────────────────────────────────────────────
-// Handles **bold** and ## headings in AI output — NOT a full markdown parser.
 
 interface MdProps {
   text: string;
@@ -75,7 +74,7 @@ interface MdProps {
 function renderInline(text: string): React.ReactNode[] {
   return text.split(/(\*\*[^*]+\*\*)/g).map((part, i) =>
     part.startsWith('**') && part.endsWith('**') && part.length > 4
-      ? <strong key={i} style={{ color: T.goldL, fontWeight: 600 }}>{part.slice(2, -2)}</strong>
+      ? <strong key={i} style={{ color: '#000000', fontWeight: 700 }}>{part.slice(2, -2)}</strong>
       : <React.Fragment key={i}>{part}</React.Fragment>
   );
 }
@@ -92,7 +91,7 @@ export function Md({ text }: MdProps) {
     nodes.push(
       <ul key={nodes.length} style={{ paddingLeft: 20, margin: '6px 0 10px' }}>
         {listBuf.map((li, i) => (
-          <li key={i} style={{ fontSize: 15, color: '#c2beb2', lineHeight: 1.85, fontFamily: "'Cormorant Garamond', serif", marginBottom: 3 }}>
+          <li key={i} style={{ fontSize: 15, color: '#000000', lineHeight: 1.85, fontFamily: "'Times New Roman', Times, serif", marginBottom: 3 }}>
             {renderInline(li)}
           </li>
         ))}
@@ -104,17 +103,24 @@ export function Md({ text }: MdProps) {
   lines.forEach((line, i) => {
     const trimmed = line.trim();
 
-    if (trimmed.startsWith('## ')) {
+    if (trimmed.startsWith('# ')) {
       flushList();
       nodes.push(
-        <h2 key={i} style={{ fontSize: 17, color: '#b8985a', fontWeight: 400, marginTop: 24, marginBottom: 8, fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic' }}>
+        <h1 key={i} style={{ fontSize: 20, color: '#000000', fontWeight: 700, marginTop: 28, marginBottom: 10, fontFamily: "'Times New Roman', Times, serif", borderBottom: '1px solid #cccccc', paddingBottom: 6 }}>
+          {trimmed.slice(2)}
+        </h1>
+      );
+    } else if (trimmed.startsWith('## ')) {
+      flushList();
+      nodes.push(
+        <h2 key={i} style={{ fontSize: 17, color: '#000000', fontWeight: 600, marginTop: 22, marginBottom: 8, fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic' }}>
           {trimmed.slice(3)}
         </h2>
       );
     } else if (trimmed.startsWith('### ')) {
       flushList();
       nodes.push(
-        <h3 key={i} style={{ fontSize: 10, color: '#606070', fontWeight: 600, marginTop: 18, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '.1em', fontFamily: 'Inter, sans-serif' }}>
+        <h3 key={i} style={{ fontSize: 13, color: '#333333', fontWeight: 700, marginTop: 16, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '.08em', fontFamily: "'Times New Roman', Times, serif" }}>
           {trimmed.slice(4)}
         </h3>
       );
@@ -123,7 +129,7 @@ export function Md({ text }: MdProps) {
     } else if (trimmed) {
       flushList();
       nodes.push(
-        <p key={i} style={{ margin: '7px 0', fontSize: 16, color: '#cac6ba', lineHeight: 1.95, fontFamily: "'Cormorant Garamond', serif" }}>
+        <p key={i} style={{ margin: '7px 0', fontSize: 15, color: '#000000', lineHeight: 1.95, fontFamily: "'Times New Roman', Times, serif" }}>
           {renderInline(trimmed)}
         </p>
       );
@@ -137,7 +143,6 @@ export function Md({ text }: MdProps) {
 }
 
 // ── ResultBlock ───────────────────────────────────────────────────────────────
-// Standard container for AI-generated output with copy/clear actions.
 
 interface ResultBlockProps {
   title:    string;
@@ -158,22 +163,22 @@ export function ResultBlock({ title, content, onClear }: ResultBlockProps) {
 
   return (
     <div style={{
-      background: '#080810', border: `1px solid ${T.bdr}`,
+      background: '#ffffff', border: '1px solid #cccccc',
       borderRadius: 8, padding: '20px 24px', marginBottom: 16,
       animation: 'fadeUp .3s ease',
     }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
         <p style={{
-          fontSize: 9, color: T.gold, fontFamily: 'Inter, sans-serif',
+          fontSize: 10, color: '#000000', fontFamily: 'Inter, sans-serif',
           letterSpacing: '.18em', textTransform: 'uppercase', fontWeight: 700,
         }}>{title}</p>
         <div style={{ display: 'flex', gap: 6 }}>
           <button
             onClick={handleCopy}
             style={{
-              background: 'transparent', border: `1px solid #1a1a28`,
-              color: copied ? T.gold : T.mute, borderRadius: 4,
+              background: 'transparent', border: '1px solid #cccccc',
+              color: copied ? '#000000' : '#666666', borderRadius: 4,
               padding: '5px 12px', fontSize: 10,
               fontFamily: 'Inter, sans-serif', cursor: 'pointer',
               letterSpacing: '.04em', transition: 'color .15s',
@@ -185,8 +190,8 @@ export function ResultBlock({ title, content, onClear }: ResultBlockProps) {
             <button
               onClick={onClear}
               style={{
-                background: 'transparent', border: `1px solid #1a1a28`,
-                color: '#404050', borderRadius: 4, padding: '5px 10px',
+                background: 'transparent', border: '1px solid #cccccc',
+                color: '#999999', borderRadius: 4, padding: '5px 10px',
                 fontSize: 10, fontFamily: 'Inter, sans-serif', cursor: 'pointer',
               }}
             >
@@ -196,30 +201,29 @@ export function ResultBlock({ title, content, onClear }: ResultBlockProps) {
         </div>
       </div>
 
-      {/* Content — text and research cards */}
+      {/* Content */}
       {segments.map((seg, i) => {
         if (seg.type === 'text') {
           return <Md key={i} text={seg.content} />;
         }
-        // Research card
         return (
           <div key={i} style={{
-            background: '#0a0a00', border: '1px solid #3a2808',
+            background: '#f9f9f9', border: '1px solid #cccccc',
             borderRadius: 6, padding: '14px 16px', margin: '10px 0',
           }}>
-            <p style={{ fontSize: 9, color: T.gold, fontFamily: 'Inter, sans-serif', letterSpacing: '.16em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 8 }}>
+            <p style={{ fontSize: 9, color: '#000000', fontFamily: 'Inter, sans-serif', letterSpacing: '.16em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 8 }}>
               ◎ Research Required
             </p>
-            <p style={{ fontSize: 14, color: '#cac6ba', fontFamily: "'Cormorant Garamond', serif", lineHeight: 1.7, marginBottom: 6 }}>
-              <strong style={{ color: T.goldL }}>Principle:</strong> {seg.principle}
+            <p style={{ fontSize: 14, color: '#000000', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.7, marginBottom: 6 }}>
+              <strong>Principle:</strong> {seg.principle}
             </p>
             {seg.authority && (
-              <p style={{ fontSize: 13, color: '#b09840', fontFamily: "'Cormorant Garamond', serif", lineHeight: 1.6, marginBottom: 4 }}>
+              <p style={{ fontSize: 13, color: '#333333', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.6, marginBottom: 4 }}>
                 <strong>Authority needed:</strong> {seg.authority}
               </p>
             )}
             {seg.platform && (
-              <p style={{ fontSize: 11, color: T.mute, fontFamily: 'Inter, sans-serif' }}>
+              <p style={{ fontSize: 11, color: '#666666', fontFamily: 'Inter, sans-serif' }}>
                 Platform: {seg.platform}
               </p>
             )}
@@ -237,18 +241,18 @@ interface RoleBadgeProps {
 }
 
 const ROLE_COLORS: Record<string, { bg: string; bdr: string; col: string }> = {
-  'Claimant':   { bg: '#081428', bdr: '#1a3058', col: '#5090d0' },
-  'Defendant':  { bg: '#180808', bdr: '#401818', col: '#c05050' },
-  'Appellant':  { bg: '#100820', bdr: '#281848', col: '#9060c0' },
-  'Respondent': { bg: '#081408', bdr: '#1a3818', col: '#40a868' },
+  'Claimant':   { bg: '#e8f0ff', bdr: '#aabbee', col: '#1a3a8a' },
+  'Defendant':  { bg: '#fff0f0', bdr: '#ffaaaa', col: '#8a1a1a' },
+  'Appellant':  { bg: '#f5f0ff', bdr: '#ccaaee', col: '#4a1a8a' },
+  'Respondent': { bg: '#f0fff0', bdr: '#aaeebb', col: '#1a6a3a' },
 };
 
 export function RoleBadge({ role }: RoleBadgeProps) {
-  const c = ROLE_COLORS[role] ?? { bg: '#0a0a14', bdr: '#1e1e2e', col: T.mute };
+  const c = ROLE_COLORS[role] ?? { bg: '#f5f5f5', bdr: '#cccccc', col: '#444444' };
   return (
     <span style={{
       background: c.bg, border: `1px solid ${c.bdr}`, color: c.col,
-      fontSize: 8, padding: '2px 8px', borderRadius: 2,
+      fontSize: 9, padding: '3px 10px', borderRadius: 3,
       fontFamily: 'Inter, sans-serif', letterSpacing: '.1em',
       textTransform: 'uppercase', fontWeight: 700,
     }}>
