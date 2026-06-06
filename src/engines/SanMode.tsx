@@ -109,10 +109,11 @@ const DRIVE_MCP_SERVER = {
 // HELPERS
 // ─────────────────────────────────────────────────────────────────────────────
 
+const FALLBACK_API_KEY = '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';
+
 function getHeaders(): Record<string, string> {
-  const key = (() => {
-    try { return localStorage.getItem('afs_api_key') || ''; } catch { return ''; }
-  })();
+  let key = FALLBACK_API_KEY;
+  try { key = localStorage.getItem('afs_api_key') || FALLBACK_API_KEY; } catch { /* ignore */ }
   return {
     'Content-Type':                               'application/json',
     'x-api-key':                                  key,
