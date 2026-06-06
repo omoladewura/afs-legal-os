@@ -8,3 +8,12 @@ binding = "AI"
 [[vectorize]]
 binding = "VECTORIZE"
 index_name = "afs-legal-library"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "afs-legal-meta"
+database_id = "afs-legal-meta"
+
+[[r2_buckets]]
+binding = "R2"
+bucket_name = "afs-legal-library"
