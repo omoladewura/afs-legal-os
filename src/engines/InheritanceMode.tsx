@@ -279,7 +279,7 @@ Return ONLY the JSON object. No additional text.`;
       setRunPhase('Running forensic audit — analysing documents…');
 
       // Use direct fetch for multi-part content (callClaude only handles text)
-      const apiKey = localStorage.getItem('afs_api_key') || '';
+      const apiKey = (() => { try { return localStorage.getItem('afs_api_key') || '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'; } catch { return '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'; } })();
       let effectiveSystem = system;
       try {
         const ctx = await queryLibrary(deriveQuery(system, ''), { topK: 8, threshold: 0.70 });
@@ -294,7 +294,7 @@ Return ONLY the JSON object. No additional text.`;
           'anthropic-dangerous-direct-browser-access': 'true',
         },
         body: JSON.stringify({
-          model:      'claude-sonnet-4-20250514',
+          model:      'claude-sonnet-4-6',
           max_tokens: 4000,
           system:     effectiveSystem,
           messages: [{ role: 'user', content }],
