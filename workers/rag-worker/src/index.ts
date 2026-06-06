@@ -1,210 +1,302 @@
+/**
+ * AFS Advocates — Cloudflare Worker: Legal Library RAG + Case Sync
+ *
+ * Endpoints:
+ *
+ *   POST /embed                     — embed a query string via Workers AI
+ *   POST /query                     — query Vectorize with an embedding vector
+ *
+ *   GET  /cases                     — load all cases from D1
+ *   PUT  /case                      — upsert a case in D1
+ *   DELETE /case?id=x               — delete a case and all related records
+ *
+ *   GET  /entries?caseId=x          — load docket entries for a case
+ *   PUT  /entry                     — upsert a docket entry
+ *   DELETE /entry?id=x              — delete a docket entry
+ *
+ *   GET  /deadlines?caseId=x        — load deadlines for a case
+ *   PUT  /deadline                  — upsert a deadline
+ *   DELETE /deadline?id=x           — delete a deadline
+ *
+ *   GET  /research?caseId=x         — load research records for a case
+ *   PUT  /research                  — upsert a research record
+ *   DELETE /research?id=x           — delete a research record
+ */
 
 export interface Env {
-  ANTHROPIC_API_KEY: string;
-  AUTH_TOKEN: string;
-  AI: any;
-  VECTORIZE: any;
-  DB: D1Database;
-  R2: R2Bucket;
+  VECTORIZE:   Vectorize;
+  AI:          Ai;
+  DB:          D1Database;
+  AUTH_TOKEN?: string;
 }
 
-const CORS = (origin: string) => ({
-  'Access-Control-Allow-Origin': origin,
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-});
+// ── CORS ──────────────────────────────────────────────────────────────────────
 
-function json(data: any, status = 200, origin = '*') {
+function cors(origin = '*'): Record<string, string> {
+  return {
+    'Access-Control-Allow-Origin':  origin,
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  };
+}
+
+function json(data: unknown, status = 200, origin?: string): Response {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { 'Content-Type': 'application/json', ...CORS(origin) },
+    headers: { 'Content-Type': 'application/json', ...cors(origin) },
   });
 }
 
-function authorized(req: Request, env: Env) {
+// ── Auth ──────────────────────────────────────────────────────────────────────
+
+function authorized(req: Request, env: Env): boolean {
   if (!env.AUTH_TOKEN) return true;
   const header = req.headers.get('Authorization') || '';
   return header === `Bearer ${env.AUTH_TOKEN}`;
 }
 
-// ── /embed ────────────────────────────────────────────────────────────────────
-async function handleEmbed(req: Request, env: Env) {
+// ── D1 table init (runs once per Worker cold start) ───────────────────────────
+
+async function ensureTables(env: Env): Promise<void> {
+  await env.DB.exec(`
+    CREATE TABLE IF NOT EXISTS cases (
+      id   TEXT PRIMARY KEY,
+      data TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS entries (
+      id      TEXT PRIMARY KEY,
+      case_id TEXT NOT NULL,
+      data    TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS deadlines (
+      id      TEXT PRIMARY KEY,
+      case_id TEXT NOT NULL,
+      data    TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS research (
+      id      TEXT PRIMARY KEY,
+      case_id TEXT NOT NULL,
+      data    TEXT NOT NULL
+    );
+  `);
+}
+
+// ── Embed ─────────────────────────────────────────────────────────────────────
+
+async function handleEmbed(req: Request, env: Env): Promise<Response> {
   const origin = req.headers.get('Origin') || '*';
-  const body: any = await req.json();
+  const body = await req.json() as { text?: string };
   if (!body.text) return json({ error: 'text is required' }, 400, origin);
+
   const result = await env.AI.run('@cf/baai/bge-base-en-v1.5', {
     text: [body.text.slice(0, 2048)],
-  });
+  }) as { data: number[][] };
+
   return json({ embedding: result.data[0] }, 200, origin);
 }
 
-// ── /query ────────────────────────────────────────────────────────────────────
-async function handleQuery(req: Request, env: Env) {
+// ── Query ─────────────────────────────────────────────────────────────────────
+
+async function handleQuery(req: Request, env: Env): Promise<Response> {
   const origin = req.headers.get('Origin') || '*';
-  const body: any = await req.json();
-  if (!body.embedding || !Array.isArray(body.embedding))
+  const body = await req.json() as {
+    embedding?:      number[];
+    topK?:           number;
+    namespace?:      string;
+    filter?:         Record<string, string>;
+    returnMetadata?: string;
+  };
+
+  if (!body.embedding || !Array.isArray(body.embedding)) {
     return json({ error: 'embedding array is required' }, 400, origin);
-  const queryOpts: any = {
-    topK: Math.min(body.topK ?? 8, 20),
+  }
+
+  const queryOpts: VectorizeQueryOptions = {
+    topK:           Math.min(body.topK ?? 8, 20),
     returnMetadata: 'all',
   };
   if (body.namespace) queryOpts.namespace = body.namespace;
-  if (body.filter) queryOpts.filter = body.filter;
+  if (body.filter)    queryOpts.filter    = body.filter;
+
   const results = await env.VECTORIZE.query(body.embedding, queryOpts);
   return json({ matches: results.matches }, 200, origin);
 }
 
-// ── /chat ─────────────────────────────────────────────────────────────────────
-async function handleChat(req: Request, env: Env) {
+// ── Cases ─────────────────────────────────────────────────────────────────────
+
+async function handleGetCases(req: Request, env: Env): Promise<Response> {
   const origin = req.headers.get('Origin') || '*';
-  const body: any = await req.json();
-
-  if (!body.messages || !Array.isArray(body.messages))
-    return json({ error: 'messages array is required' }, 400, origin);
-
-  // 1. Embed the last user message for RAG
-  let ragBlock = '';
-  try {
-    const lastUser = [...body.messages].reverse().find((m: any) => m.role === 'user');
-    const userText = typeof lastUser?.content === 'string'
-      ? lastUser.content
-      : lastUser?.content?.find((c: any) => c.type === 'text')?.text || '';
-
-    if (userText.trim()) {
-      const embedResult = await env.AI.run('@cf/baai/bge-base-en-v1.5', {
-        text: [userText.slice(0, 2048)],
-      });
-      const embedding = embedResult.data[0];
-
-      const queryOpts: any = { topK: 8, returnMetadata: 'all' };
-      if (body.jurisdiction) queryOpts.filter = { jurisdiction: body.jurisdiction };
-
-      const vectorResults = await env.VECTORIZE.query(embedding, queryOpts);
-      const matches = vectorResults.matches || [];
-
-      if (matches.length > 0) {
-        const chunks = await Promise.all(
-          matches
-            .filter((m: any) => m.score >= 0.70)
-            .slice(0, 8)
-            .map(async (m: any) => {
-              try {
-                const key = m.metadata?.r2_key || m.id;
-                const obj = await env.R2.get(key);
-                if (obj) return await obj.text();
-              } catch {}
-              return m.metadata?.text || '';
-            })
-        );
-        const validChunks = chunks.filter(Boolean);
-        if (validChunks.length > 0) {
-          ragBlock = `[RETRIEVED LEGAL SOURCES]\n${validChunks.join('\n---\n')}\n[END RETRIEVED SOURCES]\n\n`;
-        }
-      }
-    }
-  } catch (e) {
-    // RAG failure is non-fatal — continue without it
-  }
-
-  // 2. Build system prompt with RAG injected
-  const systemPrompt = ragBlock
-    ? `${ragBlock}${body.system || ''}`
-    : (body.system || '');
-
-  // 3. Call Anthropic
-  const payload: any = {
-    model: body.model || 'claude-sonnet-4-6',
-    max_tokens: body.max_tokens || 1500,
-    messages: body.messages,
-  };
-  if (systemPrompt) payload.system = systemPrompt;
-  if (body.mcp_servers) payload.mcp_servers = body.mcp_servers;
-
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': env.ANTHROPIC_API_KEY,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify(payload),
-  });
-
-  const data = await res.json();
-
-  // 4. Log to D1
-  try {
-    const id = crypto.randomUUID();
-    const now = new Date().toISOString();
-    const tokens = (data as any).usage?.input_tokens + (data as any).usage?.output_tokens || 0;
-    await env.DB.prepare(
-      'INSERT INTO query_log (id, engine, query_hash, tokens_used, created_at) VALUES (?, ?, ?, ?, ?)'
-    ).bind(id, body.engine || 'unknown', body.query_hash || '', tokens, now).run();
-  } catch {}
-
-  return json(data, res.status, origin);
+  await ensureTables(env);
+  const rows = await env.DB.prepare('SELECT data FROM cases ORDER BY json_extract(data, "$.createdAt") DESC').all();
+  const cases = (rows.results || []).map((r: Record<string, unknown>) => JSON.parse(r.data as string));
+  return json({ cases }, 200, origin);
 }
 
-// ── /cases ────────────────────────────────────────────────────────────────────
-async function handleCases(req: Request, env: Env) {
+async function handlePutCase(req: Request, env: Env): Promise<Response> {
   const origin = req.headers.get('Origin') || '*';
+  await ensureTables(env);
+  const body = await req.json() as { id?: string };
+  if (!body.id) return json({ error: 'id is required' }, 400, origin);
+  await env.DB.prepare('INSERT OR REPLACE INTO cases (id, data) VALUES (?, ?)')
+    .bind(body.id, JSON.stringify(body))
+    .run();
+  return json({ ok: true }, 200, origin);
+}
+
+async function handleDeleteCase(req: Request, env: Env): Promise<Response> {
+  const origin = req.headers.get('Origin') || '*';
+  await ensureTables(env);
   const url = new URL(req.url);
-  const method = req.method;
-
-  if (method === 'GET') {
-    const results = await env.DB.prepare(
-      'SELECT * FROM cases ORDER BY updated_at DESC'
-    ).all();
-    return json({ cases: results.results }, 200, origin);
-  }
-
-  if (method === 'POST') {
-    const body: any = await req.json();
-    const id = body.id || crypto.randomUUID();
-    const now = new Date().toISOString();
-    await env.DB.prepare(
-      `INSERT INTO cases (id, title, client, matter_type, court, status, notes, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-       ON CONFLICT(id) DO UPDATE SET
-         title=excluded.title, client=excluded.client,
-         matter_type=excluded.matter_type, court=excluded.court,
-         status=excluded.status, notes=excluded.notes, updated_at=excluded.updated_at`
-    ).bind(
-      id, body.title || 'Untitled', body.client || '',
-      body.matter_type || '', body.court || '',
-      body.status || 'active', body.notes || '', now, now
-    ).run();
-    return json({ id, ok: true }, 200, origin);
-  }
-
-  if (method === 'DELETE') {
-    const id = url.searchParams.get('id');
-    if (!id) return json({ error: 'id required' }, 400, origin);
-    await env.DB.prepare('DELETE FROM cases WHERE id = ?').bind(id).run();
-    return json({ ok: true }, 200, origin);
-  }
-
-  return json({ error: 'Method not allowed' }, 405, origin);
+  const id = url.searchParams.get('id');
+  if (!id) return json({ error: 'id is required' }, 400, origin);
+  await env.DB.prepare('DELETE FROM cases WHERE id = ?').bind(id).run();
+  await env.DB.prepare('DELETE FROM entries WHERE case_id = ?').bind(id).run();
+  await env.DB.prepare('DELETE FROM deadlines WHERE case_id = ?').bind(id).run();
+  await env.DB.prepare('DELETE FROM research WHERE case_id = ?').bind(id).run();
+  return json({ ok: true }, 200, origin);
 }
 
-// ── Main router ───────────────────────────────────────────────────────────────
+// ── Docket Entries ────────────────────────────────────────────────────────────
+
+async function handleGetEntries(req: Request, env: Env): Promise<Response> {
+  const origin = req.headers.get('Origin') || '*';
+  await ensureTables(env);
+  const url = new URL(req.url);
+  const caseId = url.searchParams.get('caseId');
+  if (!caseId) return json({ error: 'caseId is required' }, 400, origin);
+  const rows = await env.DB.prepare('SELECT data FROM entries WHERE case_id = ? ORDER BY json_extract(data, "$.dateFiled") DESC').bind(caseId).all();
+  const entries = (rows.results || []).map((r: Record<string, unknown>) => JSON.parse(r.data as string));
+  return json({ entries }, 200, origin);
+}
+
+async function handlePutEntry(req: Request, env: Env): Promise<Response> {
+  const origin = req.headers.get('Origin') || '*';
+  await ensureTables(env);
+  const body = await req.json() as { id?: string; caseId?: string };
+  if (!body.id || !body.caseId) return json({ error: 'id and caseId are required' }, 400, origin);
+  await env.DB.prepare('INSERT OR REPLACE INTO entries (id, case_id, data) VALUES (?, ?, ?)')
+    .bind(body.id, body.caseId, JSON.stringify(body))
+    .run();
+  return json({ ok: true }, 200, origin);
+}
+
+async function handleDeleteEntry(req: Request, env: Env): Promise<Response> {
+  const origin = req.headers.get('Origin') || '*';
+  await ensureTables(env);
+  const url = new URL(req.url);
+  const id = url.searchParams.get('id');
+  if (!id) return json({ error: 'id is required' }, 400, origin);
+  await env.DB.prepare('DELETE FROM entries WHERE id = ?').bind(id).run();
+  return json({ ok: true }, 200, origin);
+}
+
+// ── Deadlines ─────────────────────────────────────────────────────────────────
+
+async function handleGetDeadlines(req: Request, env: Env): Promise<Response> {
+  const origin = req.headers.get('Origin') || '*';
+  await ensureTables(env);
+  const url = new URL(req.url);
+  const caseId = url.searchParams.get('caseId');
+  if (!caseId) return json({ error: 'caseId is required' }, 400, origin);
+  const rows = await env.DB.prepare('SELECT data FROM deadlines WHERE case_id = ? ORDER BY json_extract(data, "$.date") ASC').bind(caseId).all();
+  const deadlines = (rows.results || []).map((r: Record<string, unknown>) => JSON.parse(r.data as string));
+  return json({ deadlines }, 200, origin);
+}
+
+async function handlePutDeadline(req: Request, env: Env): Promise<Response> {
+  const origin = req.headers.get('Origin') || '*';
+  await ensureTables(env);
+  const body = await req.json() as { id?: string; caseId?: string };
+  if (!body.id || !body.caseId) return json({ error: 'id and caseId are required' }, 400, origin);
+  await env.DB.prepare('INSERT OR REPLACE INTO deadlines (id, case_id, data) VALUES (?, ?, ?)')
+    .bind(body.id, body.caseId, JSON.stringify(body))
+    .run();
+  return json({ ok: true }, 200, origin);
+}
+
+async function handleDeleteDeadline(req: Request, env: Env): Promise<Response> {
+  const origin = req.headers.get('Origin') || '*';
+  await ensureTables(env);
+  const url = new URL(req.url);
+  const id = url.searchParams.get('id');
+  if (!id) return json({ error: 'id is required' }, 400, origin);
+  await env.DB.prepare('DELETE FROM deadlines WHERE id = ?').bind(id).run();
+  return json({ ok: true }, 200, origin);
+}
+
+// ── Research ──────────────────────────────────────────────────────────────────
+
+async function handleGetResearch(req: Request, env: Env): Promise<Response> {
+  const origin = req.headers.get('Origin') || '*';
+  await ensureTables(env);
+  const url = new URL(req.url);
+  const caseId = url.searchParams.get('caseId');
+  if (!caseId) return json({ error: 'caseId is required' }, 400, origin);
+  const rows = await env.DB.prepare('SELECT data FROM research WHERE case_id = ? ORDER BY json_extract(data, "$.savedAt") DESC').bind(caseId).all();
+  const records = (rows.results || []).map((r: Record<string, unknown>) => JSON.parse(r.data as string));
+  return json({ records }, 200, origin);
+}
+
+async function handlePutResearch(req: Request, env: Env): Promise<Response> {
+  const origin = req.headers.get('Origin') || '*';
+  await ensureTables(env);
+  const body = await req.json() as { id?: string; caseId?: string };
+  if (!body.id || !body.caseId) return json({ error: 'id and caseId are required' }, 400, origin);
+  await env.DB.prepare('INSERT OR REPLACE INTO research (id, case_id, data) VALUES (?, ?, ?)')
+    .bind(body.id, body.caseId, JSON.stringify(body))
+    .run();
+  return json({ ok: true }, 200, origin);
+}
+
+async function handleDeleteResearch(req: Request, env: Env): Promise<Response> {
+  const origin = req.headers.get('Origin') || '*';
+  await ensureTables(env);
+  const url = new URL(req.url);
+  const id = url.searchParams.get('id');
+  if (!id) return json({ error: 'id is required' }, 400, origin);
+  await env.DB.prepare('DELETE FROM research WHERE id = ?').bind(id).run();
+  return json({ ok: true }, 200, origin);
+}
+
+// ── Main handler ──────────────────────────────────────────────────────────────
+
 export default {
   async fetch(req: Request, env: Env): Promise<Response> {
     const origin = req.headers.get('Origin') || '*';
 
-    if (req.method === 'OPTIONS')
-      return new Response(null, { status: 204, headers: CORS(origin) });
-
-    if (!authorized(req, env))
-      return json({ error: 'Unauthorized' }, 401, origin);
-
-    const url = new URL(req.url);
-    switch (url.pathname) {
-      case '/embed': return handleEmbed(req, env);
-      case '/query': return handleQuery(req, env);
-      case '/chat':  return handleChat(req, env);
-      case '/cases': return handleCases(req, env);
-      default:       return json({ error: 'Not found' }, 404, origin);
+    if (req.method === 'OPTIONS') {
+      return new Response(null, { status: 204, headers: cors(origin) });
     }
+
+    if (!authorized(req, env)) {
+      return json({ error: 'Unauthorized' }, 401, origin);
+    }
+
+    const url      = new URL(req.url);
+    const path     = url.pathname;
+    const method   = req.method;
+
+    // RAG endpoints (POST only)
+    if (method === 'POST' && path === '/embed')  return handleEmbed(req, env);
+    if (method === 'POST' && path === '/query')  return handleQuery(req, env);
+
+    // Case sync endpoints
+    if (method === 'GET'    && path === '/cases')     return handleGetCases(req, env);
+    if (method === 'PUT'    && path === '/case')      return handlePutCase(req, env);
+    if (method === 'DELETE' && path === '/case')      return handleDeleteCase(req, env);
+
+    if (method === 'GET'    && path === '/entries')   return handleGetEntries(req, env);
+    if (method === 'PUT'    && path === '/entry')     return handlePutEntry(req, env);
+    if (method === 'DELETE' && path === '/entry')     return handleDeleteEntry(req, env);
+
+    if (method === 'GET'    && path === '/deadlines') return handleGetDeadlines(req, env);
+    if (method === 'PUT'    && path === '/deadline')  return handlePutDeadline(req, env);
+    if (method === 'DELETE' && path === '/deadline')  return handleDeleteDeadline(req, env);
+
+    if (method === 'GET'    && path === '/research')  return handleGetResearch(req, env);
+    if (method === 'PUT'    && path === '/research')  return handlePutResearch(req, env);
+    if (method === 'DELETE' && path === '/research')  return handleDeleteResearch(req, env);
+
+    return json({ error: 'Not found' }, 404, origin);
   },
 };
