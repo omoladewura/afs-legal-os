@@ -1,38 +1,41 @@
 /**
- * AFS Advocates — Cloudflare Worker: Legal Library RAG
+ * AFS Advocates — Cloudflare Worker: Legal Library RAG + Case Sync
  *
- * Exposes two endpoints called by the frontend library.ts service:
+ * Endpoints:
  *
- *   POST /embed  — embed a query string using Workers AI
- *   POST /query  — query Vectorize with an embedding vector
+ *   POST /embed                     — embed a query string via Workers AI
+ *   POST /query                     — query Vectorize with an embedding vector
  *
- * Deploy with:
- *   wrangler deploy
+ *   GET  /cases                     — load all cases from D1
+ *   PUT  /case                      — upsert a case in D1
+ *   DELETE /case?id=x               — delete a case and all related records
  *
- * wrangler.toml bindings required:
- *   [[vectorize]]
- *   binding = "VECTORIZE"
- *   index_name = "afs-legal-library"
+ *   GET  /entries?caseId=x          — load docket entries for a case
+ *   PUT  /entry                     — upsert a docket entry
+ *   DELETE /entry?id=x              — delete a docket entry
  *
- *   [ai]
- *   binding = "AI"
+ *   GET  /deadlines?caseId=x        — load deadlines for a case
+ *   PUT  /deadline                  — upsert a deadline
+ *   DELETE /deadline?id=x           — delete a deadline
  *
- * Optional: set an AUTH_TOKEN secret for Bearer auth:
- *   wrangler secret put AUTH_TOKEN
+ *   GET  /research?caseId=x         — load research records for a case
+ *   PUT  /research                  — upsert a research record
+ *   DELETE /research?id=x           — delete a research record
  */
 
 export interface Env {
-  VECTORIZE:  Vectorize;
-  AI:         Ai;
-  AUTH_TOKEN?: string;   // optional — if set, all requests must bear this token
+  VECTORIZE:   Vectorize;
+  AI:          Ai;
+  DB:          D1Database;
+  AUTH_TOKEN?: string;
 }
 
-// ── CORS headers ──────────────────────────────────────────────────────────────
+// ── CORS ──────────────────────────────────────────────────────────────────────
 
 function cors(origin = '*'): Record<string, string> {
   return {
     'Access-Control-Allow-Origin':  origin,
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
   };
 }
@@ -40,47 +43,62 @@ function cors(origin = '*'): Record<string, string> {
 function json(data: unknown, status = 200, origin?: string): Response {
   return new Response(JSON.stringify(data), {
     status,
-    headers: {
-      'Content-Type': 'application/json',
-      ...cors(origin),
-    },
+    headers: { 'Content-Type': 'application/json', ...cors(origin) },
   });
 }
 
-// ── Auth check ────────────────────────────────────────────────────────────────
+// ── Auth ──────────────────────────────────────────────────────────────────────
 
 function authorized(req: Request, env: Env): boolean {
-  if (!env.AUTH_TOKEN) return true;   // no token configured → open
+  if (!env.AUTH_TOKEN) return true;
   const header = req.headers.get('Authorization') || '';
   return header === `Bearer ${env.AUTH_TOKEN}`;
+}
+
+// ── D1 table init (runs once per Worker cold start) ───────────────────────────
+
+async function ensureTables(env: Env): Promise<void> {
+  await env.DB.exec(`
+    CREATE TABLE IF NOT EXISTS cases (
+      id   TEXT PRIMARY KEY,
+      data TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS entries (
+      id      TEXT PRIMARY KEY,
+      case_id TEXT NOT NULL,
+      data    TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS deadlines (
+      id      TEXT PRIMARY KEY,
+      case_id TEXT NOT NULL,
+      data    TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS research (
+      id      TEXT PRIMARY KEY,
+      case_id TEXT NOT NULL,
+      data    TEXT NOT NULL
+    );
+  `);
 }
 
 // ── Embed ─────────────────────────────────────────────────────────────────────
 
 async function handleEmbed(req: Request, env: Env): Promise<Response> {
   const origin = req.headers.get('Origin') || '*';
-
   const body = await req.json() as { text?: string };
   if (!body.text) return json({ error: 'text is required' }, 400, origin);
 
-  const text = body.text.slice(0, 2048);  // cap for embedding model
-
-  // Workers AI — BGE multilingual text embedding
-  // This model produces 768-dim vectors; set your Vectorize index dimensions to 768.
   const result = await env.AI.run('@cf/baai/bge-base-en-v1.5', {
-    text: [text],
+    text: [body.text.slice(0, 2048)],
   }) as { data: number[][] };
 
-  const embedding = result.data[0];
-
-  return json({ embedding }, 200, origin);
+  return json({ embedding: result.data[0] }, 200, origin);
 }
 
 // ── Query ─────────────────────────────────────────────────────────────────────
 
 async function handleQuery(req: Request, env: Env): Promise<Response> {
   const origin = req.headers.get('Origin') || '*';
-
   const body = await req.json() as {
     embedding?:      number[];
     topK?:           number;
@@ -97,13 +115,147 @@ async function handleQuery(req: Request, env: Env): Promise<Response> {
     topK:           Math.min(body.topK ?? 8, 20),
     returnMetadata: 'all',
   };
-
   if (body.namespace) queryOpts.namespace = body.namespace;
   if (body.filter)    queryOpts.filter    = body.filter;
 
   const results = await env.VECTORIZE.query(body.embedding, queryOpts);
-
   return json({ matches: results.matches }, 200, origin);
+}
+
+// ── Cases ─────────────────────────────────────────────────────────────────────
+
+async function handleGetCases(req: Request, env: Env): Promise<Response> {
+  const origin = req.headers.get('Origin') || '*';
+  await ensureTables(env);
+  const rows = await env.DB.prepare('SELECT data FROM cases ORDER BY json_extract(data, "$.createdAt") DESC').all();
+  const cases = (rows.results || []).map((r: Record<string, unknown>) => JSON.parse(r.data as string));
+  return json({ cases }, 200, origin);
+}
+
+async function handlePutCase(req: Request, env: Env): Promise<Response> {
+  const origin = req.headers.get('Origin') || '*';
+  await ensureTables(env);
+  const body = await req.json() as { id?: string };
+  if (!body.id) return json({ error: 'id is required' }, 400, origin);
+  await env.DB.prepare('INSERT OR REPLACE INTO cases (id, data) VALUES (?, ?)')
+    .bind(body.id, JSON.stringify(body))
+    .run();
+  return json({ ok: true }, 200, origin);
+}
+
+async function handleDeleteCase(req: Request, env: Env): Promise<Response> {
+  const origin = req.headers.get('Origin') || '*';
+  await ensureTables(env);
+  const url = new URL(req.url);
+  const id = url.searchParams.get('id');
+  if (!id) return json({ error: 'id is required' }, 400, origin);
+  await env.DB.prepare('DELETE FROM cases WHERE id = ?').bind(id).run();
+  await env.DB.prepare('DELETE FROM entries WHERE case_id = ?').bind(id).run();
+  await env.DB.prepare('DELETE FROM deadlines WHERE case_id = ?').bind(id).run();
+  await env.DB.prepare('DELETE FROM research WHERE case_id = ?').bind(id).run();
+  return json({ ok: true }, 200, origin);
+}
+
+// ── Docket Entries ────────────────────────────────────────────────────────────
+
+async function handleGetEntries(req: Request, env: Env): Promise<Response> {
+  const origin = req.headers.get('Origin') || '*';
+  await ensureTables(env);
+  const url = new URL(req.url);
+  const caseId = url.searchParams.get('caseId');
+  if (!caseId) return json({ error: 'caseId is required' }, 400, origin);
+  const rows = await env.DB.prepare('SELECT data FROM entries WHERE case_id = ? ORDER BY json_extract(data, "$.dateFiled") DESC').bind(caseId).all();
+  const entries = (rows.results || []).map((r: Record<string, unknown>) => JSON.parse(r.data as string));
+  return json({ entries }, 200, origin);
+}
+
+async function handlePutEntry(req: Request, env: Env): Promise<Response> {
+  const origin = req.headers.get('Origin') || '*';
+  await ensureTables(env);
+  const body = await req.json() as { id?: string; caseId?: string };
+  if (!body.id || !body.caseId) return json({ error: 'id and caseId are required' }, 400, origin);
+  await env.DB.prepare('INSERT OR REPLACE INTO entries (id, case_id, data) VALUES (?, ?, ?)')
+    .bind(body.id, body.caseId, JSON.stringify(body))
+    .run();
+  return json({ ok: true }, 200, origin);
+}
+
+async function handleDeleteEntry(req: Request, env: Env): Promise<Response> {
+  const origin = req.headers.get('Origin') || '*';
+  await ensureTables(env);
+  const url = new URL(req.url);
+  const id = url.searchParams.get('id');
+  if (!id) return json({ error: 'id is required' }, 400, origin);
+  await env.DB.prepare('DELETE FROM entries WHERE id = ?').bind(id).run();
+  return json({ ok: true }, 200, origin);
+}
+
+// ── Deadlines ─────────────────────────────────────────────────────────────────
+
+async function handleGetDeadlines(req: Request, env: Env): Promise<Response> {
+  const origin = req.headers.get('Origin') || '*';
+  await ensureTables(env);
+  const url = new URL(req.url);
+  const caseId = url.searchParams.get('caseId');
+  if (!caseId) return json({ error: 'caseId is required' }, 400, origin);
+  const rows = await env.DB.prepare('SELECT data FROM deadlines WHERE case_id = ? ORDER BY json_extract(data, "$.date") ASC').bind(caseId).all();
+  const deadlines = (rows.results || []).map((r: Record<string, unknown>) => JSON.parse(r.data as string));
+  return json({ deadlines }, 200, origin);
+}
+
+async function handlePutDeadline(req: Request, env: Env): Promise<Response> {
+  const origin = req.headers.get('Origin') || '*';
+  await ensureTables(env);
+  const body = await req.json() as { id?: string; caseId?: string };
+  if (!body.id || !body.caseId) return json({ error: 'id and caseId are required' }, 400, origin);
+  await env.DB.prepare('INSERT OR REPLACE INTO deadlines (id, case_id, data) VALUES (?, ?, ?)')
+    .bind(body.id, body.caseId, JSON.stringify(body))
+    .run();
+  return json({ ok: true }, 200, origin);
+}
+
+async function handleDeleteDeadline(req: Request, env: Env): Promise<Response> {
+  const origin = req.headers.get('Origin') || '*';
+  await ensureTables(env);
+  const url = new URL(req.url);
+  const id = url.searchParams.get('id');
+  if (!id) return json({ error: 'id is required' }, 400, origin);
+  await env.DB.prepare('DELETE FROM deadlines WHERE id = ?').bind(id).run();
+  return json({ ok: true }, 200, origin);
+}
+
+// ── Research ──────────────────────────────────────────────────────────────────
+
+async function handleGetResearch(req: Request, env: Env): Promise<Response> {
+  const origin = req.headers.get('Origin') || '*';
+  await ensureTables(env);
+  const url = new URL(req.url);
+  const caseId = url.searchParams.get('caseId');
+  if (!caseId) return json({ error: 'caseId is required' }, 400, origin);
+  const rows = await env.DB.prepare('SELECT data FROM research WHERE case_id = ? ORDER BY json_extract(data, "$.savedAt") DESC').bind(caseId).all();
+  const records = (rows.results || []).map((r: Record<string, unknown>) => JSON.parse(r.data as string));
+  return json({ records }, 200, origin);
+}
+
+async function handlePutResearch(req: Request, env: Env): Promise<Response> {
+  const origin = req.headers.get('Origin') || '*';
+  await ensureTables(env);
+  const body = await req.json() as { id?: string; caseId?: string };
+  if (!body.id || !body.caseId) return json({ error: 'id and caseId are required' }, 400, origin);
+  await env.DB.prepare('INSERT OR REPLACE INTO research (id, case_id, data) VALUES (?, ?, ?)')
+    .bind(body.id, body.caseId, JSON.stringify(body))
+    .run();
+  return json({ ok: true }, 200, origin);
+}
+
+async function handleDeleteResearch(req: Request, env: Env): Promise<Response> {
+  const origin = req.headers.get('Origin') || '*';
+  await ensureTables(env);
+  const url = new URL(req.url);
+  const id = url.searchParams.get('id');
+  if (!id) return json({ error: 'id is required' }, 400, origin);
+  await env.DB.prepare('DELETE FROM research WHERE id = ?').bind(id).run();
+  return json({ ok: true }, 200, origin);
 }
 
 // ── Main handler ──────────────────────────────────────────────────────────────
@@ -112,25 +264,39 @@ export default {
   async fetch(req: Request, env: Env): Promise<Response> {
     const origin = req.headers.get('Origin') || '*';
 
-    // Preflight
     if (req.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: cors(origin) });
-    }
-
-    if (req.method !== 'POST') {
-      return json({ error: 'Method not allowed' }, 405, origin);
     }
 
     if (!authorized(req, env)) {
       return json({ error: 'Unauthorized' }, 401, origin);
     }
 
-    const url = new URL(req.url);
+    const url      = new URL(req.url);
+    const path     = url.pathname;
+    const method   = req.method;
 
-    switch (url.pathname) {
-      case '/embed': return handleEmbed(req, env);
-      case '/query': return handleQuery(req, env);
-      default:       return json({ error: 'Not found' }, 404, origin);
-    }
+    // RAG endpoints (POST only)
+    if (method === 'POST' && path === '/embed')  return handleEmbed(req, env);
+    if (method === 'POST' && path === '/query')  return handleQuery(req, env);
+
+    // Case sync endpoints
+    if (method === 'GET'    && path === '/cases')     return handleGetCases(req, env);
+    if (method === 'PUT'    && path === '/case')      return handlePutCase(req, env);
+    if (method === 'DELETE' && path === '/case')      return handleDeleteCase(req, env);
+
+    if (method === 'GET'    && path === '/entries')   return handleGetEntries(req, env);
+    if (method === 'PUT'    && path === '/entry')     return handlePutEntry(req, env);
+    if (method === 'DELETE' && path === '/entry')     return handleDeleteEntry(req, env);
+
+    if (method === 'GET'    && path === '/deadlines') return handleGetDeadlines(req, env);
+    if (method === 'PUT'    && path === '/deadline')  return handlePutDeadline(req, env);
+    if (method === 'DELETE' && path === '/deadline')  return handleDeleteDeadline(req, env);
+
+    if (method === 'GET'    && path === '/research')  return handleGetResearch(req, env);
+    if (method === 'PUT'    && path === '/research')  return handlePutResearch(req, env);
+    if (method === 'DELETE' && path === '/research')  return handleDeleteResearch(req, env);
+
+    return json({ error: 'Not found' }, 404, origin);
   },
 };
