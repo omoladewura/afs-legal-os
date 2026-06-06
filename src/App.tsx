@@ -1,10 +1,21 @@
 /**
  * AFS Advocates — Root App Component
+ *
+ * Top-level view router. Renders the correct page based on app state.
+ *
+ * View flow:
+ *   'gate'     → PasswordGate
+ *   'home'     → HomePage (3 entry points: Docket, SAN, Billions)
+ *   'engine'   → CaseDashboard (active case workspace)
+ *   'resolver' → ResearchResolver (standalone tool)
+ *   'san'      → SanMode (standalone)
  */
 
 import { lazy, Suspense, useEffect } from 'react';
 import { useAppStore } from '@/state/appStore';
 import { migrateFromLocalStorage } from '@/storage/migrate';
+import { db } from '@/storage/db';
+import { saveCase } from '@/storage/helpers';
 import { SiteNav } from '@/components/layout/SiteNav';
 import { CaseDocket } from '@/components/docket/CaseDocket';
 import { PasswordGate } from '@/pages/PasswordGate';
@@ -17,10 +28,21 @@ import { T } from '@/constants/tokens';
 const SanMode = lazy(() => import('@/engines/SanMode').then(m => ({ default: m.SanMode })));
 
 export function App() {
-  const { view, docketOpen, setView, activeCase } = useAppStore();
+  const { view, docketOpen, setView } = useAppStore();
 
   useEffect(() => {
     migrateFromLocalStorage().catch(console.error);
+
+    // One-time migration: push any existing IndexedDB cases up to D1
+    // Runs silently — if D1 is unreachable it just does nothing
+    const D1_MIGRATED_KEY = 'afs_d1_migrated_v1';
+    if (!localStorage.getItem(D1_MIGRATED_KEY)) {
+      db.cases.toArray().then(async (cases) => {
+        if (cases.length === 0) return;
+        await Promise.all(cases.map(c => saveCase(c)));
+        localStorage.setItem(D1_MIGRATED_KEY, '1');
+      }).catch(() => {});
+    }
   }, []);
 
   return (
@@ -47,31 +69,7 @@ export function App() {
                 >
                   ← Back
                 </button>
-                {activeCase
-                  ? <SanMode activeCase={activeCase} />
-                  : (
-                    <div style={{ padding: 32, textAlign: 'center' }}>
-                      <p style={{ color: T.goldL, fontFamily: "'Cormorant Garamond', serif", fontSize: 24, marginBottom: 12 }}>
-                        SAN Mode
-                      </p>
-                      <p style={{ color: T.mute, fontFamily: 'Inter, sans-serif', fontSize: 14, marginBottom: 24 }}>
-                        SAN Mode works best with an active case. Open a case from the docket first, then access SAN Mode from inside the case.
-                      </p>
-                      <button
-                        onClick={() => { setView('home'); setTimeout(() => useAppStore.getState().setDocketOpen(true), 100); }}
-                        style={{
-                          background: `linear-gradient(135deg,#c4a030,#a07820)`,
-                          color: '#05050c', border: 'none', borderRadius: 6,
-                          padding: '11px 22px', fontSize: 15,
-                          fontFamily: "'Cormorant Garamond', serif",
-                          cursor: 'pointer', fontWeight: 600,
-                        }}
-                      >
-                        ⚖ Open Case Docket
-                      </button>
-                    </div>
-                  )
-                }
+                <SanMode activeCase={null} />
               </div>
             </Suspense>
           )}
