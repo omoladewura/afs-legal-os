@@ -1,6 +1,6 @@
 import type { ApiMessage, ApiRequestOptions } from '@/types';
 
-export const CLAUDE_MODEL = 'claude-sonnet-4-6';
+export const CLAUDE_MODEL = 'claude-sonnet-4-5';
 
 const WORKER_URL = 'https://afs-legal-rag.sobamboadeshupo.workers.dev';
 const AUTH_TOKEN = 'AFS2026SecureToken99';
