@@ -2,7 +2,7 @@ import type { ApiMessage, ApiRequestOptions } from '@/types';
 
 export const CLAUDE_MODEL = 'claude-sonnet-4-6';
 
-const WORKER_URL = 'https://afs-legal-rag.sobambodeshupo.workers.dev';
+const WORKER_URL = 'https://afs-legal-rag.sobamboadeshupo.workers.dev';
 const AUTH_TOKEN = 'AFS2026SecureToken99';
 
 export function saveApiKey(key: string): void {
