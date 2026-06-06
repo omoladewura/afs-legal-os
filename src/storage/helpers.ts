@@ -1,19 +1,16 @@
-/**
- * AFS Advocates — Storage Helpers
- *
- * Clean async functions for every storage operation.
- * Components call these — never the db object directly.
- * This layer is where storage errors are caught and logged.
- *
- * If a function returns null / [] / false, the component should
- * show a storage error message rather than silently failing.
- */
-
 import { db } from './db';
 import type { Case, DocketEntry, Deadline, EvidenceItem, ArgumentVersion } from '@/types';
 import type { BlindSpotRecord, ResearchRecord } from './db';
 
-// ── ID generators ──────────────────────────────────────────────────────────────
+const WORKER_URL   = 'https://afs-legal-rag.sobambodeshupo.workers.dev';
+const WORKER_TOKEN = 'AFS2026SecureToken99';
+
+function workerHeaders(): Record<string, string> {
+  return {
+    'Content-Type':  'application/json',
+    'Authorization': `Bearer ${WORKER_TOKEN}`,
+  };
+}
 
 export function uid(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -23,9 +20,36 @@ export function cid(): string {
   return 'c_' + uid();
 }
 
-// ── Cases ─────────────────────────────────────────────────────────────────────
+// ── Cases — D1 + IndexedDB sync ───────────────────────────────────────────────
 
 export async function loadCases(): Promise<Case[]> {
+  try {
+    // Try D1 first (cross-device source of truth)
+    const res = await fetch(`${WORKER_URL}/cases`, {
+      method:  'GET',
+      headers: workerHeaders(),
+    });
+    if (res.ok) {
+      const data = await res.json() as { cases: any[] };
+      const cases: Case[] = data.cases.map(r => ({
+        id:          r.id,
+        title:       r.title,
+        client:      r.client || '',
+        matterType:  r.matter_type || '',
+        court:       r.court || '',
+        status:      r.status || 'active',
+        notes:       r.notes || '',
+        createdAt:   r.created_at,
+        updatedAt:   r.updated_at,
+      }));
+      // Sync to local IndexedDB
+      await db.cases.bulkPut(cases);
+      return cases;
+    }
+  } catch (e) {
+    console.warn('[Storage] D1 loadCases failed, falling back to IndexedDB', e);
+  }
+  // Fallback to local
   try {
     return await db.cases.orderBy('createdAt').reverse().toArray();
   } catch (e) {
@@ -45,7 +69,22 @@ export async function loadCase(id: string): Promise<Case | null> {
 
 export async function saveCase(c: Case): Promise<boolean> {
   try {
+    // Save to IndexedDB immediately
     await db.cases.put(c);
+    // Sync to D1
+    await fetch(`${WORKER_URL}/cases`, {
+      method:  'POST',
+      headers: workerHeaders(),
+      body:    JSON.stringify({
+        id:          c.id,
+        title:       c.title,
+        client:      c.client,
+        matter_type: c.matterType,
+        court:       c.court,
+        status:      c.status,
+        notes:       c.notes,
+      }),
+    });
     return true;
   } catch (e) {
     console.error('[Storage] saveCase failed', e);
@@ -72,6 +111,11 @@ export async function deleteCase(id: string): Promise<boolean> {
         await db.arg_versions.where('caseId').equals(id).delete();
       }
     );
+    // Delete from D1
+    await fetch(`${WORKER_URL}/cases?id=${id}`, {
+      method:  'DELETE',
+      headers: workerHeaders(),
+    });
     return true;
   } catch (e) {
     console.error('[Storage] deleteCase failed', e);
@@ -173,7 +217,7 @@ export async function saveEvidenceFile(id: string, data: string): Promise<boolea
     await db.evidence_files.put({ id, data });
     return true;
   } catch (e) {
-    console.error('[Storage] saveEvidenceFile failed — storage may be full', e);
+    console.error('[Storage] saveEvidenceFile failed', e);
     return false;
   }
 }
@@ -213,12 +257,7 @@ export async function loadBlindSpot<T>(caseId: string, module: string, fallback:
 
 export async function saveBlindSpot(caseId: string, module: string, data: unknown): Promise<boolean> {
   try {
-    await db.blind_spots.put({
-      id: `afs_bs_${module}_${caseId}`,
-      caseId,
-      module,
-      data,
-    });
+    await db.blind_spots.put({ id: `afs_bs_${module}_${caseId}`, caseId, module, data });
     return true;
   } catch (e) {
     console.error('[Storage] saveBlindSpot failed', e);
