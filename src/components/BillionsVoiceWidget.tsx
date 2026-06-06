@@ -247,14 +247,17 @@ const P = {
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function apiCall(systemPrompt: string, userContent: string, maxTokens = 1800): Promise<string> {
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
+  const response = await fetch('https://afs-legal-rag.sobambodeshupo.workers.dev/chat', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type':  'application/json',
+      'Authorization': 'Bearer AFS2026SecureToken99',
+    },
     body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
+      model:      'claude-sonnet-4-6',
       max_tokens: maxTokens,
-      system: systemPrompt,
-      messages: [{ role: 'user', content: userContent }],
+      system:     systemPrompt,
+      messages:   [{ role: 'user', content: userContent }],
     }),
   });
   const data = await response.json();
