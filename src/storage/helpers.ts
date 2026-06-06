@@ -1,16 +1,91 @@
+/**
+ * AFS Advocates — Storage Helpers
+ *
+ * Dual-write storage: every save goes to both IndexedDB (local) and D1
+ * via the Cloudflare Worker (cloud). Every load tries D1 first; if the
+ * Worker is unreachable (offline / cold start), IndexedDB is used silently.
+ *
+ * This means:
+ *  - Open on phone → cases load from D1
+ *  - Open on laptop → same cases, automatically
+ *  - Go offline → IndexedDB keeps everything working
+ *  - Come back online → next save syncs back to D1
+ */
+
 import { db } from './db';
 import type { Case, DocketEntry, Deadline, EvidenceItem, ArgumentVersion } from '@/types';
 import type { BlindSpotRecord, ResearchRecord } from './db';
 
+// ── Config ────────────────────────────────────────────────────────────────────
+
 const WORKER_URL   = 'https://afs-legal-rag.sobambodeshupo.workers.dev';
 const WORKER_TOKEN = 'AFS2026SecureToken99';
 
-function workerHeaders(): Record<string, string> {
+function syncHeaders(): Record<string, string> {
   return {
     'Content-Type':  'application/json',
     'Authorization': `Bearer ${WORKER_TOKEN}`,
   };
 }
+
+async function syncGet(path: string): Promise<unknown | null> {
+  try {
+    const controller = new AbortController();
+    const timeout    = setTimeout(() => controller.abort(), 6000);
+    try {
+      const res = await fetch(`${WORKER_URL}${path}`, {
+        method:  'GET',
+        headers: syncHeaders(),
+        signal:  controller.signal,
+      });
+      if (!res.ok) return null;
+      return await res.json();
+    } finally {
+      clearTimeout(timeout);
+    }
+  } catch {
+    return null;   // offline or cold — fall back to IndexedDB
+  }
+}
+
+async function syncPut(path: string, body: unknown): Promise<void> {
+  try {
+    const controller = new AbortController();
+    const timeout    = setTimeout(() => controller.abort(), 6000);
+    try {
+      await fetch(`${WORKER_URL}${path}`, {
+        method:  'PUT',
+        headers: syncHeaders(),
+        body:    JSON.stringify(body),
+        signal:  controller.signal,
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
+  } catch {
+    // sync failed silently — IndexedDB already has the data
+  }
+}
+
+async function syncDelete(path: string): Promise<void> {
+  try {
+    const controller = new AbortController();
+    const timeout    = setTimeout(() => controller.abort(), 6000);
+    try {
+      await fetch(`${WORKER_URL}${path}`, {
+        method:  'DELETE',
+        headers: syncHeaders(),
+        signal:  controller.signal,
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
+  } catch {
+    // sync failed silently
+  }
+}
+
+// ── ID generators ──────────────────────────────────────────────────────────────
 
 export function uid(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -20,36 +95,17 @@ export function cid(): string {
   return 'c_' + uid();
 }
 
-// ── Cases — D1 + IndexedDB sync ───────────────────────────────────────────────
+// ── Cases ─────────────────────────────────────────────────────────────────────
 
 export async function loadCases(): Promise<Case[]> {
-  try {
-    // Try D1 first (cross-device source of truth)
-    const res = await fetch(`${WORKER_URL}/cases`, {
-      method:  'GET',
-      headers: workerHeaders(),
-    });
-    if (res.ok) {
-      const data = await res.json() as { cases: any[] };
-      const cases: Case[] = data.cases.map(r => ({
-        id:          r.id,
-        title:       r.title,
-        client:      r.client || '',
-        matterType:  r.matter_type || '',
-        court:       r.court || '',
-        status:      r.status || 'active',
-        notes:       r.notes || '',
-        createdAt:   r.created_at,
-        updatedAt:   r.updated_at,
-      }));
-      // Sync to local IndexedDB
-      await db.cases.bulkPut(cases);
-      return cases;
-    }
-  } catch (e) {
-    console.warn('[Storage] D1 loadCases failed, falling back to IndexedDB', e);
+  // Try D1 first — gives cross-device sync
+  const remote = await syncGet('/cases') as { cases?: Case[] } | null;
+  if (remote?.cases && remote.cases.length > 0) {
+    // Update local IndexedDB to match D1 (background, non-blocking)
+    Promise.all(remote.cases.map(c => db.cases.put(c))).catch(() => {});
+    return remote.cases;
   }
-  // Fallback to local
+  // Fall back to IndexedDB
   try {
     return await db.cases.orderBy('createdAt').reverse().toArray();
   } catch (e) {
@@ -69,22 +125,10 @@ export async function loadCase(id: string): Promise<Case | null> {
 
 export async function saveCase(c: Case): Promise<boolean> {
   try {
-    // Save to IndexedDB immediately
+    // Write to IndexedDB immediately
     await db.cases.put(c);
-    // Sync to D1
-    await fetch(`${WORKER_URL}/cases`, {
-      method:  'POST',
-      headers: workerHeaders(),
-      body:    JSON.stringify({
-        id:          c.id,
-        title:       c.title,
-        client:      c.client,
-        matter_type: c.matterType,
-        court:       c.court,
-        status:      c.status,
-        notes:       c.notes,
-      }),
-    });
+    // Sync to D1 in background
+    syncPut('/case', c);
     return true;
   } catch (e) {
     console.error('[Storage] saveCase failed', e);
@@ -111,11 +155,8 @@ export async function deleteCase(id: string): Promise<boolean> {
         await db.arg_versions.where('caseId').equals(id).delete();
       }
     );
-    // Delete from D1
-    await fetch(`${WORKER_URL}/cases?id=${id}`, {
-      method:  'DELETE',
-      headers: workerHeaders(),
-    });
+    // Sync delete to D1 — this cascades entries/deadlines/research server-side
+    syncDelete(`/case?id=${encodeURIComponent(id)}`);
     return true;
   } catch (e) {
     console.error('[Storage] deleteCase failed', e);
@@ -126,6 +167,11 @@ export async function deleteCase(id: string): Promise<boolean> {
 // ── Docket Entries ────────────────────────────────────────────────────────────
 
 export async function loadEntries(caseId: string): Promise<DocketEntry[]> {
+  const remote = await syncGet(`/entries?caseId=${encodeURIComponent(caseId)}`) as { entries?: DocketEntry[] } | null;
+  if (remote?.entries && remote.entries.length > 0) {
+    Promise.all(remote.entries.map(e => db.docket_entries.put(e))).catch(() => {});
+    return remote.entries;
+  }
   try {
     return await db.docket_entries
       .where('caseId').equals(caseId)
@@ -140,6 +186,7 @@ export async function loadEntries(caseId: string): Promise<DocketEntry[]> {
 export async function saveEntry(entry: DocketEntry): Promise<boolean> {
   try {
     await db.docket_entries.put(entry);
+    syncPut('/entry', entry);
     return true;
   } catch (e) {
     console.error('[Storage] saveEntry failed', e);
@@ -150,6 +197,7 @@ export async function saveEntry(entry: DocketEntry): Promise<boolean> {
 export async function deleteEntry(id: string): Promise<boolean> {
   try {
     await db.docket_entries.delete(id);
+    syncDelete(`/entry?id=${encodeURIComponent(id)}`);
     return true;
   } catch (e) {
     console.error('[Storage] deleteEntry failed', e);
@@ -160,6 +208,11 @@ export async function deleteEntry(id: string): Promise<boolean> {
 // ── Deadlines ─────────────────────────────────────────────────────────────────
 
 export async function loadDeadlines(caseId: string): Promise<Deadline[]> {
+  const remote = await syncGet(`/deadlines?caseId=${encodeURIComponent(caseId)}`) as { deadlines?: Deadline[] } | null;
+  if (remote?.deadlines && remote.deadlines.length > 0) {
+    Promise.all(remote.deadlines.map(d => db.deadlines.put(d))).catch(() => {});
+    return remote.deadlines;
+  }
   try {
     return await db.deadlines.where('caseId').equals(caseId).sortBy('date');
   } catch (e) {
@@ -171,6 +224,7 @@ export async function loadDeadlines(caseId: string): Promise<Deadline[]> {
 export async function saveDeadline(dl: Deadline): Promise<boolean> {
   try {
     await db.deadlines.put(dl);
+    syncPut('/deadline', dl);
     return true;
   } catch (e) {
     console.error('[Storage] saveDeadline failed', e);
@@ -181,6 +235,7 @@ export async function saveDeadline(dl: Deadline): Promise<boolean> {
 export async function deleteDeadline(id: string): Promise<boolean> {
   try {
     await db.deadlines.delete(id);
+    syncDelete(`/deadline?id=${encodeURIComponent(id)}`);
     return true;
   } catch (e) {
     console.error('[Storage] deleteDeadline failed', e);
@@ -189,6 +244,10 @@ export async function deleteDeadline(id: string): Promise<boolean> {
 }
 
 // ── Evidence ──────────────────────────────────────────────────────────────────
+// Evidence files are base64 blobs — too large for D1.
+// Evidence meta is small and could be synced, but to keep things simple
+// evidence stays local-only for now. This is acceptable because evidence
+// files are uploaded per-device and are typically large.
 
 export async function loadEvidenceMeta(caseId: string): Promise<EvidenceItem[]> {
   try {
@@ -217,7 +276,7 @@ export async function saveEvidenceFile(id: string, data: string): Promise<boolea
     await db.evidence_files.put({ id, data });
     return true;
   } catch (e) {
-    console.error('[Storage] saveEvidenceFile failed', e);
+    console.error('[Storage] saveEvidenceFile failed — storage may be full', e);
     return false;
   }
 }
@@ -244,6 +303,7 @@ export async function deleteEvidenceFile(id: string): Promise<boolean> {
 }
 
 // ── Blind Spots ───────────────────────────────────────────────────────────────
+// Blind spot data is session-specific analytical output — local only is fine.
 
 export async function loadBlindSpot<T>(caseId: string, module: string, fallback: T): Promise<T> {
   try {
@@ -257,7 +317,12 @@ export async function loadBlindSpot<T>(caseId: string, module: string, fallback:
 
 export async function saveBlindSpot(caseId: string, module: string, data: unknown): Promise<boolean> {
   try {
-    await db.blind_spots.put({ id: `afs_bs_${module}_${caseId}`, caseId, module, data });
+    await db.blind_spots.put({
+      id: `afs_bs_${module}_${caseId}`,
+      caseId,
+      module,
+      data,
+    });
     return true;
   } catch (e) {
     console.error('[Storage] saveBlindSpot failed', e);
@@ -268,6 +333,11 @@ export async function saveBlindSpot(caseId: string, module: string, data: unknow
 // ── Research ──────────────────────────────────────────────────────────────────
 
 export async function loadResearch(caseId: string): Promise<ResearchRecord[]> {
+  const remote = await syncGet(`/research?caseId=${encodeURIComponent(caseId)}`) as { records?: ResearchRecord[] } | null;
+  if (remote?.records && remote.records.length > 0) {
+    Promise.all(remote.records.map(r => db.research.put(r))).catch(() => {});
+    return remote.records;
+  }
   try {
     return await db.research
       .where('caseId').equals(caseId)
@@ -282,6 +352,7 @@ export async function loadResearch(caseId: string): Promise<ResearchRecord[]> {
 export async function saveResearchItem(item: ResearchRecord): Promise<boolean> {
   try {
     await db.research.put(item);
+    syncPut('/research', item);
     return true;
   } catch (e) {
     console.error('[Storage] saveResearchItem failed', e);
@@ -292,6 +363,7 @@ export async function saveResearchItem(item: ResearchRecord): Promise<boolean> {
 export async function deleteResearchItem(id: string): Promise<boolean> {
   try {
     await db.research.delete(id);
+    syncDelete(`/research?id=${encodeURIComponent(id)}`);
     return true;
   } catch (e) {
     console.error('[Storage] deleteResearchItem failed', e);
@@ -300,6 +372,7 @@ export async function deleteResearchItem(id: string): Promise<boolean> {
 }
 
 // ── Argument Versions ─────────────────────────────────────────────────────────
+// Argument versions are large analytical documents — local only for now.
 
 export async function loadArgVersions(caseId: string): Promise<ArgumentVersion[]> {
   try {
