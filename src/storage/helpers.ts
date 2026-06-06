@@ -18,7 +18,7 @@ import type { BlindSpotRecord, ResearchRecord } from './db';
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
-const WORKER_URL   = 'https://afs-legal-rag.sobambodeshupo.workers.dev';
+const WORKER_URL   = 'https://afs-legal-rag.sobamboadeshupo.workers.dev';
 const WORKER_TOKEN = 'AFS2026SecureToken99';
 
 function syncHeaders(): Record<string, string> {
