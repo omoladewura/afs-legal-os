@@ -565,7 +565,7 @@ function BillionsVoiceModal({ onClose }: { onClose: () => void }) {
     const userMsg = { role: 'user', text: scribeInput.trim() };
     const newMsgs = [...scribeMessages, userMsg];
     setScribeMessages(newMsgs); setScribeInput(''); setScribeLoading(true);
-    const isDone = scribeMessages.at(-1)?.text.includes('I have what I need');
+    const isDone = (scribeMessages[scribeMessages.length - 1]?.text ?? '').includes('I have what I need');
     if (isDone) {
       // compose
       try {
@@ -857,7 +857,7 @@ function BillionsVoiceModal({ onClose }: { onClose: () => void }) {
                       placeholder="Your answer…" rows={3} style={{ ...ta(80), resize: 'none' }} />
                     <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
                       <button onClick={scribeReply} disabled={!scribeInput.trim()} style={actionBtn(!scribeInput.trim())}>
-                        {scribeMessages.at(-1)?.text.includes('I have what I need') ? 'Compose the piece' : 'Send'}
+                        {(scribeMessages[scribeMessages.length - 1]?.text ?? '').includes('I have what I need') ? 'Compose the piece' : 'Send'}
                       </button>
                     </div>
                     {scribeError && <p style={{ color: P.red, fontStyle: 'italic', marginTop: 12 }}>{scribeError}</p>}
