@@ -12,7 +12,7 @@ index_name = "afs-legal-library"
 [[d1_databases]]
 binding = "DB"
 database_name = "afs-legal-meta"
-database_id = "afs-legal-meta"
+database_id = "88274373-8745-4d8c-a241-1bb63aca9c0f"
 
 [[r2_buckets]]
 binding = "R2"
