@@ -84,7 +84,7 @@ async function handleChat(req: Request, env: Env): Promise<Response> {
 
   // DEBUG - remove after fix
   const keyPreview = env.ANTHROPIC_API_KEY.slice(0, 20) + '...' + env.ANTHROPIC_API_KEY.slice(-4);
-  console.log('Key preview:', keyPreview);
+  return json({ debug_key: keyPreview }, 200, origin);
 
   const body = await req.json() as Record<string, unknown>;
 
