@@ -55,30 +55,28 @@ function authorized(req: Request, env: Env): boolean {
   return header === `Bearer ${env.AUTH_TOKEN}`;
 }
 
-// ── D1 table init (runs once per Worker cold start) ───────────────────────────
+// ── D1 table init ─────────────────────────────────────────────────────────────
 
 async function ensureTables(env: Env): Promise<void> {
-  await env.DB.exec(`
-    CREATE TABLE IF NOT EXISTS cases (
-      id   TEXT PRIMARY KEY,
-      data TEXT NOT NULL
-    );
-    CREATE TABLE IF NOT EXISTS entries (
-      id      TEXT PRIMARY KEY,
-      case_id TEXT NOT NULL,
-      data    TEXT NOT NULL
-    );
-    CREATE TABLE IF NOT EXISTS deadlines (
-      id      TEXT PRIMARY KEY,
-      case_id TEXT NOT NULL,
-      data    TEXT NOT NULL
-    );
-    CREATE TABLE IF NOT EXISTS research (
-      id      TEXT PRIMARY KEY,
-      case_id TEXT NOT NULL,
-      data    TEXT NOT NULL
-    );
-  `);
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS cases (
+    id   TEXT PRIMARY KEY,
+    data TEXT NOT NULL
+  )`).run();
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS entries (
+    id      TEXT PRIMARY KEY,
+    case_id TEXT NOT NULL,
+    data    TEXT NOT NULL
+  )`).run();
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS deadlines (
+    id      TEXT PRIMARY KEY,
+    case_id TEXT NOT NULL,
+    data    TEXT NOT NULL
+  )`).run();
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS research (
+    id      TEXT PRIMARY KEY,
+    case_id TEXT NOT NULL,
+    data    TEXT NOT NULL
+  )`).run();
 }
 
 // ── Embed ─────────────────────────────────────────────────────────────────────
@@ -272,15 +270,13 @@ export default {
       return json({ error: 'Unauthorized' }, 401, origin);
     }
 
-    const url      = new URL(req.url);
-    const path     = url.pathname;
-    const method   = req.method;
+    const url    = new URL(req.url);
+    const path   = url.pathname;
+    const method = req.method;
 
-    // RAG endpoints (POST only)
     if (method === 'POST' && path === '/embed')  return handleEmbed(req, env);
     if (method === 'POST' && path === '/query')  return handleQuery(req, env);
 
-    // Case sync endpoints
     if (method === 'GET'    && path === '/cases')     return handleGetCases(req, env);
     if (method === 'PUT'    && path === '/case')      return handlePutCase(req, env);
     if (method === 'DELETE' && path === '/case')      return handleDeleteCase(req, env);
