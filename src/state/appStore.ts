@@ -50,9 +50,11 @@ interface AppState {
 
 export const useAppStore = create<AppState>((set) => ({
   // ── Auth ──────────────────────────────────────────────────────────────────
-  isAuthenticated: false,
-  authenticate: () => set({ isAuthenticated: true, view: 'home' }),
-
+  isAuthenticated: (() => { try { return sessionStorage.getItem('afs_auth') === '1'; } catch { return false; } })(),
+  authenticate: () => {
+    try { sessionStorage.setItem('afs_auth', '1'); } catch { }
+    set({ isAuthenticated: true, view: 'home' });
+  },
   // ── Navigation ────────────────────────────────────────────────────────────
   view:    'gate',
   setView: (v) => set({ view: v }),
