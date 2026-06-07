@@ -48,7 +48,7 @@ const STATUS_DOT: Record<string, string> = {
   'Contested':         '#c05050',
   'Struck Out':        '#505068',
   'Withdrawn':         '#505068',
-  'Settled':           '#c4a030',
+  'Settled':           '#000000',
 };
 
 // ── Module health items ────────────────────────────────────────────────────────
@@ -73,7 +73,7 @@ function getUrgencyLevel(deadlines: Deadline[]): { label: string; color: string;
   });
 
   if (overdue.length > 0) return { label: 'OVERDUE', color: '#c05050', count: overdue.length };
-  if (soon.length > 0)    return { label: 'URGENT',  color: '#b07030', count: soon.length };
+  if (soon.length > 0)    return { label: 'URGENT',  color: T.text, count: soon.length };
   if (active.length > 0)  return { label: 'ACTIVE',  color: '#40a878', count: active.length };
   return { label: 'CLEAR', color: T.mute, count: 0 };
 }
@@ -198,29 +198,29 @@ export function CaseOverview({ activeCase }: Props) {
           }}>
             <span style={{ fontSize: 14 }}>{roleClr.icon}</span>
             <div>
-              <div style={{ fontSize: 7, color: roleClr.col, fontFamily: 'Inter, sans-serif', letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 700 }}>Our Role</div>
-              <div style={{ fontSize: 13, color: roleClr.col, fontFamily: 'Inter, sans-serif', fontWeight: 700, letterSpacing: '.04em' }}>{role.toUpperCase()}</div>
+              <div style={{ fontSize: 7, color: roleClr.col, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 700 }}>Our Role</div>
+              <div style={{ fontSize: 13, color: roleClr.col, fontFamily: "'Times New Roman', Times, serif", fontWeight: 700, letterSpacing: '.04em' }}>{role.toUpperCase()}</div>
             </div>
           </div>
 
           {/* Case metadata */}
           <div style={{ flex: 1, minWidth: 200 }}>
-            <h2 style={{ fontSize: 22, color: T.goldL, fontFamily: "'Cormorant Garamond', serif", fontWeight: 300, marginBottom: 6 }}>
+            <h2 style={{ fontSize: 22, color: T.goldL, fontFamily: "'Times New Roman', Times, serif", fontWeight: 300, marginBottom: 6 }}>
               {activeCase.caseName}
             </h2>
             <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
               {activeCase.court && (
-                <span style={{ fontSize: 11, color: T.sub, fontFamily: 'Inter, sans-serif' }}>
+                <span style={{ fontSize: 11, color: T.sub, fontFamily: "'Times New Roman', Times, serif" }}>
                   ⚖ {activeCase.court}
                 </span>
               )}
               {activeCase.suitNo && (
-                <span style={{ fontSize: 11, color: T.mute, fontFamily: 'Inter, sans-serif', fontStyle: 'italic' }}>
+                <span style={{ fontSize: 11, color: T.mute, fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic' }}>
                   {activeCase.suitNo}
                 </span>
               )}
               {activeCase.dateCommenced && (
-                <span style={{ fontSize: 11, color: T.mute, fontFamily: 'Inter, sans-serif' }}>
+                <span style={{ fontSize: 11, color: T.mute, fontFamily: "'Times New Roman', Times, serif" }}>
                   Filed: {fmtDate(activeCase.dateCommenced)}
                 </span>
               )}
@@ -231,13 +231,13 @@ export function CaseOverview({ activeCase }: Props) {
           <div style={{ display: 'flex', gap: 10, flexShrink: 0 }}>
             {/* Days active */}
             <div style={{ background: T.bg, border: `1px solid ${T.bdr}`, borderRadius: 6, padding: '8px 14px', textAlign: 'center' }}>
-              <div style={{ fontSize: 20, color: T.goldL, fontFamily: "'Cormorant Garamond', serif", fontWeight: 400, lineHeight: 1 }}>{days}</div>
-              <div style={{ fontSize: 8, color: T.mute, fontFamily: 'Inter, sans-serif', letterSpacing: '.1em', textTransform: 'uppercase', marginTop: 3 }}>days active</div>
+              <div style={{ fontSize: 20, color: T.goldL, fontFamily: "'Times New Roman', Times, serif", fontWeight: 400, lineHeight: 1 }}>{days}</div>
+              <div style={{ fontSize: 8, color: T.mute, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.1em', textTransform: 'uppercase', marginTop: 3 }}>days active</div>
             </div>
             {/* Urgency */}
             <div style={{ background: T.bg, border: `1px solid ${urgency.color}33`, borderRadius: 6, padding: '8px 14px', textAlign: 'center' }}>
-              <div style={{ fontSize: 14, color: urgency.color, fontFamily: 'Inter, sans-serif', fontWeight: 700, lineHeight: 1 }}>{urgency.label}</div>
-              <div style={{ fontSize: 8, color: T.mute, fontFamily: 'Inter, sans-serif', letterSpacing: '.1em', textTransform: 'uppercase', marginTop: 3 }}>
+              <div style={{ fontSize: 14, color: urgency.color, fontFamily: "'Times New Roman', Times, serif", fontWeight: 700, lineHeight: 1 }}>{urgency.label}</div>
+              <div style={{ fontSize: 8, color: T.mute, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.1em', textTransform: 'uppercase', marginTop: 3 }}>
                 {urgency.count > 0 ? `${urgency.count} deadline${urgency.count !== 1 ? 's' : ''}` : 'no deadlines'}
               </div>
             </div>
@@ -249,17 +249,17 @@ export function CaseOverview({ activeCase }: Props) {
           <div style={{ marginTop: 16, paddingTop: 14, borderTop: `1px solid ${T.bdr}`, display: 'flex', gap: 24, flexWrap: 'wrap' }}>
             {activeCase.claimants?.length > 0 && (
               <div>
-                <div style={{ fontSize: 8, color: '#4a7ed0', fontFamily: 'Inter, sans-serif', letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 4 }}>Claimant{activeCase.claimants.length > 1 ? 's' : ''}</div>
+                <div style={{ fontSize: 8, color: '#4a7ed0', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 4 }}>Claimant{activeCase.claimants.length > 1 ? 's' : ''}</div>
                 {activeCase.claimants.map(p => (
-                  <div key={p.id} style={{ fontSize: 13, color: T.sub, fontFamily: "'Cormorant Garamond', serif" }}>{p.name}</div>
+                  <div key={p.id} style={{ fontSize: 13, color: T.sub, fontFamily: "'Times New Roman', Times, serif" }}>{p.name}</div>
                 ))}
               </div>
             )}
             {activeCase.defendants?.length > 0 && (
               <div>
-                <div style={{ fontSize: 8, color: '#c06040', fontFamily: 'Inter, sans-serif', letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 4 }}>Defendant{activeCase.defendants.length > 1 ? 's' : ''}</div>
+                <div style={{ fontSize: 8, color: '#c06040', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 4 }}>Defendant{activeCase.defendants.length > 1 ? 's' : ''}</div>
                 {activeCase.defendants.map(p => (
-                  <div key={p.id} style={{ fontSize: 13, color: T.sub, fontFamily: "'Cormorant Garamond', serif" }}>{p.name}</div>
+                  <div key={p.id} style={{ fontSize: 13, color: T.sub, fontFamily: "'Times New Roman', Times, serif" }}>{p.name}</div>
                 ))}
               </div>
             )}
@@ -289,16 +289,16 @@ export function CaseOverview({ activeCase }: Props) {
                   <div key={dl.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <div style={{ width: 6, height: 6, borderRadius: '50%', background: col, flexShrink: 0 }} />
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13, color: T.text, fontFamily: "'Cormorant Garamond', serif", overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <div style={{ fontSize: 13, color: T.text, fontFamily: "'Times New Roman', Times, serif", overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {dl.label}
                       </div>
-                      <div style={{ fontSize: 10, color: T.mute, fontFamily: 'Inter, sans-serif' }}>{dl.type}</div>
+                      <div style={{ fontSize: 10, color: T.mute, fontFamily: "'Times New Roman', Times, serif" }}>{dl.type}</div>
                     </div>
                     <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                      <div style={{ fontSize: 11, color: col, fontFamily: 'Inter, sans-serif', fontWeight: 600 }}>
+                      <div style={{ fontSize: 11, color: col, fontFamily: "'Times New Roman', Times, serif", fontWeight: 600 }}>
                         {overdue ? `${Math.abs(diff)}d ago` : diff === 0 ? 'Today' : `${diff}d`}
                       </div>
-                      <div style={{ fontSize: 9, color: T.mute, fontFamily: 'Inter, sans-serif' }}>{fmtDate(dl.date)}</div>
+                      <div style={{ fontSize: 9, color: T.mute, fontFamily: "'Times New Roman', Times, serif" }}>{fmtDate(dl.date)}</div>
                     </div>
                   </div>
                 );
@@ -335,7 +335,7 @@ export function CaseOverview({ activeCase }: Props) {
             <div style={{ width: 80, height: 5, background: T.bdr, borderRadius: 3, overflow: 'hidden' }}>
               <div style={{ width: `${pct}%`, height: '100%', background: pct < 30 ? '#c05050' : pct < 70 ? '#b07030' : '#40b068', borderRadius: 3, transition: 'width .5s ease' }} />
             </div>
-            <span style={{ fontSize: 10, color: T.mute, fontFamily: 'Inter, sans-serif' }}>{pct}%</span>
+            <span style={{ fontSize: 10, color: T.mute, fontFamily: "'Times New Roman', Times, serif" }}>{pct}%</span>
           </div>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 8 }}>
@@ -345,7 +345,7 @@ export function CaseOverview({ activeCase }: Props) {
               onClick={() => setDashTab(m.id as DashTabId)}
               style={{
                 background:   m.done ? '#081a0e' : T.bg,
-                border:       `1px solid ${m.done ? '#1a4028' : T.bdr}`,
+                border:       `1px solid ${m.done ? T.bdr : T.bdr}`,
                 borderRadius: 6, padding: '10px 12px',
                 textAlign: 'left', cursor: 'pointer',
                 transition: 'all .15s',
@@ -355,16 +355,16 @@ export function CaseOverview({ activeCase }: Props) {
                 (e.currentTarget as HTMLElement).style.background  = m.done ? '#0c2214' : '#0f0f1c';
               }}
               onMouseLeave={e => {
-                (e.currentTarget as HTMLElement).style.borderColor = m.done ? '#1a4028' : T.bdr;
+                (e.currentTarget as HTMLElement).style.borderColor = m.done ? T.bdr : T.bdr;
                 (e.currentTarget as HTMLElement).style.background  = m.done ? '#081a0e' : T.bg;
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
                 <span style={{ fontSize: 12 }}>{m.icon}</span>
-                <span style={{ fontSize: 11, color: m.done ? '#40b068' : T.dim, fontFamily: 'Inter, sans-serif', fontWeight: 600 }}>{m.label}</span>
+                <span style={{ fontSize: 11, color: m.done ? '#40b068' : T.dim, fontFamily: "'Times New Roman', Times, serif", fontWeight: 600 }}>{m.label}</span>
                 {m.done && <span style={{ marginLeft: 'auto', fontSize: 10, color: '#40b068' }}>✓</span>}
               </div>
-              <p style={{ fontSize: 10, color: T.mute, fontFamily: 'Inter, sans-serif', lineHeight: 1.5, margin: 0 }}>{m.desc}</p>
+              <p style={{ fontSize: 10, color: T.mute, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.5, margin: 0 }}>{m.desc}</p>
             </button>
           ))}
         </div>
@@ -376,7 +376,7 @@ export function CaseOverview({ activeCase }: Props) {
           <SectionHeader icon="⚖" title="Recent Docket Entries" />
           <button
             onClick={() => setDashTab('docket' as DashTabId)}
-            style={{ background: 'transparent', border: `1px solid ${T.bdr}`, color: T.mute, borderRadius: 4, padding: '4px 12px', fontSize: 10, fontFamily: 'Inter, sans-serif', cursor: 'pointer', letterSpacing: '.06em' }}
+            style={{ background: 'transparent', border: `1px solid ${T.bdr}`, color: T.mute, borderRadius: 4, padding: '4px 12px', fontSize: 10, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', letterSpacing: '.06em' }}
           >
             Full Docket →
           </button>
@@ -391,16 +391,16 @@ export function CaseOverview({ activeCase }: Props) {
                 <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', background: T.bg, borderRadius: 6, border: `1px solid ${T.bdr}` }}>
                   <div style={{ width: 7, height: 7, borderRadius: '50%', background: dot, flexShrink: 0 }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 14, color: T.text, fontFamily: "'Cormorant Garamond', serif", fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <div style={{ fontSize: 14, color: T.text, fontFamily: "'Times New Roman', Times, serif", fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {e.docTitle}
                     </div>
-                    <div style={{ fontSize: 10, color: T.mute, fontFamily: 'Inter, sans-serif' }}>
+                    <div style={{ fontSize: 10, color: T.mute, fontFamily: "'Times New Roman', Times, serif" }}>
                       {e.docType} · {e.filedBy}
                     </div>
                   </div>
                   <div style={{ flexShrink: 0, textAlign: 'right' }}>
-                    <div style={{ fontSize: 10, color: dot, fontFamily: 'Inter, sans-serif', fontWeight: 600 }}>{e.status}</div>
-                    <div style={{ fontSize: 9, color: T.mute, fontFamily: 'Inter, sans-serif' }}>{fmtDate(e.dateFiled || e.createdAt)}</div>
+                    <div style={{ fontSize: 10, color: dot, fontFamily: "'Times New Roman', Times, serif", fontWeight: 600 }}>{e.status}</div>
+                    <div style={{ fontSize: 9, color: T.mute, fontFamily: "'Times New Roman', Times, serif" }}>{fmtDate(e.dateFiled || e.createdAt)}</div>
                   </div>
                 </div>
               );
@@ -414,11 +414,11 @@ export function CaseOverview({ activeCase }: Props) {
         <SectionHeader icon="→" title="Quick Actions" />
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 8, marginTop: 14 }}>
           {[
-            { label: 'Run Intelligence', icon: '⚡', tab: 'intelligence', accent: '#c4a030', hint: '5-step AI pipeline' },
+            { label: 'Run Intelligence', icon: '⚡', tab: 'intelligence', accent: '#000000', hint: '5-step AI pipeline' },
             { label: 'Add Docket Entry', icon: '⚖', tab: 'docket',        accent: '#4a7ed0', hint: 'Log a filing or order' },
             { label: 'Brief Me Now',     icon: '🎯', tab: 'briefme',      accent: '#40b068', hint: 'Pre-hearing brief' },
             { label: 'War Room',         icon: '⬛', tab: 'warroom',      accent: '#8050d0', hint: 'Strategic cockpit' },
-            { label: 'Build Argument',   icon: '✍',  tab: 'builder',      accent: '#c4a030', hint: 'Draft with AI' },
+            { label: 'Build Argument',   icon: '✍',  tab: 'builder',      accent: '#000000', hint: 'Draft with AI' },
             { label: 'Upload Evidence',  icon: '📁', tab: 'evidence',     accent: '#5090d0', hint: 'Add to vault' },
           ].map(a => (
             <button
@@ -440,8 +440,8 @@ export function CaseOverview({ activeCase }: Props) {
               }}
             >
               <div style={{ fontSize: 14, marginBottom: 5 }}>{a.icon}</div>
-              <div style={{ fontSize: 13, color: a.accent, fontFamily: 'Inter, sans-serif', fontWeight: 600, marginBottom: 2 }}>{a.label}</div>
-              <div style={{ fontSize: 10, color: T.mute, fontFamily: 'Inter, sans-serif' }}>{a.hint}</div>
+              <div style={{ fontSize: 13, color: a.accent, fontFamily: "'Times New Roman', Times, serif", fontWeight: 600, marginBottom: 2 }}>{a.label}</div>
+              <div style={{ fontSize: 10, color: T.mute, fontFamily: "'Times New Roman', Times, serif" }}>{a.hint}</div>
             </button>
           ))}
         </div>
@@ -459,7 +459,7 @@ function SectionHeader({ icon, title }: { icon: string; title: string }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
       <span style={{ fontSize: 12, color: T.gold }}>{icon}</span>
-      <span style={{ fontSize: 9, color: T.dim, fontFamily: 'Inter, sans-serif', letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 700 }}>
+      <span style={{ fontSize: 9, color: T.dim, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 700 }}>
         {title}
       </span>
     </div>
@@ -481,7 +481,7 @@ function Panel({ icon, title, children, action }: PanelProps) {
         {action && (
           <button
             onClick={action.onClick}
-            style={{ background: 'transparent', border: 'none', color: T.gold, fontSize: 10, fontFamily: 'Inter, sans-serif', cursor: 'pointer', letterSpacing: '.06em', padding: 0 }}
+            style={{ background: 'transparent', border: 'none', color: T.gold, fontSize: 10, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', letterSpacing: '.06em', padding: 0 }}
           >
             {action.label}
           </button>
@@ -495,9 +495,9 @@ function Panel({ icon, title, children, action }: PanelProps) {
 function Empty({ label, action }: { label: string; action?: { label: string; onClick: () => void } }) {
   return (
     <div style={{ textAlign: 'center', padding: '16px 0' }}>
-      <p style={{ fontSize: 13, color: T.mute, fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic', marginBottom: action ? 8 : 0 }}>{label}</p>
+      <p style={{ fontSize: 13, color: T.mute, fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic', marginBottom: action ? 8 : 0 }}>{label}</p>
       {action && (
-        <button onClick={action.onClick} style={{ background: 'transparent', border: 'none', color: T.gold, fontSize: 11, fontFamily: 'Inter, sans-serif', cursor: 'pointer', textDecoration: 'underline' }}>
+        <button onClick={action.onClick} style={{ background: 'transparent', border: 'none', color: T.gold, fontSize: 11, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', textDecoration: 'underline' }}>
           {action.label}
         </button>
       )}
@@ -512,13 +512,13 @@ function IntelChip({ label, done, highlight }: { label: string; done: boolean; h
       <span style={{
         fontSize: highlight ? 12 : 11,
         color: done ? (highlight ? '#40b068' : T.sub) : T.mute,
-        fontFamily: 'Inter, sans-serif',
+        fontFamily: "'Times New Roman', Times, serif",
         fontWeight: highlight ? 600 : 400,
       }}>
         {label}
       </span>
       {highlight && done && (
-        <span style={{ marginLeft: 'auto', fontSize: 8, color: '#40b068', fontFamily: 'Inter, sans-serif', letterSpacing: '.1em', textTransform: 'uppercase', fontWeight: 700, border: '1px solid #1a4028', padding: '1px 6px', borderRadius: 2 }}>
+        <span style={{ marginLeft: 'auto', fontSize: 8, color: '#40b068', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.1em', textTransform: 'uppercase', fontWeight: 700, border: '1px solid #1a4028', padding: '1px 6px', borderRadius: 2 }}>
           READY
         </span>
       )}

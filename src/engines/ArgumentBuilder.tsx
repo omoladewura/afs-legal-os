@@ -73,14 +73,13 @@ interface IntelExtraction {
 const iS: React.CSSProperties = {
   width: '100%', background: '#07070f', border: '1px solid #1e1e2e',
   borderRadius: 5, color: T.text, padding: '10px 13px', fontSize: 14,
-  fontFamily: "'Cormorant Garamond', serif", outline: 'none', boxSizing: 'border-box',
+  fontFamily: "'Times New Roman', Times, serif", outline: 'none', boxSizing: 'border-box',
 };
 const lbS: React.CSSProperties = {
-  fontSize: 9, color: '#5a5a72', fontFamily: 'Inter, sans-serif',
+  fontSize: 9, color: T.mute, fontFamily: "'Times New Roman', Times, serif",
   letterSpacing: '.1em', textTransform: 'uppercase', fontWeight: 600,
   display: 'block', marginBottom: 5,
 };
-const ACC = '#c4a030';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // STATUTE CHUNKS DISPLAY — shown after retrieval
@@ -92,7 +91,7 @@ function StatuteChunksPanel({ chunks, error }: { chunks: StatuteChunk[]; error?:
     return (
       <div style={{ background: '#0e0a04', border: '1px solid #2a1808', borderRadius: 6, padding: '10px 14px', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
         <span style={{ fontSize: 12 }}>⚠</span>
-        <p style={{ fontSize: 11, color: '#8a5030', fontFamily: 'Inter, sans-serif', lineHeight: 1.5 }}>
+        <p style={{ fontSize: 11, color: T.dim, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.5 }}>
           Statute RAG: {error} — argument will proceed without statute sections.
         </p>
       </div>
@@ -104,13 +103,13 @@ function StatuteChunksPanel({ chunks, error }: { chunks: StatuteChunk[]; error?:
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: expanded ? 14 : 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#40b060', display: 'inline-block' }} />
-          <p style={{ fontSize: 9, color: '#40b060', fontFamily: 'Inter, sans-serif', letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 600 }}>
+          <p style={{ fontSize: 9, color: '#40b060', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 600 }}>
             Statute RAG — {chunks.length} section{chunks.length !== 1 ? 's' : ''} retrieved
           </p>
         </div>
         <button
           onClick={() => setExpanded(v => !v)}
-          style={{ background: 'transparent', border: '1px solid #1a3020', color: '#40b060', borderRadius: 3, padding: '3px 10px', fontSize: 9, fontFamily: 'Inter, sans-serif', cursor: 'pointer', letterSpacing: '.04em' }}
+          style={{ background: 'transparent', border: '1px solid #1a3020', color: '#40b060', borderRadius: 3, padding: '3px 10px', fontSize: 9, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', letterSpacing: '.04em' }}
         >
           {expanded ? 'Collapse' : 'Preview ↓'}
         </button>
@@ -118,22 +117,22 @@ function StatuteChunksPanel({ chunks, error }: { chunks: StatuteChunk[]; error?:
       {expanded && chunks.map((c, i) => (
         <div key={i} style={{ background: '#030a04', border: '1px solid #0e2014', borderRadius: 6, padding: '12px 14px', marginBottom: 8 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-            <span style={{ fontSize: 9, color: '#40b060', fontFamily: 'Inter, sans-serif', fontWeight: 700 }}>{c.section}</span>
-            <span style={{ fontSize: 9, color: '#2a4030', fontFamily: 'Inter, sans-serif' }}>·</span>
-            <span style={{ fontSize: 10, color: '#3a6040', fontFamily: "'Cormorant Garamond', serif" }}>{c.actName}</span>
-            <span style={{ marginLeft: 'auto', fontSize: 8, color: '#1a3020', fontFamily: 'Inter, sans-serif', border: '1px solid #0a1a10', padding: '1px 5px', borderRadius: 2 }}>
+            <span style={{ fontSize: 9, color: '#40b060', fontFamily: "'Times New Roman', Times, serif", fontWeight: 700 }}>{c.section}</span>
+            <span style={{ fontSize: 9, color: T.mute, fontFamily: "'Times New Roman', Times, serif" }}>·</span>
+            <span style={{ fontSize: 10, color: T.dim, fontFamily: "'Times New Roman', Times, serif" }}>{c.actName}</span>
+            <span style={{ marginLeft: 'auto', fontSize: 8, color: T.bdr, fontFamily: "'Times New Roman', Times, serif", border: '1px solid #0a1a10', padding: '1px 5px', borderRadius: 2 }}>
               {Math.round(c.score * 100)}% match
             </span>
           </div>
           {c.sectionTitle && (
-            <p style={{ fontSize: 11, color: '#2a5038', fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic', marginBottom: 5 }}>{c.sectionTitle}</p>
+            <p style={{ fontSize: 11, color: T.mute, fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic', marginBottom: 5 }}>{c.sectionTitle}</p>
           )}
-          <p style={{ fontSize: 12, color: '#507858', fontFamily: "'Cormorant Garamond', serif", lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
+          <p style={{ fontSize: 12, color: T.dim, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
             {c.text.slice(0, 280)}{c.text.length > 280 ? '…' : ''}
           </p>
         </div>
       ))}
-      <p style={{ fontSize: 10, color: '#1a3020', fontFamily: 'Inter, sans-serif', marginTop: expanded ? 8 : 0 }}>
+      <p style={{ fontSize: 10, color: T.bdr, fontFamily: "'Times New Roman', Times, serif", marginTop: expanded ? 8 : 0 }}>
         These sections are injected into the prompt — Claude will cite them directly from your verified statute collection.
       </p>
     </div>
@@ -381,14 +380,14 @@ Now produce the ${typeObj?.label || argType}:`;
     return (
       <div
         onClick={() => onChange(!checked)}
-        style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '9px 13px', background: checked ? '#0d0d1c' : '#080808', border: `1px solid ${checked ? ACC + '44' : '#111120'}`, borderRadius: 6, cursor: 'pointer', transition: 'all .15s', marginBottom: 6 }}
+        style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '9px 13px', background: checked ? '#0d0d1c' : '#080808', border: `1px solid ${checked ? T.text + '44' : '#111120'}`, borderRadius: 6, cursor: 'pointer', transition: 'all .15s', marginBottom: 6 }}
       >
-        <div style={{ width: 14, height: 14, borderRadius: 3, border: `1.5px solid ${checked ? ACC : '#2a2a42'}`, background: checked ? ACC : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 2, transition: 'all .15s' }}>
-          {checked && <span style={{ color: '#05050c', fontSize: 9, fontWeight: 700, lineHeight: 1 }}>✓</span>}
+        <div style={{ width: 14, height: 14, borderRadius: 3, border: `1.5px solid ${checked ? T.text : '#2a2a42'}`, background: checked ? T.text : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 2, transition: 'all .15s' }}>
+          {checked && <span style={{ color: '#ffffff', fontSize: 9, fontWeight: 700, lineHeight: 1 }}>✓</span>}
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <p style={{ fontSize: 13, color: checked ? T.text : T.mute, fontFamily: "'Cormorant Garamond', serif", lineHeight: 1.6, wordBreak: 'break-word', margin: 0 }}>{label}</p>
-          {sub && <p style={{ fontSize: 10, color: '#3a3a52', fontFamily: 'Inter, sans-serif', marginTop: 3, lineHeight: 1.5 }}>{sub}</p>}
+          <p style={{ fontSize: 13, color: checked ? T.text : T.mute, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.6, wordBreak: 'break-word', margin: 0 }}>{label}</p>
+          {sub && <p style={{ fontSize: 10, color: T.mute, fontFamily: "'Times New Roman', Times, serif", marginTop: 3, lineHeight: 1.5 }}>{sub}</p>}
         </div>
       </div>
     );
@@ -409,26 +408,26 @@ Now produce the ${typeObj?.label || argType}:`;
 
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, marginBottom: 22, paddingBottom: 20, borderBottom: `1px solid ${T.bdr}` }}>
-        <div style={{ width: 44, height: 44, background: 'linear-gradient(135deg,#120a00,#080400)', border: '1px solid #3a2a08', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0, boxShadow: '0 0 20px #c4a03014' }}>✍</div>
+        <div style={{ width: 44, height: 44, background: 'linear-gradient(135deg,#120a00,#080400)', border: '1px solid #3a2a08', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0, boxShadow: '0 0 20px #00000014' }}>✍</div>
         <div style={{ flex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 9, color: ACC, fontFamily: 'Inter, sans-serif', letterSpacing: '.2em', textTransform: 'uppercase', fontWeight: 600 }}>Argument Builder · Step 10</span>
+            <span style={{ fontSize: 9, color: T.text, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.2em', textTransform: 'uppercase', fontWeight: 600 }}>Argument Builder · Step 10</span>
             <RoleBadge role={activeCase.role || 'Claimant'} />
             {isRagConfigured() && (
-              <span style={{ fontSize: 8, color: '#40b060', fontFamily: 'Inter, sans-serif', letterSpacing: '.1em', border: '1px solid #1a4028', background: '#020e06', padding: '1px 7px', borderRadius: 2, textTransform: 'uppercase' }}>
+              <span style={{ fontSize: 8, color: '#40b060', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.1em', border: '1px solid #1a4028', background: T.card, padding: '1px 7px', borderRadius: 2, textTransform: 'uppercase' }}>
                 § Statute RAG Active
               </span>
             )}
             {versions.length > 0 && (
-              <span style={{ fontSize: 8, color: '#40a860', fontFamily: 'Inter, sans-serif', letterSpacing: '.1em', border: '1px solid #1a4028', background: '#02100a', padding: '1px 7px', borderRadius: 2, textTransform: 'uppercase' }}>
+              <span style={{ fontSize: 8, color: '#40a860', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.1em', border: '1px solid #1a4028', background: T.card, padding: '1px 7px', borderRadius: 2, textTransform: 'uppercase' }}>
                 {versions.length} Version{versions.length > 1 ? 's' : ''} Saved
               </span>
             )}
           </div>
-          <h2 style={{ fontSize: 24, color: T.goldL, fontFamily: "'Cormorant Garamond', serif", fontWeight: 300, letterSpacing: '.02em', marginBottom: 5, lineHeight: 1.2 }}>
+          <h2 style={{ fontSize: 24, color: T.goldL, fontFamily: "'Times New Roman', Times, serif", fontWeight: 300, letterSpacing: '.02em', marginBottom: 5, lineHeight: 1.2 }}>
             Argument Builder
           </h2>
-          <p style={{ fontSize: 13, color: T.dim, fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic', lineHeight: 1.65 }}>
+          <p style={{ fontSize: 13, color: T.dim, fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic', lineHeight: 1.65 }}>
             Imports vetted intelligence + verified statutes from your library. Case citations use structured LawPavilion search queries — never invented. Every draft saved to version history.
           </p>
         </div>
@@ -439,8 +438,8 @@ Now produce the ${typeObj?.label || argType}:`;
         <div style={{ background: '#0e0a04', border: '1px solid #3a2808', borderRadius: 8, padding: '14px 18px', marginBottom: 18, display: 'flex', alignItems: 'flex-start', gap: 12 }}>
           <span style={{ fontSize: 16, flexShrink: 0, marginTop: 1 }}>⚠</span>
           <div>
-            <p style={{ fontSize: 13, color: '#c09040', fontFamily: "'Cormorant Garamond', serif", fontWeight: 600, marginBottom: 3 }}>No vetted intelligence yet</p>
-            <p style={{ fontSize: 12, color: T.mute, fontFamily: 'Inter, sans-serif', lineHeight: 1.6 }}>
+            <p style={{ fontSize: 13, color: T.text, fontFamily: "'Times New Roman', Times, serif", fontWeight: 600, marginBottom: 3 }}>No vetted intelligence yet</p>
+            <p style={{ fontSize: 12, color: T.mute, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.6 }}>
               Run the ⚡ Intelligence Engine first. The Argument Builder imports from its structured output — never from raw client narration. You can still add Lawyer Context below and generate with that alone.
             </p>
           </div>
@@ -453,10 +452,10 @@ Now produce the ${typeObj?.label || argType}:`;
           <button
             key={sub.id}
             onClick={() => setAbTab(sub.id)}
-            style={{ flex: 1, background: abTab === sub.id ? '#0d0d1c' : 'transparent', border: `1px solid ${abTab === sub.id ? ACC : 'transparent'}`, color: abTab === sub.id ? ACC : T.mute, borderRadius: 5, padding: '7px 8px', fontSize: 10, fontFamily: 'Inter, sans-serif', cursor: 'pointer', letterSpacing: '.04em', textTransform: 'uppercase', fontWeight: 600, transition: 'all .2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, whiteSpace: 'nowrap' }}
+            style={{ flex: 1, background: abTab === sub.id ? '#0d0d1c' : 'transparent', border: `1px solid ${abTab === sub.id ? T.text : 'transparent'}`, color: abTab === sub.id ? T.text : T.mute, borderRadius: 5, padding: '7px 8px', fontSize: 10, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', letterSpacing: '.04em', textTransform: 'uppercase', fontWeight: 600, transition: 'all .2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, whiteSpace: 'nowrap' }}
           >
             <span style={{ opacity: .8 }}>{sub.icon}</span>{sub.label}
-            {sub.id === 'history' && versions.length > 0 && <span style={{ width: 5, height: 5, borderRadius: '50%', background: ACC, display: 'inline-block', flexShrink: 0 }} />}
+            {sub.id === 'history' && versions.length > 0 && <span style={{ width: 5, height: 5, borderRadius: '50%', background: T.text, display: 'inline-block', flexShrink: 0 }} />}
             {sub.id === 'build'   && draft             && <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#40a860', display: 'inline-block', flexShrink: 0 }} />}
           </button>
         ))}
@@ -467,10 +466,10 @@ Now produce the ${typeObj?.label || argType}:`;
       ══════════════════════════════════════════ */}
       {abTab === 'import' && (
         <div style={{ animation: 'fadeUp .25s ease' }}>
-          <p style={{ fontSize: 9, color: ACC, fontFamily: 'Inter, sans-serif', letterSpacing: '.18em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 16 }}>
+          <p style={{ fontSize: 9, color: T.text, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.18em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 16 }}>
             Select Items to Import into This Argument
           </p>
-          <p style={{ fontSize: 12, color: T.mute, fontFamily: 'Inter, sans-serif', lineHeight: 1.6, marginBottom: 18 }}>
+          <p style={{ fontSize: 12, color: T.mute, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.6, marginBottom: 18 }}>
             Only items that have passed through the Intelligence Engine appear here. Raw client narration is excluded — arguments must be built on structured, vetted findings.
           </p>
 
@@ -508,8 +507,8 @@ Now produce the ${typeObj?.label || argType}:`;
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                     <p style={lbS}>Legal Issues ({legalIss.length})</p>
                     <div style={{ display: 'flex', gap: 8 }}>
-                      <button onClick={() => setSelIssues(legalIss.map((_, i) => i))} style={{ background: 'transparent', border: '1px solid #2a2208', color: ACC, borderRadius: 3, padding: '2px 8px', fontSize: 9, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>All</button>
-                      <button onClick={() => setSelIssues([])} style={{ background: 'transparent', border: '1px solid #1e1e2e', color: T.mute, borderRadius: 3, padding: '2px 8px', fontSize: 9, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>None</button>
+                      <button onClick={() => setSelIssues(legalIss.map((_, i) => i))} style={{ background: 'transparent', border: '1px solid #2a2208', color: T.text, borderRadius: 3, padding: '2px 8px', fontSize: 9, cursor: 'pointer', fontFamily: "'Times New Roman', Times, serif" }}>All</button>
+                      <button onClick={() => setSelIssues([])} style={{ background: 'transparent', border: '1px solid #1e1e2e', color: T.mute, borderRadius: 3, padding: '2px 8px', fontSize: 9, cursor: 'pointer', fontFamily: "'Times New Roman', Times, serif" }}>None</button>
                     </div>
                   </div>
                   {legalIss.map((iss, i) => (
@@ -524,8 +523,8 @@ Now produce the ${typeObj?.label || argType}:`;
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                     <p style={lbS}>Disputed Areas ({disputed.length})</p>
                     <div style={{ display: 'flex', gap: 8 }}>
-                      <button onClick={() => setSelDisputed(disputed.map((_, i) => i))} style={{ background: 'transparent', border: '1px solid #2a2208', color: ACC, borderRadius: 3, padding: '2px 8px', fontSize: 9, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>All</button>
-                      <button onClick={() => setSelDisputed([])} style={{ background: 'transparent', border: '1px solid #1e1e2e', color: T.mute, borderRadius: 3, padding: '2px 8px', fontSize: 9, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>None</button>
+                      <button onClick={() => setSelDisputed(disputed.map((_, i) => i))} style={{ background: 'transparent', border: '1px solid #2a2208', color: T.text, borderRadius: 3, padding: '2px 8px', fontSize: 9, cursor: 'pointer', fontFamily: "'Times New Roman', Times, serif" }}>All</button>
+                      <button onClick={() => setSelDisputed([])} style={{ background: 'transparent', border: '1px solid #1e1e2e', color: T.mute, borderRadius: 3, padding: '2px 8px', fontSize: 9, cursor: 'pointer', fontFamily: "'Times New Roman', Times, serif" }}>None</button>
                     </div>
                   </div>
                   {disputed.map((d, i) => (
@@ -540,8 +539,8 @@ Now produce the ${typeObj?.label || argType}:`;
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                     <p style={lbS}>Evidence Gaps ({gaps.length})</p>
                     <div style={{ display: 'flex', gap: 8 }}>
-                      <button onClick={() => setSelGaps(gaps.map((_, i) => i))} style={{ background: 'transparent', border: '1px solid #2a2208', color: ACC, borderRadius: 3, padding: '2px 8px', fontSize: 9, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>All</button>
-                      <button onClick={() => setSelGaps([])} style={{ background: 'transparent', border: '1px solid #1e1e2e', color: T.mute, borderRadius: 3, padding: '2px 8px', fontSize: 9, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>None</button>
+                      <button onClick={() => setSelGaps(gaps.map((_, i) => i))} style={{ background: 'transparent', border: '1px solid #2a2208', color: T.text, borderRadius: 3, padding: '2px 8px', fontSize: 9, cursor: 'pointer', fontFamily: "'Times New Roman', Times, serif" }}>All</button>
+                      <button onClick={() => setSelGaps([])} style={{ background: 'transparent', border: '1px solid #1e1e2e', color: T.mute, borderRadius: 3, padding: '2px 8px', fontSize: 9, cursor: 'pointer', fontFamily: "'Times New Roman', Times, serif" }}>None</button>
                     </div>
                   </div>
                   {gaps.map((g, i) => (
@@ -556,8 +555,8 @@ Now produce the ${typeObj?.label || argType}:`;
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                     <p style={lbS}>Identified Risks ({risks.length})</p>
                     <div style={{ display: 'flex', gap: 8 }}>
-                      <button onClick={() => setSelRisks(risks.map((_, i) => i))} style={{ background: 'transparent', border: '1px solid #2a2208', color: ACC, borderRadius: 3, padding: '2px 8px', fontSize: 9, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>All</button>
-                      <button onClick={() => setSelRisks([])} style={{ background: 'transparent', border: '1px solid #1e1e2e', color: T.mute, borderRadius: 3, padding: '2px 8px', fontSize: 9, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>None</button>
+                      <button onClick={() => setSelRisks(risks.map((_, i) => i))} style={{ background: 'transparent', border: '1px solid #2a2208', color: T.text, borderRadius: 3, padding: '2px 8px', fontSize: 9, cursor: 'pointer', fontFamily: "'Times New Roman', Times, serif" }}>All</button>
+                      <button onClick={() => setSelRisks([])} style={{ background: 'transparent', border: '1px solid #1e1e2e', color: T.mute, borderRadius: 3, padding: '2px 8px', fontSize: 9, cursor: 'pointer', fontFamily: "'Times New Roman', Times, serif" }}>None</button>
                     </div>
                   </div>
                   {risks.map((r, i) => (
@@ -570,8 +569,8 @@ Now produce the ${typeObj?.label || argType}:`;
           ) : (
             <div style={{ background: '#080808', border: '1px solid #111120', borderRadius: 8, padding: '28px', textAlign: 'center', marginBottom: 18 }}>
               <div style={{ fontSize: 34, opacity: .06, marginBottom: 14 }}>⚡</div>
-              <p style={{ fontSize: 16, color: T.dim, fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic', marginBottom: 8 }}>No intelligence data to import.</p>
-              <p style={{ fontSize: 12, color: T.mute, fontFamily: 'Inter, sans-serif', lineHeight: 1.65, maxWidth: 420, margin: '0 auto' }}>
+              <p style={{ fontSize: 16, color: T.dim, fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic', marginBottom: 8 }}>No intelligence data to import.</p>
+              <p style={{ fontSize: 12, color: T.mute, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.65, maxWidth: 420, margin: '0 auto' }}>
                 Run the <strong style={{ color: T.dim }}>⚡ Intelligence Engine</strong> tab first. Your vetted facts, legal issues, disputes, gaps, and risks will appear here as checkboxes.
               </p>
             </div>
@@ -580,7 +579,7 @@ Now produce the ${typeObj?.label || argType}:`;
           {/* Lawyer's Additional Context */}
           <div style={{ background: '#0d0d18', border: `1px solid ${T.bdr}`, borderRadius: 8, padding: '18px 20px', marginBottom: 20 }}>
             <label style={lbS}>Lawyer's Additional Context</label>
-            <p style={{ fontSize: 11, color: T.mute, fontFamily: 'Inter, sans-serif', lineHeight: 1.55, marginBottom: 10 }}>
+            <p style={{ fontSize: 11, color: T.mute, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.55, marginBottom: 10 }}>
               Counsel's own instructions or notes — not from client narration. E.g. recently discovered evidence, specific instructions from client, strategic constraints.
             </p>
             <textarea
@@ -594,7 +593,7 @@ Now produce the ${typeObj?.label || argType}:`;
 
           <button
             onClick={() => setAbTab('build')}
-            style={{ width: '100%', background: `linear-gradient(135deg,${ACC},#a07820)`, color: '#05050c', border: 'none', borderRadius: 7, padding: '13px 24px', fontSize: 16, fontFamily: "'Cormorant Garamond', serif", cursor: 'pointer', fontWeight: 600, letterSpacing: '.04em' }}
+            style={{ width: '100%', background: `linear-gradient(135deg,${T.text},#a07820)`, color: '#ffffff', border: 'none', borderRadius: 7, padding: '13px 24px', fontSize: 16, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', fontWeight: 600, letterSpacing: '.04em' }}
           >
             Continue to Build & Generate →
           </button>
@@ -606,7 +605,7 @@ Now produce the ${typeObj?.label || argType}:`;
       ══════════════════════════════════════════ */}
       {abTab === 'build' && (
         <div style={{ animation: 'fadeUp .25s ease' }}>
-          <p style={{ fontSize: 9, color: ACC, fontFamily: 'Inter, sans-serif', letterSpacing: '.18em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 16 }}>
+          <p style={{ fontSize: 9, color: T.text, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.18em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 16 }}>
             Argument Configuration
           </p>
 
@@ -618,13 +617,13 @@ Now produce the ${typeObj?.label || argType}:`;
                 <button
                   key={t.id}
                   onClick={() => setArgType(t.id)}
-                  style={{ background: argType === t.id ? '#0d0d1c' : '#080808', border: `1px solid ${argType === t.id ? ACC : '#181828'}`, borderRadius: 7, padding: '11px 14px', textAlign: 'left', cursor: 'pointer', transition: 'all .15s' }}
+                  style={{ background: argType === t.id ? '#0d0d1c' : '#080808', border: `1px solid ${argType === t.id ? T.text : '#181828'}`, borderRadius: 7, padding: '11px 14px', textAlign: 'left', cursor: 'pointer', transition: 'all .15s' }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                     <span style={{ fontSize: 14, opacity: argType === t.id ? 1 : .6 }}>{t.icon}</span>
-                    <span style={{ fontSize: 12, color: argType === t.id ? T.text : T.mute, fontFamily: "'Cormorant Garamond', serif", fontWeight: 600, lineHeight: 1.2 }}>{t.label}</span>
+                    <span style={{ fontSize: 12, color: argType === t.id ? T.text : T.mute, fontFamily: "'Times New Roman', Times, serif", fontWeight: 600, lineHeight: 1.2 }}>{t.label}</span>
                   </div>
-                  <p style={{ fontSize: 9, color: argType === t.id ? T.dim : '#2a2a42', fontFamily: 'Inter, sans-serif', lineHeight: 1.5, margin: 0 }}>{t.hint}</p>
+                  <p style={{ fontSize: 9, color: argType === t.id ? T.dim : '#2a2a42', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.5, margin: 0 }}>{t.hint}</p>
                 </button>
               ))}
             </div>
@@ -633,7 +632,7 @@ Now produce the ${typeObj?.label || argType}:`;
           {/* Specific issue */}
           <div style={{ marginBottom: 20 }}>
             <label style={lbS}>Specific Issue / Focus (Optional)</label>
-            <p style={{ fontSize: 11, color: T.mute, fontFamily: 'Inter, sans-serif', lineHeight: 1.5, marginBottom: 8 }}>
+            <p style={{ fontSize: 11, color: T.mute, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.5, marginBottom: 8 }}>
               State the precise legal or factual issue. More specific = sharper statute retrieval + sharper output.
             </p>
             <textarea
@@ -649,8 +648,8 @@ Now produce the ${typeObj?.label || argType}:`;
           {!isRagConfigured() && (
             <div style={{ background: '#07070f', border: '1px solid #1a1a2e', borderRadius: 7, padding: '11px 15px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
               <span style={{ fontSize: 13, flexShrink: 0 }}>§</span>
-              <p style={{ fontSize: 11, color: '#3a3a58', fontFamily: 'Inter, sans-serif', lineHeight: 1.55 }}>
-                <strong style={{ color: '#4a4a70' }}>Statute RAG not yet active.</strong> Set <code style={{ fontSize: 10, color: '#4a4a70', background: '#0a0a18', padding: '1px 5px', borderRadius: 3 }}>STATUTE_RAG_ENDPOINT</code> in <code style={{ fontSize: 10, color: '#4a4a70', background: '#0a0a18', padding: '1px 5px', borderRadius: 3 }}>src/services/statuteRag.ts</code> when your Cloudflare Worker is deployed. Statute sections will then be auto-retrieved and injected before generation.
+              <p style={{ fontSize: 11, color: '#3a3a58', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.55 }}>
+                <strong style={{ color: '#4a4a70' }}>Statute RAG not yet active.</strong> Set <code style={{ fontSize: 10, color: '#4a4a70', background: T.card, padding: '1px 5px', borderRadius: 3 }}>STATUTE_RAG_ENDPOINT</code> in <code style={{ fontSize: 10, color: '#4a4a70', background: T.card, padding: '1px 5px', borderRadius: 3 }}>src/services/statuteRag.ts</code> when your Cloudflare Worker is deployed. Statute sections will then be auto-retrieved and injected before generation.
               </p>
             </div>
           )}
@@ -664,23 +663,23 @@ Now produce the ${typeObj?.label || argType}:`;
           {ragFetching && (
             <div style={{ background: '#050d06', border: '1px solid #1a3020', borderRadius: 6, padding: '10px 14px', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
               <Spinner size={10} />
-              <p style={{ fontSize: 11, color: '#308040', fontFamily: 'Inter, sans-serif' }}>Searching statute library…</p>
+              <p style={{ fontSize: 11, color: '#308040', fontFamily: "'Times New Roman', Times, serif" }}>Searching statute library…</p>
             </div>
           )}
 
           {/* Drive RAG toggle */}
           <div style={{ background: '#0d0d18', border: `1px solid ${T.bdr}`, borderRadius: 8, padding: '14px 18px', marginBottom: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
             <div style={{ flex: 1 }}>
-              <p style={{ fontSize: 12, color: T.text, fontFamily: "'Cormorant Garamond', serif", fontWeight: 600, marginBottom: 3 }}>Google Drive RAG</p>
-              <p style={{ fontSize: 11, color: T.mute, fontFamily: 'Inter, sans-serif', lineHeight: 1.5 }}>
+              <p style={{ fontSize: 12, color: T.text, fontFamily: "'Times New Roman', Times, serif", fontWeight: 600, marginBottom: 3 }}>Google Drive RAG</p>
+              <p style={{ fontSize: 11, color: T.mute, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.5 }}>
                 Search your Drive for past briefs, research notes, and authorities on the same issue before generating. Enriches the argument with your existing work.
               </p>
             </div>
             <button
               onClick={() => setDriveRAG(v => !v)}
-              style={{ background: driveRAG ? '#0d0d1c' : 'transparent', border: `1px solid ${driveRAG ? ACC + '50' : '#1e1e2e'}`, color: driveRAG ? ACC : T.mute, borderRadius: 5, padding: '7px 16px', fontSize: 10, fontFamily: 'Inter, sans-serif', cursor: 'pointer', letterSpacing: '.06em', display: 'flex', alignItems: 'center', gap: 6, transition: 'all .15s', whiteSpace: 'nowrap', flexShrink: 0 }}
+              style={{ background: driveRAG ? '#0d0d1c' : 'transparent', border: `1px solid ${driveRAG ? T.text + '50' : T.bdr}`, color: driveRAG ? T.text : T.mute, borderRadius: 5, padding: '7px 16px', fontSize: 10, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', letterSpacing: '.06em', display: 'flex', alignItems: 'center', gap: 6, transition: 'all .15s', whiteSpace: 'nowrap', flexShrink: 0 }}
             >
-              <span style={{ width: 5, height: 5, borderRadius: '50%', background: driveRAG ? ACC : '#2a2a3e', transition: 'background .15s', display: 'inline-block', flexShrink: 0 }} />
+              <span style={{ width: 5, height: 5, borderRadius: '50%', background: driveRAG ? T.text : T.bdr, transition: 'background .15s', display: 'inline-block', flexShrink: 0 }} />
               {driveRAG ? 'Drive: Active' : 'Drive: Off'}
             </button>
           </div>
@@ -689,19 +688,19 @@ Now produce the ${typeObj?.label || argType}:`;
           {hasIntel && (
             <div style={{ background: '#080808', border: '1px solid #111120', borderRadius: 7, padding: '12px 16px', marginBottom: 20 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                <p style={{ fontSize: 9, color: T.mute, fontFamily: 'Inter, sans-serif', letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 600 }}>Imported Intelligence</p>
-                <button onClick={() => setAbTab('import')} style={{ background: 'transparent', border: '1px solid #1e1e2e', color: T.mute, borderRadius: 3, padding: '2px 9px', fontSize: 9, cursor: 'pointer', fontFamily: 'Inter, sans-serif', letterSpacing: '.04em' }}>← Edit Import</button>
+                <p style={{ fontSize: 9, color: T.mute, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 600 }}>Imported Intelligence</p>
+                <button onClick={() => setAbTab('import')} style={{ background: 'transparent', border: '1px solid #1e1e2e', color: T.mute, borderRadius: 3, padding: '2px 9px', fontSize: 9, cursor: 'pointer', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.04em' }}>← Edit Import</button>
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                {selFacts   && intel?.rawFacts && <span style={{ fontSize: 9, color: ACC, fontFamily: 'Inter, sans-serif', border: '1px solid #2a2208', padding: '2px 8px', borderRadius: 2 }}>Facts</span>}
-                {selIntPkg  && intel?.intPkg   && <span style={{ fontSize: 9, color: ACC, fontFamily: 'Inter, sans-serif', border: '1px solid #2a2208', padding: '2px 8px', borderRadius: 2 }}>Intelligence Package</span>}
-                {selIssues.length   > 0 && <span style={{ fontSize: 9, color: ACC, fontFamily: 'Inter, sans-serif', border: '1px solid #2a2208', padding: '2px 8px', borderRadius: 2 }}>{selIssues.length} Legal Issue{selIssues.length > 1 ? 's' : ''}</span>}
-                {selDisputed.length > 0 && <span style={{ fontSize: 9, color: ACC, fontFamily: 'Inter, sans-serif', border: '1px solid #2a2208', padding: '2px 8px', borderRadius: 2 }}>{selDisputed.length} Disputed Area{selDisputed.length > 1 ? 's' : ''}</span>}
-                {selGaps.length     > 0 && <span style={{ fontSize: 9, color: ACC, fontFamily: 'Inter, sans-serif', border: '1px solid #2a2208', padding: '2px 8px', borderRadius: 2 }}>{selGaps.length} Evidence Gap{selGaps.length > 1 ? 's' : ''}</span>}
-                {selRisks.length    > 0 && <span style={{ fontSize: 9, color: ACC, fontFamily: 'Inter, sans-serif', border: '1px solid #2a2208', padding: '2px 8px', borderRadius: 2 }}>{selRisks.length} Risk{selRisks.length > 1 ? 's' : ''}</span>}
-                {extraCtx.trim()        && <span style={{ fontSize: 9, color: ACC, fontFamily: 'Inter, sans-serif', border: '1px solid #2a2208', padding: '2px 8px', borderRadius: 2 }}>+ Counsel's Context</span>}
+                {selFacts   && intel?.rawFacts && <span style={{ fontSize: 9, color: T.text, fontFamily: "'Times New Roman', Times, serif", border: '1px solid #2a2208', padding: '2px 8px', borderRadius: 2 }}>Facts</span>}
+                {selIntPkg  && intel?.intPkg   && <span style={{ fontSize: 9, color: T.text, fontFamily: "'Times New Roman', Times, serif", border: '1px solid #2a2208', padding: '2px 8px', borderRadius: 2 }}>Intelligence Package</span>}
+                {selIssues.length   > 0 && <span style={{ fontSize: 9, color: T.text, fontFamily: "'Times New Roman', Times, serif", border: '1px solid #2a2208', padding: '2px 8px', borderRadius: 2 }}>{selIssues.length} Legal Issue{selIssues.length > 1 ? 's' : ''}</span>}
+                {selDisputed.length > 0 && <span style={{ fontSize: 9, color: T.text, fontFamily: "'Times New Roman', Times, serif", border: '1px solid #2a2208', padding: '2px 8px', borderRadius: 2 }}>{selDisputed.length} Disputed Area{selDisputed.length > 1 ? 's' : ''}</span>}
+                {selGaps.length     > 0 && <span style={{ fontSize: 9, color: T.text, fontFamily: "'Times New Roman', Times, serif", border: '1px solid #2a2208', padding: '2px 8px', borderRadius: 2 }}>{selGaps.length} Evidence Gap{selGaps.length > 1 ? 's' : ''}</span>}
+                {selRisks.length    > 0 && <span style={{ fontSize: 9, color: T.text, fontFamily: "'Times New Roman', Times, serif", border: '1px solid #2a2208', padding: '2px 8px', borderRadius: 2 }}>{selRisks.length} Risk{selRisks.length > 1 ? 's' : ''}</span>}
+                {extraCtx.trim()        && <span style={{ fontSize: 9, color: T.text, fontFamily: "'Times New Roman', Times, serif", border: '1px solid #2a2208', padding: '2px 8px', borderRadius: 2 }}>+ Counsel's Context</span>}
                 {importedCount === 0 && !extraCtx.trim() && (
-                  <span style={{ fontSize: 10, color: T.mute, fontFamily: 'Inter, sans-serif', fontStyle: 'italic' }}>Nothing selected — go to Import tab to select items.</span>
+                  <span style={{ fontSize: 10, color: T.mute, fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic' }}>Nothing selected — go to Import tab to select items.</span>
                 )}
               </div>
             </div>
@@ -711,7 +710,7 @@ Now produce the ${typeObj?.label || argType}:`;
           <button
             onClick={generate}
             disabled={!argType || generating}
-            style={{ width: '100%', background: !argType || generating ? '#0e0e18' : `linear-gradient(135deg,${ACC},#a07820)`, color: !argType || generating ? T.mute : '#05050c', border: !argType || generating ? '1px solid #1e1e2e' : 'none', borderRadius: 7, padding: '14px 24px', fontSize: 17, fontFamily: "'Cormorant Garamond', serif", cursor: !argType || generating ? 'not-allowed' : 'pointer', fontWeight: 600, letterSpacing: '.04em', transition: 'all .2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}
+            style={{ width: '100%', background: !argType || generating ? '#0e0e18' : `linear-gradient(135deg,${T.text},#a07820)`, color: !argType || generating ? T.mute : '#05050c', border: !argType || generating ? '1px solid #1e1e2e' : 'none', borderRadius: 7, padding: '14px 24px', fontSize: 17, fontFamily: "'Times New Roman', Times, serif", cursor: !argType || generating ? 'not-allowed' : 'pointer', fontWeight: 600, letterSpacing: '.04em', transition: 'all .2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}
           >
             {generating
               ? <><Spinner size={14} /> {ragFetching ? 'Searching statute library…' : 'Drafting argument…'}</>
@@ -722,7 +721,7 @@ Now produce the ${typeObj?.label || argType}:`;
           </button>
 
           {genError && (
-            <div style={{ marginTop: 12, background: '#1a0808', border: '1px solid #4a1818', borderRadius: 6, padding: '11px 16px', color: '#c07070', fontSize: 13, fontFamily: 'Inter, sans-serif', lineHeight: 1.55 }}>
+            <div style={{ marginTop: 12, background: T.card, border: '1px solid #4a1818', borderRadius: 6, padding: '11px 16px', color: T.mute, fontSize: 13, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.55 }}>
               {genError}
             </div>
           )}
@@ -730,23 +729,23 @@ Now produce the ${typeObj?.label || argType}:`;
           {/* Draft output */}
           {draft && (
             <div style={{ marginTop: 24, animation: 'fadeUp .35s ease' }}>
-              <div style={{ background: '#0a0a14', border: `1px solid ${ACC}33`, borderRadius: 10, padding: '16px 20px', marginBottom: 16, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+              <div style={{ background: T.card, border: `1px solid ${T.text}33`, borderRadius: 10, padding: '16px 20px', marginBottom: 16, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
                 <div>
-                  <p style={{ fontSize: 9, color: '#40a860', fontFamily: 'Inter, sans-serif', letterSpacing: '.18em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 4 }}>✓ Draft Ready — Unsaved</p>
-                  <p style={{ fontSize: 16, color: T.goldL, fontFamily: "'Cormorant Garamond', serif", fontWeight: 400 }}>
+                  <p style={{ fontSize: 9, color: '#40a860', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.18em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 4 }}>✓ Draft Ready — Unsaved</p>
+                  <p style={{ fontSize: 16, color: T.goldL, fontFamily: "'Times New Roman', Times, serif", fontWeight: 400 }}>
                     {AB_ARG_TYPES.find(t => t.id === argType)?.label}
                   </p>
                   {argIssue && (
-                    <p style={{ fontSize: 12, color: T.dim, fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic', marginTop: 3 }}>
+                    <p style={{ fontSize: 12, color: T.dim, fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic', marginTop: 3 }}>
                       {argIssue.slice(0, 90)}{argIssue.length > 90 ? '…' : ''}
                     </p>
                   )}
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
                     {driveRAG && (
-                      <span style={{ fontSize: 8, color: '#4a7ed0', fontFamily: 'Inter, sans-serif', border: '1px solid #1a3060', background: '#040c18', padding: '1px 6px', borderRadius: 2 }}>Drive RAG</span>
+                      <span style={{ fontSize: 8, color: '#4a7ed0', fontFamily: "'Times New Roman', Times, serif", border: '1px solid #1a3060', background: '#040c18', padding: '1px 6px', borderRadius: 2 }}>Drive RAG</span>
                     )}
                     {statuteChunks.length > 0 && (
-                      <span style={{ fontSize: 8, color: '#40b060', fontFamily: 'Inter, sans-serif', border: '1px solid #1a4028', background: '#020e06', padding: '1px 6px', borderRadius: 2 }}>
+                      <span style={{ fontSize: 8, color: '#40b060', fontFamily: "'Times New Roman', Times, serif", border: '1px solid #1a4028', background: T.card, padding: '1px 6px', borderRadius: 2 }}>
                         § {statuteChunks.length} statute section{statuteChunks.length !== 1 ? 's' : ''} used
                       </span>
                     )}
@@ -755,19 +754,19 @@ Now produce the ${typeObj?.label || argType}:`;
                 <div style={{ display: 'flex', gap: 8, flexShrink: 0, flexWrap: 'wrap' }}>
                   <button
                     onClick={() => handleCopy(draft)}
-                    style={{ background: copied ? '#071808' : 'transparent', border: `1px solid ${copied ? '#1a4018' : '#1e1e2e'}`, color: copied ? '#40a858' : T.mute, borderRadius: 4, padding: '6px 14px', fontSize: 10, fontFamily: 'Inter, sans-serif', cursor: 'pointer', letterSpacing: '.04em', transition: 'all .2s' }}
+                    style={{ background: copied ? '#071808' : 'transparent', border: `1px solid ${copied ? T.bdr : T.bdr}`, color: copied ? '#40a858' : T.mute, borderRadius: 4, padding: '6px 14px', fontSize: 10, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', letterSpacing: '.04em', transition: 'all .2s' }}
                   >
                     {copied ? '✓ Copied' : 'Copy'}
                   </button>
                   <button
                     onClick={saveVersion}
-                    style={{ background: '#100d02', border: `1px solid ${ACC}44`, color: ACC, borderRadius: 4, padding: '6px 14px', fontSize: 10, fontFamily: 'Inter, sans-serif', cursor: 'pointer', letterSpacing: '.04em', display: 'flex', alignItems: 'center', gap: 5 }}
+                    style={{ background: '#100d02', border: `1px solid ${T.text}44`, color: T.text, borderRadius: 4, padding: '6px 14px', fontSize: 10, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', letterSpacing: '.04em', display: 'flex', alignItems: 'center', gap: 5 }}
                   >
                     💾 Save Version
                   </button>
                   <button
                     onClick={generate}
-                    style={{ background: 'transparent', border: '1px solid #1e1e2e', color: T.mute, borderRadius: 4, padding: '6px 14px', fontSize: 10, fontFamily: 'Inter, sans-serif', cursor: 'pointer', letterSpacing: '.04em' }}
+                    style={{ background: 'transparent', border: '1px solid #1e1e2e', color: T.mute, borderRadius: 4, padding: '6px 14px', fontSize: 10, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', letterSpacing: '.04em' }}
                   >
                     ↻ Regenerate
                   </button>
@@ -778,7 +777,7 @@ Now produce the ${typeObj?.label || argType}:`;
                 <Md text={draft} />
               </div>
 
-              <p style={{ fontSize: 10, color: '#1e1e2e', fontFamily: 'Inter, sans-serif', marginTop: 10, textAlign: 'center', lineHeight: 1.7 }}>
+              <p style={{ fontSize: 10, color: T.bdr, fontFamily: "'Times New Roman', Times, serif", marginTop: 10, textAlign: 'center', lineHeight: 1.7 }}>
                 Statutes: from your verified library. Cases: every [RESEARCH NEEDED] block has ready-made LawPavilion queries — use Research Resolver to plug them in. Never file without confirmed authorities.
               </p>
             </div>
@@ -792,11 +791,11 @@ Now produce the ${typeObj?.label || argType}:`;
       {abTab === 'history' && (
         <div style={{ animation: 'fadeUp .25s ease' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-            <p style={{ fontSize: 9, color: ACC, fontFamily: 'Inter, sans-serif', letterSpacing: '.18em', textTransform: 'uppercase', fontWeight: 600 }}>
+            <p style={{ fontSize: 9, color: T.text, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.18em', textTransform: 'uppercase', fontWeight: 600 }}>
               Version History — {versions.length} Saved Draft{versions.length !== 1 ? 's' : ''}
             </p>
             {viewVer && (
-              <button onClick={() => setViewVer(null)} style={{ background: 'transparent', border: '1px solid #1e1e2e', color: T.mute, borderRadius: 4, padding: '5px 12px', fontSize: 10, fontFamily: 'Inter, sans-serif', cursor: 'pointer', letterSpacing: '.04em' }}>
+              <button onClick={() => setViewVer(null)} style={{ background: 'transparent', border: '1px solid #1e1e2e', color: T.mute, borderRadius: 4, padding: '5px 12px', fontSize: 10, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', letterSpacing: '.04em' }}>
                 ← All Versions
               </button>
             )}
@@ -805,21 +804,21 @@ Now produce the ${typeObj?.label || argType}:`;
           {/* Version detail */}
           {viewVer ? (
             <div style={{ animation: 'fadeUp .2s ease' }}>
-              <div style={{ background: '#0a0a14', border: `1px solid ${ACC}33`, borderRadius: 10, padding: '16px 20px', marginBottom: 16, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+              <div style={{ background: T.card, border: `1px solid ${T.text}33`, borderRadius: 10, padding: '16px 20px', marginBottom: 16, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
                 <div>
-                  <p style={{ fontSize: 9, color: ACC, fontFamily: 'Inter, sans-serif', letterSpacing: '.16em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 4 }}>Saved Version</p>
-                  <p style={{ fontSize: 16, color: T.goldL, fontFamily: "'Cormorant Garamond', serif", fontWeight: 400 }}>{viewVer.label}</p>
+                  <p style={{ fontSize: 9, color: T.text, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.16em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 4 }}>Saved Version</p>
+                  <p style={{ fontSize: 16, color: T.goldL, fontFamily: "'Times New Roman', Times, serif", fontWeight: 400 }}>{viewVer.label}</p>
                   {viewVer.argIssue && (
-                    <p style={{ fontSize: 12, color: T.dim, fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic', marginTop: 3 }}>{viewVer.argIssue.slice(0, 90)}</p>
+                    <p style={{ fontSize: 12, color: T.dim, fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic', marginTop: 3 }}>{viewVer.argIssue.slice(0, 90)}</p>
                   )}
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginTop: 6 }}>
-                    <p style={{ fontSize: 9, color: T.mute, fontFamily: 'Inter, sans-serif' }}>
+                    <p style={{ fontSize: 9, color: T.mute, fontFamily: "'Times New Roman', Times, serif" }}>
                       {new Date(viewVer.createdAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                     </p>
                     {viewVer.driveRAG && (
-                      <span style={{ fontSize: 8, color: '#4a7ed0', fontFamily: 'Inter, sans-serif', border: '1px solid #1a3060', background: '#040c18', padding: '1px 6px', borderRadius: 2 }}>Drive RAG</span>
+                      <span style={{ fontSize: 8, color: '#4a7ed0', fontFamily: "'Times New Roman', Times, serif", border: '1px solid #1a3060', background: '#040c18', padding: '1px 6px', borderRadius: 2 }}>Drive RAG</span>
                     )}
-                    <span style={{ fontSize: 8, color: T.mute, fontFamily: 'Inter, sans-serif', border: '1px solid #111120', padding: '1px 6px', borderRadius: 2 }}>
+                    <span style={{ fontSize: 8, color: T.mute, fontFamily: "'Times New Roman', Times, serif", border: '1px solid #111120', padding: '1px 6px', borderRadius: 2 }}>
                       {viewVer.content.length.toLocaleString()} chars
                     </span>
                   </div>
@@ -827,19 +826,19 @@ Now produce the ${typeObj?.label || argType}:`;
                 <div style={{ display: 'flex', gap: 8, flexShrink: 0, flexWrap: 'wrap' }}>
                   <button
                     onClick={() => handleCopy(viewVer.content)}
-                    style={{ background: copied ? '#071808' : 'transparent', border: `1px solid ${copied ? '#1a4018' : '#1e1e2e'}`, color: copied ? '#40a858' : T.mute, borderRadius: 4, padding: '6px 14px', fontSize: 10, fontFamily: 'Inter, sans-serif', cursor: 'pointer', letterSpacing: '.04em', transition: 'all .2s' }}
+                    style={{ background: copied ? '#071808' : 'transparent', border: `1px solid ${copied ? T.bdr : T.bdr}`, color: copied ? '#40a858' : T.mute, borderRadius: 4, padding: '6px 14px', fontSize: 10, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', letterSpacing: '.04em', transition: 'all .2s' }}
                   >
                     {copied ? '✓ Copied' : 'Copy'}
                   </button>
                   <button
                     onClick={() => { setDraft(viewVer.content); setArgType(viewVer.argType as ArgTypeId); setArgIssue(viewVer.argIssue || ''); setAbTab('build'); }}
-                    style={{ background: '#100d02', border: `1px solid ${ACC}44`, color: ACC, borderRadius: 4, padding: '6px 14px', fontSize: 10, fontFamily: 'Inter, sans-serif', cursor: 'pointer', letterSpacing: '.04em' }}
+                    style={{ background: '#100d02', border: `1px solid ${T.text}44`, color: T.text, borderRadius: 4, padding: '6px 14px', fontSize: 10, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', letterSpacing: '.04em' }}
                   >
                     Load into Builder
                   </button>
                   <button
                     onClick={() => handleDeleteVersion(viewVer.id)}
-                    style={{ background: 'transparent', border: '1px solid #2a1a1a', color: '#6a3030', borderRadius: 4, padding: '6px 14px', fontSize: 10, fontFamily: 'Inter, sans-serif', cursor: 'pointer', letterSpacing: '.04em' }}
+                    style={{ background: 'transparent', border: '1px solid #2a1a1a', color: '#6a3030', borderRadius: 4, padding: '6px 14px', fontSize: 10, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', letterSpacing: '.04em' }}
                   >
                     Delete
                   </button>
@@ -856,8 +855,8 @@ Now produce the ${typeObj?.label || argType}:`;
           ) : versions.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '60px 24px', background: '#080808', border: '1px solid #111120', borderRadius: 10 }}>
               <div style={{ fontSize: 40, opacity: .06, marginBottom: 16 }}>📚</div>
-              <p style={{ fontSize: 20, color: T.goldL, fontFamily: "'Cormorant Garamond', serif", fontWeight: 300, fontStyle: 'italic', marginBottom: 8 }}>No versions saved yet.</p>
-              <p style={{ fontSize: 12, color: T.mute, fontFamily: 'Inter, sans-serif', lineHeight: 1.65, maxWidth: 380, margin: '0 auto' }}>
+              <p style={{ fontSize: 20, color: T.goldL, fontFamily: "'Times New Roman', Times, serif", fontWeight: 300, fontStyle: 'italic', marginBottom: 8 }}>No versions saved yet.</p>
+              <p style={{ fontSize: 12, color: T.mute, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.65, maxWidth: 380, margin: '0 auto' }}>
                 Generate an argument in the Build tab, then click <strong style={{ color: T.dim }}>Save Version</strong>. Every saved draft will appear here — retrieve, copy, load back, or delete at any time.
               </p>
             </div>
@@ -868,35 +867,35 @@ Now produce the ${typeObj?.label || argType}:`;
                 <div
                   key={ver.id}
                   style={{ background: '#0d0d18', border: '1px solid #181828', borderRadius: 9, padding: '14px 18px', display: 'flex', alignItems: 'flex-start', gap: 14, transition: 'border-color .15s', cursor: 'default' }}
-                  onMouseEnter={e => (e.currentTarget.style.borderColor = '#2a2208')}
+                  onMouseEnter={e => (e.currentTarget.style.borderColor = T.bdr)}
                   onMouseLeave={e => (e.currentTarget.style.borderColor = '#181828')}
                 >
-                  <div style={{ width: 7, height: 7, borderRadius: '50%', background: ACC, flexShrink: 0, marginTop: 7, opacity: i === 0 ? 0.8 : 0.35 }} />
+                  <div style={{ width: 7, height: 7, borderRadius: '50%', background: T.text, flexShrink: 0, marginTop: 7, opacity: i === 0 ? 0.8 : 0.35 }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
-                      <span style={{ fontSize: 13, color: T.text, fontFamily: "'Cormorant Garamond', serif", fontWeight: 600 }}>{ver.label}</span>
-                      {i === 0 && <span style={{ fontSize: 8, color: '#40a860', fontFamily: 'Inter, sans-serif', border: '1px solid #1a4028', background: '#020e06', padding: '1px 6px', borderRadius: 2 }}>Latest</span>}
-                      {ver.driveRAG && <span style={{ fontSize: 8, color: '#4a7ed0', fontFamily: 'Inter, sans-serif', border: '1px solid #1a3060', background: '#040c18', padding: '1px 6px', borderRadius: 2 }}>Drive RAG</span>}
+                      <span style={{ fontSize: 13, color: T.text, fontFamily: "'Times New Roman', Times, serif", fontWeight: 600 }}>{ver.label}</span>
+                      {i === 0 && <span style={{ fontSize: 8, color: '#40a860', fontFamily: "'Times New Roman', Times, serif", border: '1px solid #1a4028', background: T.card, padding: '1px 6px', borderRadius: 2 }}>Latest</span>}
+                      {ver.driveRAG && <span style={{ fontSize: 8, color: '#4a7ed0', fontFamily: "'Times New Roman', Times, serif", border: '1px solid #1a3060', background: '#040c18', padding: '1px 6px', borderRadius: 2 }}>Drive RAG</span>}
                     </div>
                     {ver.argIssue && (
-                      <p style={{ fontSize: 11, color: T.dim, fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic', marginBottom: 4, lineHeight: 1.5 }}>
+                      <p style={{ fontSize: 11, color: T.dim, fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic', marginBottom: 4, lineHeight: 1.5 }}>
                         {ver.argIssue.slice(0, 100)}{ver.argIssue.length > 100 ? '…' : ''}
                       </p>
                     )}
-                    <p style={{ fontSize: 9, color: T.mute, fontFamily: 'Inter, sans-serif' }}>
+                    <p style={{ fontSize: 9, color: T.mute, fontFamily: "'Times New Roman', Times, serif" }}>
                       {new Date(ver.createdAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })} · {ver.content.length.toLocaleString()} characters
                     </p>
                   </div>
                   <div style={{ display: 'flex', gap: 7, flexShrink: 0, alignItems: 'center' }}>
                     <button
                       onClick={() => setViewVer(ver)}
-                      style={{ background: 'transparent', border: `1px solid ${ACC}44`, color: ACC, borderRadius: 4, padding: '5px 12px', fontSize: 10, fontFamily: 'Inter, sans-serif', cursor: 'pointer', letterSpacing: '.04em', whiteSpace: 'nowrap' }}
+                      style={{ background: 'transparent', border: `1px solid ${T.text}44`, color: T.text, borderRadius: 4, padding: '5px 12px', fontSize: 10, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', letterSpacing: '.04em', whiteSpace: 'nowrap' }}
                     >
                       View →
                     </button>
                     <button
                       onClick={() => handleDeleteVersion(ver.id)}
-                      style={{ background: 'transparent', border: '1px solid #2a1a1a', color: '#6a3030', borderRadius: 4, padding: '5px 9px', fontSize: 10, fontFamily: 'Inter, sans-serif', cursor: 'pointer' }}
+                      style={{ background: 'transparent', border: '1px solid #2a1a1a', color: '#6a3030', borderRadius: 4, padding: '5px 9px', fontSize: 10, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer' }}
                     >
                       ✕
                     </button>

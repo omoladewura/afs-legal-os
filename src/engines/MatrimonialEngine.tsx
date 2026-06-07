@@ -72,11 +72,11 @@ interface MatrimonialSaved {
 const iS: React.CSSProperties = {
   width: '100%', background: '#070710', border: '1px solid #1a1a28',
   borderRadius: 5, color: '#e0dcd0', padding: '11px 14px', fontSize: 15,
-  fontFamily: "'Cormorant Garamond', serif", outline: 'none', boxSizing: 'border-box',
+  fontFamily: "'Times New Roman', Times, serif", outline: 'none', boxSizing: 'border-box',
 };
 const taS: React.CSSProperties = { ...iS, resize: 'vertical', lineHeight: 1.82, minHeight: 110 };
 const labelS: React.CSSProperties = {
-  fontSize: 10, color: '#5a5a72', fontFamily: 'Inter, sans-serif',
+  fontSize: 10, color: T.mute, fontFamily: "'Times New Roman', Times, serif",
   letterSpacing: '.1em', textTransform: 'uppercase', fontWeight: 600,
   display: 'block', marginBottom: 6,
 };
@@ -85,11 +85,11 @@ const cardS: React.CSSProperties = {
   borderRadius: 8, padding: '20px 22px', marginBottom: 16,
 };
 const hS: React.CSSProperties = {
-  fontSize: 20, color: '#d4b448', fontWeight: 400,
-  fontFamily: "'Cormorant Garamond', serif", marginBottom: 6, letterSpacing: '.02em',
+  fontSize: 20, color: T.text, fontWeight: 400,
+  fontFamily: "'Times New Roman', Times, serif", marginBottom: 6, letterSpacing: '.02em',
 };
 const dimS: React.CSSProperties = {
-  fontSize: 13, color: '#505060', fontFamily: 'Inter, sans-serif',
+  fontSize: 13, color: T.mute, fontFamily: "'Times New Roman', Times, serif",
   lineHeight: 1.6, marginBottom: 14,
 };
 
@@ -102,10 +102,10 @@ function ActionBtn({
       onClick={onClick}
       disabled={disabled || loading}
       style={{
-        background:  loading ? '#101018' : off ? '#101018' : 'linear-gradient(135deg,#c4a030,#a07820)',
+        background:  loading ? '#101018' : off ? '#101018' : 'linear-gradient(135deg,#000000,#a07820)',
         color:       loading ? '#2a2a38' : off ? '#2a2a38' : '#05050c',
         border:      'none', borderRadius: 6, padding: '13px 28px',
-        fontSize:    16, fontFamily: "'Cormorant Garamond', serif",
+        fontSize:    16, fontFamily: "'Times New Roman', Times, serif",
         cursor:      loading || off ? 'not-allowed' : 'pointer',
         fontWeight:  600, letterSpacing: '.04em',
       }}
@@ -129,14 +129,14 @@ function ResultBlock({ title, content, onClear }: { title: string; content: stri
   return (
     <div style={{ background: '#060610', border: '1px solid #1e2e2a', borderRadius: 8, padding: '20px 22px', marginTop: 4 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-        <span style={{ fontSize: 11, color: '#4a8070', fontFamily: 'Inter, sans-serif', letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 600 }}>
+        <span style={{ fontSize: 11, color: '#4a8070', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 600 }}>
           {title}
         </span>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button onClick={copy} style={{ background: '#0a0a18', border: '1px solid #1a1a28', color: copied ? '#60b040' : '#808090', borderRadius: 4, padding: '4px 12px', fontSize: 10, fontFamily: 'Inter, sans-serif', cursor: 'pointer', letterSpacing: '.04em' }}>
+          <button onClick={copy} style={{ background: T.card, border: '1px solid #1a1a28', color: copied ? '#60b040' : '#808090', borderRadius: 4, padding: '4px 12px', fontSize: 10, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', letterSpacing: '.04em' }}>
             {copied ? '✓ Copied' : 'Copy'}
           </button>
-          <button onClick={onClear} style={{ background: 'none', border: '1px solid #2a1818', color: '#604040', borderRadius: 4, padding: '4px 12px', fontSize: 10, fontFamily: 'Inter, sans-serif', cursor: 'pointer' }}>
+          <button onClick={onClear} style={{ background: 'none', border: '1px solid #2a1818', color: '#604040', borderRadius: 4, padding: '4px 12px', fontSize: 10, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer' }}>
             Clear
           </button>
         </div>
@@ -750,7 +750,7 @@ export function MatrimonialEngine({ activeCase }: Props) {
                   border:       defences.includes(d) ? '1px solid #3a3060' : '1px solid #141420',
                   color:        defences.includes(d) ? T.gold : '#505060',
                   borderRadius: 4, padding: '6px 12px', fontSize: 12,
-                  fontFamily:   'Inter, sans-serif', cursor: 'pointer', letterSpacing: '.04em',
+                  fontFamily:   "'Times New Roman', Times, serif", cursor: 'pointer', letterSpacing: '.04em',
                 }}>
                   {defences.includes(d) ? '✓ ' : ''}{d}
                 </button>
@@ -790,17 +790,17 @@ export function MatrimonialEngine({ activeCase }: Props) {
       {/* Header */}
       <div style={{ marginBottom: 22 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 8 }}>
-          <span style={{ fontSize: 11, color: T.gold, fontFamily: 'Inter, sans-serif', letterSpacing: '.16em', textTransform: 'uppercase', fontWeight: 600, border: '1px solid #3a2208', padding: '3px 10px', borderRadius: 2 }}>
+          <span style={{ fontSize: 11, color: T.gold, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.16em', textTransform: 'uppercase', fontWeight: 600, border: '1px solid #3a2208', padding: '3px 10px', borderRadius: 2 }}>
             Matrimonial Causes
           </span>
-          <span style={{ fontSize: 11, color: '#404050', fontFamily: 'Inter, sans-serif', letterSpacing: '.08em', textTransform: 'uppercase' }}>
+          <span style={{ fontSize: 11, color: T.mute, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.08em', textTransform: 'uppercase' }}>
             MCA Cap M7 LFN 2004 · Matrimonial Causes Rules · Welfare of Children Paramount
           </span>
         </div>
-        <h2 style={{ fontSize: 28, color: '#d4b448', fontWeight: 300, fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic', margin: 0 }}>
+        <h2 style={{ fontSize: 28, color: T.text, fontWeight: 300, fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic', margin: 0 }}>
           Matrimonial Causes Engine
         </h2>
-        <p style={{ fontSize: 14, color: '#505060', fontFamily: 'Inter, sans-serif', lineHeight: 1.6, marginTop: 6, maxWidth: 740 }}>
+        <p style={{ fontSize: 14, color: T.mute, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.6, marginTop: 6, maxWidth: 740 }}>
           Standalone matrimonial causes intelligence under the Matrimonial Causes Act Cap M7 LFN 2004. Petition drafting, nullity analysis, custody and guardianship applications, maintenance calculation, property settlement, ancillary reliefs, and respondent defence — all governed by the MCA, the Matrimonial Causes Rules, and the welfare-of-children paramount principle.
         </p>
       </div>
@@ -816,7 +816,7 @@ export function MatrimonialEngine({ activeCase }: Props) {
               border:        subTab === st.id ? '1px solid #2a2a3e' : '1px solid transparent',
               color:         subTab === st.id ? T.gold : '#505060',
               borderRadius:  5, padding: '7px 14px', fontSize: 12,
-              fontFamily:    'Inter, sans-serif', cursor: 'pointer',
+              fontFamily:    "'Times New Roman', Times, serif", cursor: 'pointer',
               letterSpacing: '.06em', fontWeight: 600, transition: 'all .15s',
             }}
           >

@@ -47,8 +47,6 @@ interface Props {
 // DESIGN TOKENS
 // ─────────────────────────────────────────────────────────────────────────────
 
-const ACC  = '#c4a030';
-const ACCD = '#a07820';
 const DIM  = '#4a3810';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -58,11 +56,11 @@ const DIM  = '#4a3810';
 const inputStyle: React.CSSProperties = {
   width: '100%', background: T.bg, border: '1px solid #1e1e2e',
   borderRadius: 5, color: T.text, padding: '10px 13px', fontSize: 14,
-  fontFamily: "'Cormorant Garamond', serif", outline: 'none', boxSizing: 'border-box',
+  fontFamily: "'Times New Roman', Times, serif", outline: 'none', boxSizing: 'border-box',
 };
 const taStyle: React.CSSProperties = { ...inputStyle, resize: 'vertical', lineHeight: 1.75 };
 const labelStyle: React.CSSProperties = {
-  fontSize: 9, color: T.mute, fontFamily: 'Inter, sans-serif',
+  fontSize: 9, color: T.mute, fontFamily: "'Times New Roman', Times, serif",
   letterSpacing: '.1em', textTransform: 'uppercase', fontWeight: 600,
   display: 'block', marginBottom: 5,
 };
@@ -96,9 +94,9 @@ function CaseCard({ entry, index, removable, onUpdate, onRemove }: CaseCardProps
   }
 
   return (
-    <div style={{ background: '#0a0a14', border: '1px solid #1a1a2a', borderRadius: 7, padding: '16px 18px', marginBottom: 10 }}>
+    <div style={{ background: T.card, border: '1px solid #1a1a2a', borderRadius: 7, padding: '16px 18px', marginBottom: 10 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-        <span style={{ fontSize: 11, color: ACC, fontFamily: "'Cormorant Garamond', serif", fontWeight: 600, minWidth: 20, flexShrink: 0 }}>{index + 1}.</span>
+        <span style={{ fontSize: 11, color: T.text, fontFamily: "'Times New Roman', Times, serif", fontWeight: 600, minWidth: 20, flexShrink: 0 }}>{index + 1}.</span>
         <input
           value={entry.citation}
           onChange={e => onUpdate(entry.id, 'citation', e.target.value)}
@@ -125,15 +123,15 @@ function CaseCard({ entry, index, removable, onUpdate, onRemove }: CaseCardProps
       {entry.file ? (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: T.bg, border: '1px solid #1e1e2e', borderRadius: 4, padding: '7px 12px' }}>
           <span style={{ fontSize: 13 }}>📎</span>
-          <span style={{ flex: 1, fontSize: 11, color: T.dim, fontFamily: 'Inter, sans-serif', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.file.name}</span>
+          <span style={{ flex: 1, fontSize: 11, color: T.dim, fontFamily: "'Times New Roman', Times, serif", overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.file.name}</span>
           <button onClick={() => onUpdate(entry.id, 'file', null)} style={{ background: 'transparent', border: 'none', color: '#804040', cursor: 'pointer', fontSize: 11, flexShrink: 0 }}>✕</button>
         </div>
       ) : (
         <button
           onClick={() => fileRef.current?.click()}
-          style={{ background: 'transparent', border: '1px dashed #1e1e2e', color: T.mute, borderRadius: 4, padding: '8px', fontSize: 11, fontFamily: 'Inter, sans-serif', cursor: 'pointer', width: '100%', textAlign: 'center', letterSpacing: '.04em', transition: 'border-color .15s' }}
+          style={{ background: 'transparent', border: '1px dashed #1e1e2e', color: T.mute, borderRadius: 4, padding: '8px', fontSize: 11, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', width: '100%', textAlign: 'center', letterSpacing: '.04em', transition: 'border-color .15s' }}
           onMouseEnter={e => (e.currentTarget.style.borderColor = '#3a3a52')}
-          onMouseLeave={e => (e.currentTarget.style.borderColor = '#1e1e2e')}
+          onMouseLeave={e => (e.currentTarget.style.borderColor = T.bdr)}
         >
           📎 Upload PDF or image of the case (optional)
         </button>
@@ -156,23 +154,23 @@ function ResultPanel({ result }: { result: string }) {
     setCopied(true); setTimeout(() => setCopied(false), 2000);
   }
   return (
-    <div style={{ background: '#0a0a14', border: `1px solid ${ACC}`, borderRadius: 10, padding: '24px 26px', animation: 'fadeUp .3s ease' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, paddingBottom: 12, borderBottom: `1px solid ${ACC}22` }}>
+    <div style={{ background: T.card, border: `1px solid ${T.text}`, borderRadius: 10, padding: '24px 26px', animation: 'fadeUp .3s ease' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, paddingBottom: 12, borderBottom: `1px solid ${T.text}22` }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ width: 6, height: 6, background: ACC, borderRadius: '50%', display: 'inline-block' }} />
-          <p style={{ fontSize: 9, color: ACC, fontFamily: 'Inter, sans-serif', letterSpacing: '.18em', textTransform: 'uppercase', fontWeight: 600, margin: 0 }}>Resolved Paragraph</p>
+          <span style={{ width: 6, height: 6, background: T.text, borderRadius: '50%', display: 'inline-block' }} />
+          <p style={{ fontSize: 9, color: T.text, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.18em', textTransform: 'uppercase', fontWeight: 600, margin: 0 }}>Resolved Paragraph</p>
         </div>
         <button
           onClick={copy}
-          style={{ background: copied ? '#0a1a06' : 'transparent', border: `1px solid ${copied ? '#3a5028' : '#2a2208'}`, color: copied ? '#60b040' : T.mute, borderRadius: 3, padding: '4px 14px', fontSize: 9, fontFamily: 'Inter, sans-serif', cursor: 'pointer', letterSpacing: '.06em', textTransform: 'uppercase', fontWeight: 600, transition: 'all .2s' }}
+          style={{ background: copied ? '#0a1a06' : 'transparent', border: `1px solid ${copied ? T.bdr : T.bdr}`, color: copied ? '#60b040' : T.mute, borderRadius: 3, padding: '4px 14px', fontSize: 9, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', letterSpacing: '.06em', textTransform: 'uppercase', fontWeight: 600, transition: 'all .2s' }}
         >
           {copied ? '✓ Copied' : 'Copy'}
         </button>
       </div>
-      <div style={{ fontSize: 16, color: '#ddd9cc', fontFamily: "'Cormorant Garamond', serif", lineHeight: 2, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+      <div style={{ fontSize: 16, color: T.text, fontFamily: "'Times New Roman', Times, serif", lineHeight: 2, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
         {result}
       </div>
-      <p style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid #131320', fontSize: 11, color: '#3a3a52', fontFamily: 'Inter, sans-serif', lineHeight: 1.75 }}>
+      <p style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid #131320', fontSize: 11, color: T.mute, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.75 }}>
         Verify every citation before filing — confirm the case name, year, volume, page, and that the holding stated matches what the court actually decided.
       </p>
     </div>
@@ -275,20 +273,20 @@ function CaseFinder() {
 
       {/* Under pressure banner */}
       <div style={{ background: '#080a04', border: '1px solid #2a3010', borderLeft: '3px solid #8ab020', borderRadius: '0 8px 8px 0', padding: '14px 18px', marginBottom: 20 }}>
-        <p style={{ fontSize: 11, color: '#8ab040', fontFamily: 'Inter, sans-serif', letterSpacing: '.08em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 4 }}>
+        <p style={{ fontSize: 11, color: '#8ab040', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.08em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 4 }}>
           ⚡ Under Pressure Workflow
         </p>
-        <p style={{ fontSize: 13, color: '#6a7a40', fontFamily: "'Cormorant Garamond', serif", lineHeight: 1.65 }}>
+        <p style={{ fontSize: 13, color: T.dim, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.65 }}>
           Copy a [RESEARCH NEEDED] block from your argument → paste below → get instant LawPavilion search queries → copy one → search in LawPavilion → find the real case → come back → use the Resolver tab to plug it in. 3–5 real cases, zero hallucination.
         </p>
       </div>
 
       {/* Paste area */}
-      <div style={{ background: '#0d0d18', border: '1px solid #2a2208', borderLeft: `3px solid ${ACC}`, borderRadius: '0 8px 8px 0', padding: '20px 22px', marginBottom: 14 }}>
-        <label style={{ ...labelStyle, color: ACC, letterSpacing: '.12em', marginBottom: 6 }}>
+      <div style={{ background: '#0d0d18', border: '1px solid #2a2208', borderLeft: `3px solid ${T.text}`, borderRadius: '0 8px 8px 0', padding: '20px 22px', marginBottom: 14 }}>
+        <label style={{ ...labelStyle, color: T.text, letterSpacing: '.12em', marginBottom: 6 }}>
           Paste [RESEARCH NEEDED] block here <span style={{ color: '#b06060' }}>*</span>
         </label>
-        <p style={{ fontSize: 11, color: DIM, fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic', marginBottom: 10, lineHeight: 1.6 }}>
+        <p style={{ fontSize: 11, color: DIM, fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic', marginBottom: 10, lineHeight: 1.6 }}>
           Copy the entire block including [RESEARCH NEEDED] and [/RESEARCH NEEDED] tags from your argument draft.
         </p>
         <textarea
@@ -306,14 +304,14 @@ function CaseFinder() {
             'What the case must decide: That a court retains jurisdiction to set aside its own judgment where fraud is established.\n' +
             '[/RESEARCH NEEDED]'
           }
-          style={{ ...taStyle, fontFamily: 'Inter, sans-serif', fontSize: 12, lineHeight: 1.7 }}
+          style={{ ...taStyle, fontFamily: "'Times New Roman', Times, serif", fontSize: 12, lineHeight: 1.7 }}
         />
         {error && (
-          <p style={{ fontSize: 11, color: '#c07070', fontFamily: 'Inter, sans-serif', marginTop: 8, lineHeight: 1.5 }}>{error}</p>
+          <p style={{ fontSize: 11, color: T.mute, fontFamily: "'Times New Roman', Times, serif", marginTop: 8, lineHeight: 1.5 }}>{error}</p>
         )}
         <button
           onClick={parseBlock}
-          style={{ marginTop: 12, background: `linear-gradient(135deg,${ACC},${ACCD})`, color: '#05050c', border: 'none', borderRadius: 6, padding: '11px 28px', fontSize: 15, fontFamily: "'Cormorant Garamond', serif", fontWeight: 600, cursor: 'pointer', letterSpacing: '.04em' }}
+          style={{ marginTop: 12, background: '#000000', color: '#ffffff', border: 'none', borderRadius: 6, padding: '11px 28px', fontSize: 15, fontFamily: "'Times New Roman', Times, serif", fontWeight: 600, cursor: 'pointer', letterSpacing: '.04em' }}
         >
           Generate Search Queries →
         </button>
@@ -325,22 +323,22 @@ function CaseFinder() {
 
           {/* Brief summary card */}
           <div style={{ background: '#05070d', border: '1px solid #1a1e2e', borderRadius: 8, padding: '16px 20px', marginBottom: 16 }}>
-            <p style={{ fontSize: 9, color: '#4a5070', fontFamily: 'Inter, sans-serif', letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 10 }}>Research Brief</p>
+            <p style={{ fontSize: 9, color: T.mute, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 10 }}>Research Brief</p>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
               {[{ label: 'Area of Law', value: parsed.areaOfLaw }, { label: 'Court Level', value: parsed.courtLevel }].map(item => (
                 <div key={item.label} style={{ background: '#0a0a16', border: '1px solid #12122a', borderRadius: 5, padding: '10px 13px' }}>
-                  <p style={{ fontSize: 8, color: '#3a3a52', fontFamily: 'Inter, sans-serif', letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 4 }}>{item.label}</p>
-                  <p style={{ fontSize: 13, color: T.text, fontFamily: "'Cormorant Garamond', serif", lineHeight: 1.5 }}>{item.value || '—'}</p>
+                  <p style={{ fontSize: 8, color: T.mute, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 4 }}>{item.label}</p>
+                  <p style={{ fontSize: 13, color: T.text, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.5 }}>{item.value || '—'}</p>
                 </div>
               ))}
             </div>
             <div style={{ background: '#0a0a16', border: '1px solid #12122a', borderRadius: 5, padding: '10px 13px', marginBottom: 10 }}>
-              <p style={{ fontSize: 8, color: '#3a3a52', fontFamily: 'Inter, sans-serif', letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 4 }}>Proposition to establish</p>
-              <p style={{ fontSize: 14, color: ACC, fontFamily: "'Cormorant Garamond', serif", lineHeight: 1.6, fontStyle: 'italic' }}>{parsed.proposition || '—'}</p>
+              <p style={{ fontSize: 8, color: T.mute, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 4 }}>Proposition to establish</p>
+              <p style={{ fontSize: 14, color: T.text, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.6, fontStyle: 'italic' }}>{parsed.proposition || '—'}</p>
             </div>
             <div style={{ background: '#0a0a16', border: '1px solid #12122a', borderRadius: 5, padding: '10px 13px' }}>
-              <p style={{ fontSize: 8, color: '#3a3a52', fontFamily: 'Inter, sans-serif', letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 4 }}>The case must hold that</p>
-              <p style={{ fontSize: 13, color: T.dim, fontFamily: "'Cormorant Garamond', serif", lineHeight: 1.6 }}>{parsed.whatCaseMustDecide || '—'}</p>
+              <p style={{ fontSize: 8, color: T.mute, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 4 }}>The case must hold that</p>
+              <p style={{ fontSize: 13, color: T.dim, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.6 }}>{parsed.whatCaseMustDecide || '—'}</p>
             </div>
           </div>
 
@@ -348,17 +346,17 @@ function CaseFinder() {
           <div style={{ background: '#0d0d18', border: '1px solid #181828', borderRadius: 8, padding: '18px 20px', marginBottom: 14 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
               <div>
-                <p style={{ fontSize: 10, color: ACC, fontFamily: 'Inter, sans-serif', letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 3 }}>
+                <p style={{ fontSize: 10, color: T.text, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 3 }}>
                   LawPavilion Search Queries
                 </p>
-                <p style={{ fontSize: 11, color: T.mute, fontFamily: 'Inter, sans-serif', lineHeight: 1.5 }}>
+                <p style={{ fontSize: 11, color: T.mute, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.5 }}>
                   Copy any query → paste into LawPavilion → find the real case → come back
                 </p>
               </div>
               <button
                 onClick={generateMoreSearches}
                 disabled={generating}
-                style={{ background: 'transparent', border: `1px solid ${ACC}44`, color: generating ? T.mute : ACC, borderRadius: 4, padding: '6px 14px', fontSize: 10, fontFamily: 'Inter, sans-serif', cursor: generating ? 'not-allowed' : 'pointer', letterSpacing: '.04em', flexShrink: 0, transition: 'all .15s' }}
+                style={{ background: 'transparent', border: `1px solid ${T.text}44`, color: generating ? T.mute : T.text, borderRadius: 4, padding: '6px 14px', fontSize: 10, fontFamily: "'Times New Roman', Times, serif", cursor: generating ? 'not-allowed' : 'pointer', letterSpacing: '.04em', flexShrink: 0, transition: 'all .15s' }}
               >
                 {generating ? '…generating' : '+ More Queries'}
               </button>
@@ -367,13 +365,13 @@ function CaseFinder() {
             {allSearches.map((q, i) => (
               <div
                 key={i}
-                style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#080810', border: `1px solid ${copiedIdx === i ? ACC + '44' : '#111120'}`, borderRadius: 6, padding: '12px 14px', marginBottom: 8, transition: 'border-color .15s' }}
+                style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#080810', border: `1px solid ${copiedIdx === i ? T.text + '44' : '#111120'}`, borderRadius: 6, padding: '12px 14px', marginBottom: 8, transition: 'border-color .15s' }}
               >
-                <span style={{ fontSize: 10, color: i < parsed.searches.length ? ACC : '#5a7030', fontFamily: 'Inter, sans-serif', fontWeight: 700, minWidth: 20, flexShrink: 0 }}>{i + 1}</span>
-                <p style={{ flex: 1, fontSize: 14, color: T.text, fontFamily: "'Cormorant Garamond', serif", lineHeight: 1.5, margin: 0, wordBreak: 'break-word' }}>{q}</p>
+                <span style={{ fontSize: 10, color: i < parsed.searches.length ? T.text : '#5a7030', fontFamily: "'Times New Roman', Times, serif", fontWeight: 700, minWidth: 20, flexShrink: 0 }}>{i + 1}</span>
+                <p style={{ flex: 1, fontSize: 14, color: T.text, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.5, margin: 0, wordBreak: 'break-word' }}>{q}</p>
                 <button
                   onClick={() => copySearch(q, i)}
-                  style={{ background: copiedIdx === i ? '#071808' : 'transparent', border: `1px solid ${copiedIdx === i ? '#2a4818' : '#2a2208'}`, color: copiedIdx === i ? '#50a840' : ACC, borderRadius: 4, padding: '6px 14px', fontSize: 10, fontFamily: 'Inter, sans-serif', cursor: 'pointer', letterSpacing: '.04em', flexShrink: 0, transition: 'all .2s', whiteSpace: 'nowrap' }}
+                  style={{ background: copiedIdx === i ? '#071808' : 'transparent', border: `1px solid ${copiedIdx === i ? '#2a4818' : T.bdr}`, color: copiedIdx === i ? '#50a840' : T.text, borderRadius: 4, padding: '6px 14px', fontSize: 10, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', letterSpacing: '.04em', flexShrink: 0, transition: 'all .2s', whiteSpace: 'nowrap' }}
                 >
                   {copiedIdx === i ? '✓ Copied' : 'Copy'}
                 </button>
@@ -382,7 +380,7 @@ function CaseFinder() {
 
             <div style={{ marginTop: 14, background: '#060810', border: '1px solid #0e0e20', borderRadius: 6, padding: '11px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
               <span style={{ fontSize: 16, flexShrink: 0 }}>🔍</span>
-              <p style={{ fontSize: 11, color: '#3a3a58', fontFamily: 'Inter, sans-serif', lineHeight: 1.6 }}>
+              <p style={{ fontSize: 11, color: '#3a3a58', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.6 }}>
                 Go to <strong style={{ color: '#5a5a80' }}>lawpavilion.com</strong> → paste query into the case search → find the case → copy the ratio decidendi or headnote → come back to the <strong style={{ color: '#5a5a80' }}>Resolver tab</strong> to plug it in.
               </p>
             </div>
@@ -392,8 +390,8 @@ function CaseFinder() {
           <div style={{ background: '#0a0d06', border: '1px solid #1a2a10', borderRadius: 8, padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 14 }}>
             <span style={{ fontSize: 20, flexShrink: 0 }}>✓</span>
             <div>
-              <p style={{ fontSize: 13, color: '#80b050', fontFamily: "'Cormorant Garamond', serif", fontWeight: 600, marginBottom: 3 }}>Found your cases?</p>
-              <p style={{ fontSize: 11, color: '#4a6030', fontFamily: 'Inter, sans-serif', lineHeight: 1.5 }}>
+              <p style={{ fontSize: 13, color: '#80b050', fontFamily: "'Times New Roman', Times, serif", fontWeight: 600, marginBottom: 3 }}>Found your cases?</p>
+              <p style={{ fontSize: 11, color: '#4a6030', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.5 }}>
                 Switch to the <strong>Resolver tab</strong> → paste the [RESEARCH NEEDED] block + the argument paragraph + the cases you found → get the paragraph rewritten with real citations.
               </p>
             </div>
@@ -487,19 +485,19 @@ function Resolver() {
           { n: '03', label: 'Get the paragraph',   desc: 'AI rewrites the paragraph with real Nigerian citations in court format.' },
         ].map(step => (
           <div key={step.n} style={{ background: '#080810', border: '1px solid #111120', borderRadius: 7, padding: '14px 16px' }}>
-            <div style={{ fontSize: 9, color: DIM, fontFamily: 'Inter, sans-serif', letterSpacing: '.14em', fontWeight: 700, marginBottom: 5 }}>STEP {step.n}</div>
-            <div style={{ fontSize: 13, color: ACC, fontFamily: "'Cormorant Garamond', serif", fontWeight: 600, marginBottom: 5 }}>{step.label}</div>
-            <div style={{ fontSize: 11, color: T.mute, fontFamily: 'Inter, sans-serif', lineHeight: 1.6 }}>{step.desc}</div>
+            <div style={{ fontSize: 9, color: DIM, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.14em', fontWeight: 700, marginBottom: 5 }}>STEP {step.n}</div>
+            <div style={{ fontSize: 13, color: T.text, fontFamily: "'Times New Roman', Times, serif", fontWeight: 600, marginBottom: 5 }}>{step.label}</div>
+            <div style={{ fontSize: 11, color: T.mute, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.6 }}>{step.desc}</div>
           </div>
         ))}
       </div>
 
       {/* [RESEARCH NEEDED] block */}
-      <div style={{ background: '#0d0d18', border: '1px solid #2a2208', borderLeft: `3px solid ${ACC}`, borderRadius: '0 8px 8px 0', padding: '20px 22px' }}>
-        <label style={{ ...labelStyle, color: ACC, letterSpacing: '.12em', marginBottom: 6 }}>
+      <div style={{ background: '#0d0d18', border: '1px solid #2a2208', borderLeft: `3px solid ${T.text}`, borderRadius: '0 8px 8px 0', padding: '20px 22px' }}>
+        <label style={{ ...labelStyle, color: T.text, letterSpacing: '.12em', marginBottom: 6 }}>
           [RESEARCH NEEDED] Block — paste exactly as generated <span style={{ color: '#b06060' }}>*</span>
         </label>
-        <p style={{ fontSize: 11, color: DIM, fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic', marginBottom: 10, lineHeight: 1.6 }}>
+        <p style={{ fontSize: 11, color: DIM, fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic', marginBottom: 10, lineHeight: 1.6 }}>
           Copy the block verbatim including the [RESEARCH NEEDED] and [/RESEARCH NEEDED] tags.
         </p>
         <textarea
@@ -507,7 +505,7 @@ function Resolver() {
           onChange={e => setResBlock(e.target.value)}
           rows={7}
           placeholder={'[RESEARCH NEEDED]\nProposition: ...\nArea of law: ...\n...\n[/RESEARCH NEEDED]'}
-          style={{ ...taStyle, fontFamily: 'Inter, sans-serif', fontSize: 12, lineHeight: 1.7 }}
+          style={{ ...taStyle, fontFamily: "'Times New Roman', Times, serif", fontSize: 12, lineHeight: 1.7 }}
         />
       </div>
 
@@ -516,7 +514,7 @@ function Resolver() {
         <label style={labelStyle}>
           The Argument Paragraph (containing that research block) <span style={{ color: '#b06060' }}>*</span>
         </label>
-        <p style={{ fontSize: 11, color: T.mute, fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic', marginBottom: 10, lineHeight: 1.6 }}>
+        <p style={{ fontSize: 11, color: T.mute, fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic', marginBottom: 10, lineHeight: 1.6 }}>
           Paste the full paragraph as generated — including the surrounding argument and the [RESEARCH NEEDED] block within it.
         </p>
         <textarea
@@ -532,14 +530,14 @@ function Resolver() {
       <div style={{ background: '#0d0d18', border: '1px solid #181828', borderRadius: 8, padding: '20px 22px' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
           <div>
-            <p style={{ fontSize: 10, color: ACC, fontFamily: 'Inter, sans-serif', letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 3 }}>Authorities Found</p>
-            <p style={{ fontSize: 12, color: T.mute, fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic' }}>
+            <p style={{ fontSize: 10, color: T.text, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 3 }}>Authorities Found</p>
+            <p style={{ fontSize: 12, color: T.mute, fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic' }}>
               One block per case. Paste the ratio from LawPavilion, upload the PDF, or both.
             </p>
           </div>
           <button
             onClick={addCase}
-            style={{ background: 'transparent', border: `1px solid ${ACC}`, color: ACC, borderRadius: 4, padding: '6px 16px', fontSize: 11, cursor: 'pointer', fontFamily: 'Inter, sans-serif', letterSpacing: '.06em', flexShrink: 0, transition: 'background .15s' }}
+            style={{ background: 'transparent', border: `1px solid ${T.text}`, color: T.text, borderRadius: 4, padding: '6px 16px', fontSize: 11, cursor: 'pointer', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.06em', flexShrink: 0, transition: 'background .15s' }}
             onMouseEnter={e => (e.currentTarget.style.background = '#0d0d00')}
             onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
           >
@@ -554,7 +552,7 @@ function Resolver() {
       {/* Error */}
       {error && (
         <div style={{ background: '#180808', border: '1px solid #401818', borderRadius: 5, padding: '12px 16px' }}>
-          <p style={{ color: '#c07070', fontSize: 13, fontFamily: 'Inter, sans-serif', lineHeight: 1.5 }}>{error}</p>
+          <p style={{ color: T.mute, fontSize: 13, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.5 }}>{error}</p>
         </div>
       )}
 
@@ -562,11 +560,11 @@ function Resolver() {
       <button
         onClick={resolve}
         disabled={!canResolve}
-        style={{ background: canResolve ? `linear-gradient(135deg,${ACC},${ACCD})` : '#101018', color: canResolve ? '#05050c' : '#2a2a38', border: 'none', borderRadius: 6, padding: '16px', fontSize: 18, fontFamily: "'Cormorant Garamond', serif", cursor: canResolve ? 'pointer' : 'not-allowed', fontWeight: 600, letterSpacing: '.04em', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, transition: 'opacity .2s' }}
+        style={{ background: canResolve ? `linear-gradient(135deg,${T.text},${T.dim})` : '#101018', color: canResolve ? '#05050c' : '#2a2a38', border: 'none', borderRadius: 6, padding: '16px', fontSize: 18, fontFamily: "'Times New Roman', Times, serif", cursor: canResolve ? 'pointer' : 'not-allowed', fontWeight: 600, letterSpacing: '.04em', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, transition: 'opacity .2s' }}
       >
         {loading ? (
           <>
-            <span style={{ width: 14, height: 14, border: `2px solid #1e1e2e`, borderTop: `2px solid ${ACC}`, borderRadius: '50%', display: 'inline-block', animation: 'spin .8s linear infinite' }} />
+            <span style={{ width: 14, height: 14, border: `2px solid #1e1e2e`, borderTop: `2px solid ${T.text}`, borderRadius: '50%', display: 'inline-block', animation: 'spin .8s linear infinite' }} />
             Resolving…
           </>
         ) : 'Resolve Citations →'}
@@ -592,21 +590,21 @@ export function ResearchResolver({ onBack }: Props) {
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, marginBottom: 6 }}>
           <button
             onClick={onBack}
-            style={{ background: 'transparent', border: '1px solid #1e1e2e', color: T.mute, borderRadius: 5, padding: '7px 14px', fontSize: 11, fontFamily: 'Inter, sans-serif', cursor: 'pointer', marginTop: 6, flexShrink: 0, transition: 'border-color .15s, color .15s' }}
+            style={{ background: 'transparent', border: '1px solid #1e1e2e', color: T.mute, borderRadius: 5, padding: '7px 14px', fontSize: 11, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', marginTop: 6, flexShrink: 0, transition: 'border-color .15s, color .15s' }}
             onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = '#3a3a52'; (e.currentTarget as HTMLElement).style.color = T.text; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = '#1e1e2e'; (e.currentTarget as HTMLElement).style.color = T.mute; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = T.bdr; (e.currentTarget as HTMLElement).style.color = T.mute; }}
           >← Back</button>
           <div>
-            <p style={{ fontSize: 9, color: T.mute, letterSpacing: '.2em', textTransform: 'uppercase', fontFamily: 'Inter, sans-serif', marginBottom: 6 }}>Smart Tools · Research</p>
-            <h1 style={{ fontSize: 30, color: '#d4b050', fontWeight: 300, fontFamily: "'Cormorant Garamond', serif", letterSpacing: '.03em', lineHeight: 1.1, marginBottom: 8 }}>
+            <p style={{ fontSize: 9, color: T.mute, letterSpacing: '.2em', textTransform: 'uppercase', fontFamily: "'Times New Roman', Times, serif", marginBottom: 6 }}>Smart Tools · Research</p>
+            <h1 style={{ fontSize: 30, color: '#d4b050', fontWeight: 300, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.03em', lineHeight: 1.1, marginBottom: 8 }}>
               Research Resolver
             </h1>
-            <p style={{ fontSize: 14, color: T.dim, fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic', lineHeight: 1.65, maxWidth: 580 }}>
+            <p style={{ fontSize: 14, color: T.dim, fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic', lineHeight: 1.65, maxWidth: 580 }}>
               Case Finder generates precise LawPavilion search queries from your [RESEARCH NEEDED] blocks. Resolver rewrites the paragraph with the real cases you bring back.
             </p>
           </div>
         </div>
-        <div style={{ width: 60, height: 1, background: `linear-gradient(90deg, transparent, ${ACC}, transparent)`, margin: '18px 0' }} />
+        <div style={{ width: 60, height: 1, background: `linear-gradient(90deg, transparent, ${T.text}, transparent)`, margin: '18px 0' }} />
       </div>
 
       {/* Tab strip */}
@@ -618,7 +616,7 @@ export function ResearchResolver({ onBack }: Props) {
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            style={{ flex: 1, background: activeTab === tab.id ? '#0d0d1c' : 'transparent', border: `1px solid ${activeTab === tab.id ? ACC : 'transparent'}`, color: activeTab === tab.id ? ACC : T.mute, borderRadius: 5, padding: '9px 8px', fontSize: 11, fontFamily: 'Inter, sans-serif', cursor: 'pointer', letterSpacing: '.04em', textTransform: 'uppercase', fontWeight: 600, transition: 'all .2s', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}
+            style={{ flex: 1, background: activeTab === tab.id ? '#0d0d1c' : 'transparent', border: `1px solid ${activeTab === tab.id ? T.text : 'transparent'}`, color: activeTab === tab.id ? T.text : T.mute, borderRadius: 5, padding: '9px 8px', fontSize: 11, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', letterSpacing: '.04em', textTransform: 'uppercase', fontWeight: 600, transition: 'all .2s', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}
           >
             <span style={{ fontSize: 15 }}>{tab.icon}</span>
             <span>{tab.label}</span>
@@ -630,7 +628,7 @@ export function ResearchResolver({ onBack }: Props) {
       {activeTab === 'finder'   && <CaseFinder />}
       {activeTab === 'resolver' && <Resolver />}
 
-      <p style={{ marginTop: 40, fontSize: 11, color: '#1e1e2a', textAlign: 'center', fontFamily: 'Inter, sans-serif', lineHeight: 1.8 }}>
+      <p style={{ marginTop: 40, fontSize: 11, color: '#1e1e2a', textAlign: 'center', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.8 }}>
         AFS Advocates · Research Resolver — authorities verified by counsel, citations resolved by AI.
       </p>
     </div>
