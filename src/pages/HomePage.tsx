@@ -19,7 +19,7 @@ export function HomePage() {
           style={{
             background: 'none', border: `1px solid ${T.bdr}`,
             borderRadius: 5, color: T.mute, padding: '7px 16px',
-            fontSize: 12, fontFamily: 'Inter, sans-serif',
+            fontSize: 12, fontFamily: "'Times New Roman', Times, serif",
             cursor: 'pointer', marginBottom: 24,
           }}
         >
@@ -36,14 +36,14 @@ export function HomePage() {
       {/* Header */}
       <div style={{ marginBottom: 40 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <p style={{ fontSize: 10, color: T.mute, fontFamily: 'Inter, sans-serif', letterSpacing: '.2em', textTransform: 'uppercase', marginBottom: 6 }}>
+          <p style={{ fontSize: 10, color: T.mute, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.2em', textTransform: 'uppercase', marginBottom: 6 }}>
             AFS Advocates · Legal Intelligence OS
           </p>
           <button
             onClick={handleLogout}
             style={{
               background: 'none', border: 'none', color: T.mute,
-              fontSize: 11, fontFamily: 'Inter, sans-serif',
+              fontSize: 11, fontFamily: "'Times New Roman', Times, serif",
               cursor: 'pointer', letterSpacing: '.06em',
               padding: '2px 0',
             }}
@@ -51,10 +51,10 @@ export function HomePage() {
             Sign out
           </button>
         </div>
-        <h1 style={{ fontSize: 32, color: T.goldL, fontWeight: 300, fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic', marginBottom: 8 }}>
+        <h1 style={{ fontSize: 32, color: T.goldL, fontWeight: 300, fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic', marginBottom: 8 }}>
           What are we building today?
         </h1>
-        <p style={{ fontSize: 14, color: T.dim, fontFamily: 'Inter, sans-serif', lineHeight: 1.6 }}>
+        <p style={{ fontSize: 14, color: T.dim, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.6 }}>
           Open a case to access the full litigation suite, or go straight to SAN Mode or Billions Voice.
         </p>
       </div>
@@ -64,17 +64,17 @@ export function HomePage() {
 
         <button
           onClick={() => setDocketOpen(true)}
-          style={cardStyle('#c4a030')}
-          onMouseEnter={e => hoverIn(e, '#c4a030')}
+          style={cardStyle('#000000')}
+          onMouseEnter={e => hoverIn(e, '#000000')}
           onMouseLeave={e => hoverOut(e)}
         >
-          <div style={cardIconStyle('#c4a030')}>⚖</div>
+          <div style={cardIconStyle('#000000')}>⚖</div>
           <div style={{ flex: 1 }}>
             <p style={cardTitleStyle}>Case Docket</p>
-            <p style={cardSubStyle('#c4a030')}>MANAGE YOUR CASES</p>
+            <p style={cardSubStyle('#000000')}>MANAGE YOUR CASES</p>
             <p style={cardDescStyle}>Open, search, and manage all your cases. Every litigation tool is available inside each case file.</p>
           </div>
-          <div style={arrowStyle('#c4a030')}>→</div>
+          <div style={arrowStyle('#000000')}>→</div>
         </button>
 
         <button
@@ -137,13 +137,13 @@ function cardIconStyle(accent: string): React.CSSProperties {
 
 const cardTitleStyle: React.CSSProperties = {
   fontSize: 16, color: T.text,
-  fontFamily: "'Cormorant Garamond', serif",
+  fontFamily: "'Times New Roman', Times, serif",
   fontWeight: 600, lineHeight: 1.3, marginBottom: 3,
 };
 
 function cardSubStyle(accent: string): React.CSSProperties {
   return {
-    fontSize: 8, color: accent, fontFamily: 'Inter, sans-serif',
+    fontSize: 8, color: accent, fontFamily: "'Times New Roman', Times, serif",
     letterSpacing: '.14em', textTransform: 'uppercase',
     fontWeight: 600, marginBottom: 6,
   };
@@ -151,7 +151,7 @@ function cardSubStyle(accent: string): React.CSSProperties {
 
 const cardDescStyle: React.CSSProperties = {
   fontSize: 12, color: T.mute,
-  fontFamily: 'Inter, sans-serif', lineHeight: 1.6,
+  fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.6,
 };
 
 function arrowStyle(accent: string): React.CSSProperties {
