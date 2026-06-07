@@ -106,7 +106,7 @@ export interface LibraryContext {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function getWorkerUrl(): string {
-  try { return localStorage.getItem(WORKER_URL_KEY) || ''; } catch { return ''; }
+  return 'https://afs-legal-rag.sobamboadeshupo.workers.dev';
 }
 
 export function saveWorkerUrl(url: string): void {
@@ -114,7 +114,7 @@ export function saveWorkerUrl(url: string): void {
 }
 
 export function getWorkerToken(): string {
-  try { return localStorage.getItem(WORKER_TOKEN_KEY) || ''; } catch { return ''; }
+  return 'AFS2026SecureToken99';
 }
 
 export function saveWorkerToken(token: string): void {
