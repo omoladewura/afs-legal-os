@@ -45,16 +45,16 @@ export class ErrorBoundary extends Component<Props, State> {
     return (
       <div className="error-boundary">
         <p style={{
-          fontSize: 11, color: '#c4a030',
-          fontFamily: 'Inter, sans-serif',
+          fontSize: 11, color: '#000000',
+          fontFamily: "'Times New Roman', Times, serif",
           letterSpacing: '.14em', textTransform: 'uppercase',
           fontWeight: 700, marginBottom: 10,
         }}>
           ⚠ {this.props.name ?? 'Module'} Error
         </p>
         <p style={{
-          fontSize: 14, color: '#c07070',
-          fontFamily: 'Inter, sans-serif',
+          fontSize: 14, color: T.mute,
+          fontFamily: "'Times New Roman', Times, serif",
           lineHeight: 1.6, marginBottom: 14,
         }}>
           {this.state.error?.message ?? 'An unexpected error occurred.'}
@@ -64,11 +64,11 @@ export class ErrorBoundary extends Component<Props, State> {
           style={{
             background: 'transparent',
             border: '1px solid #4a1818',
-            color: '#c07070',
+            color: T.mute,
             borderRadius: 4,
             padding: '7px 16px',
             fontSize: 11,
-            fontFamily: 'Inter, sans-serif',
+            fontFamily: "'Times New Roman', Times, serif",
             cursor: 'pointer',
             letterSpacing: '.06em',
           }}
