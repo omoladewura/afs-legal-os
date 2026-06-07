@@ -11,7 +11,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import type { Case, ApiMessage, ContentBlock } from '@/types';
-import { T } from '@/constants/tokens';
+import { T, S } from '@/constants/tokens';
 import { CLAUDE_MODEL } from '@/services/api';
 import { queryLibrary, deriveQuery } from '@/services/library';
 import { Md } from '@/components/common/ui';
@@ -22,15 +22,15 @@ import { Md } from '@/components/common/ui';
 
 interface Attachment {
   name:      string;
-  type:      string;   // MIME type
-  data:      string;   // base64, no data-URL prefix
+  type:      string;
+  data:      string;
 }
 
 interface SanTurn {
   role:       'user' | 'assistant';
-  text:       string;              // display text
-  img?:       string;              // attachment filename if any
-  apiContent: string | ContentBlock[];  // raw content sent / received
+  text:       string;
+  img?:       string;
+  apiContent: string | ContentBlock[];
 }
 
 interface Props {
@@ -139,7 +139,6 @@ export function SanMode({ activeCase }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
   const endRef  = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to bottom when messages update
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }, [msgs, loading]);
@@ -178,13 +177,11 @@ export function SanMode({ activeCase }: Props) {
   function buildUserContent(txt: string): ContentBlock[] {
     const blocks: ContentBlock[] = [];
 
-    // Add attachment first (image or PDF)
     if (attachment) {
       if (attachment.type === 'application/pdf') {
-        // PDF as document block
         blocks.push({
-          type: 'image',  // typed as 'image' to satisfy ContentBlock; API accepts document type
-          // @ts-ignore — document type is valid in Anthropic API but not in our slim type def
+          type: 'image',
+          // @ts-ignore
           source: { type: 'base64', media_type: 'application/pdf', data: attachment.data },
         } as unknown as ContentBlock);
       } else {
@@ -195,7 +192,6 @@ export function SanMode({ activeCase }: Props) {
       }
     }
 
-    // Build prompt text with optional case context
     let promptText = txt;
     if (useCtx && activeCase) {
       const claimantNames  = activeCase.claimants.map(x => x.name).filter(Boolean).join(', ') || '[Not listed]';
@@ -230,7 +226,6 @@ export function SanMode({ activeCase }: Props) {
 
     const userContent = buildUserContent(txt);
 
-    // Build full conversation history for the API
     const apiMsgs: ApiMessage[] = [];
     msgs.forEach(m => {
       apiMsgs.push({
@@ -269,13 +264,13 @@ export function SanMode({ activeCase }: Props) {
     }
 
     try {
-      const res  = await fetch('https://afs-legal-rag.sobamboadeshupo.workers.dev/chat', {
+      const res = await fetch('https://afs-legal-rag.sobamboadeshupo.workers.dev/chat', {
         method:  'POST',
         headers: {
           'Content-Type':  'application/json',
           'Authorization': 'Bearer AFS2026SecureToken99',
         },
-        body:    JSON.stringify(reqBody),
+        body: JSON.stringify(reqBody),
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error.message);
@@ -287,17 +282,8 @@ export function SanMode({ activeCase }: Props) {
 
       setMsgs(prev => [
         ...prev,
-        {
-          role:       'user',
-          text:       txt,
-          img:        attachment?.name,
-          apiContent: userContent,
-        },
-        {
-          role:       'assistant',
-          text:       reply,
-          apiContent: reply,
-        },
+        { role: 'user',      text: txt,   img: attachment?.name, apiContent: userContent },
+        { role: 'assistant', text: reply,  apiContent: reply },
       ]);
 
       setInputText('');
@@ -322,7 +308,6 @@ export function SanMode({ activeCase }: Props) {
   // RENDER
   // ─────────────────────────────────────────────────────────────────────────
 
-  const acc = '#c4a030';
   const canSend = !loading && (!!inputText.trim() || !!attachment);
 
   return (
@@ -330,22 +315,22 @@ export function SanMode({ activeCase }: Props) {
 
       {/* ── Header ── */}
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, marginBottom: 22, paddingBottom: 20, borderBottom: `1px solid ${T.bdr}` }}>
-        <div style={{ width: 44, height: 44, background: 'linear-gradient(135deg,#1c1500,#0d0900)', border: '1px solid #3a2a0a', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0, boxShadow: `0 0 20px ${acc}14` }}>
+        <div style={{ width: 44, height: 44, background: T.card, border: `1px solid ${T.bdr}`, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>
           ⭐
         </div>
         <div style={{ flex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 9, color: acc, fontFamily: 'Inter, sans-serif', letterSpacing: '.2em', textTransform: 'uppercase', fontWeight: 600 }}>
+            <span style={{ fontSize: 9, color: T.mute, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.2em', textTransform: 'uppercase', fontWeight: 600 }}>
               SAN Mode · Live
             </span>
-            <span style={{ fontSize: 7, color: '#3a2a08', fontFamily: 'Inter, sans-serif', letterSpacing: '.1em', border: '1px solid #2a1e06', padding: '1px 6px', borderRadius: 2, textTransform: 'uppercase', background: '#0a0800' }}>
+            <span style={{ fontSize: 9, color: T.mute, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.1em', border: `1px solid ${T.bdr}`, padding: '1px 6px', borderRadius: 2, textTransform: 'uppercase' }}>
               Step 6
             </span>
           </div>
-          <h2 style={{ fontSize: 24, color: T.goldL, fontFamily: "'Cormorant Garamond', serif", fontWeight: 300, letterSpacing: '.02em', marginBottom: 5, lineHeight: 1.2 }}>
+          <h2 style={{ fontSize: 24, color: T.text, fontFamily: "'Times New Roman', Times, serif", fontWeight: 700, letterSpacing: '.02em', marginBottom: 5, lineHeight: 1.2 }}>
             Senior Advocate · Principal Partner
           </h2>
-          <p style={{ fontSize: 13, color: T.dim, fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic', lineHeight: 1.65 }}>
+          <p style={{ fontSize: 13, color: T.dim, fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic', lineHeight: 1.65 }}>
             Upload a court order, paste a problem, ask anything. SAN gives you structured options — A, B, C — with Nigerian authorities and the landmines on each path. SAN guides. You decide.
           </p>
         </div>
@@ -358,17 +343,17 @@ export function SanMode({ activeCase }: Props) {
 
             /* User bubble */
             <div key={i} style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginBottom: 14, animation: 'fadeUp .2s ease' }}>
-              <div style={{ background: '#111122', border: '1px solid #1e1e32', borderRadius: '10px 3px 10px 10px', padding: '12px 16px', maxWidth: '84%' }}>
+              <div style={{ background: T.card, border: `1px solid ${T.bdr}`, borderRadius: '10px 3px 10px 10px', padding: '12px 16px', maxWidth: '84%' }}>
                 {m.img && (
-                  <p style={{ fontSize: 9, color: T.mute, fontFamily: 'Inter, sans-serif', letterSpacing: '.08em', marginBottom: 6 }}>
+                  <p style={{ fontSize: 9, color: T.mute, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.08em', marginBottom: 6 }}>
                     📎 {m.img}
                   </p>
                 )}
-                <p style={{ fontSize: 15, color: T.sub, fontFamily: "'Cormorant Garamond', serif", lineHeight: 1.72, whiteSpace: 'pre-wrap' }}>
+                <p style={{ fontSize: 15, color: T.text, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.72, whiteSpace: 'pre-wrap' }}>
                   {m.text || (m.img ? '[Document attached]' : '')}
                 </p>
               </div>
-              <div style={{ width: 28, height: 28, background: '#0e0e1e', border: '1px solid #1e1e2e', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: T.mute, flexShrink: 0, marginTop: 4 }}>
+              <div style={{ width: 28, height: 28, background: T.card, border: `1px solid ${T.bdr}`, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: T.mute, flexShrink: 0, marginTop: 4 }}>
                 ⚖
               </div>
             </div>
@@ -377,17 +362,17 @@ export function SanMode({ activeCase }: Props) {
 
             /* SAN reply bubble */
             <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 20, animation: 'fadeUp .28s ease' }}>
-              <div style={{ width: 28, height: 28, background: 'linear-gradient(135deg,#1c1500,#0d0900)', border: '1px solid #3a2a0a', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, flexShrink: 0, marginTop: 4 }}>
+              <div style={{ width: 28, height: 28, background: T.card, border: `1px solid ${T.bdr}`, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, flexShrink: 0, marginTop: 4 }}>
                 ⭐
               </div>
-              <div style={{ flex: 1, background: '#09090f', border: '1px solid #181828', borderRadius: '3px 10px 10px 10px', padding: '16px 20px' }}>
+              <div style={{ flex: 1, background: T.bg, border: `1px solid ${T.bdr}`, borderRadius: '3px 10px 10px 10px', padding: '16px 20px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-                  <span style={{ fontSize: 8, color: acc, fontFamily: 'Inter, sans-serif', letterSpacing: '.18em', textTransform: 'uppercase', fontWeight: 600 }}>
+                  <span style={{ fontSize: 9, color: T.mute, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.18em', textTransform: 'uppercase', fontWeight: 600 }}>
                     SAN's Analysis
                   </span>
                   <button
                     onClick={() => copyMsg(i)}
-                    style={{ background: copiedIdx === i ? '#071808' : 'transparent', border: `1px solid ${copiedIdx === i ? '#1a4018' : '#1e1e2e'}`, color: copiedIdx === i ? '#40a858' : T.mute, borderRadius: 3, padding: '3px 11px', fontSize: 9, fontFamily: 'Inter, sans-serif', cursor: 'pointer', letterSpacing: '.06em', transition: 'all .2s' }}>
+                    style={{ background: copiedIdx === i ? T.card : 'transparent', border: `1px solid ${T.bdr}`, color: copiedIdx === i ? T.text : T.mute, borderRadius: 3, padding: '3px 11px', fontSize: 9, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', letterSpacing: '.06em', transition: 'all .2s' }}>
                     {copiedIdx === i ? '✓ Copied' : 'Copy'}
                   </button>
                 </div>
@@ -400,13 +385,13 @@ export function SanMode({ activeCase }: Props) {
           {/* Loading bubble */}
           {loading && (
             <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
-              <div style={{ width: 28, height: 28, background: 'linear-gradient(135deg,#1c1500,#0d0900)', border: '1px solid #3a2a0a', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, flexShrink: 0, marginTop: 4 }}>
+              <div style={{ width: 28, height: 28, background: T.card, border: `1px solid ${T.bdr}`, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, flexShrink: 0, marginTop: 4 }}>
                 ⭐
               </div>
-              <div style={{ flex: 1, background: '#09090f', border: `1px solid ${acc}22`, borderRadius: '3px 10px 10px 10px', padding: '18px 22px' }}>
+              <div style={{ flex: 1, background: T.bg, border: `1px solid ${T.bdr}`, borderRadius: '3px 10px 10px 10px', padding: '18px 22px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <div style={{ width: 16, height: 16, border: `2px solid #1e1a06`, borderTop: `2px solid ${acc}`, borderRadius: '50%', animation: 'spin .9s linear infinite', flexShrink: 0 }} />
-                  <p style={{ fontSize: 15, color: T.dim, fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic' }}>
+                  <div style={{ width: 16, height: 16, border: `2px solid ${T.bdr}`, borderTop: `2px solid ${T.text}`, borderRadius: '50%', animation: 'spin .9s linear infinite', flexShrink: 0 }} />
+                  <p style={{ fontSize: 15, color: T.dim, fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic' }}>
                     SAN is reviewing your instructions…
                   </p>
                 </div>
@@ -420,12 +405,12 @@ export function SanMode({ activeCase }: Props) {
 
       {/* ── Empty state ── */}
       {msgs.length === 0 && !loading && (
-        <div style={{ background: '#07070e', border: '1px dashed #181828', borderRadius: 10, padding: '28px 22px', marginBottom: 20, textAlign: 'center' }}>
-          <div style={{ fontSize: 42, opacity: .07, marginBottom: 14 }}>⭐</div>
-          <p style={{ fontSize: 22, color: T.goldL, fontFamily: "'Cormorant Garamond', serif", fontWeight: 300, fontStyle: 'italic', marginBottom: 8 }}>
+        <div style={{ background: T.card, border: `1px solid ${T.bdr}`, borderRadius: 10, padding: '28px 22px', marginBottom: 20, textAlign: 'center' }}>
+          <div style={{ fontSize: 42, opacity: .15, marginBottom: 14 }}>⭐</div>
+          <p style={{ fontSize: 22, color: T.text, fontFamily: "'Times New Roman', Times, serif", fontWeight: 700, fontStyle: 'italic', marginBottom: 8 }}>
             Ready for Instructions
           </p>
-          <p style={{ fontSize: 12, color: T.mute, fontFamily: 'Inter, sans-serif', lineHeight: 1.85, maxWidth: 500, margin: '0 auto 18px' }}>
+          <p style={{ fontSize: 13, color: T.dim, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.85, maxWidth: 500, margin: '0 auto 18px' }}>
             Ask SAN anything — a legal question, a strategic decision, an evidence problem. Upload a court order, a contract clause, a photo of a judgment or law report. SAN will give you Options A, B, and C with relevant Nigerian authorities.
           </p>
           <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
@@ -433,9 +418,9 @@ export function SanMode({ activeCase }: Props) {
               <button
                 key={i}
                 onClick={() => setInputText(q)}
-                style={{ background: '#0d0d1a', border: '1px solid #181828', borderRadius: 20, padding: '6px 14px', fontSize: 11, color: '#3a3a54', fontFamily: 'Inter, sans-serif', cursor: 'pointer', letterSpacing: '.02em', transition: 'all .15s' }}
-                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = T.goldL; (e.currentTarget as HTMLButtonElement).style.borderColor = '#2a2a3e'; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = '#3a3a54'; (e.currentTarget as HTMLButtonElement).style.borderColor = '#181828'; }}>
+                style={{ background: T.bg, border: `1px solid ${T.bdr}`, borderRadius: 20, padding: '6px 14px', fontSize: 11, color: T.mute, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', letterSpacing: '.02em', transition: 'all .15s' }}
+                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = T.text; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = T.mute; }}>
                 {q}
               </button>
             ))}
@@ -444,23 +429,24 @@ export function SanMode({ activeCase }: Props) {
       )}
 
       {/* ── Input panel ── */}
-      <div style={{ background: '#0d0d18', border: `1px solid ${T.bdr}`, borderRadius: 10, padding: '18px 20px' }}>
+      <div style={{ background: T.card, border: `1px solid ${T.bdr}`, borderRadius: 10, padding: '18px 20px' }}>
 
         {/* Toggle bar */}
         <div style={{ display: 'flex', gap: 6, marginBottom: 13, flexWrap: 'wrap', alignItems: 'center' }}>
+
           {/* Case context toggle */}
           <button
             onClick={() => setUseCtx(v => !v)}
-            style={{ background: useCtx ? '#100f20' : 'transparent', border: `1px solid ${useCtx ? acc + '50' : '#1e1e2e'}`, color: useCtx ? acc : T.mute, borderRadius: 4, padding: '4px 11px', fontSize: 10, fontFamily: 'Inter, sans-serif', cursor: 'pointer', letterSpacing: '.04em', display: 'flex', alignItems: 'center', gap: 5, transition: 'all .15s' }}>
-            <span style={{ width: 5, height: 5, borderRadius: '50%', background: useCtx ? acc : '#2a2a3e', transition: 'background .15s', display: 'inline-block', flexShrink: 0 }} />
+            style={{ background: useCtx ? T.bg : 'transparent', border: `1px solid ${useCtx ? T.text : T.bdr}`, color: useCtx ? T.text : T.mute, borderRadius: 4, padding: '4px 11px', fontSize: 10, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', letterSpacing: '.04em', display: 'flex', alignItems: 'center', gap: 5, transition: 'all .15s' }}>
+            <span style={{ width: 5, height: 5, borderRadius: '50%', background: useCtx ? T.text : T.mute, display: 'inline-block', flexShrink: 0 }} />
             Case: {activeCase ? (activeCase.caseName.length > 26 ? activeCase.caseName.slice(0, 23) + '…' : activeCase.caseName) : 'No case'}
           </button>
 
           {/* Drive RAG toggle */}
           <button
             onClick={() => setUseDrive(v => !v)}
-            style={{ background: useDrive ? '#081428' : 'transparent', border: `1px solid ${useDrive ? '#4a7ed050' : '#1e1e2e'}`, color: useDrive ? '#7090d8' : T.mute, borderRadius: 4, padding: '4px 11px', fontSize: 10, fontFamily: 'Inter, sans-serif', cursor: 'pointer', letterSpacing: '.04em', display: 'flex', alignItems: 'center', gap: 5, transition: 'all .15s' }}>
-            <span style={{ width: 5, height: 5, borderRadius: '50%', background: useDrive ? '#5080c8' : '#2a2a3e', transition: 'background .15s', display: 'inline-block', flexShrink: 0 }} />
+            style={{ background: useDrive ? T.bg : 'transparent', border: `1px solid ${useDrive ? T.text : T.bdr}`, color: useDrive ? T.text : T.mute, borderRadius: 4, padding: '4px 11px', fontSize: 10, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', letterSpacing: '.04em', display: 'flex', alignItems: 'center', gap: 5, transition: 'all .15s' }}>
+            <span style={{ width: 5, height: 5, borderRadius: '50%', background: useDrive ? T.text : T.mute, display: 'inline-block', flexShrink: 0 }} />
             Drive RAG {useDrive ? '· ON' : '· OFF'}
           </button>
 
@@ -468,9 +454,7 @@ export function SanMode({ activeCase }: Props) {
           {msgs.length > 0 && (
             <button
               onClick={() => { setMsgs([]); setError(''); }}
-              style={{ background: 'transparent', border: '1px solid #1e1e2e', color: '#2a1e1e', borderRadius: 4, padding: '4px 11px', fontSize: 10, fontFamily: 'Inter, sans-serif', cursor: 'pointer', letterSpacing: '.04em', marginLeft: 'auto', transition: 'color .15s' }}
-              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = '#904040'; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = '#2a1e1e'; }}>
+              style={{ background: 'transparent', border: `1px solid ${T.bdr}`, color: T.mute, borderRadius: 4, padding: '4px 11px', fontSize: 10, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', letterSpacing: '.04em', marginLeft: 'auto' }}>
               Clear ✕
             </button>
           )}
@@ -478,17 +462,17 @@ export function SanMode({ activeCase }: Props) {
 
         {/* Attachment preview */}
         {attachment && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#07070f', border: '1px solid #1e1e2e', borderRadius: 5, padding: '8px 12px', marginBottom: 11 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: T.bg, border: `1px solid ${T.bdr}`, borderRadius: 5, padding: '8px 12px', marginBottom: 11 }}>
             <span style={{ fontSize: 14 }}>{attachment.type === 'application/pdf' ? '📄' : '🖼'}</span>
-            <span style={{ flex: 1, fontSize: 12, color: T.dim, fontFamily: 'Inter, sans-serif', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <span style={{ flex: 1, fontSize: 12, color: T.dim, fontFamily: "'Times New Roman', Times, serif", overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {attachment.name}
             </span>
-            <span style={{ fontSize: 8, color: T.mute, fontFamily: 'Inter, sans-serif', flexShrink: 0, letterSpacing: '.08em', textTransform: 'uppercase' }}>
+            <span style={{ fontSize: 9, color: T.mute, fontFamily: "'Times New Roman', Times, serif", flexShrink: 0, letterSpacing: '.08em', textTransform: 'uppercase' }}>
               Ready
             </span>
             <button
               onClick={() => setAttachment(null)}
-              style={{ background: 'transparent', border: 'none', color: '#804040', cursor: 'pointer', fontSize: 13, padding: '0 3px', flexShrink: 0 }}>
+              style={{ background: 'transparent', border: 'none', color: T.mute, cursor: 'pointer', fontSize: 13, padding: '0 3px', flexShrink: 0 }}>
               ✕
             </button>
           </div>
@@ -504,13 +488,12 @@ export function SanMode({ activeCase }: Props) {
           }}
           placeholder="Describe your legal problem, paste a clause or draft, ask your question… (Enter to send · Shift+Enter for new line)"
           rows={4}
-          style={{ width: '100%', background: '#07070f', border: '1px solid #1a1a28', borderRadius: 6, color: T.text, padding: '13px 15px', fontSize: 15, fontFamily: "'Cormorant Garamond', serif", outline: 'none', resize: 'vertical', lineHeight: 1.8, minHeight: 88, boxSizing: 'border-box' }}
+          style={{ ...S.ta, marginBottom: 0 }}
         />
 
         {/* Action row */}
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 10 }}>
 
-          {/* Hidden file input */}
           <input
             type="file"
             ref={fileRef}
@@ -523,9 +506,7 @@ export function SanMode({ activeCase }: Props) {
           <button
             onClick={() => fileRef.current?.click()}
             title="Upload image or PDF — court orders, judgments, contract clauses, law report pages"
-            style={{ background: 'transparent', border: '1px dashed #1e1e2e', color: T.mute, borderRadius: 5, padding: '9px 14px', fontSize: 11, fontFamily: 'Inter, sans-serif', cursor: 'pointer', letterSpacing: '.04em', display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, transition: 'all .15s' }}
-            onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#3a3a52'; b.style.color = T.dim; }}
-            onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#1e1e2e'; b.style.color = T.mute; }}>
+            style={{ background: 'transparent', border: `1px dashed ${T.bdr}`, color: T.mute, borderRadius: 5, padding: '9px 14px', fontSize: 11, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', letterSpacing: '.04em', display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
             📎 Upload
           </button>
 
@@ -533,10 +514,10 @@ export function SanMode({ activeCase }: Props) {
           <button
             onClick={send}
             disabled={!canSend}
-            style={{ flex: 1, background: canSend ? `linear-gradient(135deg,#c4a030,#a07820)` : '#101018', color: canSend ? '#05050c' : '#2a2a38', border: 'none', borderRadius: 6, padding: '11px 24px', fontSize: 16, fontFamily: "'Cormorant Garamond', serif", cursor: canSend ? 'pointer' : 'not-allowed', fontWeight: 600, letterSpacing: '.04em', transition: 'all .2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+            style={{ ...S.btn, flex: 1, marginTop: 0, opacity: canSend ? 1 : 0.35, cursor: canSend ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 15 }}>
             {loading ? (
               <>
-                <span style={{ width: 11, height: 11, border: '2px solid #1a1400', borderTop: `2px solid ${acc}`, borderRadius: '50%', display: 'inline-block', animation: 'spin .8s linear infinite' }} />
+                <span style={{ width: 11, height: 11, border: `2px solid #ffffff44`, borderTop: '2px solid #ffffff', borderRadius: '50%', display: 'inline-block', animation: 'spin .8s linear infinite' }} />
                 Consulting SAN…
               </>
             ) : (
@@ -547,14 +528,14 @@ export function SanMode({ activeCase }: Props) {
 
         {/* Error */}
         {error && (
-          <div style={{ marginTop: 10, background: '#1a0810', border: '1px solid #4a1830', borderRadius: 5, padding: '10px 14px', color: '#c07070', fontSize: 13, fontFamily: 'Inter, sans-serif', lineHeight: 1.5 }}>
+          <div style={{ marginTop: 10, background: T.card, border: `1px solid ${T.bdr}`, borderRadius: 5, padding: '10px 14px', color: T.text, fontSize: 13, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.5 }}>
             {error}
           </div>
         )}
       </div>
 
       {/* ── Capabilities strip ── */}
-      <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginTop: 12, paddingTop: 12, borderTop: `1px solid #0f0f18` }}>
+      <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginTop: 12, paddingTop: 12, borderTop: `1px solid ${T.bdr}` }}>
         {[
           { icon: '📝', text: 'Text problems & questions' },
           { icon: '🖼', text: 'Photos of judgments & contracts' },
@@ -564,8 +545,8 @@ export function SanMode({ activeCase }: Props) {
           { icon: '🔍', text: 'Drive search (toggle above)' },
         ].map((cap, i) => (
           <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-            <span style={{ fontSize: 10, opacity: .5 }}>{cap.icon}</span>
-            <span style={{ fontSize: 9, color: '#222234', fontFamily: 'Inter, sans-serif', letterSpacing: '.07em' }}>
+            <span style={{ fontSize: 10, opacity: .4 }}>{cap.icon}</span>
+            <span style={{ fontSize: 9, color: T.mute, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.07em' }}>
               {cap.text}
             </span>
           </div>
