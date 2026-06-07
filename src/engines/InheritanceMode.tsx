@@ -48,6 +48,9 @@ const INH_ACCENT = '#7a6fd0';
 const INH_LIGHT  = '#a09ae0';
 const MAX_FILES  = 8;
 
+const WORKER_URL   = 'https://afs-legal-rag.sobamboadeshupo.workers.dev';
+const WORKER_TOKEN = 'AFS2026SecureToken99';
+
 const SUB_TABS: Array<{ id: SubTab; icon: string; label: string }> = [
   { id: 'upload',  icon: '⬆', label: 'Upload & Audit' },
   { id: 'audit',   icon: '◉', label: 'State of Case'  },
@@ -206,7 +209,6 @@ export function InheritanceMode({ activeCase, onSave }: Props) {
     }
     setRunning(true); setErrMsg(''); setRunPhase('Preparing document bundle…');
 
-    // Build content array for the API call
     type ContentBlock =
       | { type: 'document'; source: { type: 'base64'; media_type: string; data: string } }
       | { type: 'image';    source: { type: 'base64'; media_type: string; data: string } }
@@ -216,7 +218,7 @@ export function InheritanceMode({ activeCase, onSave }: Props) {
 
     const mediaFiles = uploads.filter(u => u.type !== 'text');
     const txtFiles   = uploads.filter(u => u.type === 'text');
-    const extraMedia = mediaFiles.slice(5);  // API block limit
+    const extraMedia = mediaFiles.slice(5);
 
     mediaFiles.slice(0, 5).forEach(u => {
       if (u.type === 'application/pdf') {
@@ -278,26 +280,23 @@ Return ONLY the JSON object. No additional text.`;
     try {
       setRunPhase('Running forensic audit — analysing documents…');
 
-      // Use direct fetch for multi-part content (callClaude only handles text)
-      const apiKey = (() => { try { return localStorage.getItem('afs_api_key') || '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'; } catch { return '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'; } })();
       let effectiveSystem = system;
       try {
         const ctx = await queryLibrary(deriveQuery(system, ''), { topK: 8, threshold: 0.70 });
         if (ctx.ok && ctx.block) effectiveSystem = `${ctx.block}\n${system}`;
       } catch { /* library unavailable — proceed */ }
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
+
+      const res = await fetch(`${WORKER_URL}/chat`, {
         method:  'POST',
         headers: {
-          'Content-Type':                              'application/json',
-          'x-api-key':                                 apiKey,
-          'anthropic-version':                         '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true',
+          'Content-Type':  'application/json',
+          'Authorization': `Bearer ${WORKER_TOKEN}`,
         },
         body: JSON.stringify({
-          model:      'claude-sonnet-4-6',
+          model:      'claude-sonnet-4-5',
           max_tokens: 4000,
           system:     effectiveSystem,
-          messages: [{ role: 'user', content }],
+          messages:   [{ role: 'user', content }],
         }),
       });
 
@@ -334,8 +333,6 @@ Return ONLY the JSON object. No additional text.`;
 
   const hasResult = !!result;
 
-  // ── Shared input styles ─────────────────────────────────────────────────────
-
   const taStyle: React.CSSProperties = {
     width: '100%', background: T.bg, border: '1px solid #1e1e2e', borderRadius: 5,
     color: T.text, padding: '12px 14px', fontSize: 14,
@@ -349,14 +346,9 @@ Return ONLY the JSON object. No additional text.`;
     display: 'block', marginBottom: 8,
   };
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // RENDER
-  // ─────────────────────────────────────────────────────────────────────────
-
   return (
     <div style={{ padding: '0 2px 48px' }}>
 
-      {/* ── Module header ── */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
         <div>
           <p style={{ fontSize: 9, color: INH_ACCENT, fontFamily: 'Inter, sans-serif', letterSpacing: '.22em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 6 }}>
@@ -379,7 +371,6 @@ Return ONLY the JSON object. No additional text.`;
         )}
       </div>
 
-      {/* ── Sub-tab navigation ── */}
       <div style={{ display: 'flex', gap: 6, marginBottom: 20, borderBottom: `1px solid ${T.bdr}`, paddingBottom: 0, overflowX: 'auto' }}>
         {SUB_TABS.map(st => {
           const locked   = st.id !== 'upload' && !hasResult;
@@ -418,13 +409,9 @@ Return ONLY the JSON object. No additional text.`;
         })}
       </div>
 
-      {/* ══════════════════════════════════════
-          SUB-TAB: UPLOAD & AUDIT
-      ══════════════════════════════════════ */}
       {subTab === 'upload' && (
         <div style={{ maxWidth: 780 }}>
 
-          {/* Prior audit banner */}
           {hasResult && (
             <div style={{ background: '#0c1810', border: '1px solid #1a3820', borderRadius: 6, padding: '12px 18px', marginBottom: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -444,7 +431,6 @@ Return ONLY the JSON object. No additional text.`;
             </div>
           )}
 
-          {/* Situation summary */}
           <div style={{ marginBottom: 20 }}>
             <label style={labelStyle}>
               Your Summary of the Situation{' '}
@@ -459,7 +445,6 @@ Return ONLY the JSON object. No additional text.`;
             />
           </div>
 
-          {/* File upload zone */}
           <div style={{ marginBottom: 20 }}>
             <label style={labelStyle}>
               Upload Documents{' '}
@@ -489,7 +474,6 @@ Return ONLY the JSON object. No additional text.`;
             />
           </div>
 
-          {/* Uploaded file chips */}
           {uploads.length > 0 && (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
               {uploads.map(u => (
@@ -506,7 +490,6 @@ Return ONLY the JSON object. No additional text.`;
             </div>
           )}
 
-          {/* Paste zone */}
           <div style={{ marginBottom: 24 }}>
             <label style={labelStyle}>
               Paste Text From Documents{' '}
@@ -530,7 +513,6 @@ Return ONLY the JSON object. No additional text.`;
             </div>
           )}
 
-          {/* Run button */}
           {(() => {
             const canRun = !running && (uploads.length > 0 || pastedTxt.trim().length > 0);
             return (
@@ -559,9 +541,6 @@ Return ONLY the JSON object. No additional text.`;
         </div>
       )}
 
-      {/* ══════════════════════════════════════
-          SUB-TAB: STATE OF CASE AUDIT
-      ══════════════════════════════════════ */}
       {subTab === 'audit' && hasResult && result && (
         <div style={{ maxWidth: 780 }}>
           <SectionHead label="State-of-Case Audit" text={result.state_of_case} secKey="soc" copiedSec={copiedSec} onCopy={copyText} />
@@ -583,12 +562,8 @@ Return ONLY the JSON object. No additional text.`;
         </div>
       )}
 
-      {/* ══════════════════════════════════════
-          SUB-TAB: GAP & DAMAGE REPORT
-      ══════════════════════════════════════ */}
       {subTab === 'gap' && hasResult && result && (
         <div style={{ maxWidth: 780 }}>
-
           <SectionHead label="What Was Not Done (And Should Have Been)" text={(result.gap_report?.not_done || []).join('\n')} secKey="gnd" copiedSec={copiedSec} onCopy={copyText} />
           <div style={{ background: '#0f0808', border: '1px solid #2a1818', borderRadius: 6, padding: '18px 22px', marginBottom: 24 }}>
             <BulletList items={result.gap_report?.not_done} accent="#c07070" />
@@ -622,9 +597,6 @@ Return ONLY the JSON object. No additional text.`;
         </div>
       )}
 
-      {/* ══════════════════════════════════════
-          SUB-TAB: RISK REGISTER
-      ══════════════════════════════════════ */}
       {subTab === 'risk' && hasResult && result && (
         <div style={{ maxWidth: 780 }}>
           <SectionHead
@@ -666,9 +638,6 @@ Return ONLY the JSON object. No additional text.`;
         </div>
       )}
 
-      {/* ══════════════════════════════════════
-          SUB-TAB: INHERITANCE INTEL PACKAGE
-      ══════════════════════════════════════ */}
       {subTab === 'package' && hasResult && result && (() => {
         const pkg = result.inheritance_package || {} as InheritanceData['inheritance_package'];
 
@@ -685,14 +654,11 @@ Return ONLY the JSON object. No additional text.`;
 
         return (
           <div style={{ maxWidth: 780 }}>
-
-            {/* Current Posture */}
             <SectionHead label="Current Case Posture" text={pkg.current_posture} secKey="pcp" copiedSec={copiedSec} onCopy={copyText} />
             <div style={{ background: `${INH_ACCENT}09`, border: `1px solid ${INH_ACCENT}30`, borderRadius: 6, padding: '20px 22px', marginBottom: 24 }}>
               <Prose text={pkg.current_posture} />
             </div>
 
-            {/* Immediate Actions */}
             <SectionHead label="Immediate Actions — This Week" text={(pkg.immediate_actions || []).join('\n')} secKey="pia" copiedSec={copiedSec} onCopy={copyText} />
             <div style={{ background: '#070710', border: '1px solid #1a1a28', borderRadius: 6, padding: '18px 22px', marginBottom: 24 }}>
               {(pkg.immediate_actions || []).length > 0 ? (pkg.immediate_actions || []).map((a, i) => (
@@ -703,19 +669,16 @@ Return ONLY the JSON object. No additional text.`;
               )) : <p style={{ color: T.mute, fontStyle: 'italic', fontSize: 13, fontFamily: 'Inter, sans-serif' }}>None identified.</p>}
             </div>
 
-            {/* Remaining Steps */}
             <SectionHead label="Procedural Roadmap — Remaining Steps" text={(pkg.remaining_steps || []).join('\n')} secKey="prs" copiedSec={copiedSec} onCopy={copyText} />
             <div style={{ background: '#070710', border: '1px solid #1a1a28', borderRadius: 6, padding: '18px 22px', marginBottom: 24 }}>
               <BulletList items={pkg.remaining_steps} accent={INH_ACCENT} />
             </div>
 
-            {/* Strategy Options */}
             <SectionHead label="Strategy Options From This Position" text={pkg.strategy_options} secKey="pso" copiedSec={copiedSec} onCopy={copyText} />
             <div style={{ background: '#070710', border: '1px solid #1a1a28', borderRadius: 6, padding: '20px 22px', marginBottom: 24 }}>
               <Prose text={pkg.strategy_options} />
             </div>
 
-            {/* SAN Recommendation */}
             <div style={{ marginBottom: 12, marginTop: 28 }}>
               <p style={{ fontSize: 10, color: INH_ACCENT, fontFamily: 'Inter, sans-serif', letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 700, margin: '0 0 4px' }}>
                 SAN's Recommended Starting Posture
@@ -726,7 +689,6 @@ Return ONLY the JSON object. No additional text.`;
               <Prose text={pkg.recommended_starting_posture} />
             </div>
 
-            {/* Export + re-run */}
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 20 }}>
               <button
                 onClick={() => copyText(fullExport, 'full_pkg')}
@@ -742,7 +704,6 @@ Return ONLY the JSON object. No additional text.`;
               </button>
             </div>
 
-            {/* Handover confirmation */}
             <div style={{ background: '#060f08', border: '1px solid #1a3020', borderRadius: 6, padding: '16px 20px' }}>
               <p style={{ fontSize: 11, color: '#5a9a5a', fontFamily: 'Inter, sans-serif', letterSpacing: '.08em', fontWeight: 600, margin: '0 0 6px' }}>✓ INHERITANCE COMPLETE</p>
               <p style={{ fontSize: 13, color: T.dim, fontFamily: 'Inter, sans-serif', lineHeight: 1.7, margin: 0 }}>

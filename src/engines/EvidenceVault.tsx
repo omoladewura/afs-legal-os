@@ -23,7 +23,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import type { Case, EvidenceItem }                          from '@/types';
 import { T }                                               from '@/constants/tokens';
-import { CLAUDE_MODEL }                                    from '@/services/api';
 import { queryLibrary, deriveQuery }                       from '@/services/library';
 import { Md }                                              from '@/components/common/ui';
 import { uid }                                             from '@/utils';
@@ -39,6 +38,7 @@ import {
 // CONSTANTS
 // ─────────────────────────────────────────────────────────────────────────────
 
+const WORKER_URL   = 'https://afs-legal-rag.sobamboadeshupo.workers.dev';
 const EV_MAX_BYTES = 2 * 1024 * 1024; // 2 MB per file
 
 const EV_CATS = [
@@ -455,7 +455,7 @@ export function EvidenceVault({ activeCase }: Props) {
     setPreviewB64(b64);
   }
 
-  // ── SAN AI analysis ───────────────────────────────────────────────────────────
+  // ── SAN AI analysis — routed through Worker ───────────────────────────────────
   async function runAiAnalysis(meta: EvidenceItem) {
     const b64 = await loadEvidenceFile(meta.id);
     if (!b64) { alert('File data not found in storage.'); return; }
@@ -478,26 +478,20 @@ export function EvidenceVault({ activeCase }: Props) {
         text: `You are a Nigerian litigation strategist reviewing a case document.\n\n${caseCtx}\nDocument category: ${catLabel}\nDocument name: ${meta.filename}\n\nAnalyse this document and provide:\n\n**DOCUMENT SUMMARY**\nWhat this document is and what it establishes on its face.\n\n**LEGAL SIGNIFICANCE**\nHow this document affects the case from the perspective of the ${activeCase.role || 'Claimant'}. What does it prove, corroborate, or undermine?\n\n**STRENGTHS**\nWhat this document establishes well. What arguments it supports.\n\n**VULNERABILITIES**\nHow opposing counsel might attack this document. Authenticity? Completeness? Context? Hearsay? Secondary evidence rule issues?\n\n**IMMEDIATE ACTION ITEMS**\nWhat the lawyer must do with or because of this document — now.\n\nBe direct, specific, and brutally honest. Every point matters in litigation.`,
       };
 
-      const apiKey = (() => { try { return localStorage.getItem('afs_api_key') || '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'; } catch { return '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'; } })();
       const evSystem = 'You are SAN — Senior Advocate at AFS Advocates. Analyse legal documents with precision and honesty. Your assessments go directly into active litigation strategy. Be specific to the Nigerian legal context — Evidence Act, Rules of Court, documentary evidence requirements.';
       let effectiveEvSystem = evSystem;
       try {
         const ctx = await queryLibrary(deriveQuery(evSystem, meta.filename), { topK: 6, threshold: 0.70 });
         if (ctx.ok && ctx.block) effectiveEvSystem = `${ctx.block}\n${evSystem}`;
       } catch { /* library unavailable — proceed */ }
-      const resp = await fetch('https://api.anthropic.com/v1/messages', {
+
+      const resp = await fetch(`${WORKER_URL}/chat`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: CLAUDE_MODEL,
+          system:     effectiveEvSystem,
           max_tokens: 1200,
-          system: effectiveEvSystem,
-          messages: [{ role: 'user', content: [contentBlock, textBlock] }],
+          messages:   [{ role: 'user', content: [contentBlock, textBlock] }],
         }),
       });
 
