@@ -318,7 +318,7 @@ async function handleIngest(req: Request, env: Env): Promise<Response> {
           if (!embedding || embedding.length === 0) continue;
 
           // Build vector ID and metadata
-          const vectorId  = `${key.replace(/[^a-zA-Z0-9]/g, '_')}_chunk_${i}`;
+          const vectorId  = `${key.split('/').pop()!.replace(/[^a-zA-Z0-9]/g, '_').slice(0, 40)}_${i}`;
           const chunkKey  = `chunks/${key}/chunk_${i}.txt`;
 
           // Store chunk text in R2
