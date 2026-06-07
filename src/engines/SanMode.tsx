@@ -241,7 +241,10 @@ export function SanMode({ activeCase }: Props) {
     apiMsgs.push({ role: 'user', content: userContent });
 
     // ── LIBRARY FIRST: Query Vectorize before building the request ─────────────
-    let effectiveSystem = SAN_SYSTEM;
+    const _hr = new Date().getHours();
+    const _tod = _hr < 12 ? 'morning' : _hr < 17 ? 'afternoon' : 'evening';
+    const _timeCtx = `Current time: Good ${_tod}. It is ${new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })} local time. Use the correct time-of-day greeting.`;
+    let effectiveSystem = SAN_SYSTEM + '\n\n' + _timeCtx;
     try {
       const query = deriveQuery(SAN_SYSTEM, txt);
       if (query.trim()) {
