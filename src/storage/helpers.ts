@@ -244,12 +244,14 @@ export async function deleteDeadline(id: string): Promise<boolean> {
 }
 
 // ── Evidence ──────────────────────────────────────────────────────────────────
-// Evidence files are base64 blobs — too large for D1.
-// Evidence meta is small and could be synced, but to keep things simple
-// evidence stays local-only for now. This is acceptable because evidence
-// files are uploaded per-device and are typically large.
+// Metadata → D1 (synced). Files → R2 via Worker (synced). IndexedDB is local fallback.
 
 export async function loadEvidenceMeta(caseId: string): Promise<EvidenceItem[]> {
+  const remote = await syncGet(`/evidence/meta?caseId=${encodeURIComponent(caseId)}`) as { items?: EvidenceItem[] } | null;
+  if (remote?.items && remote.items.length > 0) {
+    Promise.all(remote.items.map(e => db.evidence_meta.put(e))).catch(() => {});
+    return remote.items;
+  }
   try {
     return await db.evidence_meta
       .where('caseId').equals(caseId)
@@ -264,6 +266,10 @@ export async function loadEvidenceMeta(caseId: string): Promise<EvidenceItem[]> 
 export async function saveEvidenceMeta(items: EvidenceItem[]): Promise<boolean> {
   try {
     await db.evidence_meta.bulkPut(items);
+    // Sync each item to D1
+    for (const item of items) {
+      syncPut('/evidence/meta', item);
+    }
     return true;
   } catch (e) {
     console.error('[Storage] saveEvidenceMeta failed', e);
@@ -271,9 +277,33 @@ export async function saveEvidenceMeta(items: EvidenceItem[]): Promise<boolean> 
   }
 }
 
-export async function saveEvidenceFile(id: string, data: string): Promise<boolean> {
+export async function saveEvidenceFile(id: string, data: string, caseId: string): Promise<boolean> {
   try {
+    // Save to IndexedDB immediately (local fallback)
     await db.evidence_files.put({ id, data });
+
+    // Upload to R2 via Worker — convert base64 data URL to binary
+    try {
+      const base64 = data.includes(',') ? data.split(',')[1] : data;
+      const mimeMatch = data.match(/data:([^;]+);/);
+      const mime = mimeMatch ? mimeMatch[1] : 'application/octet-stream';
+      const binary = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 30000); // 30s for file upload
+      try {
+        await fetch(`${WORKER_URL}/evidence/file?id=${encodeURIComponent(id)}&caseId=${encodeURIComponent(caseId)}`, {
+          method: 'POST',
+          headers: { ...syncHeaders(), 'Content-Type': mime },
+          body: binary,
+          signal: controller.signal,
+        });
+      } finally {
+        clearTimeout(timeout);
+      }
+    } catch {
+      // R2 upload failed silently — file still in IndexedDB
+    }
+
     return true;
   } catch (e) {
     console.error('[Storage] saveEvidenceFile failed — storage may be full', e);
@@ -281,7 +311,34 @@ export async function saveEvidenceFile(id: string, data: string): Promise<boolea
   }
 }
 
-export async function loadEvidenceFile(id: string): Promise<string | null> {
+export async function loadEvidenceFile(id: string, caseId?: string): Promise<string | null> {
+  // Try R2 first if caseId provided
+  if (caseId) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15000);
+      try {
+        const res = await fetch(
+          `${WORKER_URL}/evidence/file?id=${encodeURIComponent(id)}&caseId=${encodeURIComponent(caseId)}`,
+          { method: 'GET', headers: syncHeaders(), signal: controller.signal }
+        );
+        if (res.ok) {
+          const blob = await res.blob();
+          return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = () => resolve(null);
+            reader.readAsDataURL(blob);
+          });
+        }
+      } finally {
+        clearTimeout(timeout);
+      }
+    } catch {
+      // fall through to IndexedDB
+    }
+  }
+  // Fallback to IndexedDB
   try {
     const rec = await db.evidence_files.get(id);
     return rec?.data ?? null;
@@ -291,10 +348,14 @@ export async function loadEvidenceFile(id: string): Promise<string | null> {
   }
 }
 
-export async function deleteEvidenceFile(id: string): Promise<boolean> {
+export async function deleteEvidenceFile(id: string, caseId?: string): Promise<boolean> {
   try {
     await db.evidence_files.delete(id);
     await db.evidence_meta.delete(id);
+    if (caseId) {
+      syncDelete(`/evidence/file?id=${encodeURIComponent(id)}&caseId=${encodeURIComponent(caseId)}`);
+      syncDelete(`/evidence/meta?id=${encodeURIComponent(id)}`);
+    }
     return true;
   } catch (e) {
     console.error('[Storage] deleteEvidenceFile failed', e);
