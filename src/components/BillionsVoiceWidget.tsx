@@ -246,25 +246,18 @@ const P = {
 // HELPERS
 // ─────────────────────────────────────────────────────────────────────────────
 
-const BILLIONS_API_KEY = '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';
-
-function buildBillionsHeaders(): Record<string, string> {
-  let key = BILLIONS_API_KEY;
-  try { key = localStorage.getItem('afs_api_key') || BILLIONS_API_KEY; } catch { /* ignore */ }
-  return {
-    'Content-Type': 'application/json',
-    'x-api-key': key,
-    'anthropic-version': '2023-06-01',
-    'anthropic-dangerous-direct-browser-access': 'true',
-  };
-}
+const WORKER_URL = 'https://afs-legal-rag.sobamboadeshupo.workers.dev';
+const WORKER_TOKEN = 'AFS2026SecureToken99';
 
 async function apiCall(systemPrompt: string, userContent: string, maxTokens = 1800): Promise<string> {
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
+  const response = await fetch(`${WORKER_URL}/chat`, {
     method: 'POST',
-    headers: buildBillionsHeaders(),
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${WORKER_TOKEN}`,
+    },
     body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
+      model: 'claude-sonnet-4-5',
       max_tokens: maxTokens,
       system: systemPrompt,
       messages: [{ role: 'user', content: userContent }],
@@ -549,9 +542,9 @@ function BillionsVoiceModal({ onClose }: { onClose: () => void }) {
   const scribeStart = async () => {
     setScribePhase('interviewing'); setScribeLoading(true); setScribeError(null);
     try {
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST', headers: buildBillionsHeaders(),
-        body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 300, system: SCRIBE_INTERVIEWER_PROMPT, messages: [{ role: 'user', content: 'I need to write something. Begin the interview.' }] }),
+      const res = await fetch(`${WORKER_URL}/chat`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${WORKER_TOKEN}` },
+        body: JSON.stringify({ model: 'claude-sonnet-4-5', max_tokens: 300, system: SCRIBE_INTERVIEWER_PROMPT, messages: [{ role: 'user', content: 'I need to write something. Begin the interview.' }] }),
       });
       const data = await res.json();
       const text = (data.content || []).map((b: any) => b.text || '').join('').trim();
@@ -572,9 +565,9 @@ function BillionsVoiceModal({ onClose }: { onClose: () => void }) {
       // compose
       try {
         const convoText = newMsgs.map(m => `${m.role === 'scribe' ? 'THE SCRIBE' : 'PERSON'}: ${m.text}`).join('\n\n');
-        const res = await fetch('https://api.anthropic.com/v1/messages', {
-          method: 'POST', headers: buildBillionsHeaders(),
-          body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 1800, system: SCRIBE_COMPOSER_PROMPT, messages: [{ role: 'user', content: `Here is the full intake conversation:\n\n${convoText}\n\nNow write the piece.` }] }),
+        const res = await fetch(`${WORKER_URL}/chat`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${WORKER_TOKEN}` },
+          body: JSON.stringify({ model: 'claude-sonnet-4-5', max_tokens: 1800, system: SCRIBE_COMPOSER_PROMPT, messages: [{ role: 'user', content: `Here is the full intake conversation:\n\n${convoText}\n\nNow write the piece.` }] }),
         });
         const data = await res.json();
         const full = data.content?.map((b: any) => b.text || '').join('').trim();
@@ -588,9 +581,9 @@ function BillionsVoiceModal({ onClose }: { onClose: () => void }) {
     } else {
       try {
         const apiMsgs = newMsgs.map(m => ({ role: m.role === 'scribe' ? 'assistant' : 'user', content: m.text }));
-        const res = await fetch('https://api.anthropic.com/v1/messages', {
-          method: 'POST', headers: buildBillionsHeaders(),
-          body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 300, system: SCRIBE_INTERVIEWER_PROMPT, messages: apiMsgs }),
+        const res = await fetch(`${WORKER_URL}/chat`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${WORKER_TOKEN}` },
+          body: JSON.stringify({ model: 'claude-sonnet-4-5', max_tokens: 300, system: SCRIBE_INTERVIEWER_PROMPT, messages: apiMsgs }),
         });
         const data = await res.json();
         const text = data.content?.map((b: any) => b.text || '').join('').trim();
