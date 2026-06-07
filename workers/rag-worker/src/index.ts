@@ -25,10 +25,11 @@
  */
 
 export interface Env {
-  VECTORIZE:        Vectorize;
-  AI:               Ai;
-  DB:               D1Database;
-  AUTH_TOKEN?:      string;
+  VECTORIZE:          Vectorize;
+  AI:                 Ai;
+  DB:                 D1Database;
+  R2:                 R2Bucket;
+  AUTH_TOKEN?:        string;
   ANTHROPIC_API_KEY?: string;
 }
 
@@ -69,6 +70,11 @@ async function ensureTables(env: Env): Promise<void> {
     data    TEXT NOT NULL
   )`).run();
   await env.DB.prepare(`CREATE TABLE IF NOT EXISTS research (
+    id      TEXT PRIMARY KEY,
+    case_id TEXT NOT NULL,
+    data    TEXT NOT NULL
+  )`).run();
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS evidence_meta (
     id      TEXT PRIMARY KEY,
     case_id TEXT NOT NULL,
     data    TEXT NOT NULL
@@ -258,6 +264,88 @@ async function handleDeleteResearch(req: Request, env: Env): Promise<Response> {
   return json({ ok: true }, 200, origin);
 }
 
+// ── Evidence Metadata (D1) ────────────────────────────────────────────────────
+
+async function handleGetEvidenceMeta(req: Request, env: Env): Promise<Response> {
+  const origin = req.headers.get('Origin') || '*';
+  await ensureTables(env);
+  const url    = new URL(req.url);
+  const caseId = url.searchParams.get('caseId');
+  if (!caseId) return json({ error: 'caseId is required' }, 400, origin);
+  const rows = await env.DB.prepare(
+    'SELECT data FROM evidence_meta WHERE case_id = ? ORDER BY json_extract(data, "$.timestamp") DESC'
+  ).bind(caseId).all();
+  const items = (rows.results || []).map((r: Record<string, unknown>) => JSON.parse(r.data as string));
+  return json({ items }, 200, origin);
+}
+
+async function handlePutEvidenceMeta(req: Request, env: Env): Promise<Response> {
+  const origin = req.headers.get('Origin') || '*';
+  await ensureTables(env);
+  const body = await req.json() as { id?: string; caseId?: string };
+  if (!body.id || !body.caseId) return json({ error: 'id and caseId are required' }, 400, origin);
+  await env.DB.prepare('INSERT OR REPLACE INTO evidence_meta (id, case_id, data) VALUES (?, ?, ?)')
+    .bind(body.id, body.caseId, JSON.stringify(body)).run();
+  return json({ ok: true }, 200, origin);
+}
+
+async function handleDeleteEvidenceMeta(req: Request, env: Env): Promise<Response> {
+  const origin = req.headers.get('Origin') || '*';
+  await ensureTables(env);
+  const url = new URL(req.url);
+  const id  = url.searchParams.get('id');
+  if (!id) return json({ error: 'id is required' }, 400, origin);
+  await env.DB.prepare('DELETE FROM evidence_meta WHERE id = ?').bind(id).run();
+  return json({ ok: true }, 200, origin);
+}
+
+// ── Evidence Files (R2) ───────────────────────────────────────────────────────
+
+async function handleUploadEvidenceFile(req: Request, env: Env): Promise<Response> {
+  const origin = req.headers.get('Origin') || '*';
+  const url    = new URL(req.url);
+  const id     = url.searchParams.get('id');
+  const caseId = url.searchParams.get('caseId');
+  if (!id || !caseId) return json({ error: 'id and caseId are required' }, 400, origin);
+
+  const contentType = req.headers.get('Content-Type') || 'application/octet-stream';
+  const key = `evidence/${caseId}/${id}`;
+
+  await env.R2.put(key, req.body, {
+    httpMetadata: { contentType },
+  });
+
+  return json({ ok: true, key }, 200, origin);
+}
+
+async function handleGetEvidenceFile(req: Request, env: Env): Promise<Response> {
+  const origin = req.headers.get('Origin') || '*';
+  const url    = new URL(req.url);
+  const id     = url.searchParams.get('id');
+  const caseId = url.searchParams.get('caseId');
+  if (!id || !caseId) return json({ error: 'id and caseId are required' }, 400, origin);
+
+  const key = `evidence/${caseId}/${id}`;
+  const obj = await env.R2.get(key);
+  if (!obj) return json({ error: 'File not found' }, 404, origin);
+
+  const headers = new Headers(cors(origin));
+  headers.set('Content-Type', obj.httpMetadata?.contentType || 'application/octet-stream');
+  headers.set('Content-Disposition', `inline; filename="${id}"`);
+  return new Response(obj.body, { status: 200, headers });
+}
+
+async function handleDeleteEvidenceFile(req: Request, env: Env): Promise<Response> {
+  const origin = req.headers.get('Origin') || '*';
+  const url    = new URL(req.url);
+  const id     = url.searchParams.get('id');
+  const caseId = url.searchParams.get('caseId');
+  if (!id || !caseId) return json({ error: 'id and caseId are required' }, 400, origin);
+
+  await env.R2.delete(`evidence/${caseId}/${id}`);
+  return json({ ok: true }, 200, origin);
+}
+
 export default {
   async fetch(req: Request, env: Env): Promise<Response> {
     const origin = req.headers.get('Origin') || '*';
@@ -293,6 +381,13 @@ export default {
     if (method === 'GET'    && path === '/research')  return handleGetResearch(req, env);
     if (method === 'PUT'    && path === '/research')  return handlePutResearch(req, env);
     if (method === 'DELETE' && path === '/research')  return handleDeleteResearch(req, env);
+
+    if (method === 'GET'    && path === '/evidence/meta')   return handleGetEvidenceMeta(req, env);
+    if (method === 'PUT'    && path === '/evidence/meta')   return handlePutEvidenceMeta(req, env);
+    if (method === 'DELETE' && path === '/evidence/meta')   return handleDeleteEvidenceMeta(req, env);
+    if (method === 'POST'   && path === '/evidence/file')   return handleUploadEvidenceFile(req, env);
+    if (method === 'GET'    && path === '/evidence/file')   return handleGetEvidenceFile(req, env);
+    if (method === 'DELETE' && path === '/evidence/file')   return handleDeleteEvidenceFile(req, env);
 
     return json({ error: 'Not found' }, 404, origin);
   },
