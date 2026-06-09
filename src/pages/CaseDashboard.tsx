@@ -17,6 +17,12 @@ import { LoadingBlock } from '@/components/common/ui';
 import { T } from '@/constants/tokens';
 import { saveCase } from '@/storage/helpers';
 import type { Case, DashTabId } from '@/types';
+import {
+  MATTER_TRACK_LABELS,
+  COUNSEL_ROLE_LABELS,
+  COUNSEL_ROLE_COLORS,
+  MATTER_TRACK_COLORS,
+} from '@/types';
 
 // ── Lazy engine imports ───────────────────────────────────────────────────────
 
@@ -120,14 +126,43 @@ export function CaseDashboard() {
       {/* Case header */}
       <div style={{ marginBottom: 20, paddingBottom: 16, borderBottom: `1px solid ${T.bdr}` }}>
         <p style={{ fontSize: 9, color: T.mute, fontFamily: 'Inter, sans-serif', letterSpacing: '.18em', textTransform: 'uppercase', marginBottom: 4 }}>
-          Active Case
+          Active Matter
         </p>
-        <h2 style={{ fontSize: 22, color: T.goldL, fontFamily: "'Cormorant Garamond', serif", fontWeight: 300, marginBottom: 2 }}>
+        <h2 style={{ fontSize: 22, color: T.goldL, fontFamily: "'Cormorant Garamond', serif", fontWeight: 300, marginBottom: 6 }}>
           {activeCase.caseName}
         </h2>
-        <p style={{ fontSize: 12, color: T.mute, fontFamily: 'Inter, sans-serif' }}>
-          {[activeCase.court, activeCase.suitNo].filter(Boolean).join(' · ')}
-        </p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          {/* Track badge */}
+          {activeCase.matter_track && (
+            <span style={{
+              fontSize: 9, padding: '3px 8px', borderRadius: 3,
+              fontFamily: 'Inter, sans-serif', fontWeight: 700,
+              letterSpacing: '.1em', textTransform: 'uppercase',
+              background: MATTER_TRACK_COLORS[activeCase.matter_track].bg,
+              border: `1px solid ${MATTER_TRACK_COLORS[activeCase.matter_track].bdr}`,
+              color: MATTER_TRACK_COLORS[activeCase.matter_track].col,
+            }}>
+              {MATTER_TRACK_LABELS[activeCase.matter_track]}
+            </span>
+          )}
+          {/* Role badge — permanently visible so lawyer always knows which hat they are wearing */}
+          {activeCase.counsel_role && (
+            <span style={{
+              fontSize: 9, padding: '3px 8px', borderRadius: 3,
+              fontFamily: 'Inter, sans-serif', fontWeight: 700,
+              letterSpacing: '.07em', textTransform: 'uppercase',
+              background: COUNSEL_ROLE_COLORS[activeCase.counsel_role].bg,
+              border: `1px solid ${COUNSEL_ROLE_COLORS[activeCase.counsel_role].bdr}`,
+              color: COUNSEL_ROLE_COLORS[activeCase.counsel_role].col,
+            }}>
+              {COUNSEL_ROLE_LABELS[activeCase.counsel_role]}
+            </span>
+          )}
+          {/* Court and suit number */}
+          <p style={{ fontSize: 12, color: T.mute, fontFamily: 'Inter, sans-serif', margin: 0 }}>
+            {[activeCase.court, activeCase.suitNo].filter(Boolean).join(' · ')}
+          </p>
+        </div>
       </div>
 
       {/* Tab bar */}
