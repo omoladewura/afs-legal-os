@@ -79,6 +79,12 @@ export class AfsDatabase extends Dexie {
       research:       '&id, caseId, type, savedAt',
       arg_versions:   '&id, caseId, createdAt',
     });
+
+    // V2 — adds matter_track and counsel_role indexes so the dashboard can
+    // filter matters by track and role without a full table scan.
+    this.version(2).stores({
+      cases: '&id, caseName, createdAt, matter_track, counsel_role',
+    });
   }
 }
 
