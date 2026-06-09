@@ -5,6 +5,62 @@
  */
 
 // ─────────────────────────────────────────────────────────────────────────────
+// MATTER TRACK & COUNSEL ROLE — THE TWO GOVERNING FIELDS
+// These two fields are set at matter creation and are permanent.
+// Every engine, tab, document, AI output, and risk alert derives from them.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** The track of the matter — civil or criminal. */
+export type MatterTrack = 'civil' | 'criminal';
+
+/**
+ * The lawyer's role on this matter.
+ * Civil:    claimant_side | defendant_side
+ * Criminal: prosecution   | defence
+ */
+export type CounselRole =
+  | 'claimant_side'
+  | 'defendant_side'
+  | 'prosecution'
+  | 'defence';
+
+/** Human-readable labels for display throughout the UI. */
+export const MATTER_TRACK_LABELS: Record<MatterTrack, string> = {
+  civil:    'Civil',
+  criminal: 'Criminal',
+};
+
+export const COUNSEL_ROLE_LABELS: Record<CounselRole, string> = {
+  claimant_side: 'Claimant Side',
+  defendant_side: 'Defendant Side',
+  prosecution:   'Prosecution',
+  defence:       'Defence',
+};
+
+/** Accent colours for role badges throughout the UI. */
+export const COUNSEL_ROLE_COLORS: Record<CounselRole, { bg: string; bdr: string; col: string }> = {
+  claimant_side:  { bg: '#071828', bdr: '#1a4060', col: '#4090d0' },
+  defendant_side: { bg: '#180808', bdr: '#401820', col: '#c06060' },
+  prosecution:    { bg: '#181000', bdr: '#403000', col: '#c09030' },
+  defence:        { bg: '#071a0e', bdr: '#1a4028', col: '#40a860' },
+};
+
+/** Track accent colours. */
+export const MATTER_TRACK_COLORS: Record<MatterTrack, { bg: string; bdr: string; col: string }> = {
+  civil:    { bg: '#0a0818', bdr: '#201840', col: '#8060c0' },
+  criminal: { bg: '#180a00', bdr: '#402000', col: '#c07030' },
+};
+
+/**
+ * Given a matter_track, returns the valid CounselRole values for that track.
+ */
+export function rolesForTrack(track: MatterTrack): CounselRole[] {
+  return track === 'civil'
+    ? ['claimant_side', 'defendant_side']
+    : ['prosecution', 'defence'];
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // CASE & DOCKET
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -134,7 +190,22 @@ export interface Case {
   court:               string;
   suitNo:              string;
   dateCommenced:       string;
+
+  /**
+   * THE TWO GOVERNING FIELDS — set at creation, permanent.
+   * matter_track drives which procedural chain the matter follows.
+   * counsel_role drives every tab, engine output, AI prompt, and risk alert.
+   *
+   * Legacy matters (created before V2) will not have these fields set.
+   * All code that reads them must handle undefined gracefully by falling
+   * back to neutral / civil / claimant_side defaults.
+   */
+  matter_track?:       MatterTrack;
+  counsel_role?:       CounselRole;
+
+  /** Legacy role field — kept for backwards compatibility with V1 data. */
   role:                'Claimant' | 'Defendant' | 'Appellant' | 'Respondent' | string;
+
   claimants:           Party[];
   defendants:          Party[];
   createdAt:           string;
