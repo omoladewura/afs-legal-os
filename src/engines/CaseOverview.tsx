@@ -26,8 +26,8 @@ import {
   ROLE_POSITION_CONFIG,
   ROLE_RISK_FLAGS,
   ROLE_MODULES,
-  ROLE_DEFAULT_NEXT_ACTION,
 } from '@/constants/roleWorkspace';
+import { computeNextAction } from '@/utils/nextAction';
 import type { Case, DocketEntry, Deadline, EvidenceItem, ArgumentVersion } from '@/types';
 import type { DashTabId } from '@/types';
 import {
@@ -144,7 +144,8 @@ export function CaseOverview({ activeCase }: Props) {
   const posConfig   = counselRole ? ROLE_POSITION_CONFIG[counselRole]   : null;
   const riskFlags   = counselRole ? ROLE_RISK_FLAGS[counselRole]        : null;
   const modules     = counselRole ? ROLE_MODULES[counselRole]           : null;
-  const nextAction  = counselRole ? ROLE_DEFAULT_NEXT_ACTION[counselRole] : null;
+  const nextActionResult = computeNextAction(activeCase, entries, deadlines);
+  const nextAction  = nextActionResult.action || null;
 
   const roleAccent  = counselRole ? COUNSEL_ROLE_COLORS[counselRole].col : '#888888';
   const roleBg      = counselRole ? COUNSEL_ROLE_COLORS[counselRole].bg  : '#0a0a14';
