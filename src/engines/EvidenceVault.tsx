@@ -467,7 +467,11 @@ export function EvidenceVault({ activeCase }: Props) {
     setAiLoading(l => ({ ...l, [meta.id]: true }));
     try {
       const catLabel = EV_CATS.find(c => c.id === meta.category)?.label ?? meta.category;
-      const caseCtx  = `Case: ${activeCase.caseName} | Court: ${activeCase.court || 'Not specified'} | Role: ${activeCase.role || 'Claimant'}`;
+      const roleLabel  = activeCase.counsel_role
+        ? ({ claimant_side: 'Claimant Side', defendant_side: 'Defendant Side', prosecution: 'Prosecution', defence: 'Defence' }[activeCase.counsel_role] ?? activeCase.role ?? 'Claimant')
+        : (activeCase.role ?? 'Claimant');
+      const trackLabel = activeCase.matter_track === 'criminal' ? 'Criminal' : 'Civil';
+      const caseCtx  = `Case: ${activeCase.caseName} | Court: ${activeCase.court || 'Not specified'} | Track: ${trackLabel} | Role: ${roleLabel}`;
 
       const contentBlock = isImage
         ? { type: 'image',    source: { type: 'base64', media_type: meta.fileType, data: b64 } }
@@ -475,7 +479,7 @@ export function EvidenceVault({ activeCase }: Props) {
 
       const textBlock = {
         type: 'text',
-        text: `You are a Nigerian litigation strategist reviewing a case document.\n\n${caseCtx}\nDocument category: ${catLabel}\nDocument name: ${meta.filename}\n\nAnalyse this document and provide:\n\n**DOCUMENT SUMMARY**\nWhat this document is and what it establishes on its face.\n\n**LEGAL SIGNIFICANCE**\nHow this document affects the case from the perspective of the ${activeCase.role || 'Claimant'}. What does it prove, corroborate, or undermine?\n\n**STRENGTHS**\nWhat this document establishes well. What arguments it supports.\n\n**VULNERABILITIES**\nHow opposing counsel might attack this document. Authenticity? Completeness? Context? Hearsay? Secondary evidence rule issues?\n\n**IMMEDIATE ACTION ITEMS**\nWhat the lawyer must do with or because of this document — now.\n\nBe direct, specific, and brutally honest. Every point matters in litigation.`,
+        text: `You are a Nigerian litigation strategist reviewing a case document.\n\n${caseCtx}\nDocument category: ${catLabel}\nDocument name: ${meta.filename}\n\nAnalyse this document and provide:\n\n**DOCUMENT SUMMARY**\nWhat this document is and what it establishes on its face.\n\n**LEGAL SIGNIFICANCE**\nHow this document affects the case from the perspective of the ${roleLabel}. What does it prove, corroborate, or undermine?\n\n**STRENGTHS**\nWhat this document establishes well. What arguments it supports.\n\n**VULNERABILITIES**\nHow opposing counsel might attack this document. Authenticity? Completeness? Context? Hearsay? Secondary evidence rule issues?\n\n**IMMEDIATE ACTION ITEMS**\nWhat the lawyer must do with or because of this document — now.\n\nBe direct, specific, and brutally honest. Every point matters in litigation.`,
       };
 
       const evSystem = 'You are SAN — Senior Advocate at AFS Advocates. Analyse legal documents with precision and honesty. Your assessments go directly into active litigation strategy. Be specific to the Nigerian legal context — Evidence Act, Rules of Court, documentary evidence requirements.';

@@ -32,7 +32,7 @@ const DIM   = '#7a4820';
 // CONSTANTS
 // ─────────────────────────────────────────────────────────────────────────────
 
-const PCE_STAGES = [
+const PCE_STAGES_CIVIL = [
   'Pre-Filing / Pre-Action',
   'Originating Process',
   'Service of Process',
@@ -42,6 +42,26 @@ const PCE_STAGES = [
   'Post-Trial / Judgment',
   'Appeal Stage',
 ];
+
+const PCE_STAGES_CRIMINAL = [
+  'Investigation',
+  'Charge & Arraignment',
+  'Plea',
+  'Prosecution Case',
+  'No-Case Submission',
+  'Defence Case',
+  'Final Addresses',
+  'Judgment',
+  'Sentencing',
+  'Appeal',
+];
+
+const COUNSEL_ROLE_LABELS_LOCAL: Record<string, string> = {
+  claimant_side:  'Claimant Side',
+  defendant_side: 'Defendant Side',
+  prosecution:    'Prosecution',
+  defence:        'Defence',
+};
 
 const PCE_AUDIT_TYPES: Array<{
   id:   string;
@@ -116,6 +136,27 @@ function makePce(caseId: string, blobRef: React.MutableRefObject<Record<string, 
 
 async function pceCall(system: string, prompt: string, maxTokens = 2000): Promise<string> {
   return callClaude({ system, userMsg: prompt, maxTokens });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ROLE-AWARE SYSTEM PROMPT BUILDER
+// ─────────────────────────────────────────────────────────────────────────────
+
+function buildComplianceSystem(activeCase: Case): string {
+  const track = activeCase.matter_track ?? 'civil';
+  const role  = activeCase.counsel_role ?? (track === 'criminal' ? 'defence' : 'claimant_side');
+  const roleLabel  = COUNSEL_ROLE_LABELS_LOCAL[role] ?? role;
+  const trackLabel = track === 'criminal' ? 'Criminal' : 'Civil';
+
+  const roleContext = track === 'criminal'
+    ? role === 'prosecution'
+      ? 'You are advising prosecution counsel. Flag compliance risks that could result in acquittal, evidence exclusion, or ACJA violations. Highlight issues the defence could exploit.'
+      : 'You are advising defence counsel. Identify every procedural defect, constitutional violation, or compliance gap that could benefit the accused — including grounds for discharge, exclusion of evidence, or bail.'
+    : role === 'claimant_side'
+      ? 'You are advising claimant\'s counsel. Flag compliance risks that could defeat the claim — limitation expiry, defective process, service failure, or standing issues.'
+      : 'You are advising defendant\'s counsel. Identify every procedural defect the defendant can exploit — invalid service, limitation, wrong originating process, or absence of pre-action compliance.';
+
+  return `You are a Nigerian litigation procedural compliance expert acting for ${roleLabel} on a ${trackLabel} matter. Cite specific Nigerian statutes, Rules of Court, and court decisions. Be precise and actionable. ${roleContext}`;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -263,9 +304,12 @@ function PCEFullAudit({ caseId, activeCase }: { caseId: string; activeCase: Case
       ? PCE_AUDIT_TYPES.filter(t => checks.includes(t.id)).map(t => t.label).join(', ')
       : 'Full audit — all areas';
 
+    const roleLabel  = COUNSEL_ROLE_LABELS_LOCAL[activeCase.counsel_role ?? ''] ?? activeCase.role ?? 'Claimant';
+    const trackLabel = activeCase.matter_track === 'criminal' ? 'Criminal' : 'Civil';
+
     const prompt = `You are a senior Nigerian litigation counsel performing a procedural compliance audit.
 
-CASE: ${activeCase.caseName || 'Untitled'} | COURT: ${activeCase.court || 'Not specified'} | ROLE: ${activeCase.role || 'Claimant'} | STAGE: ${stage || 'Not specified'}
+CASE: ${activeCase.caseName || 'Untitled'} | COURT: ${activeCase.court || 'Not specified'} | TRACK: ${trackLabel} | ROLE: ${roleLabel} | STAGE: ${stage || 'Not specified'}
 
 AUDIT SCOPE: ${scope}
 
@@ -289,7 +333,7 @@ Be precise. Cite Nigerian statutes and Rules of Court. Do not generalise.`;
 
     try {
       const text = await pceCall(
-        'You are a Nigerian litigation procedural compliance expert. Cite specific Nigerian statutes, Rules of Court, and court decisions. Be precise and actionable.',
+        buildComplianceSystem(activeCase),
         prompt,
         2000,
       );
@@ -309,7 +353,9 @@ Be precise. Cite Nigerian statutes and Rules of Court. Do not generalise.`;
           <label style={lbl}>Current Stage</label>
           <select value={stage} onChange={e => setStage(e.target.value)} style={selBase}>
             <option value=''>Select current stage…</option>
-            {PCE_STAGES.map(s => <option key={s} value={s}>{s}</option>)}
+            {(activeCase.matter_track === 'criminal' ? PCE_STAGES_CRIMINAL : PCE_STAGES_CIVIL).map(s => (
+              <option key={s} value={s}>{s}</option>
+            ))}
           </select>
         </div>
 

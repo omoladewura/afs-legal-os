@@ -273,8 +273,12 @@ Provide a structured briefing:
 ## 6. Flags & Concerns
 [Anything unusual, potentially missed, or requiring urgent attention]`;
     try {
+      const butsRoleLabel = activeCase.counsel_role
+        ? ({ claimant_side: 'Claimant Side', defendant_side: 'Defendant Side', prosecution: 'Prosecution', defence: 'Defence' }[activeCase.counsel_role] ?? activeCase.role ?? 'Counsel')
+        : (activeCase.role ?? 'Counsel');
+      const butsTrackLabel = activeCase.matter_track === 'criminal' ? 'Criminal' : 'Civil';
       const res = await callClaude({
-        system: 'You are Senior Counsel at AFS Advocates reviewing a litigation file. Brief the instructing solicitor directly, specifically, and practically. Reference actual documents and dates from the docket. This is for a Nigerian advocate managing their own case file.',
+        system: `You are Senior Counsel at AFS Advocates reviewing a litigation file. You are acting as ${butsRoleLabel} on a ${butsTrackLabel} matter. Brief the instructing solicitor directly, specifically, and practically from that perspective. Reference actual documents and dates from the docket. This is for a Nigerian advocate managing their own case file.`,
         userMsg: prompt,
         maxTokens: 2000,
       });
@@ -362,7 +366,11 @@ Provide a structured briefing:
   async function runLimitationTracker() {
     setLimitL(true); setLimitErr('');
     const today = new Date().toISOString().slice(0, 10);
-    const caseCtx = `Case: ${activeCase.caseName}\nRole: ${activeCase.role}\nCourt: ${activeCase.court || 'Not specified'}\nDate commenced: ${activeCase.dateCommenced || 'Not specified'}\nClaims/facts: ${activeCase.intelligence_data?.facts || activeCase.intelligence_data?.legal_issues || 'Not provided'}`;
+    const limitRoleLabel = activeCase.counsel_role
+      ? ({ claimant_side: 'Claimant Side', defendant_side: 'Defendant Side', prosecution: 'Prosecution', defence: 'Defence' }[activeCase.counsel_role] ?? activeCase.role ?? '')
+      : (activeCase.role ?? '');
+    const limitTrackLabel = activeCase.matter_track === 'criminal' ? 'Criminal' : 'Civil';
+    const caseCtx = `Case: ${activeCase.caseName}\nTrack: ${limitTrackLabel}\nRole: ${limitRoleLabel}\nCourt: ${activeCase.court || 'Not specified'}\nDate commenced: ${activeCase.dateCommenced || 'Not specified'}\nClaims/facts: ${activeCase.intelligence_data?.facts || activeCase.intelligence_data?.legal_issues || 'Not provided'}`;
     try {
       const raw = await callClaude({
         system: 'You are a Nigerian litigation expert. Return only valid JSON arrays. No markdown, no backticks, no preamble.',

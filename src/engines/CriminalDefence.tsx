@@ -193,10 +193,13 @@ export function CriminalDefence({ activeCase }: Props) {
     });
   }, [caseId]);
 
+  const isProsecution = activeCase?.counsel_role === 'prosecution';
+  const roleLabel = isProsecution ? 'Prosecution Counsel' : 'Defence Counsel';
+
   function buildCtx(): string {
     const ip = saved.intakeData;
     return [
-      `CASE: ${activeCase?.caseName || 'Untitled'} | COURT: ${activeCase?.court || '—'} | ROLE: Defence Counsel`,
+      `CASE: ${activeCase?.caseName || 'Untitled'} | COURT: ${activeCase?.court || '—'} | ROLE: ${roleLabel}`,
       ip ? `CHARGES: ${ip.charges || 'See intake'} | AGENCY: ${ip.agency || '—'} | ARREST DATE: ${ip.arrestDate || '—'}` : '',
       ip?.facts ? `ALLEGED FACTS: ${ip.facts}` : '',
       ip?.instructions ? `CLIENT INSTRUCTIONS: ${ip.instructions}` : '',
@@ -738,17 +741,21 @@ export function CriminalDefence({ activeCase }: Props) {
       <div style={{ marginBottom: 22 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 8 }}>
           <span style={{ fontSize: 11, color: T.gold, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.16em', textTransform: 'uppercase', fontWeight: 600, border: '1px solid #3a2208', padding: '3px 10px', borderRadius: 2 }}>
-            Criminal Defence
+            {isProsecution ? 'Criminal — Prosecution View' : 'Criminal Defence'}
           </span>
           <span style={{ fontSize: 11, color: T.mute, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.08em', textTransform: 'uppercase' }}>
-            Defence-Oriented · Prosecution Attack · Acquittal Strategy
+            {isProsecution
+              ? 'Prosecution Counsel · Evidence Review · Conviction Strategy'
+              : 'Defence-Oriented · Prosecution Attack · Acquittal Strategy'}
           </span>
         </div>
         <h2 style={{ fontSize: 28, color: T.text, fontWeight: 300, fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic', margin: 0 }}>
-          Criminal Defence Engine
+          {isProsecution ? 'Criminal Prosecution View' : 'Criminal Defence Engine'}
         </h2>
         <p style={{ fontSize: 14, color: T.mute, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.6, marginTop: 6, maxWidth: 700 }}>
-          Dedicated criminal defence intelligence for Nigerian criminal courts. Charge analysis, arrest legality audits, prosecution evidence attack, confession analysis, bail strategy, no-case submissions, and defence theory construction. Always defence-oriented.
+          {isProsecution
+            ? 'This matter is assigned to Prosecution Counsel. The tools below remain available for charge review, evidence assessment, and strategy — framed from the prosecution perspective.'
+            : 'Dedicated criminal defence intelligence for Nigerian criminal courts. Charge analysis, arrest legality audits, prosecution evidence attack, confession analysis, bail strategy, no-case submissions, and defence theory construction. Always defence-oriented.'}
         </p>
       </div>
 

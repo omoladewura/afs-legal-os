@@ -237,11 +237,15 @@ export function InheritanceMode({ activeCase, onSave }: Props) {
     promptText += `CASE BEING INHERITED: ${activeCase.caseName || '(unnamed)'}`;
     if (activeCase.court)  promptText += ` | Court: ${activeCase.court}`;
     if (activeCase.suitNo) promptText += ` | Suit: ${activeCase.suitNo}`;
-    if (activeCase.role)   promptText += ` | Role: ${activeCase.role}`;
+    const inheritRoleLabel = activeCase.counsel_role
+      ? ({ claimant_side: 'Claimant Side', defendant_side: 'Defendant Side', prosecution: 'Prosecution', defence: 'Defence' }[activeCase.counsel_role] ?? activeCase.role ?? '')
+      : (activeCase.role ?? '');
+    const inheritTrackLabel = activeCase.matter_track === 'criminal' ? 'Criminal' : 'Civil';
+    if (inheritRoleLabel) promptText += ` | Track: ${inheritTrackLabel} | Role: ${inheritRoleLabel}`;
 
     content.push({ type: 'text', text: promptText });
 
-    const system = `You are a forensic legal analyst embedded as a Senior Advocate at AFS Advocates, Lagos. A lawyer is inheriting a case mid-stream from another counsel. Your task is a complete forensic State-of-Case Audit. Analyse all uploaded documents, pleadings, orders, correspondence, and case context provided.
+    const system = `You are a forensic legal analyst embedded as a Senior Advocate at AFS Advocates, Lagos. A lawyer is inheriting a case mid-stream from another counsel. You are reviewing this matter from the perspective of ${inheritRoleLabel || 'counsel'} on a ${inheritTrackLabel} matter. Your task is a complete forensic State-of-Case Audit. Analyse all uploaded documents, pleadings, orders, correspondence, and case context provided.
 
 Respond ONLY with a single valid JSON object — no preamble, no backticks, no markdown. The JSON must have exactly these top-level keys:
 

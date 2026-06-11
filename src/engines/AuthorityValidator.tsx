@@ -203,6 +203,13 @@ and Court of Appeal. You distinguish ratio decidendi from obiter dicta. \
 You flag overruled, distinguished, or limited authorities. \
 You never fabricate citations. When unsure, say so explicitly and flag for verification.`;
 
+const ROLE_LABELS_AVE: Record<string, string> = {
+  claimant_side:  'Claimant Side',
+  defendant_side: 'Defendant Side',
+  prosecution:    'Prosecution',
+  defence:        'Defence',
+};
+
 function AVEAuthorityLibrary({ caseId, activeCase }: { caseId: string; activeCase: Case }) {
   const [auths, setAuths] = useState<Authority[]>(
     () => loadAve<Authority[]>(caseId, 'auths', []),
@@ -275,7 +282,7 @@ How would opposing counsel attack or distinguish this authority?
 How to deploy this authority most effectively in argument.`;
 
     try {
-      const text = await aveCall(VALIDATE_SYSTEM, prompt, 1400);
+      const text = await aveCall(buildValidateSystem(activeCase), prompt, 1400);
       setAiRes(text);
       persistAuths(auths.map(a =>
         a.id === auth.id ? { ...a, validated: true, validation: text } : a,
@@ -550,10 +557,13 @@ function AVEConflictDetector({ caseId, activeCase }: { caseId: string; activeCas
     if (!issue.trim() || !authList.trim()) return;
     setLoad(true); setErr(''); setAiRes('');
 
+    const roleLabel563 = activeCase.counsel_role ? (ROLE_LABELS_AVE[activeCase.counsel_role] ?? activeCase.role ?? '') : (activeCase.role ?? '');
+    const trackLabel563 = activeCase.matter_track === 'criminal' ? 'Criminal' : 'Civil';
+
     const prompt = `Nigerian litigation — authority conflict analysis.
 
 LEGAL ISSUE: ${issue}
-CASE: ${activeCase.caseName || ''} | COURT: ${activeCase.court || ''} | ROLE: ${activeCase.role || ''}
+CASE: ${activeCase.caseName || ''} | COURT: ${activeCase.court || ''} | TRACK: ${trackLabel563} | ROLE: ${roleLabel563}
 AUTHORITIES PROVIDED:
 ${authList}
 
@@ -641,6 +651,20 @@ Always flag that authorities must be independently verified. \
 Never fabricate citations. When unsure of an exact citation, say so clearly. \
 Know the NWLR, SCNLR, FWLR, and key Nigerian Supreme Court and Court of Appeal decisions.`;
 
+function buildValidateSystem(activeCase: Case): string {
+  const role  = activeCase.counsel_role ? (ROLE_LABELS_AVE[activeCase.counsel_role] ?? activeCase.role ?? '') : (activeCase.role ?? '');
+  const track = activeCase.matter_track === 'criminal' ? 'Criminal' : 'Civil';
+  const roleCtx = role ? ` You are advising ${role} counsel on a ${track} matter. Prioritise authorities that support their position and flag authorities opposing counsel may deploy.` : '';
+  return VALIDATE_SYSTEM + roleCtx;
+}
+
+function buildQuickSystem(activeCase: Case): string {
+  const role  = activeCase.counsel_role ? (ROLE_LABELS_AVE[activeCase.counsel_role] ?? activeCase.role ?? '') : (activeCase.role ?? '');
+  const track = activeCase.matter_track === 'criminal' ? 'Criminal' : 'Civil';
+  const roleCtx = role ? ` You are advising ${role} counsel on a ${track} matter. Tailor research to their position and flag both supportive and hostile authorities.` : '';
+  return QUICK_SYSTEM + roleCtx;
+}
+
 function AVEQuickCheck({ caseId, activeCase }: { caseId: string; activeCase: Case }) {
   const [query, setQuery] = useState('');
   const [aiRes, setAiRes] = useState('');
@@ -651,10 +675,13 @@ function AVEQuickCheck({ caseId, activeCase }: { caseId: string; activeCase: Cas
     if (!query.trim()) return;
     setLoad(true); setErr(''); setAiRes('');
 
+    const roleLabel678 = activeCase.counsel_role ? (ROLE_LABELS_AVE[activeCase.counsel_role] ?? activeCase.role ?? '') : (activeCase.role ?? '');
+    const trackLabel678 = activeCase.matter_track === 'criminal' ? 'Criminal' : 'Civil';
+
     const prompt = `Nigerian litigation authority research.
 
 QUERY: ${query}
-CASE CONTEXT: ${activeCase.caseName || ''} | COURT: ${activeCase.court || ''} | ROLE: ${activeCase.role || ''}
+CASE CONTEXT: ${activeCase.caseName || ''} | COURT: ${activeCase.court || ''} | TRACK: ${trackLabel678} | ROLE: ${roleLabel678}
 
 Provide:
 
@@ -679,7 +706,7 @@ Where to find and verify these authorities: LawPavilion PRIMA, NigeriaLII, CaseP
 Flag: this is AI-generated research guidance only. All authorities must be independently verified before reliance in court proceedings. The lawyer must confirm existence, citation, and current standing.`;
 
     try {
-      const text = await aveCall(QUICK_SYSTEM, prompt, 1400);
+      const text = await aveCall(buildQuickSystem(activeCase), prompt, 1400);
       setAiRes(text);
     } catch (e) { setErr('API error: ' + (e as Error).message); }
     setLoad(false);
