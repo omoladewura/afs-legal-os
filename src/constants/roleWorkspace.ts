@@ -66,6 +66,8 @@ export const ROLE_TABS: Record<CounselRole, DashTabId[]> = {
   prosecution: [
     'overview',
     'copilot',
+    'charge_arraignment',
+    'plea',
     'timeline',
     'docket',
     'filings',
@@ -87,6 +89,8 @@ export const ROLE_TABS: Record<CounselRole, DashTabId[]> = {
   defence: [
     'overview',
     'copilot',
+    'charge_arraignment',
+    'plea',
     'timeline',
     'docket',
     'filings',
@@ -136,18 +140,18 @@ export const ROLE_QUICK_ACTIONS: Record<CounselRole, QuickAction[]> = {
     { label: 'Seek Stay',        icon: '⏸', tab: 'compliance',   accent: '#c06060', hint: 'Stay of proceedings or execution' },
   ],
   prosecution: [
-    { label: 'Schedule Witness',   icon: '👤', tab: 'crossexam',    accent: '#c09030', hint: 'Witness schedule & prep' },
-    { label: 'Tender Exhibit',     icon: '📎', tab: 'evidence',     accent: '#c09030', hint: 'Link exhibit to count' },
-    { label: 'Intelligence',       icon: '⚡', tab: 'intelligence', accent: '#c09030', hint: 'Case strength analysis' },
-    { label: 'Build Address',      icon: '✍', tab: 'builder',      accent: '#c09030', hint: 'Opening / Sentencing address' },
-    { label: 'ACJA Compliance',    icon: '⚙', tab: 'compliance',   accent: '#c09030', hint: 'Check 90-day compliance' },
+    { label: 'Charge & Arraignment', icon: '⚖', tab: 'charge_arraignment', accent: '#c09030', hint: 'Build charge, validate counts, record arraignment' },
+    { label: 'Plea',                 icon: '⚖', tab: 'plea',               accent: '#c09030', hint: 'Record plea, route to prosecution case or sentencing' },
+    { label: 'Schedule Witness',     icon: '👤', tab: 'crossexam',          accent: '#c09030', hint: 'Witness schedule & prep' },
+    { label: 'Tender Exhibit',       icon: '📎', tab: 'evidence',           accent: '#c09030', hint: 'Link exhibit to count' },
+    { label: 'Build Address',        icon: '✍', tab: 'builder',            accent: '#c09030', hint: 'Opening / Sentencing address' },
   ],
   defence: [
-    { label: 'Bail Application', icon: '🔓', tab: 'criminal',     accent: '#40a860', hint: 'Draft or track bail' },
-    { label: 'No-Case Sub.',     icon: '✗',  tab: 'builder',      accent: '#40a860', hint: 'Draft no-case submission' },
-    { label: 'Cross-Examine',   icon: '⚔',  tab: 'crossexam',    accent: '#40a860', hint: 'Prep prosecution witnesses' },
-    { label: 'Intelligence',    icon: '⚡', tab: 'intelligence', accent: '#40a860', hint: 'AI defence analysis' },
-    { label: 'Prepare Allocutus', icon: '✍', tab: 'builder',    accent: '#40a860', hint: 'Mitigation submissions' },
+    { label: 'Charge & Arraignment', icon: '⚖', tab: 'charge_arraignment', accent: '#40a860', hint: 'Analyse charge defects, objection grounds, arraignment' },
+    { label: 'Plea Advice',          icon: '⚖', tab: 'plea',               accent: '#40a860', hint: 'Plea options, plea bargain, routing' },
+    { label: 'Bail Application',     icon: '🔓', tab: 'criminal',           accent: '#40a860', hint: 'Draft or track bail' },
+    { label: 'No-Case Sub.',         icon: '✗',  tab: 'builder',            accent: '#40a860', hint: 'Draft no-case submission' },
+    { label: 'Cross-Examine',        icon: '⚔',  tab: 'crossexam',          accent: '#40a860', hint: 'Prep prosecution witnesses' },
   ],
 };
 
