@@ -291,6 +291,31 @@ export function CaseDashboard() {
                 </span>
               )}
             </div>
+            {/* Timeline shortcut */}
+            <button
+              onClick={() => setDashTab('timeline')}
+              title="View procedural timeline"
+              style={{
+                background: 'transparent',
+                border: `1px solid ${roleAccent}30`,
+                color: roleAccent,
+                borderRadius: 4, padding: '4px 10px',
+                fontSize: 9, fontFamily: 'Inter, sans-serif',
+                cursor: 'pointer', letterSpacing: '.06em',
+                flexShrink: 0, alignSelf: 'flex-start',
+                marginTop: 1, transition: 'all .15s',
+              }}
+              onMouseEnter={e => {
+                (e.currentTarget as HTMLElement).style.background = `${roleAccent}18`;
+                (e.currentTarget as HTMLElement).style.borderColor = `${roleAccent}60`;
+              }}
+              onMouseLeave={e => {
+                (e.currentTarget as HTMLElement).style.background = 'transparent';
+                (e.currentTarget as HTMLElement).style.borderColor = `${roleAccent}30`;
+              }}
+            >
+              Timeline →
+            </button>
           </div>
         )}
 
