@@ -9,15 +9,17 @@
  * - Engine router unchanged — all engines still accessible
  */
 
-import { Suspense, lazy, useCallback } from 'react';
+import { Suspense, lazy, useCallback, useState, useEffect } from 'react';
 import { useAppStore } from '@/state/appStore';
 import { DASH_TABS } from '@/constants/dashboard';
 import {
   ROLE_TABS,
   ROLE_QUICK_ACTIONS,
-  ROLE_DEFAULT_NEXT_ACTION,
   ROLE_POSITION_CONFIG,
 } from '@/constants/roleWorkspace';
+import { computeNextAction } from '@/utils/nextAction';
+import { loadEntries, loadDeadlines } from '@/storage/helpers';
+import type { DocketEntry, Deadline } from '@/types';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { LoadingBlock } from '@/components/common/ui';
 import { T } from '@/constants/tokens';
@@ -39,7 +41,7 @@ const ArgumentBuilder    = lazy(() => import('@/engines/ArgumentBuilder').then(m
 const CaseDocketTab      = lazy(() => import('@/engines/CaseDocketTab').then(m => ({ default: m.CaseDocketTab })));
 const EvidenceVault      = lazy(() => import('@/engines/EvidenceVault').then(m => ({ default: m.EvidenceVault })));
 const FilingsTracker     = lazy(() => import('@/engines/FilingsTracker').then(m => ({ default: m.FilingsTracker })));
-const CaseTimeline       = lazy(() => import('@/engines/CaseTimeline').then(m => ({ default: m.CaseTimeline })));
+const ProceduralTimeline = lazy(() => import('@/engines/ProceduralTimeline').then(m => ({ default: m.ProceduralTimeline })));
 const CaseResearch       = lazy(() => import('@/engines/CaseResearch').then(m => ({ default: m.CaseResearch })));
 const SanMode            = lazy(() => import('@/engines/SanMode').then(m => ({ default: m.SanMode })));
 const BriefMe            = lazy(() => import('@/engines/BriefMe').then(m => ({ default: m.BriefMe })));
@@ -81,7 +83,7 @@ function EngineContent({
     case 'docket':       return <CaseDocketTab      activeCase={activeCase} />;
     case 'evidence':     return <EvidenceVault      activeCase={activeCase} />;
     case 'filings':      return <FilingsTracker     activeCase={activeCase} />;
-    case 'timeline':     return <CaseTimeline       activeCase={activeCase} />;
+    case 'timeline':     return <ProceduralTimeline activeCase={activeCase} />;
     case 'research':     return <CaseResearch       activeCase={activeCase} />;
     case 'san':          return <SanMode            activeCase={activeCase} />;
     case 'briefme':      return <BriefMe            activeCase={activeCase} />;
@@ -140,9 +142,28 @@ export function CaseDashboard() {
   const visibleTabs = DASH_TABS.filter(t => visibleTabIds.has(t.id as DashTabId));
 
   // ── Role position config ──────────────────────────────────────────────────
-  const posConfig = counselRole ? ROLE_POSITION_CONFIG[counselRole] : null;
+  const posConfig    = counselRole ? ROLE_POSITION_CONFIG[counselRole] : null;
   const quickActions = counselRole ? ROLE_QUICK_ACTIONS[counselRole] : null;
-  const nextAction   = counselRole ? ROLE_DEFAULT_NEXT_ACTION[counselRole] : null;
+
+  // ── Dynamic Next Action — loaded from docket + deadlines ─────────────────
+  const [dashEntries,   setDashEntries]   = useState<DocketEntry[]>([]);
+  const [dashDeadlines, setDashDeadlines] = useState<Deadline[]>([]);
+
+  useEffect(() => {
+    let live = true;
+    Promise.all([
+      loadEntries(activeCase.id),
+      loadDeadlines(activeCase.id),
+    ]).then(([ents, dls]) => {
+      if (!live) return;
+      setDashEntries(ents ?? []);
+      setDashDeadlines(dls ?? []);
+    }).catch(() => {});
+    return () => { live = false; };
+  }, [activeCase.id, activeCase.current_stage]);
+
+  const nextActionResult = computeNextAction(activeCase, dashEntries, dashDeadlines);
+  const nextAction = nextActionResult.action;
 
   // ── Role accent ──────────────────────────────────────────────────────────
   const roleAccent = counselRole ? COUNSEL_ROLE_COLORS[counselRole].col : '#888888';
@@ -206,33 +227,67 @@ export function CaseDashboard() {
           </p>
         </div>
 
-        {/* ── Next Action strip — role-specific ─────────────────────────────── */}
+        {/* ── Next Action strip — dynamic, role + stage aware ──────────────── */}
         {nextAction && (
           <div style={{
             display: 'flex', alignItems: 'flex-start', gap: 10,
             padding: '10px 14px',
             background: `${roleAccent}0d`,
-            border: `1px solid ${roleAccent}30`,
+            border: `1px solid ${nextActionResult.hasOverdueDeadlines ? '#c05050' : roleAccent}30`,
             borderRadius: 6,
             marginBottom: 12,
           }}>
             <span style={{ fontSize: 12, color: roleAccent, flexShrink: 0, marginTop: 1 }}>→</span>
-            <div>
-              <span style={{
-                fontSize: 8, color: roleAccent,
-                fontFamily: 'Inter, sans-serif',
-                letterSpacing: '.12em', textTransform: 'uppercase',
-                fontWeight: 700, display: 'block', marginBottom: 2,
-              }}>
-                {posConfig?.nextActionLabel ?? 'Next Action'}
-              </span>
+            <div style={{ flex: 1 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 2 }}>
+                <span style={{
+                  fontSize: 8, color: roleAccent,
+                  fontFamily: 'Inter, sans-serif',
+                  letterSpacing: '.12em', textTransform: 'uppercase',
+                  fontWeight: 700,
+                }}>
+                  {posConfig?.nextActionLabel ?? 'Next Action'}
+                </span>
+                {nextActionResult.currentStageLabel && (
+                  <span style={{
+                    fontSize: 8, color: `${roleAccent}99`,
+                    fontFamily: 'Inter, sans-serif',
+                    letterSpacing: '.06em',
+                    border: `1px solid ${roleAccent}28`,
+                    padding: '1px 6px', borderRadius: 3,
+                  }}>
+                    {nextActionResult.currentStageLabel}
+                  </span>
+                )}
+                {nextActionResult.urgency?.level === 'HIGH' && (
+                  <span style={{
+                    fontSize: 8, color: '#c05050',
+                    fontFamily: 'Inter, sans-serif',
+                    fontWeight: 700, letterSpacing: '.08em',
+                    border: '1px solid #4a1818', background: '#1a0808',
+                    padding: '1px 6px', borderRadius: 3,
+                  }}>
+                    ⚠ URGENT
+                  </span>
+                )}
+              </div>
               <span style={{
                 fontSize: 12, color: T.sub,
                 fontFamily: "'Times New Roman', Times, serif",
-                lineHeight: 1.5,
+                lineHeight: 1.5, display: 'block',
               }}>
                 {nextAction}
               </span>
+              {nextActionResult.urgency && (
+                <span style={{
+                  fontSize: 10,
+                  color: nextActionResult.urgency.level === 'HIGH' ? '#c05050' : '#b07030',
+                  fontFamily: 'Inter, sans-serif', lineHeight: 1.4,
+                  display: 'block', marginTop: 4,
+                }}>
+                  {nextActionResult.urgency.note}
+                </span>
+              )}
             </div>
           </div>
         )}
