@@ -206,6 +206,13 @@ export interface Case {
   /** Legacy role field — kept for backwards compatibility with V1 data. */
   role:                'Claimant' | 'Defendant' | 'Appellant' | 'Respondent' | string;
 
+  /**
+   * The current procedural stage ID — matches a ProceduralStage.id from ROLE_STAGES.
+   * Set manually via the "Update Stage" action or auto-detected from docket entries.
+   * Used by ProceduralTimeline and computeNextAction to show correct stage highlighting.
+   */
+  current_stage?:      string;
+
   claimants:           Party[];
   defendants:          Party[];
   createdAt:           string;
