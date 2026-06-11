@@ -412,4 +412,4 @@ export type DashTabId =
   | 'evidence' | 'filings' | 'timeline' | 'research' | 'san'
   | 'briefme' | 'inheritance' | 'blindspots' | 'crossexam'
   | 'compliance' | 'authority' | 'risk' | 'warroom' | 'console'
-  | 'criminal' | 'matrimonial';
+  | 'criminal' | 'matrimonial' | 'copilot';
