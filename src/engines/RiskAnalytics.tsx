@@ -14,6 +14,7 @@ import type { Case } from '@/types';
 import { T } from '@/constants/tokens';
 import { callClaude } from '@/services/api';
 import { loadBlindSpot, saveBlindSpot } from '@/storage/helpers';
+import { buildRoleSystemPrompt } from '@/utils/rolePrompt';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES
@@ -306,7 +307,10 @@ export function RiskAnalytics({ activeCase }: Props) {
     setError('');
     setAnimated(false);
     try {
-      const raw    = await callClaude({ system: RISK_SYSTEM, userMsg: `Case Stage: ${stage}\n\nCase Facts:\n${facts}`, maxTokens: 1200 });
+      const rolePrefix = activeCase.counsel_role
+        ? `Counsel Role: ${activeCase.counsel_role} | Track: ${activeCase.matter_track || 'civil'}\nAnalyse risks from this counsel's perspective.\n\n`
+        : '';
+      const raw    = await callClaude({ system: RISK_SYSTEM, userMsg: `${rolePrefix}Case Stage: ${stage}\n\nCase Facts:\n${facts}`, maxTokens: 1200 });
       const clean  = raw.replace(/^```json\s*/, '').replace(/```\s*$/, '').trim();
       const parsed = JSON.parse(clean) as Omit<RiskResult, 'timestamp' | 'stage'>;
       const withMeta: RiskResult = { ...parsed, timestamp: Date.now(), stage };

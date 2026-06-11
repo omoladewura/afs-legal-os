@@ -111,12 +111,15 @@ export function IntelligenceEngine({ activeCase, onSave }: Props) {
   const [error,      setError]      = useState('');
   const [copied,     setCopied]     = useState(false);
 
-  const role = activeCase.role || 'Claimant';
+  const role = activeCase.counsel_role
+    ? `${activeCase.counsel_role} (${activeCase.matter_track || 'civil'} matter)`
+    : activeCase.role || 'Claimant';
 
   const caseCtx = `Case: ${activeCase.caseName}
 Court: ${activeCase.court || 'Not specified'}
 Suit No: ${activeCase.suitNo || 'Not specified'}
-Role (our client): ${role}
+Track: ${activeCase.matter_track || 'civil'}
+Counsel Role: ${activeCase.counsel_role || activeCase.role || 'Claimant'}
 Claimants: ${activeCase.claimants.map(c => c.name).filter(Boolean).join(', ') || 'Not named'}
 Defendants: ${activeCase.defendants.map(d => d.name).filter(Boolean).join(', ') || 'Not named'}`;
 

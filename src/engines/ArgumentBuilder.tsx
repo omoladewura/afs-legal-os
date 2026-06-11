@@ -306,7 +306,7 @@ What the case must decide: [one sentence — what the ratio or holding must say 
 - NEVER invent section text for a statute not provided in the verified sections below
 - Be direct, persuasive, and precise — write as a senior Nigerian advocate addressing the court directly
 - Document type guidance: ${typeObj?.hint || ''}
-- Role posture: we represent the ${activeCase.role || 'Claimant'} — apply ${activeCase.role || 'Claimant'} strategy throughout
+- Role posture: we represent the ${activeCase.counsel_role || activeCase.role || 'Claimant'} on a ${activeCase.matter_track || 'civil'} matter — apply strategy, framing, and document structure appropriate to this role throughout
 
 VETTED CASE INTELLIGENCE:
 ${context}

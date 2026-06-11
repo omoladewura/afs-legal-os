@@ -74,6 +74,40 @@ interface Extraction {
 // HELPERS
 // ─────────────────────────────────────────────────────────────────────────────
 
+function roleLabel(c: Case): string {
+  const role  = c.counsel_role  || c.role || 'claimant_side';
+  const track = c.matter_track  || 'civil';
+  return `MATTER TRACK: ${track.toUpperCase()} | TRIAL COUNSEL ROLE: ${role.toUpperCase().replace(/_/g, ' ')}`;
+}
+
+function extractionSystemPrompt(c: Case, appealRole: string): string {
+  const role  = c.counsel_role  || c.role || 'claimant_side';
+  const track = c.matter_track  || 'civil';
+  const isCriminal = track === 'criminal';
+  const roleCtx = isCriminal
+    ? (role === 'prosecution'
+        ? 'You acted as PROSECUTION at trial. On appeal, analyse errors that affect the conviction or sentence from the prosecution\'s perspective.'
+        : 'You acted as DEFENCE at trial. On appeal, analyse every error that could secure acquittal, reduce sentence, or advance the accused\'s interests.')
+    : (role === 'claimant_side'
+        ? 'You acted for the CLAIMANT at trial. On appeal, analyse errors that affect the reliefs granted or refused from the claimant\'s perspective.'
+        : 'You acted for the DEFENDANT at trial. On appeal, analyse errors that could set aside an adverse judgment or reduce liability from the defendant\'s perspective.');
+  return `You are a Senior Appellate Counsel at AFS Advocates, expert in Nigerian appellate practice before the Court of Appeal and the Supreme Court.\n${roleCtx}\nOur role on this appeal: ${appealRole}.\nAnalyse the lower court record and extract structured appellate intelligence. Return ONLY valid JSON — no markdown fences, no explanation, no preamble.`;
+}
+
+function packageSystemPrompt(c: Case, appealRole: string): string {
+  const role  = c.counsel_role  || c.role || 'claimant_side';
+  const track = c.matter_track  || 'civil';
+  const isCriminal = track === 'criminal';
+  const roleCtx = isCriminal
+    ? (role === 'prosecution'
+        ? 'acting as PROSECUTION APPELLATE COUNSEL — your goal is to uphold the conviction/sentence or prosecute the appeal successfully.'
+        : 'acting as DEFENCE APPELLATE COUNSEL — your goal is to secure acquittal, reduce sentence, or achieve the best outcome for the accused on appeal.')
+    : (role === 'claimant_side'
+        ? 'acting as CLAIMANT APPELLATE COUNSEL — your goal is to uphold or expand the reliefs granted, or prosecute the appeal for the claimant.'
+        : 'acting as DEFENDANT APPELLATE COUNSEL — your goal is to set aside the adverse order or reduce liability for the defendant on appeal.');
+  return `You are a Senior Appellate Counsel at AFS Advocates, ${roleCtx}\nOur appellate role: ${appealRole}.\nGenerate a comprehensive, practical Appellate Intelligence Package. Use clean formatted markdown: ## for main sections, ### for subsections, **bold** for critical items, - for bullets. Be precise, analytical, and grounded in Nigerian appellate procedure and case law. Every section must be substantive — no generic padding.`;
+}
+
 function copyText(text: string): void {
   try { navigator.clipboard.writeText(text); } catch {
     const ta = document.createElement('textarea');
@@ -203,13 +237,13 @@ export function AppealEngine({ activeCase, onSave }: Props) {
     setLoading(true); setError('');
     try {
       const raw = await callClaude({
-        system:    `You are a Senior Appellate Counsel at AFS Advocates, expert in Nigerian appellate practice before the Court of Appeal and the Supreme Court. Analyse the lower court record and extract structured appellate intelligence. Return ONLY valid JSON — no markdown fences, no explanation, no preamble.`,
+        system:    extractionSystemPrompt(activeCase, appealRole),
         messages:  [{ role: 'user', content:
 `APPEAL COURT: ${appealCourt}
 ROLE ON APPEAL: ${appealRole}
 LOWER COURT: ${lowerCourt || 'Not specified'}
 CASE NAME: ${activeCase.caseName}
-CASE ROLE (at trial): ${activeCase.role || 'Claimant'}
+${roleLabel(activeCase)}
 
 JUDGMENT / RULING BEING APPEALED:
 ${judgmentSummary}
@@ -250,14 +284,14 @@ Return ONLY this exact JSON structure (no markdown, no preamble):
     const isAppellant = appealRole === 'Appellant';
     try {
       const content = await callClaude({
-        system:    `You are a Senior Appellate Counsel at AFS Advocates, expert in Nigerian appellate practice. Generate a comprehensive, practical Appellate Intelligence Package. Use clean formatted markdown: ## for main sections, ### for subsections, **bold** for critical items, - for bullets. Be precise, analytical, and grounded in Nigerian appellate procedure and case law. Every section must be substantive — no generic padding.`,
+        system:    packageSystemPrompt(activeCase, appealRole),
         messages:  [{ role: 'user', content:
 `APPELLATE INTELLIGENCE PACKAGE — GENERATE NOW
 
 Case: ${activeCase.caseName}
 Appeal Court: ${appealCourt}
 Our Role: ${appealRole}
-Trial Role: ${activeCase.role || 'Claimant'}
+${roleLabel(activeCase)}
 Lower Court: ${lowerCourt || 'Not specified'}
 
 LOWER COURT RECORD:

@@ -132,7 +132,10 @@ export function BriefMe({ activeCase }: Props) {
     lines.push(`CASE: ${c.caseName}`);
     lines.push(`SUIT NO: ${c.suitNo || 'Not specified'}`);
     lines.push(`COURT: ${c.court || 'Not specified'}`);
-    lines.push(`ROLE: ${c.role || 'Claimant'} (we act for the ${c.role || 'Claimant'})`);
+    const track = c.matter_track || 'civil';
+    const counselRole = c.counsel_role || c.role || 'claimant_side';
+    lines.push(`MATTER TRACK: ${track.toUpperCase()}`);
+    lines.push(`COUNSEL ROLE: ${counselRole.toUpperCase().replace(/_/g, ' ')} (we act as ${counselRole.replace(/_/g, ' ')} on this matter)`);
     lines.push(`CLAIMANTS: ${c.claimants.map(p => p.name).filter(Boolean).join(', ') || 'Not specified'}`);
     lines.push(`DEFENDANTS: ${c.defendants.map(p => p.name).filter(Boolean).join(', ') || 'Not specified'}`);
     if (c.dateCommenced) lines.push(`DATE COMMENCED: ${c.dateCommenced}`);
@@ -229,8 +232,18 @@ Output ONLY valid JSON — no markdown fences, no preamble, exactly this structu
 CASE FILE:
 ${context}`;
 
+      const briefingTrack      = activeCase.matter_track || 'civil';
+      const briefingCounselRole = activeCase.counsel_role || activeCase.role || 'claimant_side';
+      const roleCtxMap: Record<string, string> = {
+        claimant_side:  'You act for the CLAIMANT. Frame every section — risks, authorities, urgent tasks, opponent arguments — from the claimant\'s perspective. Flag default opportunities, enforcement readiness, and how to advance the claim today.',
+        defendant_side: 'You act for the DEFENDANT. Frame every section from the defendant\'s perspective. Flag default judgment exposure, available applications, and how to resist or limit the claim today.',
+        prosecution:    'You act as PROSECUTION COUNSEL. Frame every section from the prosecution\'s perspective under ACJA 2015. Flag evidence gaps, witness schedule, admissibility issues, and how to advance the prosecution case today.',
+        defence:        'You act as DEFENCE COUNSEL. Frame every section from the defence\'s perspective under ACJA 2015. Flag bail status, remand deadlines, no-case threshold, cross-examination priorities, and how to protect the accused today.',
+      };
+      const roleInstruction = roleCtxMap[briefingCounselRole] ?? roleCtxMap['claimant_side'];
+
       const raw = await callClaude({
-        system:    'You are Senior Counsel at AFS Advocates. You produce precise, actionable pre-court briefings for Nigerian litigation. You speak directly and specifically — no generalities. You reference actual documents, dates, and parties from the file. You output ONLY valid JSON as specified.',
+        system:    `You are Senior Counsel at AFS Advocates. You produce precise, actionable pre-court briefings for Nigerian litigation.\nMATTER TRACK: ${briefingTrack.toUpperCase()} | COUNSEL ROLE: ${briefingCounselRole.toUpperCase().replace(/_/g, ' ')}\n${roleInstruction}\nYou speak directly and specifically — no generalities. You reference actual documents, dates, and parties from the file. You output ONLY valid JSON as specified.`,
         userMsg:   prompt,
         maxTokens: 3000,
         mcpDrive:  useDrive,

@@ -149,8 +149,28 @@ function CXAIBlock({ loading, result, error }: { loading: boolean; result: strin
   );
 }
 
+// ── Role-aware context helpers ────────────────────────────────────────────────
+
+function roleSystemPrompt(c: Case): string {
+  const track = c.matter_track || 'civil';
+  const role  = c.counsel_role  || c.role || 'claimant_side';
+
+  const MAP: Record<string, string> = {
+    claimant_side:  'You are a Nigerian civil litigation cross-examination specialist acting for the CLAIMANT. Your goal is to destroy opposing witnesses, extract admissions that advance the claimant\'s claim, and undermine evidence that resists it. Every strategy, question sequence, and impeachment weapon must advance the claimant\'s case.',
+    defendant_side: 'You are a Nigerian civil litigation cross-examination specialist acting for the DEFENDANT. Your goal is to neutralise the claimant\'s witnesses, expose weaknesses in the claimant\'s evidence, and extract concessions that support the defence and counterclaim. Every strategy must resist and limit the claim.',
+    prosecution:    'You are a Nigerian criminal litigation cross-examination specialist acting for the PROSECUTION. Your goal is to cross-examine defence witnesses to destroy their credibility, undermine alibis and exculpatory accounts, and reinforce the prosecution\'s case on each count. Apply ACJA 2015 and the Evidence Act 2011.',
+    defence:        'You are a Nigerian criminal litigation cross-examination specialist acting for the DEFENCE. Your goal is to cross-examine prosecution witnesses to undermine the prosecution\'s case on every count, expose inconsistencies, challenge admissibility, and build the foundation for a no-case submission or acquittal. Apply ACJA 2015 and the Evidence Act 2011. Protect the accused at every turn.',
+  };
+
+  const base = MAP[role] ?? MAP['claimant_side'];
+  return `${base}\n\nMATTER TRACK: ${track.toUpperCase()} | COUNSEL ROLE: ${role.toUpperCase().replace(/_/g, ' ')}\nApply Nigerian court procedure and the Evidence Act 2011 throughout. Be surgical, tactical, and direct — no academic commentary.`;
+}
+
 function caseHeader(c: Case): string {
-  return `CASE: ${c.caseName || ''} | COURT: ${c.court || 'Not specified'} | ROLE: ${c.role || 'Claimant'}
+  const track = c.matter_track || 'civil';
+  const role  = c.counsel_role  || c.role || 'claimant_side';
+  return `CASE: ${c.caseName || ''} | COURT: ${c.court || 'Not specified'}
+MATTER TRACK: ${track.toUpperCase()} | COUNSEL ROLE: ${role.toUpperCase().replace(/_/g, ' ')}
 CLAIMANTS: ${(c.claimants || []).map(p => p.name).filter(Boolean).join(', ') || 'Not specified'}
 DEFENDANTS: ${(c.defendants || []).map(p => p.name).filter(Boolean).join(', ') || 'Not specified'}`;
 }
@@ -191,7 +211,7 @@ function CXWitnessProfiler({ caseId, activeCase }: { caseId: string; activeCase:
     setLoading(true); setErr(''); setAiRes('');
     try {
       const result = await callClaude({
-        system: "You are a Senior Advocate at AFS Advocates — Nigeria's most experienced litigation practice. Prepare cross-examination strategies for high-stakes Nigerian court proceedings. Be surgical, tactical, and direct. No academic commentary — only practical courtroom intelligence.",
+        system: roleSystemPrompt(activeCase),
         userMsg: `${caseHeader(activeCase)}
 
 WITNESS: ${form.name || 'Unnamed'}
@@ -459,7 +479,7 @@ function CXQuestionSequencer({ caseId: _caseId, activeCase }: { caseId: string; 
     setLoading(true); setErr(''); setAiRes('');
     try {
       const result = await callClaude({
-        system: "You are a SAN at AFS Advocates — Nigeria's finest cross-examination specialist. Write exact courtroom questions that are tight, surgical, and comply with Nigerian evidence rules. Every question should be a closed question. No academic commentary.",
+        system: roleSystemPrompt(activeCase),
         userMsg: `${caseHeader(activeCase)}
 WITNESS: ${witName}
 CROSS-EXAMINATION OBJECTIVE: ${objective}
@@ -699,7 +719,7 @@ function CXLiveMode({ caseId: _caseId, activeCase }: { caseId: string; activeCas
     const log = answers.map((a, i) => `Answer ${i + 1} [${a.time}]: ${a.text}`).join('\n\n');
     try {
       const result = await callClaude({
-        system: 'You are in a Nigerian courtroom — real-time cross-examination advisor. Be direct, urgent, practical. No preamble. Immediate actionable advice only.',
+        system: roleSystemPrompt(activeCase),
         userMsg: `${caseHeader(activeCase)}
 WITNESS BEING CROSS-EXAMINED: ${witness}
 BACKGROUND CONTEXT: ${context || 'Not provided'}
