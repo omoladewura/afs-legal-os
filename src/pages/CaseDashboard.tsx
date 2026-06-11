@@ -56,6 +56,9 @@ const CommandConsole     = lazy(() => import('@/engines/CommandConsole').then(m 
 const CriminalDefence    = lazy(() => import('@/engines/CriminalDefence').then(m => ({ default: m.CriminalDefence })));
 const MatrimonialEngine  = lazy(() => import('@/engines/MatrimonialEngine').then(m => ({ default: m.MatrimonialEngine })));
 const AICopilot          = lazy(() => import('@/engines/AICopilot').then(m => ({ default: m.AICopilot })));
+// Phase 6A — Criminal Procedural Engines
+const ChargeArraignment  = lazy(() => import('@/engines/ChargeArraignment').then(m => ({ default: m.ChargeArraignment })));
+const PleaEngine         = lazy(() => import('@/engines/PleaEngine').then(m => ({ default: m.PleaEngine })));
 
 // ── Engine router ─────────────────────────────────────────────────────────────
 
@@ -99,6 +102,9 @@ function EngineContent({
     case 'criminal':     return <CriminalDefence    activeCase={activeCase} />;
     case 'matrimonial':  return <MatrimonialEngine  activeCase={activeCase} />;
     case 'copilot':      return <AICopilot          activeCase={activeCase} />;
+    // Phase 6A — Criminal Procedural Engines
+    case 'charge_arraignment': return <ChargeArraignment activeCase={activeCase} />;
+    case 'plea':               return <PleaEngine         activeCase={activeCase} />;
     default:             return null;
   }
 }
