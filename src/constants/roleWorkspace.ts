@@ -352,3 +352,114 @@ export const ROLE_MODULES: Record<CounselRole, RoleModule[]> = {
     { id: 'appeal',       icon: '↑',  label: 'Appeal Engine',  desc: 'Appeal against conviction or sentence' },
   ],
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STAGE KEYWORD MAP — auto-detects current stage from docket entry titles
+// Maps stage IDs → arrays of keywords. If a docket entry title contains any
+// of these keywords (case-insensitive), that stage is considered "seen".
+// The highest-index seen stage becomes the detected current stage.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const STAGE_KEYWORDS: Record<string, string[]> = {
+  // Civil — shared stage IDs
+  pre_action:       ['pre-action', 'letter before action', 'pre action', 'demand letter', 'client intake'],
+  commencement:     ['writ', 'originating summons', 'originating motion', 'petition', 'filed originating', 'commenced'],
+  service:          ['service', 'served', 'proof of service', 'bailiff', 'substituted service'],
+  service_received: ['process received', 'writ received', 'summons received', 'service received'],
+  appearance:       ['memorandum of appearance', 'conditional appearance', 'appearance entered', 'entered appearance'],
+  pleadings:        ['statement of claim', 'statement of defence', 'soc', 'sod', 'counterclaim', 'reply', 'pleadings'],
+  interlocutory:    ['motion', 'application', 'injunction', 'interlocutory', 'default judgment', 'summary judgment', 'strike out', 'preliminary objection', 'stay'],
+  cmc:              ['cmc', 'case management', 'pre-trial', 'pre trial', 'conference', 'adr', 'mediation'],
+  trial:            ['trial', 'hearing commenced', 'opening address', 'witness', 'examination', 'cross-examination', 'exhibit', 'tendered'],
+  judgment:         ['judgment', 'ruling', 'order made', 'decided', 'judgment delivered'],
+  enforcement:      ['enforcement', 'garnishee', 'writ of fifa', 'sheriff', 'execution', 'recovery'],
+  appeal:           ['notice of appeal', 'appeal filed', 'appellant brief', 'respondent brief', 'appeal brief'],
+
+  // Criminal stage IDs
+  investigation:    ['investigation', 'police station', 'detention', 'dpp', 'fiat', 'proof of evidence review'],
+  charge:           ['charge', 'information filed', 'charge filed', 'information', 'count'],
+  charge_review:    ['charge defect', 'charge review', 'preliminary objection to charge'],
+  arraignment:      ['arraignment', 'arraigned', 'charge read', 'plea taken', 'bail application'],
+  plea:             ['plea', 'not guilty', 'guilty', 'plea bargain', 'allocutus'],
+  prosecution_case: ['prosecution opens', 'prosecution witness', 'pw1', 'pw2', 'pw3', 'pw4', 'proof of evidence', 'opening address', 'close of prosecution'],
+  no_case:          ['no-case', 'no case submission', 'submission of no case', 'no case to answer'],
+  no_case_response: ['no-case response', 'prosecution response to no-case', 'respond to no-case'],
+  defence_case:     ['defence witness', 'dw1', 'dw2', 'defence opens', 'close of defence', 'defence case'],
+  final_address:    ['final address', 'written address', 'defence address', 'prosecution address', 'reply on points'],
+  sentencing:       ['sentencing', 'sentence', 'allocutus', 'mitigation', 'conviction'],
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DYNAMIC NEXT ACTIONS — stage-aware next action strings per role
+// Keys are stage IDs from ROLE_STAGES. The value is what counsel must do NEXT
+// (i.e. the action at the FOLLOWING stage, not the current one).
+// Falls back to ROLE_DEFAULT_NEXT_ACTION if no stage match is found.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const STAGE_NEXT_ACTIONS: Record<CounselRole, Record<string, string>> = {
+  claimant_side: {
+    pre_action:    'Draft and file the originating process to commence the action.',
+    commencement:  'Effect service on the defendant and file proof of service.',
+    service:       'Monitor whether the defendant has entered appearance. Default opportunity may arise.',
+    appearance:    'File your Statement of Claim within the required timeframe.',
+    pleadings:     'Consider interlocutory applications — default judgment, injunction, or summary judgment.',
+    interlocutory: 'Attend CMC. Identify issues for trial. Consider ADR.',
+    cmc:           'Prepare for trial. Finalise witness list, exhibits, and opening address.',
+    trial:         'Await judgment. Monitor reliefs being considered.',
+    judgment:      'Activate enforcement. Select and execute enforcement mechanism.',
+    enforcement:   'Monitor enforcement progress and recovery. Apply for further orders if needed.',
+    appeal:        'File Appellant\'s Brief or Respondent\'s Brief within time.',
+  },
+  defendant_side: {
+    service_received: 'Enter appearance within time — failure risks default judgment.',
+    appearance:       'File your Statement of Defence. Assess preliminary objection grounds.',
+    pleadings:        'Consider applications — strike out, stay of proceedings, or security for costs.',
+    interlocutory:    'Attend CMC. Identify issues for trial. Consider ADR or settlement.',
+    cmc:              'Prepare for trial. Cross-examination of claimant witnesses. Own witness list.',
+    trial:            'Await judgment. Identify grounds of appeal if adverse.',
+    judgment:         'File Notice of Appeal within time. Advise client on compliance.',
+    appeal:           'File Appellant\'s Brief or Respondent\'s Brief within time.',
+  },
+  prosecution: {
+    investigation:    'Finalise investigation file. Advise on charge readiness and file charge.',
+    charge:           'Arrange arraignment. Confirm accused present. Address bail application.',
+    arraignment:      'Note the plea. Open prosecution case. File proof of evidence.',
+    plea:             'Open prosecution case. File and serve witness schedule. Prepare exhibits.',
+    prosecution_case: 'Monitor close of prosecution. Prepare to respond to no-case submission.',
+    no_case_response: 'Await ruling on no-case submission. If overruled — defence case proceeds.',
+    defence_case:     'Cross-examine defence witnesses. Prepare final address.',
+    final_address:    'Await judgment. If conviction — prepare sentencing submissions.',
+    judgment:         'File sentencing submissions. Address aggravating factors.',
+    sentencing:       'Calculate appeal deadline. Consider appeal against sentence if inadequate.',
+    appeal:           'File Respondent\'s Brief within time. Resist appeal against conviction.',
+  },
+  defence: {
+    investigation:    'Secure bail. Monitor investigation. Advise client on rights under ACJA.',
+    charge_review:    'Attend arraignment. Take plea. Apply for bail. Flag charge defects.',
+    arraignment:      'Advise client on plea options. Consider plea bargain. File preliminary objection if applicable.',
+    plea:             'Track prosecution witnesses. Prepare cross-examination for first prosecution witness.',
+    prosecution_case: 'Assess no-case threshold after each prosecution witness. Draft no-case submission.',
+    no_case:          'Await ruling. If discharged — ensure client\'s release. If overruled — prepare defence case.',
+    defence_case:     'Finalise defence witnesses. Prepare final address.',
+    final_address:    'Await judgment. If conviction — prepare allocutus immediately.',
+    judgment:         'Deliver allocutus. Address mitigation. Calculate appeal deadline from today.',
+    sentencing:       'File Notice of Appeal within time. Apply for bail pending appeal.',
+    appeal:           'File Appellant\'s Brief. Apply for bail pending appeal if custody continues.',
+  },
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STAGE URGENCY FLAGS — certain stages carry inherent urgency text
+// Shown as a sub-label in the Next Action strip when at that stage.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const STAGE_URGENCY: Partial<Record<string, { level: 'HIGH' | 'MEDIUM'; note: string }>> = {
+  service_received: { level: 'HIGH',   note: 'Appearance deadline running — do not delay.' },
+  appearance:       { level: 'HIGH',   note: 'Default judgment risk if pleadings not filed in time.' },
+  arraignment:      { level: 'HIGH',   note: 'ACJA remand clock starts from arraignment date.' },
+  plea:             { level: 'MEDIUM', note: 'Track ACJA 90-day period from plea date.' },
+  prosecution_case: { level: 'MEDIUM', note: 'Assess no-case threshold after each prosecution witness.' },
+  no_case:          { level: 'HIGH',   note: 'No-case submission is a primary defence right — file without delay.' },
+  judgment:         { level: 'HIGH',   note: 'Appeal and enforcement deadlines begin from judgment date.' },
+  sentencing:       { level: 'HIGH',   note: 'Appeal deadline runs from sentence — file Notice of Appeal immediately.' },
+};
