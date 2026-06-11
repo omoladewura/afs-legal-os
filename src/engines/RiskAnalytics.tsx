@@ -73,7 +73,7 @@ interface ScenarioResult {
 // CONSTANTS
 // ─────────────────────────────────────────────────────────────────────────────
 
-const PCE_STAGES: string[] = [
+const CIVIL_STAGES: string[] = [
   'Pre-Filing / Pre-Action',
   'Originating Process',
   'Service of Process',
@@ -83,6 +83,24 @@ const PCE_STAGES: string[] = [
   'Post-Trial / Judgment',
   'Appeal Stage',
 ];
+
+const CRIMINAL_STAGES: string[] = [
+  'Investigation / Pre-Charge',
+  'Charge & Arraignment',
+  'Prosecution Case',
+  'No-Case Submission',
+  'Defence Case',
+  'Final Addresses',
+  'Sentencing',
+  'Appeal Stage',
+];
+
+function getPceStages(matterTrack?: string): string[] {
+  return matterTrack === 'criminal' ? CRIMINAL_STAGES : CIVIL_STAGES;
+}
+
+// Keep PCE_STAGES as alias for default (civil) to avoid breaking references
+const PCE_STAGES = CIVIL_STAGES;
 
 const DIMENSIONS: Array<{ id: DimensionId; label: string; icon: string; invert?: boolean }> = [
   { id: 'procedural',              label: 'Procedural Strength',      icon: '⚙' },
@@ -184,7 +202,7 @@ export function RiskAnalytics({ activeCase }: Props) {
   // ── State ──────────────────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<'dashboard' | 'scenarios' | 'register'>('dashboard');
   const [facts,     setFacts]     = useState<string>('');
-  const [stage,     setStage]     = useState<string>(PCE_STAGES[0]);
+  const [stage,     setStage]     = useState<string>(getPceStages(activeCase.matter_track)[0]);
   const [loading,   setLoading]   = useState(false);
   const [error,     setError]     = useState('');
   const [result,    setResult]    = useState<RiskResult | null>(null);
@@ -206,10 +224,10 @@ export function RiskAnalytics({ activeCase }: Props) {
   useEffect(() => {
     loadBlindSpot<{ facts: string; stage: string; result: RiskResult | null; register: string }>(
       caseId, 'risk',
-      { facts: '', stage: PCE_STAGES[0], result: null, register: '' }
+      { facts: '', stage: getPceStages(activeCase.matter_track)[0], result: null, register: '' }
     ).then(data => {
       setFacts(data.facts ?? '');
-      setStage(data.stage ?? PCE_STAGES[0]);
+      setStage(data.stage ?? getPceStages(activeCase.matter_track)[0]);
       setResult(data.result ?? null);
       setRegisterContent(data.register ?? '');
     });
@@ -307,10 +325,7 @@ export function RiskAnalytics({ activeCase }: Props) {
     setError('');
     setAnimated(false);
     try {
-      const rolePrefix = activeCase.counsel_role
-        ? `Counsel Role: ${activeCase.counsel_role} | Track: ${activeCase.matter_track || 'civil'}\nAnalyse risks from this counsel's perspective.\n\n`
-        : '';
-      const raw    = await callClaude({ system: RISK_SYSTEM, userMsg: `${rolePrefix}Case Stage: ${stage}\n\nCase Facts:\n${facts}`, maxTokens: 1200 });
+      const raw    = await callClaude({ system: buildRoleSystemPrompt(activeCase.matter_track, activeCase.counsel_role) + '\n\n' + RISK_SYSTEM, userMsg: `Case Stage: ${stage}\n\nCase Facts:\n${facts}`, maxTokens: 1200 });
       const clean  = raw.replace(/^```json\s*/, '').replace(/```\s*$/, '').trim();
       const parsed = JSON.parse(clean) as Omit<RiskResult, 'timestamp' | 'stage'>;
       const withMeta: RiskResult = { ...parsed, timestamp: Date.now(), stage };
@@ -447,7 +462,7 @@ export function RiskAnalytics({ activeCase }: Props) {
               <div>
                 <label style={labelS}>Case Stage</label>
                 <select value={stage} onChange={e => { setStage(e.target.value); saveBlindSpot(caseId, 'risk', { facts, stage: e.target.value, result, register: registerContent }); }} style={selS}>
-                  {PCE_STAGES.map(s => <option key={s} value={s}>{s}</option>)}
+                  {getPceStages(activeCase.matter_track).map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
               {result && (

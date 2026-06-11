@@ -24,6 +24,7 @@ import { Md, Spinner } from '@/components/common/ui';
 import { useAppStore } from '@/state/appStore';
 import { loadBlindSpot, loadEvidenceMeta } from '@/storage/helpers';
 import type { Case, DashTabId, EvidenceItem } from '@/types';
+import { buildRoleSystemPrompt } from '@/utils/rolePrompt';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -85,7 +86,10 @@ function buildCtx(c: Case): string {
   if (c.caseName)      parts.push('Case: ' + c.caseName);
   if (c.court)         parts.push('Court: ' + c.court);
   if (c.suitNo)        parts.push('Suit No: ' + c.suitNo);
-  if (c.role)          parts.push('Our Role: ' + c.role);
+  // V2: prefer counsel_role + matter_track; fall back to legacy role
+  if (c.counsel_role)  parts.push('Counsel Role: ' + c.counsel_role);
+  if (c.matter_track)  parts.push('Matter Track: ' + c.matter_track);
+  else if (c.role)     parts.push('Our Role: ' + c.role);
   if (c.dateCommenced) parts.push('Date Commenced: ' + c.dateCommenced);
   const claimants  = (c.claimants  || []).map(p => p.name).filter(Boolean);
   const defendants = (c.defendants || []).map(p => p.name).filter(Boolean);
@@ -294,6 +298,8 @@ export function WarRoom({ activeCase }: Props) {
   ];
 
   const ctx = buildCtx(activeCase);
+  // Role-aware system prompt — used as base for all WarRoom AI panels
+  const roleSystem = buildRoleSystemPrompt(activeCase.matter_track, activeCase.counsel_role);
 
   // ─────────────────────────────────────────────────────────────────────────
   // PANEL: CASE THEORY MAP
@@ -305,7 +311,8 @@ export function WarRoom({ activeCase }: Props) {
         title="Case Theory Map" icon="◉"
         onGenerate={() => aiGenerate(
           'theory',
-          `You are a master Nigerian litigation strategist. Analyse the case and produce a Case Theory Map in structured format. Cover: (1) Primary cause of action / defence theory, (2) Core legal proposition, (3) Each legal issue — strength (STRONG/MODERATE/WEAK/UNCERTAIN) and why, (4) Evidence that anchors the theory, (5) The single most vulnerable point in the theory, (6) Strategic recommendation. Be bold and specific.`,
+          roleSystem,
+          `Produce a Case Theory Map for this matter. Structure your analysis as:\n(1) Primary cause of action / defence theory\n(2) Core legal proposition\n(3) Each legal issue — strength (STRONG/MODERATE/WEAK/UNCERTAIN) and reasoning\n(4) Evidence that anchors the theory\n(5) The single most vulnerable point in the theory\n(6) Strategic recommendation\n\nBe specific and role-specific — advice must reflect the counsel role on this matter.\n\n${ctx}`,
           `CASE CONTEXT:\n${ctx}\n\nIntelligence Package:\n${JSON.stringify(intel, null, 2)}\n\nBuild the Case Theory Map.`,
           setCaseTheory,
           `afs_wr_theory_${caseId}`,
@@ -353,16 +360,21 @@ export function WarRoom({ activeCase }: Props) {
     };
     const stageGuess = intel.extraction
       ? 'Mid-Trial / Pre-Trial'
-      : activeCase.role?.toLowerCase().includes('appeal')
-        ? 'Appeal'
-        : 'Pre-Action / Pleadings';
+      : activeCase.current_stage
+        ? activeCase.current_stage.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+        : 'Not yet set';
+
+    const displayRole = activeCase.counsel_role
+      ? activeCase.counsel_role.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+      : (activeCase.role || 'Not set');
 
     return (
       <PanelWrap title="Strategic Posture" icon="⚡">
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
           {([
-            ['Our Role',  activeCase.role  || 'Not set'],
+            ['Our Role',  displayRole],
             ['Court',     activeCase.court || 'Not set'],
+            ['Track',     activeCase.matter_track ? activeCase.matter_track.charAt(0).toUpperCase() + activeCase.matter_track.slice(1) : 'Not set'],
             ['Stage',     stageGuess],
           ] as [string, string][]).map(([l, v]) => (
             <div key={l} style={{ background: '#0a0a18', border: '1px solid #141424', borderRadius: 4, padding: '8px 12px' }}>
@@ -633,8 +645,8 @@ export function WarRoom({ activeCase }: Props) {
         title="Appellate Vulnerability Tracker" icon="↑"
         onGenerate={() => aiGenerate(
           'appvuln',
-          `You are a leading Nigerian appellate advocate at the Court of Appeal and Supreme Court. Identify every live appellate issue in this case. For each: (1) the issue, (2) the ground of appeal it generates, (3) survivability rating at the Court of Appeal (High/Medium/Low), (4) what must be done NOW to preserve the point. Cover: errors of law, wrongly admitted/excluded evidence, jurisdictional points, constitutional issues, procedural violations.`,
-          `CASE CONTEXT:\n${ctx}\n\nAppeal data: ${JSON.stringify(appeal, null, 2)}\n\nIdentify all appellate vulnerabilities.`,
+          roleSystem,
+          `Identify every live appellate issue in this case from the perspective of the counsel role.\n\nFor each appellate issue:\n(1) The issue\n(2) The ground of appeal it generates\n(3) Survivability rating at the Court of Appeal (High/Medium/Low)\n(4) What must be done NOW to preserve the point\n\nCover: errors of law, wrongly admitted/excluded evidence, jurisdictional points, constitutional issues, procedural violations.\n\nCASE CONTEXT:\n${ctx}\n\nAppeal data: ${JSON.stringify(appeal, null, 2)}\n\nIdentify all appellate vulnerabilities from this counsel's position.`,
           setAppellateVuln,
           `afs_wr_appvuln_${caseId}`,
         )}
@@ -663,8 +675,8 @@ export function WarRoom({ activeCase }: Props) {
         title="Opponent Strategy Board" icon="◈"
         onGenerate={() => aiGenerate(
           'opp',
-          `You are a senior Nigerian litigation intelligence analyst. Based on this case, analyse the opponent's most likely litigation strategy. Cover: (1) Their strongest 3 arguments, (2) Their most likely procedural moves in the next 60 days, (3) Their evidential strategy — what they will try to admit and what they will challenge, (4) Their vulnerabilities and the single most damaging thing you could do to their case right now, (5) Recommended counter-posture.`,
-          `CASE CONTEXT:\n${ctx}\n\nBuild the opponent strategy analysis.`,
+          roleSystem,
+          `Analyse the opposing side's most likely litigation strategy on this matter.\n\nCover:\n(1) Their strongest 3 arguments against our position\n(2) Their most likely procedural moves in the next 60 days\n(3) Their evidential strategy — what they will try to admit and what they will challenge\n(4) Their vulnerabilities and the single most damaging thing we can do to their case now\n(5) Recommended counter-posture from our counsel role\n\nCASE CONTEXT:\n${ctx}\n\nBuild the opponent strategy analysis from our side's perspective.`,
           setOppStrategy,
           `afs_wr_opp_${caseId}`,
         )}

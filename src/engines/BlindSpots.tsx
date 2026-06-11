@@ -18,6 +18,7 @@ import type { Case } from '@/types';
 import { T } from '@/constants/tokens';
 import { callClaude } from '@/services/api';
 import { loadBlindSpot, saveBlindSpot, uid } from '@/storage/helpers';
+import { buildRoleSystemPrompt } from '@/utils/rolePrompt';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -245,7 +246,7 @@ function BSConflict({ caseId, activeCase }: { caseId: string; activeCase: Case }
   async function runCheck() {
     const prompt = `You are a Nigerian bar ethics adviser. Assess the following potential conflict of interest for a lawyer considering accepting a brief.
 
-CASE: ${activeCase.caseName || 'Unnamed case'} (${activeCase.role || 'Role unspecified'})
+CASE: ${activeCase.caseName || 'Unnamed case'} (${activeCase.counsel_role ? activeCase.counsel_role.replace(/_/g,' ') : (activeCase.role || 'Role unspecified')} | ${activeCase.matter_track || 'civil'})
 OPPOSING PARTIES: ${data.opposingParties || 'Not specified'}
 SUBJECT MATTER: ${data.subjectMatter || 'Not specified'}
 PREVIOUS MATTERS: ${data.previousMatters || 'None disclosed'}
@@ -334,7 +335,7 @@ function BSWitnesses({ caseId, activeCase }: { caseId: string; activeCase: Case 
 
   async function analyseWitness() {
     if (!form) return;
-    const prompt = `You are a senior Nigerian litigation advocate. Analyse this witness for the case: ${activeCase.caseName || 'Unnamed'} (${activeCase.role || 'Claimant'}).
+    const prompt = `You are a senior Nigerian litigation advocate. Analyse this witness for the case: ${activeCase.caseName || 'Unnamed'} (${activeCase.counsel_role ? activeCase.counsel_role.replace(/_/g,' ') : (activeCase.role || 'Claimant')} | ${activeCase.matter_track || 'civil'}).
 
 WITNESS: ${form.name || 'Unnamed'}
 SIDE: ${form.side === 'ours' ? 'Our witness' : 'Opposing witness'}
@@ -467,7 +468,7 @@ KNOWN STRENGTHS: ${form.strengths || 'Not specified'}
 KNOWN WEAKNESSES: ${form.weaknesses || 'Not specified'}
 KNOWN TACTICS: ${form.knownTactics || 'Not specified'}
 
-MATTER: ${activeCase.caseName || 'Unnamed'} (our role: ${activeCase.role || 'Claimant'})
+MATTER: ${activeCase.caseName || 'Unnamed'} (our role: ${activeCase.counsel_role ? activeCase.counsel_role.replace(/_/g,' ') : (activeCase.role || 'Claimant')} | ${activeCase.matter_track || 'civil'})
 
 Advise:
 1. THREAT ASSESSMENT — How dangerous is this opponent on these facts? Realistic rating.
@@ -554,7 +555,7 @@ RULING PATTERNS: ${data.rulingPatterns || 'Not specified'}
 PROCEDURAL STRICTNESS: ${data.proceduralStrictness || 'Not specified'}
 RECEPTION TO AUTHORITIES: ${data.receptionToAuthorities || 'Not specified'}
 WHAT TO AVOID: ${data.whatToAvoid || 'Not specified'}
-CASE TYPE: ${activeCase.caseName || 'Unnamed'} (${activeCase.role || ''})
+CASE TYPE: ${activeCase.caseName || 'Unnamed'} (${activeCase.counsel_role ? activeCase.counsel_role.replace(/_/g,' ') : (activeCase.role || '')} | ${activeCase.matter_track || 'civil'})
 
 Advise:
 1. PRESENTATION STRATEGY — How to frame our case for maximum impact before this specific court
@@ -637,7 +638,7 @@ function BSSettlement({ caseId, activeCase }: { caseId: string; activeCase: Case
     const liveOffers = (data.offers || []).filter(o => o.status === 'Live');
     const prompt = `You are a senior Nigerian litigation strategist advising on a settlement decision. Conduct a realistic BATNA analysis.
 
-CASE: ${activeCase.caseName || 'Unnamed'} (${activeCase.role || ''})
+CASE: ${activeCase.caseName || 'Unnamed'} (${activeCase.counsel_role ? activeCase.counsel_role.replace(/_/g,' ') : (activeCase.role || '')} | ${activeCase.matter_track || 'civil'})
 CLAIM VALUE: ${data.claimValue || 'Not quantified'}
 CLIENT'S SETTLEMENT AUTHORITY: ${data.clientAuthority || 'Not specified'}
 BATNA: ${data.batna || 'Not specified'}
@@ -872,7 +873,7 @@ function BSInterlocutory({ caseId, activeCase }: { caseId: string; activeCase: C
     if (!form) return;
     const prompt = `You are a senior Nigerian litigation advocate. Analyse this interlocutory application.
 
-CASE: ${activeCase.caseName || 'Unnamed'} (${activeCase.role || ''})
+CASE: ${activeCase.caseName || 'Unnamed'} (${activeCase.counsel_role ? activeCase.counsel_role.replace(/_/g,' ') : (activeCase.role || '')} | ${activeCase.matter_track || 'civil'})
 APPLICATION: ${form.title || 'Not titled'}
 MOVER: ${form.mover === 'ours' ? 'We are moving' : 'Opposing party is moving'}
 TYPE: ${form.type}

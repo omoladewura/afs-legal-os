@@ -276,7 +276,7 @@ function TopicSearch({ activeCase, onSave }: TopicSearchProps) {
     setLoading(true); setError(''); setResult('');
 
     const caseCtx = activeCase
-      ? `\n\nCase context: ${activeCase.caseName} | Court: ${activeCase.court || 'Not specified'} | Role: ${activeCase.role || 'Not specified'}`
+      ? `\n\nCase context: ${activeCase.caseName} | Court: ${activeCase.court || 'Not specified'} | Role: ${activeCase.counsel_role ? activeCase.counsel_role.replace(/_/g, ' ') : (activeCase.role || 'Not specified')} | Track: ${activeCase.matter_track || 'civil'}`
       : '';
 
     const prompt = `Nigerian litigation case law research.\n\nRESEARCH QUERY: ${query}${caseCtx}\n\n\
