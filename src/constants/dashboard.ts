@@ -34,6 +34,7 @@ export const DASH_TABS: DashTab[] = [
   { id: 'console',      icon: '>',  label: 'Command Console',      desc: 'The Litigation OS Terminal. Issue any natural-language command.', step: null },
   { id: 'criminal',     icon: '⚖', label: 'Criminal Defence',     desc: 'Dedicated criminal defence intelligence. Charge analysis, arrest legality, prosecution evidence attack.', step: null },
   { id: 'matrimonial',  icon: '⚖', label: 'Matrimonial Causes',   desc: 'Standalone matrimonial causes intelligence under the Matrimonial Causes Act Cap M7 LFN 2004.', step: null },
+  { id: 'copilot',      icon: '✦',  label: 'AI Copilot',           desc: 'Role-aware AI litigation copilot. Every response is framed from your exact position on this matter — claimant, defendant, prosecution, or defence.', step: null },
 ];
 
 /** Case document types for the docket entry form */
