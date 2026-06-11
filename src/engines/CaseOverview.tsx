@@ -13,7 +13,7 @@
  * Legacy V1 matters (no counsel_role) fall back to the original generic display.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { T } from '@/constants/tokens';
 import { useAppStore } from '@/state/appStore';
 import {
@@ -21,11 +21,13 @@ import {
   loadDeadlines,
   loadEvidenceMeta,
   loadArgVersions,
+  saveCase,
 } from '@/storage/helpers';
 import {
   ROLE_POSITION_CONFIG,
   ROLE_RISK_FLAGS,
   ROLE_MODULES,
+  ROLE_STAGES,
 } from '@/constants/roleWorkspace';
 import { computeNextAction } from '@/utils/nextAction';
 import type { Case, DocketEntry, Deadline, EvidenceItem, ArgumentVersion } from '@/types';
@@ -109,13 +111,15 @@ interface Props { activeCase: Case; }
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function CaseOverview({ activeCase }: Props) {
-  const { setDashTab } = useAppStore();
+  const { setDashTab, updateActiveCase } = useAppStore();
 
   const [entries,   setEntries]   = useState<DocketEntry[]>([]);
   const [deadlines, setDeadlines] = useState<Deadline[]>([]);
   const [evidence,  setEvidence]  = useState<EvidenceItem[]>([]);
   const [argVers,   setArgVers]   = useState<ArgumentVersion[]>([]);
   const [loading,   setLoading]   = useState(true);
+  const [stagePickerOpen, setStagePickerOpen] = useState(false);
+  const [isSavingStage,   setIsSavingStage]   = useState(false);
 
   useEffect(() => {
     if (!activeCase?.id) return;
@@ -150,6 +154,23 @@ export function CaseOverview({ activeCase }: Props) {
   const roleAccent  = counselRole ? COUNSEL_ROLE_COLORS[counselRole].col : '#888888';
   const roleBg      = counselRole ? COUNSEL_ROLE_COLORS[counselRole].bg  : '#0a0a14';
   const roleBdr     = counselRole ? COUNSEL_ROLE_COLORS[counselRole].bdr : '#1e1e2e';
+
+  // Stage selector
+  const roleStages  = counselRole ? (ROLE_STAGES[counselRole] ?? []) : [];
+
+  const handleSetStage = useCallback(async (stageId: string) => {
+    setIsSavingStage(true);
+    const patch = { current_stage: stageId };
+    updateActiveCase(patch);
+    try {
+      await saveCase({ ...activeCase, ...patch });
+    } catch (e) {
+      console.error('[CaseOverview] saveCase failed', e);
+    } finally {
+      setIsSavingStage(false);
+      setStagePickerOpen(false);
+    }
+  }, [activeCase, updateActiveCase]);
 
   // Legacy V1 fallback colours
   const legacyRole  = activeCase.role || 'Claimant';
@@ -340,6 +361,102 @@ export function CaseOverview({ activeCase }: Props) {
                 {nextAction}
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Stage picker */}
+        {counselRole && roleStages.length > 0 && (
+          <div style={{ marginTop: 14, paddingTop: 14, borderTop: `1px solid ${T.bdr}` }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              <span style={{
+                fontSize: 8, color: T.mute,
+                fontFamily: 'Inter, sans-serif',
+                letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 600,
+              }}>
+                Current Stage
+              </span>
+              {activeCase.current_stage && (() => {
+                const st = roleStages.find(s => s.id === activeCase.current_stage);
+                return st ? (
+                  <span style={{
+                    fontSize: 10, color: roleAccent,
+                    fontFamily: 'Inter, sans-serif',
+                    background: `${roleAccent}18`,
+                    border: `1px solid ${roleAccent}40`,
+                    padding: '2px 9px', borderRadius: 3,
+                  }}>
+                    {st.label}
+                  </span>
+                ) : null;
+              })()}
+              <button
+                onClick={() => setStagePickerOpen(o => !o)}
+                style={{
+                  background: 'transparent',
+                  border: `1px solid ${stagePickerOpen ? roleAccent + '60' : T.bdr}`,
+                  color: stagePickerOpen ? roleAccent : T.mute,
+                  borderRadius: 4, padding: '4px 11px',
+                  fontSize: 10, fontFamily: 'Inter, sans-serif',
+                  cursor: 'pointer', letterSpacing: '.04em',
+                  transition: 'all .15s',
+                }}
+              >
+                {stagePickerOpen ? '✕ Close' : (activeCase.current_stage ? '✎ Change Stage' : '+ Set Stage')}
+              </button>
+              <button
+                onClick={() => setDashTab('timeline' as DashTabId)}
+                style={{
+                  background: 'transparent', border: 'none',
+                  color: T.mute, fontSize: 10,
+                  fontFamily: 'Inter, sans-serif',
+                  cursor: 'pointer', letterSpacing: '.04em',
+                  textDecoration: 'underline',
+                }}
+              >
+                View Timeline →
+              </button>
+            </div>
+            {stagePickerOpen && (
+              <div style={{
+                marginTop: 10,
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))',
+                gap: 6,
+              }}>
+                {roleStages.map(stage => {
+                  const isActive = activeCase.current_stage === stage.id;
+                  return (
+                    <button
+                      key={stage.id}
+                      onClick={() => !isActive && handleSetStage(stage.id)}
+                      disabled={isSavingStage || isActive}
+                      style={{
+                        background: isActive ? `${roleAccent}18` : T.bg,
+                        border: `1px solid ${isActive ? roleAccent + '50' : T.bdr}`,
+                        borderRadius: 5, padding: '8px 12px',
+                        textAlign: 'left', cursor: isActive ? 'default' : 'pointer',
+                        transition: 'all .15s',
+                        opacity: isSavingStage && !isActive ? 0.5 : 1,
+                      }}
+                      onMouseEnter={e => {
+                        if (!isActive) (e.currentTarget as HTMLElement).style.borderColor = roleAccent + '50';
+                      }}
+                      onMouseLeave={e => {
+                        if (!isActive) (e.currentTarget as HTMLElement).style.borderColor = T.bdr;
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{ fontSize: 10, color: isActive ? roleAccent : T.mute }}>{isActive ? '●' : '◦'}</span>
+                        <span style={{ fontSize: 12, color: isActive ? roleAccent : T.sub, fontFamily: "'Times New Roman', Times, serif", fontWeight: isActive ? 600 : 400 }}>
+                          {stage.label}
+                        </span>
+                        {isActive && <span style={{ marginLeft: 'auto', fontSize: 8, color: roleAccent, fontFamily: 'Inter, sans-serif', letterSpacing: '.08em' }}>CURRENT</span>}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 

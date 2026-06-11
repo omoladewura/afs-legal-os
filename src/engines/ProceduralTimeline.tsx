@@ -689,6 +689,61 @@ export function ProceduralTimeline({ activeCase }: ProceduralTimelineProps) {
             </div>
           )}
 
+          {/* ── Upcoming Deadlines ────────────────────────────────────────────── */}
+          {deadlines.filter(d => d.status !== 'Dismissed').length > 0 && (() => {
+            const now = new Date();
+            const active = [...deadlines]
+              .filter(d => d.status !== 'Dismissed')
+              .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+              .slice(0, 5);
+            return (
+              <div style={{
+                marginTop: 24,
+                background: '#080810',
+                border: '1px solid #111120',
+                borderRadius: 10,
+                padding: '16px 20px',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                    <span style={{ fontSize: 11, color: T.mute }}>⏱</span>
+                    <span style={{ fontSize: 9, color: T.mute, fontFamily: 'Inter, sans-serif', letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 700 }}>
+                      Upcoming Deadlines
+                    </span>
+                  </div>
+                  <span style={{ fontSize: 9, color: '#2a2a3e', fontFamily: 'Inter, sans-serif', letterSpacing: '.08em' }}>
+                    {deadlines.filter(d => d.status !== 'Dismissed').length} active
+                  </span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                  {active.map(dl => {
+                    const diff    = Math.ceil((new Date(dl.date).getTime() - now.getTime()) / 86400000);
+                    const overdue = diff < 0;
+                    const urgent  = diff >= 0 && diff <= 7;
+                    const col     = overdue ? '#c05050' : urgent ? '#b07030' : T.mute;
+                    return (
+                      <div key={dl.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', background: '#0a0a12', border: `1px solid ${overdue ? '#2a1010' : '#111120'}`, borderRadius: 6 }}>
+                        <div style={{ width: 6, height: 6, borderRadius: '50%', background: col, flexShrink: 0 }} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 13, color: T.dim, fontFamily: "'Cormorant Garamond', serif", fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{dl.label}</div>
+                          <div style={{ fontSize: 9, color: T.mute, fontFamily: 'Inter, sans-serif' }}>{dl.type}</div>
+                        </div>
+                        <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                          <div style={{ fontSize: 11, color: col, fontFamily: 'Inter, sans-serif', fontWeight: 600 }}>
+                            {overdue ? `${Math.abs(diff)}d ago` : diff === 0 ? 'Today' : `${diff}d`}
+                          </div>
+                          <div style={{ fontSize: 9, color: '#252535', fontFamily: 'Inter, sans-serif' }}>
+                            {new Date(dl.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+
           {/* ── Footer note ───────────────────────────────────────────────────── */}
           <p style={{
             textAlign: 'center', fontSize: 10,
