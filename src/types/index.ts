@@ -416,4 +416,6 @@ export type DashTabId =
   // Phase 6A — Criminal procedural engines
   | 'charge_arraignment' | 'plea'
   // Phase 6B — Core trial engines
-  | 'prosecution_case' | 'no_case';
+  | 'prosecution_case' | 'no_case'
+  // Phase 6C — Sentencing Engine
+  | 'sentencing';
