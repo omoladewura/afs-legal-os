@@ -414,4 +414,6 @@ export type DashTabId =
   | 'compliance' | 'authority' | 'risk' | 'warroom' | 'console'
   | 'criminal' | 'matrimonial' | 'copilot'
   // Phase 6A — Criminal procedural engines
-  | 'charge_arraignment' | 'plea';
+  | 'charge_arraignment' | 'plea'
+  // Phase 6B — Core trial engines
+  | 'prosecution_case' | 'no_case';
