@@ -392,6 +392,14 @@ export interface ApiRequestOptions {
    * Defaults are sensible for general legal queries.
    */
   libraryOpts?:  LibraryQueryOpts;
+  /**
+   * THE TWO GOVERNING FIELDS — passed to the Cloudflare Worker so it can
+   * filter Vectorize retrieval to role-appropriate library materials.
+   * Set automatically by useAI() when activeCase is provided.
+   * Engines using callClaude() directly should set these explicitly.
+   */
+  matter_track?: MatterTrack;
+  counsel_role?: CounselRole;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
