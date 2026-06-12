@@ -23,6 +23,7 @@ import type { DashTabId } from '@/types';
 export const ROLE_TABS: Record<CounselRole, DashTabId[]> = {
   claimant_side: [
     'overview',
+    'alerts',
     'copilot',
     'pleadings',
     'motions',
@@ -47,6 +48,7 @@ export const ROLE_TABS: Record<CounselRole, DashTabId[]> = {
   ],
   defendant_side: [
     'overview',
+    'alerts',
     'copilot',
     'pleadings',
     'motions',
@@ -71,6 +73,7 @@ export const ROLE_TABS: Record<CounselRole, DashTabId[]> = {
   ],
   prosecution: [
     'overview',
+    'alerts',
     'copilot',
     'charge_arraignment',
     'plea',
@@ -97,6 +100,7 @@ export const ROLE_TABS: Record<CounselRole, DashTabId[]> = {
   ],
   defence: [
     'overview',
+    'alerts',
     'copilot',
     'charge_arraignment',
     'plea',
