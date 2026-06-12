@@ -43,6 +43,10 @@ export const DASH_TABS: DashTab[] = [
   { id: 'no_case',            icon: '⚖', label: 'No-Case Submission',   desc: 'Defence: draft submission per count (Ajidagba/Ibeziako standard), build authorities, and track ruling. Prosecution: draft response, build per-count evidence summary, and route from ruling outcome.', step: null },
   // ── Phase 6C — Sentencing Engine ────────────────────────────────────────────
   { id: 'sentencing',         icon: '⚖', label: 'Sentencing',            desc: 'Prosecution: aggravating factors builder, sentencing address drafter, and appeal assessment. Defence: allocutus drafter, mitigation address (Ogundipe factors), and ACJA appeal deadline countdown.', step: null },
+  // ── Phase 7 — Civil Engines ──────────────────────────────────────────────
+  { id: 'pleadings',    icon: '📜', label: 'Pleadings',    desc: 'Civil pleadings engine. Claimant: draft Statement of Claim, monitor SoD, flag default judgment opportunity, respond to counterclaim. Defendant: draft Statement of Defence, build counterclaim, identify preliminary objection grounds.', step: null },
+  { id: 'motions',      icon: '⚖',  label: 'Motions',      desc: 'Civil motions and applications engine. Claimant: default judgment, summary judgment, injunction. Defendant: preliminary objection, strike out, stay of proceedings, security for costs. Track all applications.', step: null },
+  { id: 'enforcement',  icon: '→',  label: 'Enforcement',  desc: 'Civil enforcement engine. Claimant: select enforcement mechanism, draft Writ of FIFA or Garnishee Order Nisi, track recovery. Defendant: seek stay of execution, track compliance obligations, develop appeal grounds.', step: null },
 ];
 
 /** Case document types for the docket entry form */
