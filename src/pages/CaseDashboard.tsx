@@ -59,6 +59,9 @@ const AICopilot          = lazy(() => import('@/engines/AICopilot').then(m => ({
 // Phase 6A — Criminal Procedural Engines
 const ChargeArraignment  = lazy(() => import('@/engines/ChargeArraignment').then(m => ({ default: m.ChargeArraignment })));
 const PleaEngine         = lazy(() => import('@/engines/PleaEngine').then(m => ({ default: m.PleaEngine })));
+// Phase 6B — Core Trial Engines
+const ProsecutionCase    = lazy(() => import('@/engines/ProsecutionCase').then(m => ({ default: m.ProsecutionCase })));
+const NoCaseSubmission   = lazy(() => import('@/engines/NoCaseSubmission').then(m => ({ default: m.NoCaseSubmission })));
 
 // ── Engine router ─────────────────────────────────────────────────────────────
 
@@ -105,6 +108,9 @@ function EngineContent({
     // Phase 6A — Criminal Procedural Engines
     case 'charge_arraignment': return <ChargeArraignment activeCase={activeCase} />;
     case 'plea':               return <PleaEngine         activeCase={activeCase} />;
+    // Phase 6B — Core Trial Engines
+    case 'prosecution_case':   return <ProsecutionCase    activeCase={activeCase} />;
+    case 'no_case':            return <NoCaseSubmission   activeCase={activeCase} />;
     default:             return null;
   }
 }
