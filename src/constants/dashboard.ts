@@ -38,6 +38,9 @@ export const DASH_TABS: DashTab[] = [
   // ── Phase 6A — Criminal Procedural Engines ──────────────────────────────────
   { id: 'charge_arraignment', icon: '⚖', label: 'Charge & Arraignment', desc: 'Prosecution: build and validate counts. Defence: analyse charge defects and generate preliminary objection grounds. Both roles: record arraignment proceedings.', step: null },
   { id: 'plea',               icon: '⚖', label: 'Plea',                 desc: 'Prosecution: record plea per count and generate routing analysis. Defence: plea advice, plea bargain analysis, and routing confirmation.', step: null },
+  // ── Phase 6B — Core Trial Engines ───────────────────────────────────────────
+  { id: 'prosecution_case',   icon: '⚖', label: 'Prosecution Case',     desc: 'Prosecution: opening address, witness schedule, exhibit register, and evidence sufficiency audit. Defence: prosecution witness tracker, no-case threshold meter per count, objection log, and cross-examination preparation.', step: null },
+  { id: 'no_case',            icon: '⚖', label: 'No-Case Submission',   desc: 'Defence: draft submission per count (Ajidagba/Ibeziako standard), build authorities, and track ruling. Prosecution: draft response, build per-count evidence summary, and route from ruling outcome.', step: null },
 ];
 
 /** Case document types for the docket entry form */
