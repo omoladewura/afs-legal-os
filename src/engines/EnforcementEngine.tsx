@@ -230,7 +230,7 @@ function SectionHead({ text, accent }: { text: string; accent: string }) {
 
 export function EnforcementEngine({ activeCase }: Props) {
   const isClaim  = activeCase.counsel_role === 'claimant_side';
-  const accent   = COUNSEL_ROLE_COLORS[activeCase.counsel_role] ?? '#4090d0';
+  const accent   = activeCase.counsel_role ? COUNSEL_ROLE_COLORS[activeCase.counsel_role].col : '#4090d0';
 
   const claimTabs: { id: ClaimSubTab; label: string }[] = [
     { id: 'judgment_summary',     label: 'Judgment Summary' },
