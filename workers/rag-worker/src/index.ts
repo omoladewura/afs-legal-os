@@ -1,29 +1,45 @@
 /**
  * AFS Advocates — Cloudflare Worker: Legal Library RAG + Case Sync + Claude Chat
  *
- * Endpoints:
+ * V2 Upgrade — Role-Aware RAG:
+ *   /chat now performs server-side RAG before calling Anthropic.
+ *   It reads counsel_role + matter_track from the request body,
+ *   queries Vectorize with a role-scoped filter, injects the retrieved
+ *   library block into the system prompt, then calls Claude.
  *
- *   POST /chat                      — proxy Claude API call (key never in browser)
- *   POST /embed                     — embed a query string via Workers AI
- *   POST /query                     — query Vectorize with an embedding vector
- *   POST /ingest                    — process unprocessed PDFs from R2 into Vectorize
+ *   /ingest now tags every vector with counsel_role + matter_track
+ *   derived from the R2 key path:
+ *     NG/civil_claimant/HighCourtRules.pdf   → counsel_role: claimant_side, matter_track: civil
+ *     NG/criminal_defence/ACJA2015.pdf       → counsel_role: defence, matter_track: criminal
+ *     NG/shared/EvidenceAct2011.pdf          → counsel_role: shared, matter_track: shared
+ *
+ * R2 FOLDER CONVENTION (tag your documents by folder):
+ *   JURISDICTION/civil_claimant/   → claimant-side civil materials
+ *   JURISDICTION/civil_defendant/  → defendant-side civil materials
+ *   JURISDICTION/criminal_prosecution/ → prosecution materials
+ *   JURISDICTION/criminal_defence/ → defence materials
+ *   JURISDICTION/shared/           → both tracks, all roles (Evidence Act general, Court hierarchy)
+ *   JURISDICTION/Statutes/         → legacy — treated as shared
+ *   JURISDICTION/Authorities/      → legacy — treated as shared
+ *
+ * Endpoints:
+ *   POST /chat     — role-aware RAG + Claude proxy
+ *   POST /embed    — embed a query string via Workers AI
+ *   POST /query    — query Vectorize with an embedding vector
+ *   POST /ingest   — process PDFs from R2 into Vectorize with role tags
  *
  *   GET  /cases                     — load all cases from D1
  *   PUT  /case                      — upsert a case in D1
  *   DELETE /case?id=x               — delete a case and all related records
- *
  *   GET  /entries?caseId=x          — load docket entries for a case
  *   PUT  /entry                     — upsert a docket entry
  *   DELETE /entry?id=x              — delete a docket entry
- *
  *   GET  /deadlines?caseId=x        — load deadlines for a case
  *   PUT  /deadline                  — upsert a deadline
  *   DELETE /deadline?id=x           — delete a deadline
- *
  *   GET  /research?caseId=x         — load research records for a case
  *   PUT  /research                  — upsert a research record
  *   DELETE /research?id=x           — delete a research record
- *
  *   GET  /evidence/meta?caseId=x    — load evidence metadata
  *   PUT  /evidence/meta             — upsert evidence metadata
  *   DELETE /evidence/meta?id=x      — delete evidence metadata
@@ -64,6 +80,87 @@ function authorized(req: Request, env: Env): boolean {
   return header === `Bearer ${env.AUTH_TOKEN}`;
 }
 
+// ── Role → Vectorize Filter ───────────────────────────────────────────────────
+
+type CounselRole  = 'claimant_side' | 'defendant_side' | 'prosecution' | 'defence';
+type MatterTrack  = 'civil' | 'criminal';
+
+/**
+ * Maps a counsel_role to its Vectorize metadata filter.
+ * The filter uses OR logic via an array: role-specific docs + shared docs.
+ * Vectorize filter syntax: { counsel_role: { $in: ['claimant_side', 'shared'] } }
+ */
+function buildRoleFilter(counselRole: CounselRole): Record<string, unknown> {
+  // Include role-specific AND shared documents
+  return { counsel_role: { $in: [counselRole, 'shared'] } };
+}
+
+/**
+ * Maps a counsel_role to the most relevant Vectorize namespace.
+ * Falls back gracefully — if the namespace doesn't exist, Vectorize
+ * returns empty matches without erroring.
+ */
+function roleToNamespace(counselRole?: CounselRole, matterTrack?: MatterTrack): string | undefined {
+  if (counselRole === 'claimant_side')  return 'civil_claimant';
+  if (counselRole === 'defendant_side') return 'civil_defendant';
+  if (counselRole === 'prosecution')    return 'criminal_prosecution';
+  if (counselRole === 'defence')        return 'criminal_defence';
+  if (matterTrack === 'civil')          return 'civil_shared';
+  if (matterTrack === 'criminal')       return 'criminal_shared';
+  return undefined;
+}
+
+// ── Library Block Formatter ───────────────────────────────────────────────────
+
+interface VectorMatch {
+  score: number;
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * Formats Vectorize matches into a structured block for injection
+ * into the Claude system prompt. Role-aware header included.
+ */
+function formatLibraryBlock(matches: VectorMatch[], counselRole?: string): string {
+  const relevant = matches.filter(m => (m.score ?? 0) >= 0.68 && m.metadata?.doc_title);
+  if (relevant.length === 0) return '';
+
+  const roleLabel = counselRole
+    ? `(filtered for ${counselRole.replace('_', ' ')} perspective)`
+    : '';
+
+  const lines: string[] = [
+    '╔══════════════════════════════════════════════════════════════════╗',
+    `║     AFS LIBRARY — MANDATORY FIRST REFERENCE ${roleLabel.padEnd(Math.max(0, 18 - roleLabel.length))}║`,
+    '╚══════════════════════════════════════════════════════════════════╝',
+    '',
+    'INSTRUCTION: The following materials are retrieved from AFS Advocates\'',
+    'private legal library and are filtered to your role on this matter.',
+    'You MUST reason from these first. Do not contradict them. Where they',
+    'are silent, supplement from general knowledge but clearly distinguish',
+    'library-sourced reasoning from your own inference.',
+    '',
+  ];
+
+  relevant.forEach((m, i) => {
+    const md = m.metadata!;
+    lines.push(`[LIBRARY ${i + 1}]`);
+    lines.push(`Title:      ${md.doc_title}`);
+    if (md.jurisdiction) lines.push(`Jurisdiction: ${md.jurisdiction}`);
+    if (md.doc_type)     lines.push(`Type:       ${md.doc_type}`);
+    if (md.counsel_role && md.counsel_role !== 'shared') {
+      lines.push(`Role scope: ${String(md.counsel_role).replace('_', ' ')}`);
+    }
+    if (md.chunk_text)   lines.push(`\n${String(md.chunk_text).slice(0, 600)}${String(md.chunk_text).length > 600 ? '…' : ''}`);
+    lines.push(`[/LIBRARY ${i + 1}]`);
+    lines.push('');
+  });
+
+  lines.push('══ END OF LIBRARY CONTEXT ══');
+  lines.push('');
+  return lines.join('\n');
+}
+
 // ── Database Setup ────────────────────────────────────────────────────────────
 
 async function ensureTables(env: Env): Promise<void> {
@@ -96,6 +193,8 @@ async function ensureTables(env: Env): Promise<void> {
     doc_title    TEXT NOT NULL,
     jurisdiction TEXT NOT NULL,
     doc_type     TEXT NOT NULL,
+    counsel_role TEXT NOT NULL DEFAULT 'shared',
+    matter_track TEXT NOT NULL DEFAULT 'shared',
     chunk_count  INTEGER NOT NULL,
     processed_at TEXT NOT NULL,
     status       TEXT NOT NULL DEFAULT 'ok'
@@ -109,42 +208,28 @@ async function ensureTables(env: Env): Promise<void> {
 
 // ── PDF Text Extraction ───────────────────────────────────────────────────────
 
-/**
- * Extracts text from a PDF ArrayBuffer using a pure-JS approach.
- * Works reliably on text-based PDFs (government statutes, legislation sites).
- * Returns empty string if extraction fails — caller handles logging.
- */
 function extractTextFromPDF(buffer: ArrayBuffer): string {
   try {
     const bytes = new Uint8Array(buffer);
     const raw   = new TextDecoder('latin1').decode(bytes);
-
-    // Collect all text found in PDF stream objects
     const textParts: string[] = [];
 
-    // Match BT...ET blocks (PDF text blocks)
     const btEtRegex = /BT([\s\S]*?)ET/g;
     let btMatch: RegExpExecArray | null;
 
     while ((btMatch = btEtRegex.exec(raw)) !== null) {
       const block = btMatch[1];
 
-      // Extract strings from parentheses: (Hello World) Tj
       const parenRegex = /\(([^)\\]*(?:\\.[^)\\]*)*)\)\s*(?:Tj|TJ|'|")/g;
       let pMatch: RegExpExecArray | null;
       while ((pMatch = parenRegex.exec(block)) !== null) {
         const s = pMatch[1]
-          .replace(/\\n/g, '\n')
-          .replace(/\\r/g, '\n')
-          .replace(/\\t/g, ' ')
-          .replace(/\\\(/g, '(')
-          .replace(/\\\)/g, ')')
-          .replace(/\\\\/g, '\\')
+          .replace(/\\n/g, '\n').replace(/\\r/g, '\n').replace(/\\t/g, ' ')
+          .replace(/\\\(/g, '(').replace(/\\\)/g, ')').replace(/\\\\/g, '\\')
           .replace(/\\(\d{3})/g, (_, oct) => String.fromCharCode(parseInt(oct, 8)));
         if (s.trim().length > 0) textParts.push(s);
       }
 
-      // Extract hex strings: <48656c6c6f> Tj
       const hexRegex = /<([0-9a-fA-F]+)>\s*(?:Tj|TJ)/g;
       let hMatch: RegExpExecArray | null;
       while ((hMatch = hexRegex.exec(block)) !== null) {
@@ -157,15 +242,8 @@ function extractTextFromPDF(buffer: ArrayBuffer): string {
       }
     }
 
-    // Join and clean up
     let text = textParts.join(' ');
-
-    // Collapse excessive whitespace but preserve paragraph breaks
-    text = text
-      .replace(/[ \t]+/g, ' ')
-      .replace(/\n{3,}/g, '\n\n')
-      .trim();
-
+    text = text.replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
     return text;
   } catch {
     return '';
@@ -174,49 +252,81 @@ function extractTextFromPDF(buffer: ArrayBuffer): string {
 
 // ── Chunking ──────────────────────────────────────────────────────────────────
 
-/**
- * Splits text into chunks of ~500 words with ~50-word overlap.
- * Returns array of chunk strings.
- */
 function chunkText(text: string, chunkWords = 500, overlapWords = 50): string[] {
   const words  = text.split(/\s+/).filter(w => w.length > 0);
   const chunks: string[] = [];
-
   if (words.length === 0) return chunks;
-
   let start = 0;
   while (start < words.length) {
     const end   = Math.min(start + chunkWords, words.length);
     const chunk = words.slice(start, end).join(' ');
-    if (chunk.trim().length > 20) chunks.push(chunk); // skip tiny fragments
+    if (chunk.trim().length > 20) chunks.push(chunk);
     if (end >= words.length) break;
     start = end - overlapWords;
   }
-
   return chunks;
 }
 
 // ── Metadata Parsing ──────────────────────────────────────────────────────────
 
 /**
- * Derives jurisdiction and doc_type from the R2 key path.
- * Key structure: NG/Statutes/filename.pdf → jurisdiction=NG, doc_type=Statutes
- * Falls back to 'Unknown' if path doesn't match expected structure.
+ * Derives jurisdiction, doc_type, doc_title, counsel_role, and matter_track
+ * from the R2 key path.
+ *
+ * Key conventions:
+ *   NG/civil_claimant/HighCourtRules.pdf      → counsel_role: claimant_side, matter_track: civil
+ *   NG/civil_defendant/HighCourtRules.pdf     → counsel_role: defendant_side, matter_track: civil
+ *   NG/criminal_prosecution/ACJA2015.pdf      → counsel_role: prosecution, matter_track: criminal
+ *   NG/criminal_defence/ACJA2015.pdf          → counsel_role: defence, matter_track: criminal
+ *   NG/shared/EvidenceAct2011.pdf             → counsel_role: shared, matter_track: shared
+ *   NG/Statutes/SomeAct.pdf                   → counsel_role: shared, matter_track: shared (legacy)
+ *   NG/Authorities/SomeCase.pdf               → counsel_role: shared, matter_track: shared (legacy)
  */
-function parseKeyMetadata(key: string): { jurisdiction: string; doc_type: string; doc_title: string } {
-  const parts = key.split('/');
-
-  // Expected: JURISDICTION/DocType/filename.pdf
-  const jurisdiction = parts.length >= 3 ? parts[0] : 'Unknown';
-  const doc_type     = parts.length >= 3 ? parts[1] : 'Unknown';
+function parseKeyMetadata(key: string): {
+  jurisdiction: string;
+  doc_type:     string;
+  doc_title:    string;
+  counsel_role: string;
+  matter_track: string;
+} {
+  const parts        = key.split('/');
+  const jurisdiction = parts.length >= 3 ? parts[0] : 'NG';
+  const folderName   = parts.length >= 3 ? parts[1] : parts[0];
   const filename     = parts[parts.length - 1];
   const doc_title    = filename
-    .replace(/\.[^.]+$/, '')          // remove extension
-    .replace(/[_-]/g, ' ')            // underscores/hyphens → spaces
-    .replace(/\s+/g, ' ')
-    .trim();
+    .replace(/\.[^.]+$/, '').replace(/[_-]/g, ' ').replace(/\s+/g, ' ').trim();
 
-  return { jurisdiction, doc_type, doc_title };
+  // Map folder name → counsel_role + matter_track
+  const folderLower = folderName.toLowerCase();
+  let counsel_role = 'shared';
+  let matter_track = 'shared';
+  let doc_type     = folderName;
+
+  if (folderLower === 'civil_claimant'  || folderLower === 'claimant') {
+    counsel_role = 'claimant_side'; matter_track = 'civil';
+    doc_type     = 'Civil — Claimant Side';
+  } else if (folderLower === 'civil_defendant' || folderLower === 'defendant') {
+    counsel_role = 'defendant_side'; matter_track = 'civil';
+    doc_type     = 'Civil — Defendant Side';
+  } else if (folderLower === 'criminal_prosecution' || folderLower === 'prosecution') {
+    counsel_role = 'prosecution'; matter_track = 'criminal';
+    doc_type     = 'Criminal — Prosecution';
+  } else if (folderLower === 'criminal_defence' || folderLower === 'criminal_defense' || folderLower === 'defence' || folderLower === 'defense') {
+    counsel_role = 'defence'; matter_track = 'criminal';
+    doc_type     = 'Criminal — Defence';
+  } else if (folderLower === 'civil' || folderLower === 'civil_shared') {
+    counsel_role = 'shared'; matter_track = 'civil';
+    doc_type     = 'Civil — Shared';
+  } else if (folderLower === 'criminal' || folderLower === 'criminal_shared') {
+    counsel_role = 'shared'; matter_track = 'criminal';
+    doc_type     = 'Criminal — Shared';
+  } else {
+    // Legacy folders: Statutes, Authorities, shared, etc. → shared on both tracks
+    counsel_role = 'shared'; matter_track = 'shared';
+    doc_type     = folderName;
+  }
+
+  return { jurisdiction, doc_type, doc_title, counsel_role, matter_track };
 }
 
 // ── Ingest Handler ────────────────────────────────────────────────────────────
@@ -231,8 +341,7 @@ async function handleIngest(req: Request, env: Env): Promise<Response> {
   const skipped:   string[] = [];
 
   try {
-    // List all objects in R2 (excluding chunks/ and evidence/ prefixes — those are pipeline outputs)
-    const listed = await env.R2.list({ limit: 1000 });
+    const listed  = await env.R2.list({ limit: 1000 });
     const allKeys = (listed.objects || [])
       .map(o => o.key)
       .filter(k =>
@@ -246,49 +355,37 @@ async function handleIngest(req: Request, env: Env): Promise<Response> {
       return json({ ok: true, message: 'No documents found in library folders', processed: [], failed: [], skipped: [] }, 200, origin);
     }
 
-    // Check which files are already processed
     const placeholders = allKeys.map(() => '?').join(',');
     const alreadyRows  = await env.DB.prepare(
       `SELECT key FROM processed_files WHERE key IN (${placeholders}) AND status = 'ok'`
     ).bind(...allKeys).all();
     const alreadyDone  = new Set((alreadyRows.results || []).map((r: Record<string, unknown>) => r.key as string));
-
-    const toProcess = allKeys.filter(k => !alreadyDone.has(k));
+    const toProcess    = allKeys.filter(k => !alreadyDone.has(k));
 
     if (toProcess.length === 0) {
       return json({
         ok: true,
         message: 'All documents already processed. Upload new PDFs to R2 to add them.',
-        processed: [],
-        failed: [],
-        skipped: [...alreadyDone],
+        processed: [], failed: [], skipped: [...alreadyDone],
       }, 200, origin);
     }
 
-    // Process each file
     for (const key of toProcess) {
       try {
-        // Fetch from R2
         const obj = await env.R2.get(key);
-        if (!obj) {
-          failed.push({ key, reason: 'File not found in R2' });
-          continue;
-        }
+        if (!obj) { failed.push({ key, reason: 'File not found in R2' }); continue; }
 
-        const { jurisdiction, doc_type, doc_title } = parseKeyMetadata(key);
+        const { jurisdiction, doc_type, doc_title, counsel_role, matter_track } = parseKeyMetadata(key);
         let text = '';
 
         if (key.toLowerCase().endsWith('.txt')) {
-          // Plain text — read directly
           text = await obj.text();
         } else {
-          // PDF — extract text
           const buffer = await obj.arrayBuffer();
           text = extractTextFromPDF(buffer);
         }
 
         if (!text || text.trim().length < 50) {
-          // Extraction failed or returned almost nothing
           const reason = 'Text extraction returned insufficient content. File may be scanned — run OCR first.';
           failed.push({ key, reason });
           await env.DB.prepare(
@@ -297,19 +394,13 @@ async function handleIngest(req: Request, env: Env): Promise<Response> {
           continue;
         }
 
-        // Chunk the text
         const chunks = chunkText(text);
-        if (chunks.length === 0) {
-          failed.push({ key, reason: 'No chunks produced after splitting' });
-          continue;
-        }
+        if (chunks.length === 0) { failed.push({ key, reason: 'No chunks produced after splitting' }); continue; }
 
-        // Embed and upload each chunk
         let successfulChunks = 0;
         for (let i = 0; i < chunks.length; i++) {
           const chunk = chunks[i];
 
-          // Generate embedding via Workers AI
           const embedResult = await env.AI.run('@cf/baai/bge-base-en-v1.5', {
             text: [chunk.slice(0, 2048)],
           }) as { data: number[][] };
@@ -317,16 +408,17 @@ async function handleIngest(req: Request, env: Env): Promise<Response> {
           const embedding = embedResult.data[0];
           if (!embedding || embedding.length === 0) continue;
 
-          // Build vector ID and metadata
           const vectorId  = `${key.split('/').pop()!.replace(/[^a-zA-Z0-9]/g, '_').slice(0, 40)}_${i}`;
           const chunkKey  = `chunks/${key}/chunk_${i}.txt`;
 
-          // Store chunk text in R2
+          // Store chunk text in R2 so it can be retrieved for the library block
           await env.R2.put(chunkKey, chunk, {
             httpMetadata: { contentType: 'text/plain' },
           });
 
-          // Upload vector to Vectorize
+          // ── ROLE-TAGGED VECTOR ──────────────────────────────────────────
+          // counsel_role and matter_track are now stored on every vector.
+          // This is what buildRoleFilter() queries against at retrieval time.
           await env.VECTORIZE.upsert([{
             id:       vectorId,
             values:   embedding,
@@ -334,6 +426,8 @@ async function handleIngest(req: Request, env: Env): Promise<Response> {
               doc_title,
               jurisdiction,
               doc_type,
+              counsel_role,     // 'claimant_side' | 'defendant_side' | 'prosecution' | 'defence' | 'shared'
+              matter_track,     // 'civil' | 'criminal' | 'shared'
               chunk_index:   i,
               total_chunks:  chunks.length,
               source_file:   key,
@@ -345,12 +439,11 @@ async function handleIngest(req: Request, env: Env): Promise<Response> {
           successfulChunks++;
         }
 
-        // Log as processed
         await env.DB.prepare(
-          'INSERT OR REPLACE INTO processed_files (key, doc_title, jurisdiction, doc_type, chunk_count, processed_at, status) VALUES (?, ?, ?, ?, ?, ?, ?)'
-        ).bind(key, doc_title, jurisdiction, doc_type, successfulChunks, new Date().toISOString(), 'ok').run();
+          'INSERT OR REPLACE INTO processed_files (key, doc_title, jurisdiction, doc_type, counsel_role, matter_track, chunk_count, processed_at, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+        ).bind(key, doc_title, jurisdiction, doc_type, counsel_role, matter_track, successfulChunks, new Date().toISOString(), 'ok').run();
 
-        processed.push(key);
+        processed.push(`${key} [${counsel_role} / ${matter_track}]`);
 
       } catch (err) {
         const reason = err instanceof Error ? err.message : 'Unknown error';
@@ -362,19 +455,15 @@ async function handleIngest(req: Request, env: Env): Promise<Response> {
     }
 
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-
     return json({
-      ok:        true,
-      elapsed_s: elapsed,
+      ok: true, elapsed_s: elapsed,
       summary: {
         total_in_library: allKeys.length,
         already_done:     alreadyDone.size,
         processed_now:    processed.length,
         failed:           failed.length,
       },
-      processed,
-      failed,
-      skipped: [...alreadyDone],
+      processed, failed, skipped: [...alreadyDone],
     }, 200, origin);
 
   } catch (err) {
@@ -383,7 +472,7 @@ async function handleIngest(req: Request, env: Env): Promise<Response> {
   }
 }
 
-// ── Chat ──────────────────────────────────────────────────────────────────────
+// ── Chat (Role-Aware RAG) ─────────────────────────────────────────────────────
 
 async function handleChat(req: Request, env: Env): Promise<Response> {
   const origin = req.headers.get('Origin') || '*';
@@ -394,6 +483,89 @@ async function handleChat(req: Request, env: Env): Promise<Response> {
 
   const body = await req.json() as Record<string, unknown>;
 
+  // ── Extract role fields sent by api.ts ────────────────────────────────────
+  const counselRole   = body.counsel_role  as CounselRole | undefined;
+  const matterTrack   = body.matter_track  as MatterTrack | undefined;
+  const ragFilter     = body.rag_filter    as Record<string, unknown> | undefined;
+  const ragTopK       = typeof body.rag_top_k    === 'number' ? body.rag_top_k    : 8;
+  const ragThreshold  = typeof body.rag_threshold === 'number' ? body.rag_threshold : 0.68;
+  const queryHint     = body.engine        as string | undefined;
+
+  // ── Build RAG query from last user message ────────────────────────────────
+  let libraryBlock = '';
+  const messages = body.messages as Array<{ role: string; content: string }> | undefined;
+  const lastUserMsg = messages?.filter(m => m.role === 'user').pop()?.content ?? '';
+
+  const queryText = [queryHint, lastUserMsg].filter(Boolean).join(' ').slice(0, 600);
+
+  if (queryText.trim()) {
+    try {
+      // 1. Embed the query
+      const embedResult = await env.AI.run('@cf/baai/bge-base-en-v1.5', {
+        text: [queryText.slice(0, 2048)],
+      }) as { data: number[][] };
+
+      const embedding = embedResult.data[0];
+
+      if (embedding && embedding.length > 0) {
+        // 2. Build role-scoped Vectorize query options
+        const queryOpts: VectorizeQueryOptions = {
+          topK:           Math.min(ragTopK, 20),
+          returnMetadata: 'all',
+        };
+
+        // Apply role filter — if counsel_role is provided, use it.
+        // Fall back to caller-supplied rag_filter, then no filter (shared only).
+        if (counselRole) {
+          queryOpts.filter = buildRoleFilter(counselRole) as VectorizeVectorMetadataFilter;
+        } else if (ragFilter) {
+          queryOpts.filter = ragFilter as VectorizeVectorMetadataFilter;
+        }
+
+        // Apply namespace if available
+        const ns = roleToNamespace(counselRole, matterTrack);
+        if (ns) queryOpts.namespace = ns;
+
+        // 3. Query Vectorize
+        const results = await env.VECTORIZE.query(embedding, queryOpts);
+        const matches  = (results.matches || []) as VectorMatch[];
+
+        // 4. For each match, fetch the chunk text from R2
+        const enrichedMatches = await Promise.all(
+          matches
+            .filter(m => (m.score ?? 0) >= ragThreshold)
+            .slice(0, ragTopK)
+            .map(async (m) => {
+              const chunkKey = m.metadata?.chunk_key as string | undefined;
+              if (chunkKey) {
+                try {
+                  const obj = await env.R2.get(chunkKey);
+                  if (obj) {
+                    const text = await obj.text();
+                    return { ...m, metadata: { ...m.metadata, chunk_text: text } };
+                  }
+                } catch { /* chunk missing — use metadata only */ }
+              }
+              return m;
+            })
+        );
+
+        // 5. Format library block for system prompt injection
+        libraryBlock = formatLibraryBlock(enrichedMatches, counselRole);
+      }
+    } catch {
+      // RAG failed — proceed without library context rather than blocking the call
+      libraryBlock = '';
+    }
+  }
+
+  // ── Build system prompt — inject library block before role system ─────────
+  const baseSystem   = body.system as string | undefined ?? '';
+  const effectiveSystem = libraryBlock
+    ? `${libraryBlock}\n\n${baseSystem}`
+    : baseSystem;
+
+  // ── Call Anthropic ────────────────────────────────────────────────────────
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -404,7 +576,7 @@ async function handleChat(req: Request, env: Env): Promise<Response> {
     body: JSON.stringify({
       model:      body.model      ?? 'claude-sonnet-4-6',
       max_tokens: body.max_tokens ?? 1500,
-      system:     body.system,
+      system:     effectiveSystem || undefined,
       messages:   body.messages,
     }),
   });
@@ -430,10 +602,10 @@ async function handleEmbed(req: Request, env: Env): Promise<Response> {
 async function handleQuery(req: Request, env: Env): Promise<Response> {
   const origin = req.headers.get('Origin') || '*';
   const body = await req.json() as {
-    embedding?:      number[];
-    topK?:           number;
-    namespace?:      string;
-    filter?:         Record<string, string>;
+    embedding?: number[];
+    topK?:      number;
+    namespace?: string;
+    filter?:    Record<string, unknown>;
   };
   if (!body.embedding || !Array.isArray(body.embedding)) {
     return json({ error: 'embedding array is required' }, 400, origin);
@@ -443,7 +615,7 @@ async function handleQuery(req: Request, env: Env): Promise<Response> {
     returnMetadata: 'all',
   };
   if (body.namespace) queryOpts.namespace = body.namespace;
-  if (body.filter)    queryOpts.filter    = body.filter;
+  if (body.filter)    queryOpts.filter    = body.filter as VectorizeVectorMetadataFilter;
   const results = await env.VECTORIZE.query(body.embedding, queryOpts);
   return json({ matches: results.matches }, 200, origin);
 }
@@ -623,14 +795,9 @@ async function handleUploadEvidenceFile(req: Request, env: Env): Promise<Respons
   const id     = url.searchParams.get('id');
   const caseId = url.searchParams.get('caseId');
   if (!id || !caseId) return json({ error: 'id and caseId are required' }, 400, origin);
-
   const contentType = req.headers.get('Content-Type') || 'application/octet-stream';
   const key = `evidence/${caseId}/${id}`;
-
-  await env.R2.put(key, req.body, {
-    httpMetadata: { contentType },
-  });
-
+  await env.R2.put(key, req.body, { httpMetadata: { contentType } });
   return json({ ok: true, key }, 200, origin);
 }
 
@@ -640,11 +807,9 @@ async function handleGetEvidenceFile(req: Request, env: Env): Promise<Response> 
   const id     = url.searchParams.get('id');
   const caseId = url.searchParams.get('caseId');
   if (!id || !caseId) return json({ error: 'id and caseId are required' }, 400, origin);
-
   const key = `evidence/${caseId}/${id}`;
   const obj = await env.R2.get(key);
   if (!obj) return json({ error: 'File not found' }, 404, origin);
-
   const headers = new Headers(cors(origin));
   headers.set('Content-Type', obj.httpMetadata?.contentType || 'application/octet-stream');
   headers.set('Content-Disposition', `inline; filename="${id}"`);
@@ -657,7 +822,6 @@ async function handleDeleteEvidenceFile(req: Request, env: Env): Promise<Respons
   const id     = url.searchParams.get('id');
   const caseId = url.searchParams.get('caseId');
   if (!id || !caseId) return json({ error: 'id and caseId are required' }, 400, origin);
-
   await env.R2.delete(`evidence/${caseId}/${id}`);
   return json({ ok: true }, 200, origin);
 }
