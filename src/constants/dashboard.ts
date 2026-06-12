@@ -47,6 +47,8 @@ export const DASH_TABS: DashTab[] = [
   { id: 'pleadings',    icon: '📜', label: 'Pleadings',    desc: 'Civil pleadings engine. Claimant: draft Statement of Claim, monitor SoD, flag default judgment opportunity, respond to counterclaim. Defendant: draft Statement of Defence, build counterclaim, identify preliminary objection grounds.', step: null },
   { id: 'motions',      icon: '⚖',  label: 'Motions',      desc: 'Civil motions and applications engine. Claimant: default judgment, summary judgment, injunction. Defendant: preliminary objection, strike out, stay of proceedings, security for costs. Track all applications.', step: null },
   { id: 'enforcement',  icon: '→',  label: 'Enforcement',  desc: 'Civil enforcement engine. Claimant: select enforcement mechanism, draft Writ of FIFA or Garnishee Order Nisi, track recovery. Defendant: seek stay of execution, track compliance obligations, develop appeal grounds.', step: null },
+  // ── Phase 7 Automation — Role-specific Alerts ───────────────────────────────
+  { id: 'alerts', icon: '🔔', label: 'Alerts', desc: 'Role-specific automated alert system. Monitors matter state, deadlines, and docket entries to surface precisely targeted alerts from your exact position — claimant, defendant, prosecution, or defence. Static rule-based alerts plus AI-generated intelligence alerts from docket narrative.', step: null },
 ];
 
 /** Case document types for the docket entry form */
