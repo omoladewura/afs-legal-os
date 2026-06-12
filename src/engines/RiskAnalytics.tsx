@@ -13,6 +13,7 @@ import React, { useState, useEffect } from 'react';
 import type { Case } from '@/types';
 import { T } from '@/constants/tokens';
 import { callClaude } from '@/services/api';
+import { buildRoleLibraryOpts } from '@/utils/roleLibrary';
 import { loadBlindSpot, saveBlindSpot } from '@/storage/helpers';
 import { buildRoleSystemPrompt } from '@/utils/rolePrompt';
 
@@ -325,7 +326,7 @@ export function RiskAnalytics({ activeCase }: Props) {
     setError('');
     setAnimated(false);
     try {
-      const raw    = await callClaude({ system: buildRoleSystemPrompt(activeCase.matter_track, activeCase.counsel_role) + '\n\n' + RISK_SYSTEM, userMsg: `Case Stage: ${stage}\n\nCase Facts:\n${facts}`, maxTokens: 1200 });
+      const raw    = await callClaude({ system: buildRoleSystemPrompt(activeCase.matter_track, activeCase.counsel_role) + '\n\n' + RISK_SYSTEM, userMsg: `Case Stage: ${stage}\n\nCase Facts:\n${facts}`, maxTokens: 1200, matter_track: activeCase.matter_track, counsel_role: activeCase.counsel_role, libraryOpts: buildRoleLibraryOpts(activeCase.matter_track, activeCase.counsel_role, 'risk analytics litigation risk assessment') });
       const clean  = raw.replace(/^```json\s*/, '').replace(/```\s*$/, '').trim();
       const parsed = JSON.parse(clean) as Omit<RiskResult, 'timestamp' | 'stage'>;
       const withMeta: RiskResult = { ...parsed, timestamp: Date.now(), stage };

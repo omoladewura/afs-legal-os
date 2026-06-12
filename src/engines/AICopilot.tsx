@@ -18,6 +18,7 @@ import type { Case, ApiMessage } from '@/types';
 import { T } from '@/constants/tokens';
 import { CLAUDE_MODEL } from '@/services/api';
 import { queryLibrary, deriveQuery } from '@/services/library';
+import { buildRoleLibraryOpts } from '@/utils/roleLibrary';
 import { Md } from '@/components/common/ui';
 import {
   buildRoleSystemPrompt,
@@ -139,7 +140,9 @@ export function AICopilot({ activeCase }: Props) {
     try {
       const query = deriveQuery(baseSystem, txt);
       if (query.trim()) {
-        const lib = await queryLibrary(query, { topK: 8, threshold: 0.70 });
+        // Role-aware retrieval: filter Vectorize to role-appropriate materials
+        const roleLibOpts = buildRoleLibraryOpts(matterTrack, counselRole, txt.slice(0, 150));
+        const lib = await queryLibrary(query, roleLibOpts);
         if (lib.ok && lib.block) {
           effectiveSystem = `${lib.block}\n\n${baseSystem}`;
         }
@@ -149,10 +152,14 @@ export function AICopilot({ activeCase }: Props) {
     }
 
     const reqBody = {
-      model:      CLAUDE_MODEL,
-      max_tokens: 2500,
-      system:     effectiveSystem,
-      messages:   history,
+      model:        CLAUDE_MODEL,
+      max_tokens:   2500,
+      system:       effectiveSystem,
+      messages:     history,
+      // Role context — enables Worker-side role-aware retrieval
+      counsel_role: counselRole  ?? undefined,
+      matter_track: matterTrack  ?? undefined,
+      engine:       counselRole  ? `copilot_${counselRole}` : 'copilot',
     };
 
     try {
