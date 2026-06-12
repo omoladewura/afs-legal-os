@@ -25,9 +25,11 @@ export async function callClaude(opts: ApiRequestOptions): Promise<string> {
     system,
     userMsg,
     messages,
-    maxTokens   = 1500,
-    mcpDrive    = false,
-    libraryOpts = {},
+    maxTokens    = 1500,
+    mcpDrive     = false,
+    libraryOpts  = {},
+    matter_track,
+    counsel_role,
   } = opts;
 
   const msgs: ApiMessage[] = messages
@@ -44,13 +46,19 @@ export async function callClaude(opts: ApiRequestOptions): Promise<string> {
     engine:     libraryOpts.queryHint || 'unknown',
   };
 
-  if (system)    body.system = system;
-  if (mcpDrive)  body.mcp_servers = [{
+  if (system)       body.system       = system;
+  if (mcpDrive)     body.mcp_servers = [{
     type: 'url',
     url:  'https://drivemcp.googleapis.com/mcp/v1',
     name: 'google-drive',
   }];
-  if (libraryOpts.namespace) body.jurisdiction = libraryOpts.namespace;
+  if (libraryOpts.namespace)  body.jurisdiction  = libraryOpts.namespace;
+  if (libraryOpts.filter)     body.rag_filter    = libraryOpts.filter;
+  if (libraryOpts.topK)       body.rag_top_k     = libraryOpts.topK;
+  if (libraryOpts.threshold)  body.rag_threshold = libraryOpts.threshold;
+  // Role context — sent to Worker for role-aware retrieval and logging
+  if (counsel_role)   body.counsel_role  = counsel_role;
+  if (matter_track)   body.matter_track  = matter_track;
 
   let res: Response;
   try {
