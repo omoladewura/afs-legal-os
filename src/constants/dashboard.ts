@@ -41,6 +41,8 @@ export const DASH_TABS: DashTab[] = [
   // ── Phase 6B — Core Trial Engines ───────────────────────────────────────────
   { id: 'prosecution_case',   icon: '⚖', label: 'Prosecution Case',     desc: 'Prosecution: opening address, witness schedule, exhibit register, and evidence sufficiency audit. Defence: prosecution witness tracker, no-case threshold meter per count, objection log, and cross-examination preparation.', step: null },
   { id: 'no_case',            icon: '⚖', label: 'No-Case Submission',   desc: 'Defence: draft submission per count (Ajidagba/Ibeziako standard), build authorities, and track ruling. Prosecution: draft response, build per-count evidence summary, and route from ruling outcome.', step: null },
+  // ── Phase 6C — Sentencing Engine ────────────────────────────────────────────
+  { id: 'sentencing',         icon: '⚖', label: 'Sentencing',            desc: 'Prosecution: aggravating factors builder, sentencing address drafter, and appeal assessment. Defence: allocutus drafter, mitigation address (Ogundipe factors), and ACJA appeal deadline countdown.', step: null },
 ];
 
 /** Case document types for the docket entry form */
