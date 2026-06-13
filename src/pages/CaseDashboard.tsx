@@ -195,10 +195,19 @@ export function CaseDashboard() {
   const nextActionResult = computeNextAction(activeCase, dashEntries, dashDeadlines);
   const nextAction = nextActionResult.action;
 
-  // ── Role accent ──────────────────────────────────────────────────────────
-  const roleAccent = counselRole ? COUNSEL_ROLE_COLORS[counselRole].col : '#888888';
-  const roleBg     = counselRole ? COUNSEL_ROLE_COLORS[counselRole].bg  : '#0a0a14';
-  const roleBdr    = counselRole ? COUNSEL_ROLE_COLORS[counselRole].bdr : '#1e1e2e';
+  // ── Role accent — light tints for white newspaper canvas ─────────────────
+  // We derive tinted backgrounds from the role colour rather than using the
+  // dark-theme bg values which were designed for a near-black canvas.
+  const ROLE_ACCENT_LIGHT: Record<string, { col: string; bg: string; bdr: string }> = {
+    claimant_side:  { col: '#1a4a8a', bg: '#edf3fb', bdr: '#b8cfe8' },
+    defendant_side: { col: '#7a1a1a', bg: '#fbeaea', bdr: '#e0b8b8' },
+    prosecution:    { col: '#7a4a00', bg: '#fdf3e0', bdr: '#e0cfa0' },
+    defence:        { col: '#1a5a30', bg: '#e8f5ee', bdr: '#a8d0b8' },
+  };
+  const roleColors  = counselRole ? ROLE_ACCENT_LIGHT[counselRole] : null;
+  const roleAccent  = roleColors?.col  ?? '#444444';
+  const roleBg      = roleColors?.bg   ?? '#f5f5f5';
+  const roleBdr     = roleColors?.bdr  ?? '#cccccc';
 
   return (
     <div style={{ animation: 'fadeUp .3s ease' }}>
@@ -210,30 +219,30 @@ export function CaseDashboard() {
         borderBottom: `1px solid ${T.bdr}`,
       }}>
         <p style={{
-          fontSize: 9, color: T.mute, fontFamily: 'Inter, sans-serif',
-          letterSpacing: '.18em', textTransform: 'uppercase', marginBottom: 4,
+          fontSize: 9, color: T.mute,
+          fontFamily: "'Times New Roman', Times, serif",
+          letterSpacing: '.18em', textTransform: 'uppercase', marginBottom: 5,
         }}>
           Active Matter
         </p>
         <h2 style={{
-          fontSize: 22, color: T.text,
-          fontFamily: "'Cormorant Garamond', serif",
-          fontWeight: 300, marginBottom: 8,
+          fontSize: 26, color: T.text,
+          fontFamily: "'Times New Roman', Times, serif",
+          fontWeight: 700, fontStyle: 'italic', marginBottom: 10,
+          lineHeight: 1.2,
         }}>
           {activeCase.caseName}
         </h2>
 
         {/* Badges row */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
           {/* Track badge */}
           {matterTrack && (
             <span style={{
-              fontSize: 9, padding: '3px 8px', borderRadius: 3,
-              fontFamily: 'Inter, sans-serif', fontWeight: 700,
+              fontSize: 9, padding: '2px 8px', borderRadius: 2,
+              fontFamily: "'Times New Roman', Times, serif", fontWeight: 700,
               letterSpacing: '.1em', textTransform: 'uppercase',
-              background: MATTER_TRACK_COLORS[matterTrack].bg,
-              border: `1px solid ${MATTER_TRACK_COLORS[matterTrack].bdr}`,
-              color: MATTER_TRACK_COLORS[matterTrack].col,
+              background: '#f0f0ee', border: '1px solid #cccccc', color: '#444444',
             }}>
               {MATTER_TRACK_LABELS[matterTrack]}
             </span>
@@ -241,20 +250,20 @@ export function CaseDashboard() {
           {/* Role badge — permanently visible */}
           {counselRole && (
             <span style={{
-              fontSize: 9, padding: '3px 8px', borderRadius: 3,
-              fontFamily: 'Inter, sans-serif', fontWeight: 700,
+              fontSize: 9, padding: '2px 8px', borderRadius: 2,
+              fontFamily: "'Times New Roman', Times, serif", fontWeight: 700,
               letterSpacing: '.07em', textTransform: 'uppercase',
-              background: roleBg,
-              border: `1px solid ${roleBdr}`,
-              color: roleAccent,
+              background: roleBg, border: `1px solid ${roleBdr}`, color: roleAccent,
             }}>
               {posConfig?.icon} {COUNSEL_ROLE_LABELS[counselRole]}
             </span>
           )}
           {/* Court and suit */}
-          <p style={{ fontSize: 12, color: T.mute, fontFamily: 'Inter, sans-serif', margin: 0 }}>
-            {[activeCase.court, activeCase.suitNo].filter(Boolean).join(' · ')}
-          </p>
+          {(activeCase.court || activeCase.suitNo) && (
+            <p style={{ fontSize: 12, color: T.mute, fontFamily: "'Times New Roman', Times, serif", margin: 0 }}>
+              {[activeCase.court, activeCase.suitNo].filter(Boolean).join(' · ')}
+            </p>
+          )}
         </div>
 
         {/* ── Next Action strip — dynamic, role + stage aware ──────────────── */}
@@ -262,17 +271,17 @@ export function CaseDashboard() {
           <div style={{
             display: 'flex', alignItems: 'flex-start', gap: 10,
             padding: '10px 14px',
-            background: `${roleAccent}0d`,
-            border: `1px solid ${nextActionResult.hasOverdueDeadlines ? '#c05050' : roleAccent}30`,
-            borderRadius: 6,
-            marginBottom: 12,
+            background: roleBg,
+            border: `1px solid ${nextActionResult.hasOverdueDeadlines ? '#e8b0b0' : roleBdr}`,
+            borderRadius: 4,
+            marginBottom: 14,
           }}>
             <span style={{ fontSize: 12, color: roleAccent, flexShrink: 0, marginTop: 1 }}>→</span>
             <div style={{ flex: 1 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 2 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 3 }}>
                 <span style={{
                   fontSize: 8, color: roleAccent,
-                  fontFamily: 'Inter, sans-serif',
+                  fontFamily: "'Times New Roman', Times, serif",
                   letterSpacing: '.12em', textTransform: 'uppercase',
                   fontWeight: 700,
                 }}>
@@ -280,40 +289,41 @@ export function CaseDashboard() {
                 </span>
                 {nextActionResult.currentStageLabel && (
                   <span style={{
-                    fontSize: 8, color: `${roleAccent}99`,
-                    fontFamily: 'Inter, sans-serif',
+                    fontSize: 8, color: '#666666',
+                    fontFamily: "'Times New Roman', Times, serif",
                     letterSpacing: '.06em',
-                    border: `1px solid ${roleAccent}28`,
-                    padding: '1px 6px', borderRadius: 3,
+                    border: '1px solid #cccccc',
+                    background: '#ffffff',
+                    padding: '1px 6px', borderRadius: 2,
                   }}>
                     {nextActionResult.currentStageLabel}
                   </span>
                 )}
                 {nextActionResult.urgency?.level === 'HIGH' && (
                   <span style={{
-                    fontSize: 8, color: '#c05050',
-                    fontFamily: 'Inter, sans-serif',
+                    fontSize: 8, color: '#8a1a1a',
+                    fontFamily: "'Times New Roman', Times, serif",
                     fontWeight: 700, letterSpacing: '.08em',
-                    border: '1px solid #4a1818', background: '#1a0808',
-                    padding: '1px 6px', borderRadius: 3,
+                    border: '1px solid #e8b0b0', background: '#fff0f0',
+                    padding: '1px 6px', borderRadius: 2,
                   }}>
                     ⚠ URGENT
                   </span>
                 )}
               </div>
               <span style={{
-                fontSize: 12, color: T.sub,
+                fontSize: 13, color: '#111111',
                 fontFamily: "'Times New Roman', Times, serif",
-                lineHeight: 1.5, display: 'block',
+                lineHeight: 1.55, display: 'block',
               }}>
                 {nextAction}
               </span>
               {nextActionResult.urgency && (
                 <span style={{
-                  fontSize: 10,
-                  color: nextActionResult.urgency.level === 'HIGH' ? '#c05050' : '#b07030',
-                  fontFamily: 'Inter, sans-serif', lineHeight: 1.4,
-                  display: 'block', marginTop: 4,
+                  fontSize: 11,
+                  color: nextActionResult.urgency.level === 'HIGH' ? '#8a1a1a' : '#7a4a00',
+                  fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.4,
+                  display: 'block', marginTop: 4, fontStyle: 'italic',
                 }}>
                   {nextActionResult.urgency.note}
                 </span>
@@ -324,22 +334,22 @@ export function CaseDashboard() {
               onClick={() => setDashTab('timeline')}
               title="View procedural timeline"
               style={{
-                background: 'transparent',
-                border: `1px solid ${roleAccent}30`,
+                background: '#ffffff',
+                border: `1px solid ${roleBdr}`,
                 color: roleAccent,
-                borderRadius: 4, padding: '4px 10px',
-                fontSize: 9, fontFamily: 'Inter, sans-serif',
-                cursor: 'pointer', letterSpacing: '.06em',
+                borderRadius: 3, padding: '4px 10px',
+                fontSize: 10, fontFamily: "'Times New Roman', Times, serif",
+                cursor: 'pointer', letterSpacing: '.04em',
                 flexShrink: 0, alignSelf: 'flex-start',
                 marginTop: 1, transition: 'all .15s',
               }}
               onMouseEnter={e => {
-                (e.currentTarget as HTMLElement).style.background = `${roleAccent}18`;
-                (e.currentTarget as HTMLElement).style.borderColor = `${roleAccent}60`;
+                (e.currentTarget as HTMLElement).style.background = roleBg;
+                (e.currentTarget as HTMLElement).style.borderColor = roleAccent;
               }}
               onMouseLeave={e => {
-                (e.currentTarget as HTMLElement).style.background = 'transparent';
-                (e.currentTarget as HTMLElement).style.borderColor = `${roleAccent}30`;
+                (e.currentTarget as HTMLElement).style.background = '#ffffff';
+                (e.currentTarget as HTMLElement).style.borderColor = roleBdr;
               }}
             >
               Timeline →
@@ -349,23 +359,23 @@ export function CaseDashboard() {
 
         {/* ── Role Quick Action bar ──────────────────────────────────────────── */}
         {quickActions && (
-          <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             {quickActions.map(qa => (
               <button
                 key={qa.tab + qa.label}
                 onClick={() => setDashTab(qa.tab)}
                 title={qa.hint}
                 style={{
-                  background: `${qa.accent}10`,
-                  border: `1px solid ${qa.accent}30`,
-                  borderRadius: 5,
-                  color: qa.accent,
-                  padding: '6px 13px',
+                  background: '#ffffff',
+                  border: '1px solid #cccccc',
+                  borderRadius: 3,
+                  color: roleAccent,
+                  padding: '5px 13px',
                   fontSize: 11,
-                  fontFamily: 'Inter, sans-serif',
+                  fontFamily: "'Times New Roman', Times, serif",
                   fontWeight: 600,
                   cursor: 'pointer',
-                  letterSpacing: '.04em',
+                  letterSpacing: '.03em',
                   display: 'flex',
                   alignItems: 'center',
                   gap: 5,
@@ -373,12 +383,12 @@ export function CaseDashboard() {
                   whiteSpace: 'nowrap',
                 }}
                 onMouseEnter={e => {
-                  (e.currentTarget as HTMLElement).style.background = `${qa.accent}22`;
-                  (e.currentTarget as HTMLElement).style.borderColor = `${qa.accent}60`;
+                  (e.currentTarget as HTMLElement).style.background = roleBg;
+                  (e.currentTarget as HTMLElement).style.borderColor = roleBdr;
                 }}
                 onMouseLeave={e => {
-                  (e.currentTarget as HTMLElement).style.background = `${qa.accent}10`;
-                  (e.currentTarget as HTMLElement).style.borderColor = `${qa.accent}30`;
+                  (e.currentTarget as HTMLElement).style.background = '#ffffff';
+                  (e.currentTarget as HTMLElement).style.borderColor = '#cccccc';
                 }}
               >
                 <span style={{ fontSize: 12 }}>{qa.icon}</span>
@@ -392,7 +402,7 @@ export function CaseDashboard() {
       {/* ── Tab bar — role-filtered ──────────────────────────────────────────── */}
       <div
         className="tab-scroll"
-        style={{ margin: '16px 0 24px', gap: 3, paddingBottom: 2 }}
+        style={{ margin: '18px 0 26px', gap: 2, paddingBottom: 0 }}
       >
         {visibleTabs.map(tab => {
           const isActive = dashTab === tab.id;
@@ -402,31 +412,45 @@ export function CaseDashboard() {
               onClick={() => setDashTab(tab.id as DashTabId)}
               style={{
                 flexShrink:    0,
-                background:    isActive ? (counselRole ? `${roleAccent}12` : '#0e0e1e') : 'transparent',
-                border:        `1px solid ${isActive ? (counselRole ? `${roleAccent}40` : '#2a2a3e') : 'transparent'}`,
-                color:         isActive ? (counselRole ? roleAccent : T.text) : T.mute,
-                borderRadius:  5,
-                padding:       '7px 14px',
-                fontSize:      11,
-                fontFamily:    'Inter, sans-serif',
+                background:    isActive ? '#e8e8e8' : 'transparent',
+                border:        '1px solid transparent',
+                borderBottom:  isActive ? '2px solid #e8e8e8' : '1px solid transparent',
+                marginBottom:  isActive ? '-2px' : '0',
+                color:         isActive ? '#111111' : '#888888',
+                borderRadius:  '3px 3px 0 0',
+                padding:       '6px 14px',
+                fontSize:      12,
+                fontFamily:    "'Times New Roman', Times, serif",
                 cursor:        'pointer',
-                letterSpacing: '.06em',
-                fontWeight:    600,
-                transition:    'all .15s',
+                letterSpacing: '.03em',
+                fontWeight:    isActive ? 700 : 400,
+                transition:    'background .15s, color .15s',
                 whiteSpace:    'nowrap',
                 display:       'flex',
                 alignItems:    'center',
                 gap:           5,
               }}
+              onMouseEnter={e => {
+                if (!isActive) {
+                  (e.currentTarget as HTMLElement).style.background = '#f0f0f0';
+                  (e.currentTarget as HTMLElement).style.color = '#333333';
+                }
+              }}
+              onMouseLeave={e => {
+                if (!isActive) {
+                  (e.currentTarget as HTMLElement).style.background = 'transparent';
+                  (e.currentTarget as HTMLElement).style.color = '#888888';
+                }
+              }}
             >
-              <span style={{ fontSize: 12 }}>{tab.icon}</span>
+              <span style={{ fontSize: 11 }}>{tab.icon}</span>
               {tab.label}
-              {/* Data-present indicators */}
+              {/* Data-present dots */}
               {tab.id === 'intelligence' && activeCase.intelligence_data?.intPkg && (
-                <span style={{ width: 4, height: 4, borderRadius: '50%', background: '#40a860', display: 'inline-block', flexShrink: 0 }} />
+                <span style={{ width: 4, height: 4, borderRadius: '50%', background: '#2a6a3a', display: 'inline-block', flexShrink: 0 }} />
               )}
               {tab.id === 'appeal' && (activeCase.appeal_data as any)?.package && (
-                <span style={{ width: 4, height: 4, borderRadius: '50%', background: '#8050d0', display: 'inline-block', flexShrink: 0 }} />
+                <span style={{ width: 4, height: 4, borderRadius: '50%', background: '#444444', display: 'inline-block', flexShrink: 0 }} />
               )}
             </button>
           );

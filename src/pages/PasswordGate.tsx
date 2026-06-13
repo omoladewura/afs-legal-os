@@ -27,27 +27,35 @@ export function PasswordGate() {
   return (
     <div className="pw-gate">
       <div style={{
-        width: '100%', maxWidth: 400,
+        width: '100%', maxWidth: 380,
         animation: shaking ? 'shake .3s ease' : 'fadeUp .4s ease',
       }}>
-        <div style={{ textAlign: 'center', marginBottom: 40 }}>
-          <p style={{
-            fontSize: 28, color: T.gold,
-            fontFamily: "'Cormorant Garamond', serif",
-            fontWeight: 300, letterSpacing: '.12em', marginBottom: 6,
+        {/* Masthead */}
+        <div style={{ textAlign: 'center', marginBottom: 44 }}>
+          <div style={{
+            borderTop: '3px solid #111111',
+            borderBottom: '1px solid #111111',
+            padding: '10px 0 8px',
+            marginBottom: 8,
           }}>
-            AFS | Advocates
-          </p>
+            <p style={{
+              fontSize: 30, color: '#111111',
+              fontFamily: "'Times New Roman', Times, serif",
+              fontWeight: 700, letterSpacing: '.06em',
+            }}>
+              AFS | Advocates
+            </p>
+          </div>
           <p style={{
-            fontSize: 10, color: T.mute,
-            fontFamily: 'Inter, sans-serif',
-            letterSpacing: '.2em', textTransform: 'uppercase',
+            fontSize: 10, color: '#888888',
+            fontFamily: "'Times New Roman', Times, serif",
+            letterSpacing: '.18em', textTransform: 'uppercase',
           }}>
-            Legal Case Intelligence OS · v11
+            Legal Intelligence OS · v11
           </p>
         </div>
 
-        <div style={{ marginBottom: 24 }}>
+        <div style={{ marginBottom: 20 }}>
           <label style={S.label}>Access Password</label>
           <input
             type="password"
@@ -62,8 +70,9 @@ export function PasswordGate() {
 
         {error && (
           <p style={{
-            fontSize: 13, color: '#c05050',
-            fontFamily: 'Inter, sans-serif', marginBottom: 12,
+            fontSize: 12, color: '#8a1a1a',
+            fontFamily: "'Times New Roman', Times, serif",
+            fontStyle: 'italic', marginBottom: 12,
           }}>
             {error}
           </p>
