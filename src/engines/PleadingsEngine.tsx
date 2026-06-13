@@ -34,7 +34,7 @@ import { COUNSEL_ROLE_COLORS } from '@/types';
 
 interface Props { activeCase: Case; }
 
-type ClaimSubTab = 'soc_drafter' | 'sod_monitor' | 'counterclaim_response' | 'default_flag';
+type ClaimSubTab = 'originating_process' | 'soc_drafter' | 'witness_statement' | 'sod_monitor' | 'counterclaim_response' | 'default_flag';
 type DefSubTab   = 'sod_drafter' | 'counterclaim_builder' | 'preliminary_objection' | 'reply_monitor';
 type SubTab      = ClaimSubTab | DefSubTab;
 
@@ -48,6 +48,15 @@ interface PleadingItem {
 }
 
 interface SavedData {
+  // Claimant — Originating Process
+  origProcessType?:    string;
+  origProcessContext?: string;
+  origProcessDraft?:   string;
+  // Claimant — Witness Statement
+  witnessName?:        string;
+  witnessRole?:        string;
+  witnessContext?:     string;
+  witnessStatDraft?:   string;
   // Claimant
   socContext?:          string;
   socDraft?:            string;
@@ -77,6 +86,8 @@ interface SavedData {
 const MODULE = 'pleadings_engine';
 
 const DEFAULT_DATA: SavedData = {
+  origProcessType: '', origProcessContext: '', origProcessDraft: '',
+  witnessName: '', witnessRole: '', witnessContext: '', witnessStatDraft: '',
   socContext: '', socDraft: '',
   sodReceivedDate: '', sodFiled: false,
   dtccContext: '', dtccDraft: '',
@@ -371,6 +382,296 @@ function daysSince(dateStr: string): number | null {
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return null;
   return Math.floor((Date.now() - d.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// C.1 NEW — ORIGINATING PROCESS DRAFTER (Claimant)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const PROCESS_TYPES = [
+  { id: 'writ_of_summons',     label: 'Writ of Summons',      desc: 'Standard originating process for most civil claims before the High Court. Endorsement of claim sets out cause of action and reliefs.' },
+  { id: 'originating_summons', label: 'Originating Summons',  desc: 'For matters unlikely to be disputed on facts — questions of law, construction of documents, administration of estates, mortgages.' },
+  { id: 'originating_motion',  label: 'Originating Motion',   desc: 'For applications authorised by statute to be commenced by motion — enforcement of fundamental rights, elections, judicial review.' },
+  { id: 'petition',            label: 'Petition',             desc: 'Divorce/matrimonial proceedings, winding-up of companies, election petitions before election petition tribunals.' },
+];
+
+function OriginatingProcessDrafter({ data, onSave, accent, ai }: { data: SavedData; onSave: (d: Partial<SavedData>) => void; accent: string; ai: ReturnType<typeof useAI> }) {
+  const [processType, setProcessType] = useState(data.origProcessType ?? '');
+  const [context, setContext]         = useState(data.origProcessContext ?? '');
+  const [draft, setDraft]             = useState(data.origProcessDraft ?? '');
+  const { ask, loading, error }       = ai;
+
+  const selected = PROCESS_TYPES.find(p => p.id === processType);
+
+  const run = useCallback(async () => {
+    const caseName = (window as any).__afsActiveCase?.caseName ?? '';
+    const court    = (window as any).__afsActiveCase?.court ?? 'High Court';
+    const prompt = `You are acting as Nigerian civil litigation counsel for the CLAIMANT side.
+
+Matter: ${caseName}
+Court: ${court}
+Originating Process Selected: ${selected?.label ?? processType}
+
+Instructions from counsel:
+${context}
+
+Draft a complete ${selected?.label ?? processType} in the correct Nigerian form for the court specified.
+
+STRUCTURE FOR ${(selected?.label ?? processType).toUpperCase()}:
+
+${processType === 'writ_of_summons' ? `
+1. Header: In the [Court] of [State] holden at [City]
+   Suit No: [to be assigned] — YYYY
+2. Parties block: BETWEEN [CLAIMANT NAME] — Claimant AND [DEFENDANT NAME] — Defendant
+3. WRIT OF SUMMONS preamble ordering the defendant to enter appearance
+4. ENDORSEMENT OF CLAIM: Numbered paragraphs stating:
+   a. The claim(s) — specific reliefs
+   b. The cause of action
+   c. Brief grounds
+5. Endorsement of amount claimed (if monetary)
+6. Issued at [Registry] on [date] — signature block for Registrar
+7. Solicitor's endorsement (counsel's name, address, firm, filing date)
+` : processType === 'originating_summons' ? `
+1. Header: In the [Court] holden at [City] — Suit No: [to be assigned]
+2. In the matter of: [subject matter e.g. "an Application under Order X Rule Y Lagos HCR"]
+3. Parties: [Applicant] — Applicant / [Respondent] — Respondent (if any)
+4. ORIGINATING SUMMONS — Let [Respondent/all persons concerned] attend before the Honourable Court…
+5. Questions for determination: numbered list of legal questions to be resolved
+6. Reliefs sought: numbered list corresponding to each question
+7. Grounds: brief statutory/legal basis for each question
+8. Affidavit in support reference
+9. Solicitor's endorsement and filing details
+` : processType === 'originating_motion' ? `
+1. Header: In the [Court] — Suit No: [to be assigned]
+2. Parties or ex parte designation
+3. NOTICE OF MOTION / APPLICATION — nature and statutory basis (e.g. Fundamental Rights (Enforcement Procedure) Rules 2009)
+4. Application paragraph: "TAKE NOTICE that [Applicant] shall apply to this Honourable Court…"
+5. For: numbered list of orders/declarations sought
+6. On the grounds that: numbered legal and factual grounds
+7. AND TAKE FURTHER NOTICE that on the hearing of this application, the Applicant will rely on: (affidavit, documents listed)
+8. Solicitor's endorsement and filing details
+` : `
+1. Header: In the [Tribunal/Court] — Petition No: [to be assigned]
+2. In the matter of: [subject e.g. divorce, winding-up]
+3. Petitioner and Respondent designation
+4. PETITION: numbered paragraphs setting out:
+   a. Jurisdiction and parties
+   b. Background facts supporting the petition
+   c. Grounds for the petition (statutory grounds where applicable)
+   d. Particulars of each ground
+5. Wherefore the Petitioner prays: numbered list of reliefs
+6. Verifying affidavit reference
+7. Solicitor's endorsement
+`}
+
+Nigerian form requirements:
+- Use correct court heading for the court specified
+- Include suit number placeholder [to be assigned]
+- Use formal Nigerian court language throughout
+- Every relief must be specifically and separately stated
+- Include counsel's name, firm, address for service on the endorsement
+- Flag any missing particulars with [COUNSEL TO SUPPLY: description]
+
+Return the complete draft originating process only.`;
+
+    const result = await ask({ userMsg: prompt, maxTokens: 2500 });
+    if (result) {
+      setDraft(result);
+      onSave({ origProcessType: processType, origProcessContext: context, origProcessDraft: result });
+    }
+  }, [processType, context, ask, onSave, selected]);
+
+  return (
+    <div>
+      <SectionTitle text="Originating Process Drafter" accent={accent} />
+      <p style={{ fontSize: 13, color: T.sub, fontFamily: "'Times New Roman', Times, serif", marginBottom: 18, lineHeight: 1.6 }}>
+        Select the correct originating process for this matter. The AI will draft the full process in Nigerian court form for the court on record.
+      </p>
+
+      {/* Process type selector */}
+      <div style={{ marginBottom: 20 }}>
+        <Label text="Select Originating Process Type" />
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 10 }}>
+          {PROCESS_TYPES.map(p => (
+            <button
+              key={p.id}
+              onClick={() => { setProcessType(p.id); onSave({ origProcessType: p.id }); }}
+              style={{
+                background:   processType === p.id ? `${accent}12` : '#ffffff',
+                border:       `1.5px solid ${processType === p.id ? accent : '#cccccc'}`,
+                borderRadius: 7, padding: '14px 16px', cursor: 'pointer', textAlign: 'left', transition: 'all .15s',
+              }}
+            >
+              <div style={{ fontSize: 13, color: processType === p.id ? accent : T.text, fontFamily: "'Times New Roman', Times, serif", fontWeight: 600, marginBottom: 5 }}>
+                {p.label}
+              </div>
+              <p style={{ fontSize: 11, color: T.mute, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.5, margin: 0 }}>{p.desc}</p>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {processType && (
+        <>
+          <div style={{ background: `${accent}08`, border: `1px solid ${accent}20`, borderRadius: 7, padding: '12px 16px', marginBottom: 18 }}>
+            <p style={{ fontSize: 12, color: accent, fontFamily: "'Times New Roman', Times, serif", margin: 0, lineHeight: 1.6 }}>
+              <strong>Selected:</strong> {selected?.label} — {selected?.desc}
+            </p>
+          </div>
+          <div style={{ marginBottom: 16 }}>
+            <Label text="Parties, Cause of Action, Reliefs & Any Special Instructions" />
+            <Textarea
+              value={context}
+              onChange={setContext}
+              rows={8}
+              placeholder={`Provide:\n• Full names and descriptions of all parties (claimant, defendant, capacity)\n• Court and division\n• Cause of action / claim type\n• Every specific relief sought (number them)\n• Relevant statute or rule authorising this process (if applicable)\n• Any special matters to be endorsed (amounts, pre-action notices complied with, etc.)`}
+            />
+          </div>
+          <Btn label={`Draft ${selected?.label ?? 'Originating Process'}`} onClick={run} loading={loading} accent={accent} off={!context.trim()} />
+        </>
+      )}
+
+      {error && <ErrorBlock message={error} />}
+      {draft && (
+        <ResultBlock
+          title={`${selected?.label ?? 'Originating Process'} — Draft`}
+          content={draft}
+          onClear={() => { setDraft(''); onSave({ origProcessDraft: '' }); }}
+          accent={accent}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// C.1 NEW — WITNESS STATEMENT ON OATH DRAFTER (Claimant)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function WitnessStatementDrafter({ data, onSave, accent, ai }: { data: SavedData; onSave: (d: Partial<SavedData>) => void; accent: string; ai: ReturnType<typeof useAI> }) {
+  const [witnessName, setWitnessName]   = useState(data.witnessName ?? '');
+  const [witnessRole, setWitnessRole]   = useState(data.witnessRole ?? '');
+  const [context, setContext]           = useState(data.witnessContext ?? '');
+  const [draft, setDraft]               = useState(data.witnessStatDraft ?? '');
+  const { ask, loading, error }         = ai;
+
+  const run = useCallback(async () => {
+    const caseName    = (window as any).__afsActiveCase?.caseName ?? '';
+    const court       = (window as any).__afsActiveCase?.court ?? 'High Court';
+    const intPkg      = (window as any).__afsActiveCase?.intelligence_data?.intPkg ?? '';
+
+    const prompt = `You are acting as Nigerian civil litigation counsel for the CLAIMANT side.
+
+Matter: ${caseName}
+Court: ${court}
+Witness: ${witnessName} (${witnessRole || 'witness for the claimant'})
+
+Intelligence Package (facts established):
+${intPkg ? intPkg.substring(0, 3000) : 'Not available — use the context below.'}
+
+Additional witness-specific facts and instructions:
+${context}
+
+Draft a complete Witness Statement on Oath for ${witnessName} in the Nigerian High Court format.
+
+STRUCTURE:
+1. Heading: IN THE [COURT] HOLDEN AT [CITY] — Suit No: [case number]
+   BETWEEN: [parties as in the originating process]
+
+2. WITNESS STATEMENT ON OATH OF [FULL NAME]
+
+3. Deponent's introduction paragraph:
+   "I, [FULL NAME], of [address], do hereby make oath and state as follows:"
+
+4. Personal details paragraph: name, occupation, address, relationship to the matter / capacity as witness
+
+5. Substantive testimony — numbered paragraphs:
+   - Each paragraph covers ONE factual point only
+   - State facts within the witness's personal knowledge
+   - Reference exhibits as Exhibit "[letter]" (e.g. Exhibit "A")
+   - Use first person throughout ("I was present at…", "I saw…", "I received…")
+   - Distinguish between direct knowledge and information/belief (state source for the latter)
+   - Cover all material facts relevant to every head of claim
+   - Connect each factual point to the reliefs sought where possible
+
+6. List of exhibits: "Attached hereto and marked Exhibit 'A', 'B', etc. are the following documents: [list]"
+
+7. Deponent's affirmation:
+   "The contents of this witness statement are true to the best of my knowledge, information and belief."
+   Deponent's signature block: [Signature] / [Name] / [Date]
+
+8. Jurat:
+   SWORN to at [City] this [day] day of [month], [year]
+   Before me: ________________________________
+   Commissioner for Oaths / Notary Public
+
+Nigerian evidence rules:
+- Every exhibit must be identified and listed
+- Hearsay must be attributed ("I was informed by X that…")  
+- Expert opinion paragraphs must state the basis
+- No argument or legal conclusions in the body — facts only
+
+Return the complete witness statement draft only.`;
+
+    const result = await ask({ userMsg: prompt, maxTokens: 2500 });
+    if (result) {
+      setDraft(result);
+      onSave({ witnessName, witnessRole, witnessContext: context, witnessStatDraft: result });
+    }
+  }, [witnessName, witnessRole, context, ask, onSave]);
+
+  return (
+    <div>
+      <SectionTitle text="Witness Statement on Oath" accent={accent} />
+      <p style={{ fontSize: 13, color: T.sub, fontFamily: "'Times New Roman', Times, serif", marginBottom: 18, lineHeight: 1.6 }}>
+        Draft a complete sworn witness statement for any witness in this matter. The AI draws from the Intelligence Package and the facts you provide.
+      </p>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+        <div>
+          <Label text="Witness Full Name" />
+          <Input value={witnessName} onChange={setWitnessName} placeholder="e.g. Chukwuemeka Obi" />
+        </div>
+        <div>
+          <Label text="Witness Role / Capacity" />
+          <Input value={witnessRole} onChange={setWitnessRole} placeholder="e.g. 1st Claimant, Managing Director, Claimant's agent" />
+        </div>
+      </div>
+
+      <div style={{ marginBottom: 16 }}>
+        <Label text="Facts to Be Covered in the Statement" />
+        <Textarea
+          value={context}
+          onChange={setContext}
+          rows={8}
+          placeholder={`Set out the key facts this witness will testify to:\n• What the witness saw, did, heard, or received — with dates\n• Documents in the witness's possession (list them — they become exhibits)\n• Any transactions the witness was party to\n• What the witness can say about each head of claim\n• Any admissions or prior communications relevant to the case\n\nNote: If an Intelligence Package exists, it will also inform the draft.`}
+        />
+      </div>
+
+      <div style={{ marginBottom: 20, background: '#08080e', border: `1px solid ${accent}15`, borderRadius: 6, padding: '10px 14px' }}>
+        <p style={{ fontSize: 11, color: T.mute, fontFamily: "'Times New Roman', Times, serif", margin: 0, lineHeight: 1.6 }}>
+          ⚖ <strong style={{ color: T.sub }}>Note:</strong> This witness statement must be sworn before a Commissioner for Oaths or Notary Public before it may be filed. Counsel must review and confirm all factual averments with the deponent before swearing.
+        </p>
+      </div>
+
+      <Btn
+        label="Draft Witness Statement on Oath"
+        onClick={run}
+        loading={loading}
+        accent={accent}
+        off={!witnessName.trim() || !context.trim()}
+      />
+      {error && <ErrorBlock message={error} />}
+      {draft && (
+        <ResultBlock
+          title={`Witness Statement — ${witnessName || 'Draft'}`}
+          content={draft}
+          onClear={() => { setDraft(''); onSave({ witnessStatDraft: '' }); }}
+          accent={accent}
+        />
+      )}
+    </div>
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -982,7 +1283,9 @@ export function PleadingsEngine({ activeCase }: Props) {
   (window as any).__afsActiveCase = activeCase;
 
   const claimTabs = [
+    { id: 'originating_process',   label: 'Originating Process' },
     { id: 'soc_drafter',           label: 'SoC Drafter' },
+    { id: 'witness_statement',     label: 'Witness Statement' },
     { id: 'sod_monitor',           label: 'SoD Monitor' },
     { id: 'counterclaim_response', label: 'Counterclaim Response' },
     { id: 'default_flag',          label: 'Default Flag' },
@@ -998,7 +1301,7 @@ export function PleadingsEngine({ activeCase }: Props) {
   const tabs = isClaim ? claimTabs : defTabs;
 
   const [activeTab, setActiveTab] = useState<SubTab>(
-    isClaim ? 'soc_drafter' : 'sod_drafter'
+    isClaim ? 'originating_process' : 'sod_drafter'
   );
 
   const [data, setData]       = useState<SavedData>(DEFAULT_DATA);
@@ -1065,7 +1368,7 @@ export function PleadingsEngine({ activeCase }: Props) {
         </div>
         <p style={{ fontSize: 13, color: T.mute, fontFamily: "'Times New Roman', Times, serif", margin: 0 }}>
           {isClaim
-            ? 'Draft pleadings, monitor the defendant\'s response, and track default judgment opportunities.'
+            ? 'Draft originating processes, pleadings, and witness statements. Monitor the defendant\'s response and track default judgment opportunities.'
             : 'Draft your defence, build counterclaims, identify preliminary objection grounds, and track pleadings.'}
         </p>
       </div>
@@ -1076,7 +1379,9 @@ export function PleadingsEngine({ activeCase }: Props) {
       {/* Content */}
       <div>
         {/* CLAIMANT tabs */}
+        {isClaim && activeTab === 'originating_process'   && <OriginatingProcessDrafter   {...sharedProps} />}
         {isClaim && activeTab === 'soc_drafter'           && <SoCDrafter              {...sharedProps} />}
+        {isClaim && activeTab === 'witness_statement'     && <WitnessStatementDrafter     {...sharedProps} />}
         {isClaim && activeTab === 'sod_monitor'           && <SoDMonitor              {...sharedProps} />}
         {isClaim && activeTab === 'counterclaim_response' && <CounterclaimResponse    {...sharedProps} />}
         {isClaim && activeTab === 'default_flag'          && <DefaultFlag             {...sharedProps} />}

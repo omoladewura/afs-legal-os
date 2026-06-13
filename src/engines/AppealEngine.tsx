@@ -18,6 +18,7 @@ import React, { useState } from 'react';
 import type { Case }       from '@/types';
 import { T }              from '@/constants/tokens';
 import { callClaude }   from '@/services/api';
+import { loadBlindSpot, saveBlindSpot } from '@/storage/helpers';
 import { Md }             from '@/components/common/ui';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -198,8 +199,422 @@ function ErrBanner({ error }: { error: string }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// MAIN COMPONENT
+// PHASE C.3 — APPEAL DOCUMENT DRAFTERS
+// Brief of Argument, Reply Brief, Respondent's Notice
 // ─────────────────────────────────────────────────────────────────────────────
+
+type AppealDocTab = 'brief_of_argument' | 'reply_brief' | 'respondents_notice';
+
+interface AppealDocData {
+  briefContext?:            string;
+  briefDraft?:              string;
+  replyBriefContext?:       string;
+  replyBriefDraft?:         string;
+  respondentsNoticeContext?: string;
+  respondentsNoticeDraft?:  string;
+}
+
+function AppealDocDrafters({
+  activeCase,
+  extraction,
+  intPkg,
+  appealCourt,
+  appealRole,
+}: {
+  activeCase: Case;
+  extraction: Extraction | null;
+  intPkg:     string;
+  appealCourt: string;
+  appealRole:  string;
+}) {
+  const [activeDocTab, setActiveDocTab] = useState<AppealDocTab>('brief_of_argument');
+  const [docData, setDocData]           = useState<AppealDocData>({});
+  const [loading, setLoading]           = useState(false);
+  const [error, setError]               = useState('');
+
+  const docTabs: { id: AppealDocTab; label: string }[] = [
+    { id: 'brief_of_argument',  label: 'Brief of Argument' },
+    { id: 'reply_brief',        label: 'Reply Brief' },
+    { id: 'respondents_notice', label: "Respondent's Notice" },
+  ];
+
+  const isAppellant = appealRole === 'Appellant';
+
+  async function draftBrief() {
+    setLoading(true); setError('');
+    const groundsList = extraction?.grounds_identified
+      ?.map((g, i) => `Ground ${i + 1}: ${g.ground} [${g.strength}] — ${g.basis}`)
+      .join('\n') ?? 'Not yet extracted — extract appellate intelligence first.';
+
+    const issuesList = extraction?.issues_for_determination?.join('\n') ?? '';
+
+    const prompt = `You are a Senior Appellate Counsel at AFS Advocates drafting the ${isAppellant ? "Appellant's" : "Respondent's"} Brief of Argument.
+
+Case: ${activeCase.caseName}
+Appeal Court: ${appealCourt}
+Our Role: ${appealRole}
+Matter Track: ${activeCase.matter_track ?? 'civil'}
+Trial Role: ${activeCase.counsel_role ?? 'claimant_side'}
+
+Extracted Grounds of Appeal:
+${groundsList}
+
+Issues for Determination:
+${issuesList}
+
+Appellate Intelligence Package (summary):
+${intPkg ? intPkg.substring(0, 2000) : 'Not yet generated.'}
+
+Counsel's additional instructions and specific arguments:
+${docData.briefContext || 'None provided — draft from extracted intelligence.'}
+
+Draft the complete ${isAppellant ? "Appellant's" : "Respondent's"} Brief of Argument in Nigerian appellate practice form.
+
+MANDATORY STRUCTURE:
+
+**COVER PAGE**
+IN THE [COURT]
+[APPEAL COURT NUMBER e.g. CA/L/XXX/YEAR]
+BETWEEN:
+[APPELLANT NAME] — Appellant
+AND
+[RESPONDENT NAME] — Respondent
+
+${isAppellant ? "APPELLANT'S" : "RESPONDENT'S"} BRIEF OF ARGUMENT
+
+[Counsel's name, firm, address for service]
+Date:
+
+---
+
+**TABLE OF CONTENTS** (list all sections with page references as [X])
+
+---
+
+**LIST OF CASES CITED** (alphabetical — Nigerian courts first, then others)
+
+---
+
+**LIST OF STATUTES AND RULES REFERRED TO**
+
+---
+
+**STATEMENT OF FACTS** (brief, factual, non-argumentative — what happened at the lower court)
+
+---
+
+**ISSUES FOR DETERMINATION**
+${isAppellant
+  ? 'Distil all grounds into the minimum number of precise issues. Each issue must be capable of resolving the appeal. Formulate as a question ending with a question mark.'
+  : 'Adopt or reformulate the Appellant\'s issues. Where adopted, state "Appellant\'s Issues are adopted." Where reformulated, state the reformulated issue.'}
+
+---
+
+**ARGUMENT**
+For each Issue:
+### ISSUE [N]: [Restate the issue]
+
+**Arguments:**
+- Lead with the applicable legal principle (cite authority)
+- Apply the principle to the facts of the case
+- Address the specific error(s) of the lower court (for Appellant) / why the decision was correct (for Respondent)
+- Cite relevant Nigerian Supreme Court and Court of Appeal decisions
+- Address any procedural or jurisdictional points first before merits
+
+---
+
+**CONCLUSION**
+Summarise the relief sought. Restate why the appeal should be allowed/dismissed. End with formal prayer to the court.
+
+---
+
+Nigerian brief-writing rules:
+- Every proposition of law must be supported by authority in brackets: (See: Case Name [year] NWLR Part Page ratio; s. X Statute)
+- Authorities must be Nigerian unless no Nigerian authority exists — then cite Commonwealth
+- No new grounds may be argued beyond those in the Notice of Appeal (for Appellant)
+- Flag any authority that requires RAG verification with [AUTHORITY TO VERIFY]
+- Issue formulation must match the grounds argued
+- Library Rule: Only cite authorities the engine can verify — flag uncertain citations
+
+Return the complete draft brief.`;
+
+    try {
+      const result = await callClaude({ userMsg: prompt, maxTokens: 4500,
+        matter_track: activeCase.matter_track, counsel_role: activeCase.counsel_role });
+      if (result) setDocData(p => ({ ...p, briefDraft: result }));
+    } catch (e: unknown) {
+      setError('Draft failed: ' + (e instanceof Error ? e.message : 'Unknown error'));
+    } finally { setLoading(false); }
+  }
+
+  async function draftReplyBrief() {
+    setLoading(true); setError('');
+    const prompt = `You are a Senior Appellate Counsel at AFS Advocates drafting a Reply Brief.
+
+Case: ${activeCase.caseName}
+Appeal Court: ${appealCourt}
+Our Role: ${appealRole}
+
+Appellant's Brief of Argument / new points raised by opposing side:
+${docData.replyBriefContext || 'Counsel has not yet pasted the opposing brief — draft a template structure with placeholders.'}
+
+Instructions from counsel:
+(Generate from whatever context is provided above.)
+
+Draft the Reply Brief in Nigerian appellate practice form.
+
+MANDATORY STRUCTURE:
+
+COVER PAGE (same format as main brief — headed "APPELLANT'S REPLY BRIEF")
+
+PRELIMINARY NOTE:
+State that this Reply Brief is filed pursuant to [applicable Court rule on reply briefs] and responds only to new points of law raised in the Respondent's Brief not covered in the Appellant's Brief.
+
+LIST OF CASES CITED IN REPLY
+
+ARGUMENT IN REPLY:
+For each new legal point raised by the Respondent (not already addressed in the main Brief):
+### Reply to [Respondent's Argument / Issue X]
+- Identify the new point being replied to
+- State why the Respondent's argument is wrong in law or fact
+- Cite authority
+- Distinguish any cases the Respondent relies upon
+
+IMPORTANT RULE: A Reply Brief may NOT introduce new grounds of appeal or new arguments not raised in the main Brief. If counsel identifies new arguments, flag them with [NEW ARGUMENT — CANNOT BE IN REPLY BRIEF — consider amending main Brief or seeking leave].
+
+CONCLUSION: Brief prayer restating the relief from the main Brief.
+
+Return the complete draft Reply Brief.`;
+
+    try {
+      const result = await callClaude({ userMsg: prompt, maxTokens: 3000,
+        matter_track: activeCase.matter_track, counsel_role: activeCase.counsel_role });
+      if (result) setDocData(p => ({ ...p, replyBriefDraft: result }));
+    } catch (e: unknown) {
+      setError('Draft failed: ' + (e instanceof Error ? e.message : 'Unknown error'));
+    } finally { setLoading(false); }
+  }
+
+  async function draftRespondentsNotice() {
+    setLoading(true); setError('');
+    const prompt = `You are a Senior Appellate Counsel at AFS Advocates drafting a Respondent's Notice.
+
+Case: ${activeCase.caseName}
+Appeal Court: ${appealCourt}
+Our Role: ${appealRole} (Respondent)
+
+Grounds on which the Respondent seeks to uphold the judgment on different/additional grounds:
+${docData.respondentsNoticeContext || 'Counsel instructions not yet provided — draft a template with placeholders.'}
+
+Draft a complete Respondent's Notice under Order [X] Rule [Y] of the ${appealCourt} Rules.
+
+STRUCTURE:
+
+HEADING: [Court heading, case number]
+RESPONDENT'S NOTICE
+Pursuant to Order [X] Rule [Y] of the [Court of Appeal / Supreme Court] Rules [Year]
+
+The Respondent, [Name], by this Notice states that the Respondent desires that the judgment of the lower court be affirmed on grounds other than or in addition to those relied on by that court.
+
+ADDITIONAL / ALTERNATIVE GROUNDS:
+[Numbered grounds — each ground must identify:]
+a. The legal proposition relied on
+b. How it supports affirmation of the decision (even if on different reasoning)
+c. The record reference
+
+PURPOSE NOTE: A Respondent's Notice is NOT a cross-appeal. It does not seek to improve the Respondent's position — it only seeks to uphold the existing judgment on different or additional reasoning. Flag any ground that actually seeks a better outcome than the judgment with [THIS REQUIRES A CROSS-APPEAL — NOT A RESPONDENT'S NOTICE].
+
+PRAYER: That the judgment of the lower court be affirmed.
+
+Signed: [Counsel's name, firm, address]
+Date:
+
+Return the complete draft Respondent's Notice.`;
+
+    try {
+      const result = await callClaude({ userMsg: prompt, maxTokens: 2000,
+        matter_track: activeCase.matter_track, counsel_role: activeCase.counsel_role });
+      if (result) setDocData(p => ({ ...p, respondentsNoticeDraft: result }));
+    } catch (e: unknown) {
+      setError('Draft failed: ' + (e instanceof Error ? e.message : 'Unknown error'));
+    } finally { setLoading(false); }
+  }
+
+  // ── Sub-tab bar ────────────────────────────────────────────────────────────
+  return (
+    <div style={{ animation: 'fadeUp .3s ease' }}>
+      <div style={{ marginBottom: 22 }}>
+        <p style={{ fontSize: 10, color: ACCL, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.16em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 4 }}>Appeal Documents · Phase C.3</p>
+        <h2 style={{ fontSize: 22, color: '#111111', fontFamily: "'Times New Roman', Times, serif", fontWeight: 300, marginBottom: 6 }}>Appeal Document Drafters</h2>
+        <p style={{ fontSize: 13, color: T.dim, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.6 }}>
+          Draft the full Brief of Argument, Reply Brief, and Respondent's Notice. These documents draw from the extracted grounds and intelligence package above.
+          {!extraction && <span style={{ color: '#c08030' }}> — Complete extraction (Step 3) first for the richest output.</span>}
+        </p>
+      </div>
+
+      {/* Doc tab bar */}
+      <div style={{ display: 'flex', gap: 4, marginBottom: 24, flexWrap: 'wrap' }}>
+        {docTabs.map(t => (
+          <button
+            key={t.id}
+            onClick={() => setActiveDocTab(t.id)}
+            style={{
+              background:   activeDocTab === t.id ? `${ACC}18` : 'transparent',
+              border:       `1px solid ${activeDocTab === t.id ? ACC : '#cccccc'}`,
+              color:        activeDocTab === t.id ? ACC : T.mute,
+              borderRadius: 5, padding: '6px 14px',
+              fontSize: 12, cursor: 'pointer',
+              fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.04em',
+              transition: 'all .15s',
+            }}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Brief of Argument */}
+      {activeDocTab === 'brief_of_argument' && (
+        <div>
+          <div style={{ fontSize: 11, color: ACC, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 14, borderBottom: `1px solid ${ACC}20`, paddingBottom: 8 }}>
+            {isAppellant ? "Appellant's" : "Respondent's"} Brief of Argument
+          </div>
+          <p style={{ fontSize: 13, color: T.sub, fontFamily: "'Times New Roman', Times, serif", marginBottom: 16, lineHeight: 1.6 }}>
+            The AI will draft the complete {isAppellant ? "Appellant's" : "Respondent's"} Brief using the extracted grounds, issues, and intelligence package. Add any specific arguments or instructions below.
+          </p>
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ display: 'block', fontSize: 11, color: T.mute, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.08em', textTransform: 'uppercase', marginBottom: 6 }}>Additional Arguments & Instructions (Optional)</label>
+            <textarea
+              value={docData.briefContext ?? ''}
+              onChange={e => setDocData(p => ({ ...p, briefContext: e.target.value }))}
+              rows={5}
+              placeholder="Any specific arguments, particular points to emphasise, authorities you want relied on, or issues you want the brief to lead with. Leave blank to generate purely from the extracted intelligence."
+              style={{ width: '100%', background: '#08080e', border: '1px solid #cccccc', borderRadius: 6, padding: '10px 14px', color: T.fg, fontSize: 13, fontFamily: "'Times New Roman', Times, serif", resize: 'vertical', boxSizing: 'border-box', outline: 'none' }}
+            />
+          </div>
+          <button
+            onClick={draftBrief}
+            disabled={loading}
+            style={{ background: loading ? '#101018' : `linear-gradient(135deg,#000000,${ACC})`, color: loading ? '#2a2a38' : '#f0ecff', border: 'none', borderRadius: 6, padding: '11px 26px', fontSize: 14, fontFamily: "'Times New Roman', Times, serif", cursor: loading ? 'not-allowed' : 'pointer', fontWeight: 600, letterSpacing: '.04em' }}
+          >
+            {loading ? '⟳ Drafting Brief…' : `Draft ${isAppellant ? "Appellant's" : "Respondent's"} Brief of Argument`}
+          </button>
+          {error && <div style={{ marginTop: 12, background: '#180808', border: '1px solid #401818', borderRadius: 5, padding: '10px 14px' }}><p style={{ color: '#c07070', fontSize: 13, fontFamily: "'Times New Roman', Times, serif" }}>{error}</p></div>}
+          {docData.briefDraft && (
+            <div style={{ marginTop: 18, background: '#08080e', border: `1px solid ${ACC}30`, borderRadius: 8, padding: '18px 20px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <span style={{ fontSize: 10, color: ACC, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 700 }}>
+                  {isAppellant ? "Appellant's" : "Respondent's"} Brief — Draft
+                </span>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <button onClick={() => navigator.clipboard?.writeText(docData.briefDraft!)} style={{ background: 'transparent', border: `1px solid ${ACC}30`, color: ACC, fontSize: 11, cursor: 'pointer', fontFamily: "'Times New Roman', Times, serif", borderRadius: 4, padding: '3px 10px' }}>copy</button>
+                  <button onClick={() => setDocData(p => ({ ...p, briefDraft: '' }))} style={{ background: 'transparent', border: 'none', color: T.mute, fontSize: 11, cursor: 'pointer', fontFamily: "'Times New Roman', Times, serif" }}>clear ×</button>
+                </div>
+              </div>
+              <Md text={docData.briefDraft} />
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Reply Brief */}
+      {activeDocTab === 'reply_brief' && (
+        <div>
+          <div style={{ fontSize: 11, color: ACC, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 14, borderBottom: `1px solid ${ACC}20`, paddingBottom: 8 }}>
+            Reply Brief
+          </div>
+          <p style={{ fontSize: 13, color: T.sub, fontFamily: "'Times New Roman', Times, serif", marginBottom: 8, lineHeight: 1.6 }}>
+            A Reply Brief responds only to new points of law raised in the Respondent's Brief that were not covered in the Appellant's Brief. Paste the opposing brief's key new arguments below.
+          </p>
+          <div style={{ marginBottom: 8, background: '#1a1000', border: '1px solid #3a2800', borderRadius: 6, padding: '10px 14px' }}>
+            <p style={{ fontSize: 11, color: '#c08030', fontFamily: "'Times New Roman', Times, serif", margin: 0, lineHeight: 1.6 }}>
+              ⚠ A Reply Brief cannot introduce new grounds or arguments not in the main Brief. The engine will flag any such issues.
+            </p>
+          </div>
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ display: 'block', fontSize: 11, color: T.mute, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.08em', textTransform: 'uppercase', marginBottom: 6 }}>New Points Raised in Respondent's Brief</label>
+            <textarea
+              value={docData.replyBriefContext ?? ''}
+              onChange={e => setDocData(p => ({ ...p, replyBriefContext: e.target.value }))}
+              rows={7}
+              placeholder="Paste or summarise the new legal arguments in the Respondent's Brief that require a reply. Identify each point clearly. Leave blank to generate a template structure."
+              style={{ width: '100%', background: '#08080e', border: '1px solid #cccccc', borderRadius: 6, padding: '10px 14px', color: T.fg, fontSize: 13, fontFamily: "'Times New Roman', Times, serif", resize: 'vertical', boxSizing: 'border-box', outline: 'none' }}
+            />
+          </div>
+          <button
+            onClick={draftReplyBrief}
+            disabled={loading}
+            style={{ background: loading ? '#101018' : `linear-gradient(135deg,#000000,${ACC})`, color: loading ? '#2a2a38' : '#f0ecff', border: 'none', borderRadius: 6, padding: '11px 26px', fontSize: 14, fontFamily: "'Times New Roman', Times, serif", cursor: loading ? 'not-allowed' : 'pointer', fontWeight: 600, letterSpacing: '.04em' }}
+          >
+            {loading ? '⟳ Drafting Reply Brief…' : 'Draft Reply Brief'}
+          </button>
+          {error && <div style={{ marginTop: 12, background: '#180808', border: '1px solid #401818', borderRadius: 5, padding: '10px 14px' }}><p style={{ color: '#c07070', fontSize: 13, fontFamily: "'Times New Roman', Times, serif" }}>{error}</p></div>}
+          {docData.replyBriefDraft && (
+            <div style={{ marginTop: 18, background: '#08080e', border: `1px solid ${ACC}30`, borderRadius: 8, padding: '18px 20px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <span style={{ fontSize: 10, color: ACC, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 700 }}>Reply Brief — Draft</span>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <button onClick={() => navigator.clipboard?.writeText(docData.replyBriefDraft!)} style={{ background: 'transparent', border: `1px solid ${ACC}30`, color: ACC, fontSize: 11, cursor: 'pointer', fontFamily: "'Times New Roman', Times, serif", borderRadius: 4, padding: '3px 10px' }}>copy</button>
+                  <button onClick={() => setDocData(p => ({ ...p, replyBriefDraft: '' }))} style={{ background: 'transparent', border: 'none', color: T.mute, fontSize: 11, cursor: 'pointer', fontFamily: "'Times New Roman', Times, serif" }}>clear ×</button>
+                </div>
+              </div>
+              <Md text={docData.replyBriefDraft} />
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Respondent's Notice */}
+      {activeDocTab === 'respondents_notice' && (
+        <div>
+          <div style={{ fontSize: 11, color: ACC, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 14, borderBottom: `1px solid ${ACC}20`, paddingBottom: 8 }}>
+            Respondent's Notice
+          </div>
+          <p style={{ fontSize: 13, color: T.sub, fontFamily: "'Times New Roman', Times, serif", marginBottom: 8, lineHeight: 1.6 }}>
+            A Respondent's Notice is used to uphold the judgment on additional or different grounds — without seeking a better outcome than the judgment already gives. It is not a cross-appeal.
+          </p>
+          <div style={{ marginBottom: 16, background: '#071810', border: '1px solid #1a4028', borderRadius: 6, padding: '10px 14px' }}>
+            <p style={{ fontSize: 11, color: '#40b068', fontFamily: "'Times New Roman', Times, serif", margin: 0, lineHeight: 1.6 }}>
+              ✓ Use this when: the lower court reached the right result but on the wrong or incomplete grounds, and you want to give the appellate court additional legal basis to affirm.
+            </p>
+          </div>
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ display: 'block', fontSize: 11, color: T.mute, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.08em', textTransform: 'uppercase', marginBottom: 6 }}>Additional / Alternative Grounds to Uphold the Judgment</label>
+            <textarea
+              value={docData.respondentsNoticeContext ?? ''}
+              onChange={e => setDocData(p => ({ ...p, respondentsNoticeContext: e.target.value }))}
+              rows={6}
+              placeholder="Identify the additional or different legal grounds on which the judgment should be upheld. e.g. 'The court was right to dismiss the claim but should also have found that the limitation period had expired under s. X.' Leave blank to generate a template."
+              style={{ width: '100%', background: '#08080e', border: '1px solid #cccccc', borderRadius: 6, padding: '10px 14px', color: T.fg, fontSize: 13, fontFamily: "'Times New Roman', Times, serif", resize: 'vertical', boxSizing: 'border-box', outline: 'none' }}
+            />
+          </div>
+          <button
+            onClick={draftRespondentsNotice}
+            disabled={loading}
+            style={{ background: loading ? '#101018' : `linear-gradient(135deg,#000000,${ACC})`, color: loading ? '#2a2a38' : '#f0ecff', border: 'none', borderRadius: 6, padding: '11px 26px', fontSize: 14, fontFamily: "'Times New Roman', Times, serif", cursor: loading ? 'not-allowed' : 'pointer', fontWeight: 600, letterSpacing: '.04em' }}
+          >
+            {loading ? "⟳ Drafting Notice…" : "Draft Respondent's Notice"}
+          </button>
+          {error && <div style={{ marginTop: 12, background: '#180808', border: '1px solid #401818', borderRadius: 5, padding: '10px 14px' }}><p style={{ color: '#c07070', fontSize: 13, fontFamily: "'Times New Roman', Times, serif" }}>{error}</p></div>}
+          {docData.respondentsNoticeDraft && (
+            <div style={{ marginTop: 18, background: '#08080e', border: `1px solid ${ACC}30`, borderRadius: 8, padding: '18px 20px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <span style={{ fontSize: 10, color: ACC, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 700 }}>Respondent's Notice — Draft</span>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <button onClick={() => navigator.clipboard?.writeText(docData.respondentsNoticeDraft!)} style={{ background: 'transparent', border: `1px solid ${ACC}30`, color: ACC, fontSize: 11, cursor: 'pointer', fontFamily: "'Times New Roman', Times, serif", borderRadius: 4, padding: '3px 10px' }}>copy</button>
+                  <button onClick={() => setDocData(p => ({ ...p, respondentsNoticeDraft: '' }))} style={{ background: 'transparent', border: 'none', color: T.mute, fontSize: 11, cursor: 'pointer', fontFamily: "'Times New Roman', Times, serif" }}>clear ×</button>
+                </div>
+              </div>
+              <Md text={docData.respondentsNoticeDraft} />
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
 
 export function AppealEngine({ activeCase, onSave }: Props) {
   const saved = (activeCase.appeal_data ?? {}) as Record<string, unknown>;
@@ -724,6 +1139,18 @@ The specific steps to take right now — in priority order. Deadlines where know
         )}
 
         <ErrBanner error={error} />
+
+        {/* Phase C.3 — Appeal Document Drafters */}
+        <div style={{ marginTop: 28, borderTop: `1px solid ${ACC}20`, paddingTop: 24 }}>
+          <AppealDocDrafters
+            activeCase={activeCase}
+            extraction={extraction}
+            intPkg={intPkg}
+            appealCourt={appealCourt}
+            appealRole={appealRole}
+          />
+        </div>
+
         <p style={{ fontSize: 11, color: '#1e1e2a', textAlign: 'center', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.8, marginTop: 16 }}>
           Appeal Intelligence Engine · Package saved to case · All analysis is advisory — the lawyer decides.
         </p>
