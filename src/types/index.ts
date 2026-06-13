@@ -11,7 +11,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** The track of the matter — civil or criminal. */
-export type MatterTrack = 'civil' | 'criminal' | 'matrimonial' | 'election' | 'frep';
+export type MatterTrack = 'civil' | 'criminal';
 
 /**
  * The lawyer's role on this matter.
@@ -24,131 +24,10 @@ export type CounselRole =
   | 'prosecution'
   | 'defence';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// ORIGINATING PROCESS — set at creation, drives party labels + engine routing
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * The originating process for civil matters.
- * Drives party designations (Claimant/Applicant/Petitioner etc.) and
- * which engines are foregrounded in the workspace.
- * Criminal matters do not have an originating process — field is undefined.
- */
-export type OriginatingProcess =
-  | 'writ_of_summons'          // Claimant v Defendant  — HC general civil
-  | 'originating_summons'      // Applicant v Respondent — HC uncontested/interpretation
-  | 'originating_motion'       // Applicant v Respondent — HC motion-based origination
-  | 'petition_matrimonial'     // Petitioner v Respondent — Matrimonial Causes Act
-  | 'petition_election'        // Petitioner v Respondent/INEC — Electoral Act
-  | 'frep'                     // Applicant v Respondent — Fundamental Rights (O.I FHC Rules)
-  | 'other';                   // Custom — lawyer specifies
-
-export interface OriginatingProcessConfig {
-  id:            OriginatingProcess;
-  label:         string;           // shown in dropdown
-  courtNote:     string;           // e.g. "High Court Rules Order 3"
-  partyALabel:   string;           // e.g. "Claimant" | "Applicant" | "Petitioner"
-  partyBLabel:   string;           // e.g. "Defendant" | "Respondent"
-  partyAPlural:  string;
-  partyBPlural:  string;
-  track:         MatterTrack;      // which matter_track this maps to
-  primaryEngine?: string;          // engine tab to foreground (e.g. 'matrimonial')
-  description:   string;
-}
-
-export const ORIGINATING_PROCESSES: OriginatingProcessConfig[] = [
-  {
-    id:           'writ_of_summons',
-    label:        'Writ of Summons',
-    courtNote:    'Order 3 Rule 1, Lagos High Court Rules / FCT HCR',
-    partyALabel:  'Claimant',
-    partyBLabel:  'Defendant',
-    partyAPlural: 'Claimants',
-    partyBPlural: 'Defendants',
-    track:        'civil',
-    description:  'General civil action — liquidated or unliquidated claims, tort, contract.',
-  },
-  {
-    id:           'originating_summons',
-    label:        'Originating Summons',
-    courtNote:    'Order 3 Rule 4, Lagos HCR — interpretation of documents, uncontested facts',
-    partyALabel:  'Applicant',
-    partyBLabel:  'Respondent',
-    partyAPlural: 'Applicants',
-    partyBPlural: 'Respondents',
-    track:        'civil',
-    description:  'Questions of law or document interpretation where facts are not in dispute.',
-  },
-  {
-    id:           'originating_motion',
-    label:        'Originating Motion',
-    courtNote:    'Order 3 Rule 5, Lagos HCR — statutory applications',
-    partyALabel:  'Applicant',
-    partyBLabel:  'Respondent',
-    partyAPlural: 'Applicants',
-    partyBPlural: 'Respondents',
-    track:        'civil',
-    description:  'Statutory applications where the enabling legislation prescribes a motion.',
-  },
-  {
-    id:           'petition_matrimonial',
-    label:        'Petition — Matrimonial Causes',
-    courtNote:    'Matrimonial Causes Act Cap M7 LFN 2004',
-    partyALabel:  'Petitioner',
-    partyBLabel:  'Respondent',
-    partyAPlural: 'Petitioners',
-    partyBPlural: 'Respondents',
-    track:        'matrimonial',
-    primaryEngine: 'matrimonial',
-    description:  'Dissolution of marriage, nullity, judicial separation, and ancillary reliefs.',
-  },
-  {
-    id:           'petition_election',
-    label:        'Petition — Election',
-    courtNote:    'Electoral Act 2022 s.133 / Election Tribunal Rules',
-    partyALabel:  'Petitioner',
-    partyBLabel:  'Respondent',
-    partyAPlural: 'Petitioners',
-    partyBPlural: 'Respondents (including INEC)',
-    track:        'election',
-    description:  'Election petition challenging the conduct or result of an election.',
-  },
-  {
-    id:           'frep',
-    label:        'Fundamental Rights Enforcement',
-    courtNote:    'Fundamental Rights (Enforcement Procedure) Rules 2009 — O.I FHC / HC',
-    partyALabel:  'Applicant',
-    partyBLabel:  'Respondent',
-    partyAPlural: 'Applicants',
-    partyBPlural: 'Respondents',
-    track:        'frep',
-    description:  'Enforcement of Chapter IV rights — liberty, dignity, fair hearing, privacy.',
-  },
-  {
-    id:           'other',
-    label:        'Other / Custom',
-    courtNote:    'Specify in matter details',
-    partyALabel:  'Party A',
-    partyBLabel:  'Party B',
-    partyAPlural: 'Parties A',
-    partyBPlural: 'Parties B',
-    track:        'civil',
-    description:  'Any other originating process not listed above.',
-  },
-];
-
-/** Lookup helper — returns config for a given originating process id */
-export function getOriginatingProcess(id: OriginatingProcess | undefined): OriginatingProcessConfig {
-  return ORIGINATING_PROCESSES.find(p => p.id === id) ?? ORIGINATING_PROCESSES[0];
-}
-
 /** Human-readable labels for display throughout the UI. */
-export const MATTER_TRACK_LABELS: Record<string, string> = {
-  civil:       'Civil',
-  criminal:    'Criminal',
-  matrimonial: 'Matrimonial',
-  election:    'Election',
-  frep:        'Fundamental Rights',
+export const MATTER_TRACK_LABELS: Record<MatterTrack, string> = {
+  civil:    'Civil',
+  criminal: 'Criminal',
 };
 
 export const COUNSEL_ROLE_LABELS: Record<CounselRole, string> = {
@@ -167,21 +46,18 @@ export const COUNSEL_ROLE_COLORS: Record<CounselRole, { bg: string; bdr: string;
 };
 
 /** Track accent colours — white newspaper canvas. */
-export const MATTER_TRACK_COLORS: Record<string, { bg: string; bdr: string; col: string }> = {
-  civil:       { bg: '#f3f0fb', bdr: '#ccc0e8', col: '#4a3080' },
-  criminal:    { bg: '#fdf0e8', bdr: '#e0c8a0', col: '#7a4000' },
-  matrimonial: { bg: '#fbeaf3', bdr: '#e0b8d0', col: '#7a1a4a' },
-  election:    { bg: '#eaf3ea', bdr: '#b8d0b8', col: '#1a4a1a' },
-  frep:        { bg: '#fdf5e0', bdr: '#e0d0a0', col: '#6a4a00' },
+export const MATTER_TRACK_COLORS: Record<MatterTrack, { bg: string; bdr: string; col: string }> = {
+  civil:    { bg: '#f3f0fb', bdr: '#ccc0e8', col: '#4a3080' },
+  criminal: { bg: '#fdf0e8', bdr: '#e0c8a0', col: '#7a4000' },
 };
 
 /**
  * Given a matter_track, returns the valid CounselRole values for that track.
  */
-export function rolesForTrack(track: MatterTrack | string): CounselRole[] {
-  if (track === 'criminal') return ['prosecution', 'defence'];
-  // civil, matrimonial, election, frep — all use claimant/defendant side roles
-  return ['claimant_side', 'defendant_side'];
+export function rolesForTrack(track: MatterTrack): CounselRole[] {
+  return track === 'civil'
+    ? ['claimant_side', 'defendant_side']
+    : ['prosecution', 'defence'];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -257,6 +133,7 @@ export interface IntelligenceData {
   }>;
 
   // Flat fields kept for backwards compatibility with other engines
+  // that read intelligence_data.facts / legal_issues etc.
   facts?:        string;
   legal_issues?: string;
   disputes?:     string;
@@ -271,6 +148,7 @@ export interface AppealData {
   extractedGrounds: string;
   crossLevelIssues: string;
   package:         string;
+  // timestamps
   _createdAt?:     string;
 }
 
@@ -322,23 +200,8 @@ export interface Case {
    * All code that reads them must handle undefined gracefully by falling
    * back to neutral / civil / claimant_side defaults.
    */
-  matter_track?:       MatterTrack | string;
+  matter_track?:       MatterTrack;
   counsel_role?:       CounselRole;
-
-  /**
-   * THE ORIGINATING PROCESS — set at creation for civil/special matters.
-   * Drives party labels (Claimant vs Applicant vs Petitioner etc.),
-   * which engines are foregrounded, and which court rules apply.
-   * Undefined for criminal matters.
-   */
-  originating_process?: OriginatingProcess;
-
-  /**
-   * Custom party labels — used when originating_process === 'other'
-   * or when the court rules for the specific court differ from defaults.
-   */
-  custom_party_a_label?: string;
-  custom_party_b_label?: string;
 
   /** Legacy role field — kept for backwards compatibility with V1 data. */
   role:                'Claimant' | 'Defendant' | 'Appellant' | 'Respondent' | string;
@@ -401,7 +264,7 @@ export interface SanMessage {
 }
 
 export interface ContentBlock {
-  type:        'text' | 'image';
+  type:        'text' | 'image' | 'document';
   text?:       string;
   source?:     { type: 'base64'; media_type: string; data: string };
 }
@@ -501,10 +364,15 @@ export interface ApiMessage {
 
 /** Options for per-call library RAG tuning */
 export interface LibraryQueryOpts {
+  /** Extra semantic hint to improve embedding quality (e.g. "cross-examination Nigerian Evidence Act") */
   queryHint?:  string;
+  /** How many Vectorize results to pull. Default: 8 */
   topK?:       number;
+  /** Vectorize namespace (e.g. 'statutes', 'authorities') */
   namespace?:  string;
+  /** Metadata filter e.g. { type: 'statute' } or { caseId: 'abc123' } */
   filter?:     Record<string, string>;
+  /** Minimum similarity score 0–1. Default: 0.70 */
   threshold?:  number;
 }
 
@@ -514,9 +382,23 @@ export interface ApiRequestOptions {
   messages?:     ApiMessage[];
   maxTokens?:    number;
   mcpDrive?:     boolean;
+  /**
+   * Set true to bypass the library RAG layer entirely.
+   * Use only for non-legal utility calls (formatting, password checks, etc.)
+   */
   skipLibrary?:  boolean;
+  /**
+   * Per-call library options — tune topK, namespace, filter, threshold.
+   * Defaults are sensible for general legal queries.
+   */
   libraryOpts?:  LibraryQueryOpts;
-  matter_track?: MatterTrack | string;
+  /**
+   * THE TWO GOVERNING FIELDS — passed to the Cloudflare Worker so it can
+   * filter Vectorize retrieval to role-appropriate library materials.
+   * Set automatically by useAI() when activeCase is provided.
+   * Engines using callClaude() directly should set these explicitly.
+   */
+  matter_track?: MatterTrack;
   counsel_role?: CounselRole;
 }
 
@@ -525,13 +407,13 @@ export interface ApiRequestOptions {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type AppView =
-  | 'gate'
-  | 'home'
-  | 'docket'
-  | 'engine'
-  | 'resolver'
-  | 'san'
-  | 'settings';
+  | 'gate'        // password screen
+  | 'home'        // mode selector
+  | 'docket'      // case docket overlay
+  | 'engine'      // active case dashboard
+  | 'resolver'    // Research Resolver standalone tool
+  | 'san'         // SAN Mode standalone
+  | 'settings';   // Settings panel (library management, system info) 
 
 export type DashTabId =
   | 'overview' | 'intelligence' | 'appeal' | 'builder' | 'docket'
