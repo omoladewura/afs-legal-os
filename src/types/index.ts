@@ -443,3 +443,93 @@ export type DashTabId =
   | 'applications'
   // Phase D — Synthesis Engine
   | 'synthesis';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ORIGINATING PROCESS
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type OriginatingProcess =
+  | 'writ_of_summons'
+  | 'originating_summons'
+  | 'originating_motion'
+  | 'petition_matrimonial'
+  | 'petition_election'
+  | 'frep'
+  | 'other';
+
+export interface OriginatingProcessConfig {
+  id:           OriginatingProcess;
+  label:        string;
+  partyALabel:  string;
+  partyBLabel:  string;
+  partyAPlural: string;
+  partyBPlural: string;
+}
+
+export const ORIGINATING_PROCESSES: OriginatingProcessConfig[] = [
+  {
+    id:           'writ_of_summons',
+    label:        'Writ of Summons',
+    partyALabel:  'Claimant',
+    partyBLabel:  'Defendant',
+    partyAPlural: 'Claimant(s)',
+    partyBPlural: 'Defendant(s)',
+  },
+  {
+    id:           'originating_summons',
+    label:        'Originating Summons',
+    partyALabel:  'Applicant',
+    partyBLabel:  'Respondent',
+    partyAPlural: 'Applicant(s)',
+    partyBPlural: 'Respondent(s)',
+  },
+  {
+    id:           'originating_motion',
+    label:        'Originating Motion',
+    partyALabel:  'Applicant',
+    partyBLabel:  'Respondent',
+    partyAPlural: 'Applicant(s)',
+    partyBPlural: 'Respondent(s)',
+  },
+  {
+    id:           'petition_matrimonial',
+    label:        'Petition (Matrimonial)',
+    partyALabel:  'Petitioner',
+    partyBLabel:  'Respondent',
+    partyAPlural: 'Petitioner(s)',
+    partyBPlural: 'Respondent(s)',
+  },
+  {
+    id:           'petition_election',
+    label:        'Petition (Election)',
+    partyALabel:  'Petitioner',
+    partyBLabel:  'Respondent',
+    partyAPlural: 'Petitioner(s)',
+    partyBPlural: 'Respondent(s)',
+  },
+  {
+    id:           'frep',
+    label:        'Fundamental Rights (FREP)',
+    partyALabel:  'Applicant',
+    partyBLabel:  'Respondent',
+    partyAPlural: 'Applicant(s)',
+    partyBPlural: 'Respondent(s)',
+  },
+  {
+    id:           'other',
+    label:        'Other / Custom',
+    partyALabel:  'Party A',
+    partyBLabel:  'Party B',
+    partyAPlural: 'Party A',
+    partyBPlural: 'Party B',
+  },
+];
+
+const _origProcMap = new Map(ORIGINATING_PROCESSES.map(p => [p.id, p]));
+
+export function getOriginatingProcess(
+  id?: OriginatingProcess | string,
+): OriginatingProcessConfig {
+  return _origProcMap.get(id as OriginatingProcess)
+    ?? ORIGINATING_PROCESSES[0]; // default: writ_of_summons
+}
