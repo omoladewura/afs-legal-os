@@ -1,0 +1,36 @@
+name                   = "afs-monitor-worker"
+main                   = "src/index.ts"
+compatibility_date     = "2024-09-23"
+
+# ── D1 — shares the same database as the RAG worker ──────────────────────────
+# All monitor_alerts rows live in the same afs-legal-meta D1 instance.
+[[d1_databases]]
+binding       = "DB"
+database_name = "afs-legal-meta"
+database_id   = "88274373-8745-4d8c-a241-1bb63aca9c0f"
+
+# ── Vectorize — for tagging overruled case vectors ───────────────────────────
+[[vectorize]]
+binding    = "VECTORIZE"
+index_name = "afs-legal-library"
+
+# ── R2 — for archiving repealed instruments ──────────────────────────────────
+[[r2_buckets]]
+binding     = "R2"
+bucket_name = "afs-legal-library"
+
+# ── Cron trigger — 02:00 UTC daily ───────────────────────────────────────────
+[triggers]
+crons = ["0 2 * * *"]
+
+# ── Secrets (set via CLI, never in this file) ─────────────────────────────────
+# AUTH_TOKEN        — wrangler secret put AUTH_TOKEN
+# RAG_WORKER_URL    — wrangler secret put RAG_WORKER_URL   (e.g. https://afs-legal-rag.sobamboadeshupo.workers.dev)
+# RAG_AUTH_TOKEN    — wrangler secret put RAG_AUTH_TOKEN   (same Bearer token as RAG worker)
+
+[observability]
+enabled = true
+
+[observability.logs]
+enabled          = true
+invocation_logs  = true
