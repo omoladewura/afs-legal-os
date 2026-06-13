@@ -226,6 +226,19 @@ export interface Case {
    * Injected into every engine's AI calls via useIntelligence().
    */
   counsel_instructions?: string;
+
+  /**
+   * Originating process — civil matters only.
+   * Drives party labels across all engines.
+   */
+  originating_process?:    OriginatingProcess;
+
+  /**
+   * Counsel override labels — takes priority over originating_process derived labels.
+   * Set per-case when the default label doesn't fit (e.g. "1st Petitioner").
+   */
+  custom_party_a_label?:   string;
+  custom_party_b_label?:   string;
   appeal_data?:        AppealData;
   inheritance_data?:   InheritanceData;
 }
@@ -464,6 +477,8 @@ export interface OriginatingProcessConfig {
   partyBLabel:  string;
   partyAPlural: string;
   partyBPlural: string;
+  /** Derived matter_track for this originating process */
+  track:        'civil' | 'criminal';
 }
 
 export const ORIGINATING_PROCESSES: OriginatingProcessConfig[] = [
@@ -472,48 +487,54 @@ export const ORIGINATING_PROCESSES: OriginatingProcessConfig[] = [
     label:        'Writ of Summons',
     partyALabel:  'Claimant',
     partyBLabel:  'Defendant',
-    partyAPlural: 'Claimant(s)',
-    partyBPlural: 'Defendant(s)',
+    partyAPlural: 'Claimants',
+    partyBPlural: 'Defendants',
+    track:        'civil',
   },
   {
     id:           'originating_summons',
     label:        'Originating Summons',
     partyALabel:  'Applicant',
     partyBLabel:  'Respondent',
-    partyAPlural: 'Applicant(s)',
-    partyBPlural: 'Respondent(s)',
+    partyAPlural: 'Applicants',
+    partyBPlural: 'Respondents',
+    track:        'civil',
   },
   {
     id:           'originating_motion',
     label:        'Originating Motion',
     partyALabel:  'Applicant',
     partyBLabel:  'Respondent',
-    partyAPlural: 'Applicant(s)',
-    partyBPlural: 'Respondent(s)',
+    partyAPlural: 'Applicants',
+    partyBPlural: 'Respondents',
+    track:        'civil',
   },
   {
     id:           'petition_matrimonial',
     label:        'Petition (Matrimonial)',
     partyALabel:  'Petitioner',
     partyBLabel:  'Respondent',
-    partyAPlural: 'Petitioner(s)',
-    partyBPlural: 'Respondent(s)',
+    partyAPlural: 'Petitioners',
+    partyBPlural: 'Respondents',
+    track:        'civil',
   },
   {
     id:           'petition_election',
     label:        'Petition (Election)',
     partyALabel:  'Petitioner',
     partyBLabel:  'Respondent',
-    partyAPlural: 'Petitioner(s)',
-    partyBPlural: 'Respondent(s)',
+    partyAPlural: 'Petitioners',
+    partyBPlural: 'Respondents',
+    track:        'civil',
   },
   {
     id:           'frep',
     label:        'Fundamental Rights (FREP)',
     partyALabel:  'Applicant',
     partyBLabel:  'Respondent',
-    partyAPlural: 'Applicant(s)',
-    partyBPlural: 'Respondent(s)',
+    partyAPlural: 'Applicants',
+    partyBPlural: 'Respondents',
+    track:        'civil',
   },
   {
     id:           'other',
@@ -522,6 +543,7 @@ export const ORIGINATING_PROCESSES: OriginatingProcessConfig[] = [
     partyBLabel:  'Party B',
     partyAPlural: 'Party A',
     partyBPlural: 'Party B',
+    track:        'civil',
   },
 ];
 
