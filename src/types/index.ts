@@ -220,6 +220,12 @@ export interface Case {
   recent_entries:      DocketEntry[];
   deadlines?:          Deadline[];
   intelligence_data?:  IntelligenceData;
+
+  /**
+   * Counsel instructions — free-form strategy notes and directives added by the lawyer.
+   * Injected into every engine's AI calls via useIntelligence().
+   */
+  counsel_instructions?: string;
   appeal_data?:        AppealData;
   inheritance_data?:   InheritanceData;
 }
