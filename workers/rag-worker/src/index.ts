@@ -834,9 +834,6 @@ async function handleDeleteEvidenceFile(req: Request, env: Env): Promise<Respons
   return json({ ok: true }, 200, origin);
 }
 
-// ── Router ────────────────────────────────────────────────────────────────────
-
-export default {
 // ── Applications (D1) ─────────────────────────────────────────────────────────
 
 async function handleGetApplications(req: Request, env: Env): Promise<Response> {
@@ -873,6 +870,9 @@ async function handleDeleteApplication(req: Request, env: Env): Promise<Response
 }
 
 // ── Main fetch handler ────────────────────────────────────────────────────────
+
+export default {
+  async fetch(req: Request, env: Env): Promise<Response> {
     const origin = req.headers.get('Origin') || '*';
 
     if (req.method === 'OPTIONS') {
