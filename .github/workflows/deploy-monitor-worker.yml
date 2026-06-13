@@ -1,0 +1,29 @@
+name: Deploy Monitor Worker
+
+on:
+  push:
+    paths:
+      - 'workers/afs-monitor-worker/**'
+      - '.github/workflows/deploy-monitor-worker.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Wrangler
+        run: npm install -g wrangler
+
+      - name: Deploy Monitor Worker
+        run: wrangler deploy
+        working-directory: workers/afs-monitor-worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: b9bea09921174a686e6e21a0f4da931e
