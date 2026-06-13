@@ -24,6 +24,7 @@ import { loadEntries, loadDeadlines } from '@/storage/helpers';
 import type { DocketEntry, Deadline } from '@/types';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { LoadingBlock } from '@/components/common/ui';
+import { PartyLabelsProvider } from '@/components/PartyLabelsContext';
 import { T } from '@/constants/tokens';
 import { saveCase } from '@/storage/helpers';
 import type { Case, DashTabId } from '@/types';
@@ -241,6 +242,7 @@ export function CaseDashboard() {
   const roleBdr     = roleColors?.bdr  ?? '#cccccc';
 
   return (
+    <PartyLabelsProvider activeCase={activeCase}>
     <div style={{ animation: 'fadeUp .3s ease' }}>
 
       {/* ── Case header ─────────────────────────────────────────────────────── */}
@@ -523,5 +525,6 @@ export function CaseDashboard() {
         </Suspense>
       </ErrorBoundary>
     </div>
+    </PartyLabelsProvider>
   );
 }
