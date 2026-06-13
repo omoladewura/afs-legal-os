@@ -22,6 +22,7 @@ export const T = {
   warn:  '#7a4a10',
   err:   '#8a1a1a',
   info:  '#1a3a6a',
+  fg:    '#111111',
 } as const;
 
 /** Shared inline style objects used across components */
