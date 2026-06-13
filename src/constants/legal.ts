@@ -42,12 +42,12 @@ export const DEADLINE_TYPES: string[] = [
   'Court Date', 'Limitation Deadline', 'Payment Deadline', 'Other',
 ];
 
-export const STATUS_C: Record<string, string> = {
-  'Filed':    '#4a7ed0',
-  'Active':   '#40a868',
-  'Adjourned':'#c4a030',
-  'Judgment': '#8050d0',
-  'Appeal':   '#c06040',
-  'Settled':  '#5a9a70',
-  'Closed':   '#5a5a78',
+export const STATUS_C: Record<string, { bg: string; bdr: string; col: string }> = {
+  'Filed':    { col: '#4a7ed0', bg: '#080e1a', bdr: '#1a2a4a' },
+  'Active':   { col: '#40a868', bg: '#081810', bdr: '#1a4028' },
+  'Adjourned':{ col: '#c4a030', bg: '#1a1400', bdr: '#4a3800' },
+  'Judgment': { col: '#8050d0', bg: '#0e0818', bdr: '#2a1050' },
+  'Appeal':   { col: '#c06040', bg: '#1a0e08', bdr: '#5a2010' },
+  'Settled':  { col: '#5a9a70', bg: '#081410', bdr: '#1a3828' },
+  'Closed':   { col: '#5a5a78', bg: '#0a0a12', bdr: '#1a1a28' },
 };
