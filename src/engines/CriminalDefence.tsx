@@ -183,7 +183,7 @@ export function CriminalDefence({ activeCase }: Props) {
       .then(setSaved);
   }, [caseId]);
 
-  const { call, loading, error, clearError } = useAI();
+  const { call, loading, error, clearError } = useAI(activeCase);
 
   const save = useCallback((patch: Partial<CriminalSaved>) => {
     setSaved(prev => {

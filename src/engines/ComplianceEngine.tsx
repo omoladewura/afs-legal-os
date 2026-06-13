@@ -134,8 +134,8 @@ function makePce(caseId: string, blobRef: React.MutableRefObject<Record<string, 
 // API HELPER
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function pceCall(system: string, prompt: string, maxTokens = 2000): Promise<string> {
-  return callClaude({ system, userMsg: prompt, maxTokens });
+async function pceCall(system: string, prompt: string, maxTokens = 2000, activeCase?: Case): Promise<string> {
+  return callClaude({ system, userMsg: prompt, maxTokens, matter_track: activeCase?.matter_track, counsel_role: activeCase?.counsel_role });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -336,6 +336,7 @@ Be precise. Cite Nigerian statutes and Rules of Court. Do not generalise.`;
         buildComplianceSystem(activeCase),
         prompt,
         2000,
+        activeCase,
       );
       setAiRes(text);
     } catch (e) { setErr('API error: ' + (e as Error).message); }
@@ -506,7 +507,7 @@ Is there any limitation risk in this matter? What must be done immediately?
 Cite specific Nigerian statutes: Limitation Law of Lagos/Rivers/applicable state, Public Officers Protection Act, CAMA, relevant sector statutes.`;
 
     try {
-      const text = await pceCall('', prompt, 1500);
+      const text = await pceCall('', prompt, 1500, activeCase);
       setAiRes(text);
     } catch (e) { setErr('API error: ' + (e as Error).message); }
     setLoad(false);
@@ -625,7 +626,7 @@ For each defect: the specific correction required before the affidavit is court-
 Be specific. Reference Evidence Act 2011 sections and applicable court rules.`;
 
     try {
-      const text = await pceCall('', prompt, 1800);
+      const text = await pceCall('', prompt, 1800, activeCase);
       setAiRes(text);
     } catch (e) { setErr('API error: ' + (e as Error).message); }
     setLoad(false);
@@ -712,7 +713,7 @@ If service is defective: can it be cured? How? What order must be sought?
 Cite applicable Rules of Court (High Court Civil Procedure Rules, Sheriffs and Civil Process Act, Foreign Judgments Act if applicable).`;
 
     try {
-      const text = await pceCall('', prompt, 1500);
+      const text = await pceCall('', prompt, 1500, activeCase);
       setAiRes(text);
     } catch (e) { setErr('API error: ' + (e as Error).message); }
     setLoad(false);

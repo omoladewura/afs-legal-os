@@ -319,6 +319,8 @@ Now produce the ${typeObj?.label || argType}:`;
         userMsg: prompt,
         maxTokens: 4000,
         mcpDrive: driveRAG,
+        matter_track: activeCase.matter_track,
+        counsel_role: activeCase.counsel_role,
       });
       setDraft(text.trim());
       setAbTab('build');

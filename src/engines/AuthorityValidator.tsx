@@ -71,8 +71,9 @@ async function aveCall(
   system: string,
   prompt: string,
   maxTokens = 1500,
+  activeCase?: Case,
 ): Promise<string> {
-  return callClaude({ system, userMsg: prompt, maxTokens });
+  return callClaude({ system, userMsg: prompt, maxTokens, matter_track: activeCase?.matter_track, counsel_role: activeCase?.counsel_role });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -282,7 +283,7 @@ How would opposing counsel attack or distinguish this authority?
 How to deploy this authority most effectively in argument.`;
 
     try {
-      const text = await aveCall(buildValidateSystem(activeCase), prompt, 1400);
+      const text = await aveCall(buildValidateSystem(activeCase), prompt, 1400, activeCase);
       setAiRes(text);
       persistAuths(auths.map(a =>
         a.id === auth.id ? { ...a, validated: true, validation: text } : a,
@@ -591,7 +592,7 @@ How to present these authorities to the court most effectively, handling any con
 What additional authorities should be sourced to strengthen this position?`;
 
     try {
-      const text = await aveCall('', prompt, 1500);
+      const text = await aveCall('', prompt, 1500, activeCase);
       setAiRes(text);
     } catch (e) { setErr('API error: ' + (e as Error).message); }
     setLoad(false);
@@ -706,7 +707,7 @@ Where to find and verify these authorities: LawPavilion PRIMA, NigeriaLII, CaseP
 Flag: this is AI-generated research guidance only. All authorities must be independently verified before reliance in court proceedings. The lawyer must confirm existence, citation, and current standing.`;
 
     try {
-      const text = await aveCall(buildQuickSystem(activeCase), prompt, 1400);
+      const text = await aveCall(buildQuickSystem(activeCase), prompt, 1400, activeCase);
       setAiRes(text);
     } catch (e) { setErr('API error: ' + (e as Error).message); }
     setLoad(false);

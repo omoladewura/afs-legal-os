@@ -355,6 +355,7 @@ function CXContradictionMapper({ caseId, activeCase }: { caseId: string; activeC
     setLoading(true); setErr(''); setAiRes('');
     try {
       const result = await callClaude({
+        system: roleSystemPrompt(activeCase),
         userMsg: `${caseHeader(activeCase)}
 WITNESS: ${form.witness || 'Unknown'}
 
@@ -597,6 +598,7 @@ function CXImpeachmentBank({ caseId, activeCase }: { caseId: string; activeCase:
     setLoading(true); setErr(''); setAiRes('');
     try {
       const result = await callClaude({
+        system: roleSystemPrompt(activeCase),
         userMsg: `Nigerian court. Senior Advocate. Cross-examination impeachment analysis.
 
 ${caseHeader(activeCase)}
