@@ -77,6 +77,8 @@ const DefenceCaseEngine  = lazy(() => import('@/engines/DefenceCaseEngine').then
 const FinalAddressEngine = lazy(() => import('@/engines/FinalAddressEngine').then(m => ({ default: m.FinalAddressEngine })));
 // Phase B — Applications Engine
 const ApplicationsEngine = lazy(() => import('@/engines/ApplicationsEngine').then(m => ({ default: m.ApplicationsEngine })));
+// Phase D — Synthesis Engine
+const SynthesisEngine    = lazy(() => import('@/engines/SynthesisEngine').then(m => ({ default: m.SynthesisEngine })));
 
 // ── Engine router ─────────────────────────────────────────────────────────────
 
@@ -139,6 +141,8 @@ function EngineContent({
     case 'final_address':      return <FinalAddressEngine  activeCase={activeCase} />;
     // Phase B — Applications Engine
     case 'applications':       return <ApplicationsEngine  activeCase={activeCase} />;
+    // Phase D — Synthesis Engine
+    case 'synthesis':          return <SynthesisEngine     activeCase={activeCase} onNavigate={(tab) => onSetDashTab(tab as import('@/types').DashTabId)} />;
     default:             return null;
   }
 }
