@@ -46,6 +46,7 @@ export const ROLE_TABS: Record<CounselRole, DashTabId[]> = {
     'authority',
     'san',
     'console',
+    'synthesis',
   ],
   defendant_side: [
     'overview',
@@ -72,6 +73,7 @@ export const ROLE_TABS: Record<CounselRole, DashTabId[]> = {
     'authority',
     'san',
     'console',
+    'synthesis',
   ],
   prosecution: [
     'overview',
@@ -102,6 +104,7 @@ export const ROLE_TABS: Record<CounselRole, DashTabId[]> = {
     'authority',
     'san',
     'console',
+    'synthesis',
   ],
   defence: [
     'overview',
@@ -133,6 +136,7 @@ export const ROLE_TABS: Record<CounselRole, DashTabId[]> = {
     'authority',
     'san',
     'console',
+    'synthesis',
   ],
 };
 

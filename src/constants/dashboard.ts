@@ -54,6 +54,8 @@ export const DASH_TABS: DashTab[] = [
   { id: 'final_address', icon: '✍', label: 'Final Address',   desc: 'Dual-role. Draft, file, and track the final written address after close of evidence. Prosecution: built from proved counts, witnesses, exhibits. Defence: built from prosecution gaps, credibility failures, surviving no-case grounds. Both sides: reply on points of law.', step: null },
   // ── Phase B — Applications Engine ────────────────────────────────────────────
   { id: 'applications', icon: '⚡', label: 'Applications', desc: 'Universal applications drafter — Civil and Criminal. Intent-driven four-step workflow: describe what you need → AI classifies → confirm package → generate complete documents. Supports motions ex parte/on notice, opposition, bail, preliminary objection, stay of proceedings, extension of time, stay of execution, and regularisation of records.', step: null },
+  // ── Phase D — Synthesis Engine ───────────────────────────────────────────────
+  { id: 'synthesis',    icon: '◎', label: 'Case Theory',  desc: 'Master Case Theory. Reads all engine outputs — Intelligence, Risk Analytics, CrossExam, WarRoom, Argument Builder — and finds the single coherent theory that reconciles them. Three modes: Civil Master Case Theory, Criminal Master Defence Theory, Appeal Master Theory. Always the last tab. Contradictions surfaced explicitly, never silently resolved.', step: null },
 ];
 
 /** Case document types for the docket entry form */
