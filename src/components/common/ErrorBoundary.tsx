@@ -7,6 +7,7 @@
  */
 
 import { Component, type ReactNode, type ErrorInfo } from 'react';
+import { T } from '@/constants/tokens';
 
 interface Props {
   children:  ReactNode;

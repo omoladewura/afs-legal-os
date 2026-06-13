@@ -52,22 +52,33 @@ export function LoadingBlock({ label = 'Loading…' }: LoadingBlockProps) {
 // ── ErrorBlock ────────────────────────────────────────────────────────────────
 
 interface ErrorBlockProps {
-  message: string;
+  message:    string;
+  onDismiss?: () => void;
 }
 
-export function ErrorBlock({ message }: ErrorBlockProps) {
+export function ErrorBlock({ message, onDismiss }: ErrorBlockProps) {
   if (!message) return null;
   return (
     <div style={{
       background: '#fff8f8', border: '1px solid #e8c0c0',
       borderRadius: 4, padding: '10px 14px', marginBottom: 12,
+      display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8,
     }}>
       <p style={{
         fontSize: 13, color: '#8a1a1a',
-        fontFamily: "'Times New Roman', Times, serif", margin: 0,
+        fontFamily: "'Times New Roman', Times, serif", margin: 0, flex: 1,
       }}>
         {message}
       </p>
+      {onDismiss && (
+        <button
+          onClick={onDismiss}
+          style={{
+            background: 'transparent', border: 'none', cursor: 'pointer',
+            color: '#8a1a1a', fontSize: 14, padding: 0, flexShrink: 0, lineHeight: 1,
+          }}
+        >×</button>
+      )}
     </div>
   );
 }
