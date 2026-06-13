@@ -1,6 +1,6 @@
 /**
  * AFS Advocates — Shared UI Primitives
- * Small reusable components used across every engine.
+ * White newspaper theme — Times New Roman throughout.
  */
 
 import React from 'react';
@@ -14,12 +14,12 @@ interface SpinnerProps {
   color?: string;
 }
 
-export function Spinner({ size = 14, color = T.gold }: SpinnerProps) {
+export function Spinner({ size = 14, color = '#444444' }: SpinnerProps) {
   return (
     <span style={{
       display:      'inline-block',
       width:        size, height: size,
-      border:       `2px solid ${T.bdr}`,
+      border:       '2px solid #dddddd',
       borderTop:    `2px solid ${color}`,
       borderRadius: '50%',
       animation:    'spin .8s linear infinite',
@@ -34,11 +34,15 @@ interface LoadingBlockProps {
   label?: string;
 }
 
-export function LoadingBlock({ label = 'Processing…' }: LoadingBlockProps) {
+export function LoadingBlock({ label = 'Loading…' }: LoadingBlockProps) {
   return (
-    <div style={{ textAlign: 'center', padding: '32px 0' }}>
-      <Spinner size={28} />
-      <p style={{ fontSize: 15, color: T.dim, fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic', marginTop: 14 }}>
+    <div style={{ textAlign: 'center', padding: '40px 0' }}>
+      <Spinner size={24} />
+      <p style={{
+        fontSize: 13, color: '#888888',
+        fontFamily: "'Times New Roman', Times, serif",
+        fontStyle: 'italic', marginTop: 14,
+      }}>
         {label}
       </p>
     </div>
@@ -55,10 +59,13 @@ export function ErrorBlock({ message }: ErrorBlockProps) {
   if (!message) return null;
   return (
     <div style={{
-      background: '#fff0f0', border: '1px solid #ffcccc',
-      borderRadius: 6, padding: '12px 16px', marginBottom: 12,
+      background: '#fff8f8', border: '1px solid #e8c0c0',
+      borderRadius: 4, padding: '10px 14px', marginBottom: 12,
     }}>
-      <p style={{ fontSize: 13, color: '#c00000', fontFamily: "'Times New Roman', Times, serif", margin: 0 }}>
+      <p style={{
+        fontSize: 13, color: '#8a1a1a',
+        fontFamily: "'Times New Roman', Times, serif", margin: 0,
+      }}>
         {message}
       </p>
     </div>
@@ -74,7 +81,7 @@ interface MdProps {
 function renderInline(text: string): React.ReactNode[] {
   return text.split(/(\*\*[^*]+\*\*)/g).map((part, i) =>
     part.startsWith('**') && part.endsWith('**') && part.length > 4
-      ? <strong key={i} style={{ color: '#000000', fontWeight: 700 }}>{part.slice(2, -2)}</strong>
+      ? <strong key={i} style={{ color: '#111111', fontWeight: 700 }}>{part.slice(2, -2)}</strong>
       : <React.Fragment key={i}>{part}</React.Fragment>
   );
 }
@@ -89,9 +96,12 @@ export function Md({ text }: MdProps) {
   function flushList() {
     if (listBuf.length === 0) return;
     nodes.push(
-      <ul key={nodes.length} style={{ paddingLeft: 20, margin: '6px 0 10px' }}>
+      <ul key={nodes.length} style={{ paddingLeft: 22, margin: '6px 0 10px' }}>
         {listBuf.map((li, i) => (
-          <li key={i} style={{ fontSize: 15, color: '#000000', lineHeight: 1.85, fontFamily: "'Times New Roman', Times, serif", marginBottom: 3 }}>
+          <li key={i} style={{
+            fontSize: 14, color: '#222222', lineHeight: 1.8,
+            fontFamily: "'Times New Roman', Times, serif", marginBottom: 3,
+          }}>
             {renderInline(li)}
           </li>
         ))}
@@ -106,21 +116,35 @@ export function Md({ text }: MdProps) {
     if (trimmed.startsWith('# ')) {
       flushList();
       nodes.push(
-        <h1 key={i} style={{ fontSize: 20, color: '#000000', fontWeight: 700, marginTop: 28, marginBottom: 10, fontFamily: "'Times New Roman', Times, serif", borderBottom: '1px solid #cccccc', paddingBottom: 6 }}>
+        <h1 key={i} style={{
+          fontSize: 20, color: '#111111', fontWeight: 700,
+          marginTop: 28, marginBottom: 10,
+          fontFamily: "'Times New Roman', Times, serif",
+          borderBottom: '1px solid #cccccc', paddingBottom: 6,
+        }}>
           {trimmed.slice(2)}
         </h1>
       );
     } else if (trimmed.startsWith('## ')) {
       flushList();
       nodes.push(
-        <h2 key={i} style={{ fontSize: 17, color: '#000000', fontWeight: 600, marginTop: 22, marginBottom: 8, fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic' }}>
+        <h2 key={i} style={{
+          fontSize: 16, color: '#222222', fontWeight: 400,
+          marginTop: 20, marginBottom: 8,
+          fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic',
+        }}>
           {trimmed.slice(3)}
         </h2>
       );
     } else if (trimmed.startsWith('### ')) {
       flushList();
       nodes.push(
-        <h3 key={i} style={{ fontSize: 13, color: '#333333', fontWeight: 700, marginTop: 16, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '.08em', fontFamily: "'Times New Roman', Times, serif" }}>
+        <h3 key={i} style={{
+          fontSize: 11, color: '#555555', fontWeight: 700,
+          marginTop: 16, marginBottom: 6,
+          textTransform: 'uppercase', letterSpacing: '.1em',
+          fontFamily: "'Times New Roman', Times, serif",
+        }}>
           {trimmed.slice(4)}
         </h3>
       );
@@ -129,7 +153,10 @@ export function Md({ text }: MdProps) {
     } else if (trimmed) {
       flushList();
       nodes.push(
-        <p key={i} style={{ margin: '7px 0', fontSize: 15, color: '#000000', lineHeight: 1.95, fontFamily: "'Times New Roman', Times, serif" }}>
+        <p key={i} style={{
+          margin: '7px 0', fontSize: 14, color: '#222222',
+          lineHeight: 1.85, fontFamily: "'Times New Roman', Times, serif",
+        }}>
           {renderInline(trimmed)}
         </p>
       );
@@ -163,25 +190,30 @@ export function ResultBlock({ title, content, onClear }: ResultBlockProps) {
 
   return (
     <div style={{
-      background: '#ffffff', border: '1px solid #cccccc',
-      borderRadius: 8, padding: '20px 24px', marginBottom: 16,
+      background: '#fafaf8', border: '1px solid #cccccc',
+      borderRadius: 4, padding: '18px 22px', marginBottom: 16,
       animation: 'fadeUp .3s ease',
     }}>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+      <div style={{
+        display: 'flex', alignItems: 'center',
+        justifyContent: 'space-between', marginBottom: 14,
+        borderBottom: '1px solid #eeeeee', paddingBottom: 10,
+      }}>
         <p style={{
-          fontSize: 10, color: '#000000', fontFamily: 'Inter, sans-serif',
-          letterSpacing: '.18em', textTransform: 'uppercase', fontWeight: 700,
+          fontSize: 10, color: '#444444',
+          fontFamily: "'Times New Roman', Times, serif",
+          letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 700,
         }}>{title}</p>
         <div style={{ display: 'flex', gap: 6 }}>
           <button
             onClick={handleCopy}
             style={{
               background: 'transparent', border: '1px solid #cccccc',
-              color: copied ? '#000000' : '#666666', borderRadius: 4,
-              padding: '5px 12px', fontSize: 10,
-              fontFamily: 'Inter, sans-serif', cursor: 'pointer',
-              letterSpacing: '.04em', transition: 'color .15s',
+              color: copied ? '#111111' : '#666666', borderRadius: 3,
+              padding: '4px 10px', fontSize: 10,
+              fontFamily: "'Times New Roman', Times, serif",
+              cursor: 'pointer', transition: 'color .15s',
             }}
           >
             {copied ? '✓ Copied' : 'Copy'}
@@ -191,8 +223,9 @@ export function ResultBlock({ title, content, onClear }: ResultBlockProps) {
               onClick={onClear}
               style={{
                 background: 'transparent', border: '1px solid #cccccc',
-                color: '#999999', borderRadius: 4, padding: '5px 10px',
-                fontSize: 10, fontFamily: 'Inter, sans-serif', cursor: 'pointer',
+                color: '#999999', borderRadius: 3, padding: '4px 8px',
+                fontSize: 10, fontFamily: "'Times New Roman', Times, serif",
+                cursor: 'pointer',
               }}
             >
               ✕
@@ -208,22 +241,39 @@ export function ResultBlock({ title, content, onClear }: ResultBlockProps) {
         }
         return (
           <div key={i} style={{
-            background: '#f9f9f9', border: '1px solid #cccccc',
-            borderRadius: 6, padding: '14px 16px', margin: '10px 0',
+            background: '#f5f5f3', border: '1px solid #cccccc',
+            borderLeft: '3px solid #888888',
+            borderRadius: 3, padding: '12px 14px', margin: '10px 0',
           }}>
-            <p style={{ fontSize: 9, color: '#000000', fontFamily: 'Inter, sans-serif', letterSpacing: '.16em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 8 }}>
+            <p style={{
+              fontSize: 9, color: '#555555',
+              fontFamily: "'Times New Roman', Times, serif",
+              letterSpacing: '.14em', textTransform: 'uppercase',
+              fontWeight: 700, marginBottom: 8,
+            }}>
               ◎ Research Required
             </p>
-            <p style={{ fontSize: 14, color: '#000000', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.7, marginBottom: 6 }}>
+            <p style={{
+              fontSize: 13, color: '#222222',
+              fontFamily: "'Times New Roman', Times, serif",
+              lineHeight: 1.7, marginBottom: 5,
+            }}>
               <strong>Principle:</strong> {seg.principle}
             </p>
             {seg.authority && (
-              <p style={{ fontSize: 13, color: '#333333', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.6, marginBottom: 4 }}>
+              <p style={{
+                fontSize: 12, color: '#444444',
+                fontFamily: "'Times New Roman', Times, serif",
+                lineHeight: 1.6, marginBottom: 4,
+              }}>
                 <strong>Authority needed:</strong> {seg.authority}
               </p>
             )}
             {seg.platform && (
-              <p style={{ fontSize: 11, color: '#666666', fontFamily: 'Inter, sans-serif' }}>
+              <p style={{
+                fontSize: 11, color: '#777777',
+                fontFamily: "'Times New Roman', Times, serif",
+              }}>
                 Platform: {seg.platform}
               </p>
             )}
@@ -241,10 +291,12 @@ interface RoleBadgeProps {
 }
 
 const ROLE_COLORS: Record<string, { bg: string; bdr: string; col: string }> = {
-  'Claimant':   { bg: '#e8f0ff', bdr: '#aabbee', col: '#1a3a8a' },
-  'Defendant':  { bg: '#fff0f0', bdr: '#ffaaaa', col: '#8a1a1a' },
-  'Appellant':  { bg: '#f5f0ff', bdr: '#ccaaee', col: '#4a1a8a' },
-  'Respondent': { bg: '#f0fff0', bdr: '#aaeebb', col: '#1a6a3a' },
+  'Claimant':    { bg: '#edf3fb', bdr: '#b8cfe8', col: '#1a4a8a' },
+  'Defendant':   { bg: '#fbeaea', bdr: '#e0b8b8', col: '#7a1a1a' },
+  'Appellant':   { bg: '#f5f2fb', bdr: '#ccc0e0', col: '#4a1a8a' },
+  'Respondent':  { bg: '#eef7f1', bdr: '#b0d4bc', col: '#1a5a30' },
+  'Prosecution': { bg: '#fdf3e0', bdr: '#e0cfa0', col: '#7a4a00' },
+  'Defence':     { bg: '#e8f5ee', bdr: '#a8d0b8', col: '#1a5a30' },
 };
 
 export function RoleBadge({ role }: RoleBadgeProps) {
@@ -252,16 +304,16 @@ export function RoleBadge({ role }: RoleBadgeProps) {
   return (
     <span style={{
       background: c.bg, border: `1px solid ${c.bdr}`, color: c.col,
-      fontSize: 9, padding: '3px 10px', borderRadius: 3,
-      fontFamily: 'Inter, sans-serif', letterSpacing: '.1em',
-      textTransform: 'uppercase', fontWeight: 700,
+      fontSize: 9, padding: '2px 8px', borderRadius: 2,
+      fontFamily: "'Times New Roman', Times, serif",
+      letterSpacing: '.1em', textTransform: 'uppercase', fontWeight: 700,
     }}>
       {role}
     </span>
   );
 }
 
-// ── Section label ─────────────────────────────────────────────────────────────
+// ── Label ─────────────────────────────────────────────────────────────────────
 
 interface LabelProps {
   children: React.ReactNode;
@@ -270,10 +322,10 @@ interface LabelProps {
 export function Label({ children }: LabelProps) {
   return (
     <span style={{
-      fontSize: 10, color: T.dim,
-      fontFamily: 'Inter, sans-serif',
+      fontSize: 10, color: '#555555',
+      fontFamily: "'Times New Roman', Times, serif",
       letterSpacing: '.1em', textTransform: 'uppercase',
-      fontWeight: 600, display: 'block', marginBottom: 6,
+      fontWeight: 700, display: 'block', marginBottom: 6,
     }}>
       {children}
     </span>
