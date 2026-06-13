@@ -434,4 +434,6 @@ export type DashTabId =
   // Phase A — Missing Criminal Engines
   | 'defence_case' | 'final_address'
   // Phase B — Applications Engine
-  | 'applications';
+  | 'applications'
+  // Phase D — Synthesis Engine
+  | 'synthesis';
