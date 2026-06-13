@@ -52,6 +52,8 @@ export const DASH_TABS: DashTab[] = [
   // ── Phase A — Missing Criminal Engines ──────────────────────────────────────
   { id: 'defence_case',  icon: '⚖', label: 'Defence Case',    desc: 'Dual-role. Defence: election (call witnesses or rest), register defence witnesses (DW1, DW2…), examination-in-chief drafter, and close of defence. Prosecution: cross-examination tracker per defence witness, defence evidence monitor (admissibility), and record close of defence.', step: null },
   { id: 'final_address', icon: '✍', label: 'Final Address',   desc: 'Dual-role. Draft, file, and track the final written address after close of evidence. Prosecution: built from proved counts, witnesses, exhibits. Defence: built from prosecution gaps, credibility failures, surviving no-case grounds. Both sides: reply on points of law.', step: null },
+  // ── Phase B — Applications Engine ────────────────────────────────────────────
+  { id: 'applications', icon: '⚡', label: 'Applications', desc: 'Universal applications drafter — Civil and Criminal. Intent-driven four-step workflow: describe what you need → AI classifies → confirm package → generate complete documents. Supports motions ex parte/on notice, opposition, bail, preliminary objection, stay of proceedings, extension of time, stay of execution, and regularisation of records.', step: null },
 ];
 
 /** Case document types for the docket entry form */
