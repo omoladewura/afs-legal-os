@@ -25,6 +25,7 @@ import { CaseDashboard } from '@/pages/CaseDashboard';
 import { ResearchResolver } from '@/engines/ResearchResolver';
 import { SettingsPanel } from '@/pages/SettingsPanel';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
+import { FloatingEngines } from '@/components/FloatingEngines';
 import { T } from '@/constants/tokens';
 
 const SanMode = lazy(() => import('@/engines/SanMode').then(m => ({ default: m.SanMode })));
@@ -36,7 +37,6 @@ export function App() {
     migrateFromLocalStorage().catch(console.error);
 
     // One-time migration: push any existing IndexedDB cases up to D1
-    // Runs silently — if D1 is unreachable it just does nothing
     const D1_MIGRATED_KEY = 'afs_d1_migrated_v1';
     if (!localStorage.getItem(D1_MIGRATED_KEY)) {
       db.cases.toArray().then(async (cases) => {
@@ -80,6 +80,9 @@ export function App() {
       </div>
 
       {docketOpen && <CaseDocket />}
+
+      {/* Floating AI Copilot + Applications Engine — visible on every view */}
+      {view !== 'gate' && <FloatingEngines />}
     </>
   );
 }
