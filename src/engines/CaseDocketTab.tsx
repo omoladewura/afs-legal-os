@@ -14,7 +14,7 @@
  * for this tab; deadlines are loaded from the deadlines table separately.
  */
 
-import { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useAppStore } from '@/state/appStore';
 import {
   loadEntries, saveEntry, deleteEntry as dbDeleteEntry,

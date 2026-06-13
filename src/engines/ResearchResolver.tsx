@@ -461,7 +461,7 @@ function Resolver() {
           'You are Senior Counsel at AFS Advocates. You rewrite argument paragraphs using real cases ' +
           'provided by the instructing solicitor. You cite accurately in Nigerian format. ' +
           'You output only the rewritten paragraph — nothing else.',
-        messages: [{ role: 'user', content }],
+        messages: [{ role: 'user' as const, content: content as import('@/types').ContentBlock[] }],
         maxTokens: 2000,
       });
       setResult(text.trim());

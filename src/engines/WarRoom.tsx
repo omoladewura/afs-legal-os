@@ -24,7 +24,7 @@ import { buildRoleLibraryOpts } from '@/utils/roleLibrary';
 import { Md, Spinner } from '@/components/common/ui';
 import { useAppStore } from '@/state/appStore';
 import { loadBlindSpot, loadEvidenceMeta } from '@/storage/helpers';
-import type { Case, DashTabId, EvidenceItem } from '@/types';
+import type { Case, DashTabId, EvidenceItem, IntelligenceData } from '@/types';
 import { buildRoleSystemPrompt } from '@/utils/rolePrompt';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -82,7 +82,7 @@ function writeLS(key: string, val: unknown): void {
 // ── Case context builder (mirrors buildCaseContext from original) ──────────────
 
 function buildCtx(c: Case): string {
-  const intel = c.intelligence_data || {};
+  const intel = (c.intelligence_data || {}) as IntelligenceData;
   const parts: string[] = [];
   if (c.caseName)      parts.push('Case: ' + c.caseName);
   if (c.court)         parts.push('Court: ' + c.court);
@@ -204,7 +204,7 @@ function NavBtn({ label, tab, setDashTab }: { label: string; tab: DashTabId; set
 export function WarRoom({ activeCase }: Props) {
   const { setDashTab } = useAppStore();
   const caseId = activeCase.id;
-  const intel  = activeCase.intelligence_data || {};
+  const intel  = (activeCase.intelligence_data || {}) as IntelligenceData;
   const appeal = activeCase.appeal_data || {};
 
   // ── Cross-module data loaded from IndexedDB ───────────────────────────────
