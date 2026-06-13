@@ -37,18 +37,18 @@ export const COUNSEL_ROLE_LABELS: Record<CounselRole, string> = {
   defence:       'Defence',
 };
 
-/** Accent colours for role badges throughout the UI. */
+/** Accent colours for role badges throughout the UI — white newspaper canvas. */
 export const COUNSEL_ROLE_COLORS: Record<CounselRole, { bg: string; bdr: string; col: string }> = {
-  claimant_side:  { bg: '#071828', bdr: '#1a4060', col: '#4090d0' },
-  defendant_side: { bg: '#180808', bdr: '#401820', col: '#c06060' },
-  prosecution:    { bg: '#181000', bdr: '#403000', col: '#c09030' },
-  defence:        { bg: '#071a0e', bdr: '#1a4028', col: '#40a860' },
+  claimant_side:  { bg: '#edf3fb', bdr: '#b8cfe8', col: '#1a4a8a' },
+  defendant_side: { bg: '#fbeaea', bdr: '#e0b8b8', col: '#7a1a1a' },
+  prosecution:    { bg: '#fdf3e0', bdr: '#e0cfa0', col: '#7a4a00' },
+  defence:        { bg: '#e8f5ee', bdr: '#a8d0b8', col: '#1a5a30' },
 };
 
-/** Track accent colours. */
+/** Track accent colours — white newspaper canvas. */
 export const MATTER_TRACK_COLORS: Record<MatterTrack, { bg: string; bdr: string; col: string }> = {
-  civil:    { bg: '#0a0818', bdr: '#201840', col: '#8060c0' },
-  criminal: { bg: '#180a00', bdr: '#402000', col: '#c07030' },
+  civil:    { bg: '#f3f0fb', bdr: '#ccc0e8', col: '#4a3080' },
+  criminal: { bg: '#fdf0e8', bdr: '#e0c8a0', col: '#7a4000' },
 };
 
 /**
