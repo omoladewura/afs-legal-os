@@ -40,6 +40,9 @@
  *   GET  /research?caseId=x         — load research records for a case
  *   PUT  /research                  — upsert a research record
  *   DELETE /research?id=x           — delete a research record
+ *   GET  /applications?caseId=x     — load application packages for a case (Phase B)
+ *   PUT  /application               — upsert an application package (Phase B)
+ *   DELETE /application?id=x        — delete an application package (Phase B)
  *   GET  /evidence/meta?caseId=x    — load evidence metadata
  *   PUT  /evidence/meta             — upsert evidence metadata
  *   DELETE /evidence/meta?id=x      — delete evidence metadata
@@ -184,6 +187,11 @@ async function ensureTables(env: Env): Promise<void> {
     data    TEXT NOT NULL
   )`).run();
   await env.DB.prepare(`CREATE TABLE IF NOT EXISTS evidence_meta (
+    id      TEXT PRIMARY KEY,
+    case_id TEXT NOT NULL,
+    data    TEXT NOT NULL
+  )`).run();
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS applications (
     id      TEXT PRIMARY KEY,
     case_id TEXT NOT NULL,
     data    TEXT NOT NULL
@@ -829,7 +837,42 @@ async function handleDeleteEvidenceFile(req: Request, env: Env): Promise<Respons
 // ── Router ────────────────────────────────────────────────────────────────────
 
 export default {
-  async fetch(req: Request, env: Env): Promise<Response> {
+// ── Applications (D1) ─────────────────────────────────────────────────────────
+
+async function handleGetApplications(req: Request, env: Env): Promise<Response> {
+  const origin = req.headers.get('Origin') || '*';
+  await ensureTables(env);
+  const url    = new URL(req.url);
+  const caseId = url.searchParams.get('caseId');
+  if (!caseId) return json({ error: 'caseId is required' }, 400, origin);
+  const rows = await env.DB.prepare(
+    'SELECT data FROM applications WHERE case_id = ? ORDER BY json_extract(data, "$.createdAt") DESC'
+  ).bind(caseId).all();
+  const records = (rows.results || []).map((r: Record<string, unknown>) => JSON.parse(r.data as string));
+  return json({ records }, 200, origin);
+}
+
+async function handlePutApplication(req: Request, env: Env): Promise<Response> {
+  const origin = req.headers.get('Origin') || '*';
+  await ensureTables(env);
+  const body = await req.json() as { id?: string; caseId?: string };
+  if (!body.id || !body.caseId) return json({ error: 'id and caseId are required' }, 400, origin);
+  await env.DB.prepare('INSERT OR REPLACE INTO applications (id, case_id, data) VALUES (?, ?, ?)')
+    .bind(body.id, body.caseId, JSON.stringify(body)).run();
+  return json({ ok: true }, 200, origin);
+}
+
+async function handleDeleteApplication(req: Request, env: Env): Promise<Response> {
+  const origin = req.headers.get('Origin') || '*';
+  await ensureTables(env);
+  const url = new URL(req.url);
+  const id  = url.searchParams.get('id');
+  if (!id) return json({ error: 'id is required' }, 400, origin);
+  await env.DB.prepare('DELETE FROM applications WHERE id = ?').bind(id).run();
+  return json({ ok: true }, 200, origin);
+}
+
+// ── Main fetch handler ────────────────────────────────────────────────────────
     const origin = req.headers.get('Origin') || '*';
 
     if (req.method === 'OPTIONS') {
@@ -864,6 +907,10 @@ export default {
     if (method === 'GET'    && path === '/research')  return handleGetResearch(req, env);
     if (method === 'PUT'    && path === '/research')  return handlePutResearch(req, env);
     if (method === 'DELETE' && path === '/research')  return handleDeleteResearch(req, env);
+
+    if (method === 'GET'    && path === '/applications') return handleGetApplications(req, env);
+    if (method === 'PUT'    && path === '/application')  return handlePutApplication(req, env);
+    if (method === 'DELETE' && path === '/application')  return handleDeleteApplication(req, env);
 
     if (method === 'GET'    && path === '/evidence/meta')   return handleGetEvidenceMeta(req, env);
     if (method === 'PUT'    && path === '/evidence/meta')   return handlePutEvidenceMeta(req, env);
