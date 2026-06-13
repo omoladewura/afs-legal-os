@@ -590,8 +590,8 @@ export function SettingsPanel() {
               </p>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                 {[
-                  'nigeria-law.org', 'nigerialii.org', 'nationalassembly.gov.ng',
-                  'supremecourt.gov.ng', 'bailii.org', 'law.cornell.edu',
+                  'nigerialii.org', 'supremecourt.gov.ng',
+                  'nationalassembly.gov.ng', 'justice.gov.ng', 'placng.org',
                 ].map(domain => (
                   <span key={domain} style={{
                     background: '#f0f0ee', border: `1px solid ${T.bdr}`,
