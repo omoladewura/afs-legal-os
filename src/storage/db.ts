@@ -57,14 +57,14 @@ export interface ResearchRecord {
 // ── Database class ─────────────────────────────────────────────────────────────
 
 export class AfsDatabase extends Dexie {
-  cases!:          Table<Case,           string>;
-  docket_entries!: Table<DocketEntry,    string>;
-  deadlines!:      Table<Deadline,       string>;
-  evidence_meta!:  Table<EvidenceItem,   string>;
-  evidence_files!: Table<EvidenceFile,   string>;
-  blind_spots!:    Table<BlindSpotRecord, string>;
-  research!:       Table<ResearchRecord, string>;
-  arg_versions!:   Table<ArgumentVersion & { caseId: string }, string>;
+  declare cases:          Table<Case,           string>;
+  declare docket_entries: Table<DocketEntry,    string>;
+  declare deadlines:      Table<Deadline,       string>;
+  declare evidence_meta:  Table<EvidenceItem,   string>;
+  declare evidence_files: Table<EvidenceFile,   string>;
+  declare blind_spots:    Table<BlindSpotRecord, string>;
+  declare research:       Table<ResearchRecord, string>;
+  declare arg_versions:   Table<ArgumentVersion & { caseId: string }, string>;
 
   constructor() {
     super('afs_legal_os');
