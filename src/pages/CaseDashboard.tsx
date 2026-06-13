@@ -18,6 +18,8 @@ import {
   ROLE_POSITION_CONFIG,
 } from '@/constants/roleWorkspace';
 import { computeNextAction } from '@/utils/nextAction';
+import { extractAnchors } from '@/utils/dateExtractor';
+import { computePeriods, countUrgentPeriods } from '@/utils/periodComputer';
 import { loadEntries, loadDeadlines } from '@/storage/helpers';
 import type { DocketEntry, Deadline } from '@/types';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
@@ -200,6 +202,20 @@ export function CaseDashboard() {
 
   const nextActionResult = computeNextAction(activeCase, dashEntries, dashDeadlines);
   const nextAction = nextActionResult.action;
+
+  // ── Phase E: period-based alert count for red badge ──────────────────────
+  const alertCount = (() => {
+    const track = activeCase.matter_track;
+    const role  = activeCase.counsel_role;
+    if (!track || !role) return 0;
+    const anchors = extractAnchors(dashEntries);
+    const periods = computePeriods(
+      track as import('@/types').MatterTrack,
+      role  as import('@/types').CounselRole,
+      anchors,
+    );
+    return countUrgentPeriods(periods);
+  })();
 
   // ── Role accent — light tints for white newspaper canvas ─────────────────
   // We derive tinted backgrounds from the role colour rather than using the
@@ -457,6 +473,24 @@ export function CaseDashboard() {
               )}
               {tab.id === 'appeal' && (activeCase.appeal_data as any)?.package && (
                 <span style={{ width: 4, height: 4, borderRadius: '50%', background: '#444444', display: 'inline-block', flexShrink: 0 }} />
+              )}
+              {/* Phase E — red alert count badge on Alerts tab */}
+              {tab.id === 'alerts' && alertCount > 0 && (
+                <span style={{
+                  background: '#c03030',
+                  color: '#ffffff',
+                  fontSize: 8,
+                  fontFamily: "'Times New Roman', Times, serif",
+                  fontWeight: 700,
+                  borderRadius: 8,
+                  padding: '1px 5px',
+                  minWidth: 14,
+                  textAlign: 'center',
+                  lineHeight: '14px',
+                  flexShrink: 0,
+                }}>
+                  {alertCount}
+                </span>
               )}
             </button>
           );
