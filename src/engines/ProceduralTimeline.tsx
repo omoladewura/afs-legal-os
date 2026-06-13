@@ -13,12 +13,14 @@
  * Legacy V1 matters (no counsel_role) fall back to the docket-based CaseTimeline.
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { T } from '@/constants/tokens';
 import { useAppStore } from '@/state/appStore';
 import { loadEntries, loadDeadlines, saveCase } from '@/storage/helpers';
 import { ROLE_STAGES, STAGE_KEYWORDS, ROLE_POSITION_CONFIG } from '@/constants/roleWorkspace';
 import { computeNextAction } from '@/utils/nextAction';
+import { extractAnchors } from '@/utils/dateExtractor';
+import { computePeriods, periodStatusConfig, type ComputedPeriod } from '@/utils/periodComputer';
 import type { Case, DocketEntry, Deadline, CounselRole } from '@/types';
 import { COUNSEL_ROLE_COLORS, MATTER_TRACK_LABELS } from '@/types';
 import { CaseTimeline } from './CaseTimeline';
@@ -85,17 +87,22 @@ function fmtDate(iso: string): string {
 // ── Stage card ────────────────────────────────────────────────────────────────
 
 interface StageCardProps {
-  stage:       StageWithState;
-  accent:      string;
-  roleBg:      string;
-  roleBdr:     string;
-  isLast:      boolean;
-  onSetCurrent: (id: string) => void;
-  isSetting:   boolean;
+  stage:            StageWithState;
+  accent:           string;
+  roleBg:           string;
+  roleBdr:          string;
+  isLast:           boolean;
+  onSetCurrent:     (id: string) => void;
+  isSetting:        boolean;
+  /** Period-based deadlines triggered at or by this stage (Phase F) */
+  stagePeriods?:    ComputedPeriod[];
+  /** Bail/remand status for defence criminal cases (Phase F) */
+  bailStatus?:      string | null;
 }
 
 function StageCard({
   stage, accent, roleBg, roleBdr, isLast, onSetCurrent, isSetting,
+  stagePeriods = [], bailStatus = null,
 }: StageCardProps) {
   const [expanded, setExpanded] = useState(stage.state === 'current');
 
@@ -252,6 +259,54 @@ function StageCard({
             }}>▾</span>
           </div>
 
+          {/* Phase F: Bail status sub-indicator (defence/investigation + arraignment nodes) */}
+          {bailStatus && (stage.id === 'arraignment' || stage.id === 'investigation' || stage.id === 'charge') && (
+            <div style={{
+              marginTop: 6,
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              background: bailStatus === 'Remanded' ? '#1a060620' : '#07180e20',
+              border: `1px solid ${bailStatus === 'Remanded' ? '#5a181840' : '#1a402840'}`,
+              borderRadius: 4, padding: '3px 8px',
+            }}>
+              <span style={{
+                width: 5, height: 5, borderRadius: '50%',
+                background: bailStatus === 'Remanded' ? '#c04040' : '#2e8a50',
+                flexShrink: 0, display: 'inline-block',
+              }} />
+              <span style={{
+                fontSize: 9,
+                color: bailStatus === 'Remanded' ? '#c04040' : '#2e8a50',
+                fontFamily: "'Times New Roman', Times, serif",
+                fontWeight: 600, letterSpacing: '.06em',
+              }}>
+                Accused: {bailStatus}
+              </span>
+            </div>
+          )}
+
+          {/* Phase F: Period rule badges on upcoming nodes */}
+          {stage.state === 'upcoming' && stagePeriods.length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 6 }}>
+              {stagePeriods.map((p, i) => {
+                const cfg = periodStatusConfig(p.status);
+                return (
+                  <span key={i} style={{
+                    fontSize: 8,
+                    color: cfg.col,
+                    fontFamily: "'Times New Roman', Times, serif",
+                    fontWeight: 600,
+                    background: cfg.bg,
+                    border: `1px solid ${cfg.bdr}`,
+                    borderRadius: 3, padding: '2px 6px',
+                    letterSpacing: '.04em',
+                  }}>
+                    {cfg.icon} {p.rule.label} — {p.rule.days}d from this point
+                  </span>
+                );
+              })}
+            </div>
+          )}
+
           {/* Collapsed desc (always visible for current) */}
           {(!expanded || stage.state !== 'current') && (
             <p style={{
@@ -400,6 +455,36 @@ export function ProceduralTimeline({ activeCase }: ProceduralTimelineProps) {
 
   const completedCount = stagesWithState.filter(s => s.state === 'completed').length;
   const totalCount     = stagesWithState.length;
+
+  // ── Phase F: Compute period-based deadlines ──────────────────────────────────
+  const computedPeriods = useMemo<ComputedPeriod[]>(() => {
+    if (!counselRole || !activeCase.matter_track || entries.length === 0) return [];
+    const anchors = extractAnchors(entries);
+    return computePeriods(activeCase.matter_track, counselRole, anchors);
+  }, [entries, counselRole, activeCase.matter_track]);
+
+  // ── Phase F: Map periods to stage nodes they originate from ─────────────────
+  //
+  // Each PeriodRule has a triggerEvent. We look for a stage whose stage ID or
+  // keywords overlap with the period's triggerEvent to attach the badge to the
+  // next upcoming stage that follows that trigger. When the trigger has already
+  // been completed (anchor found = clock started), we show the badge on the
+  // NEXT upcoming stage so the lawyer sees "once you reach X, Y days run."
+  function getPeriodsForUpcomingStage(stageId: string): ComputedPeriod[] {
+    return computedPeriods.filter(p => {
+      // Match periods whose rule is associated with this stage
+      const tev = p.rule.triggerEvent.toLowerCase();
+      return tev.includes(stageId.toLowerCase()) ||
+        stageId.toLowerCase().includes(tev.replace(/_/g, ''));
+    });
+  }
+
+  // ── Phase F: Bail/remand status for criminal defence ────────────────────────
+  const bailStatus: string | null = counselRole === 'defence' && activeCase.matter_track === 'criminal'
+    ? ((activeCase as any).charge_arraignment_data?.bail_status
+        ?? (entries.some(e => /bail granted/i.test(e.docTitle ?? '')) ? 'On Bail'  : null)
+        ?? (entries.some(e => /remand/i.test(e.docTitle ?? ''))       ? 'Remanded' : null))
+    : null;
 
   // ── Set current stage handler ────────────────────────────────────────────────
   const handleSetCurrent = useCallback(async (stageId: string) => {
@@ -684,6 +769,8 @@ export function ProceduralTimeline({ activeCase }: ProceduralTimelineProps) {
                   isLast={i === stagesWithState.length - 1}
                   onSetCurrent={handleSetCurrent}
                   isSetting={isSetting}
+                  stagePeriods={stage.state === 'upcoming' ? getPeriodsForUpcomingStage(stage.id) : []}
+                  bailStatus={bailStatus}
                 />
               ))}
             </div>

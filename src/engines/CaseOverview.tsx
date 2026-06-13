@@ -30,6 +30,9 @@ import {
   ROLE_STAGES,
 } from '@/constants/roleWorkspace';
 import { computeNextAction } from '@/utils/nextAction';
+import { extractAnchors } from '@/utils/dateExtractor';
+import { computePeriods, formatDaysRemaining, periodStatusConfig } from '@/utils/periodComputer';
+import type { ComputedPeriod } from '@/utils/periodComputer';
 import type { Case, DocketEntry, Deadline, EvidenceItem, ArgumentVersion } from '@/types';
 import type { DashTabId } from '@/types';
 import {
@@ -154,6 +157,13 @@ export function CaseOverview({ activeCase }: Props) {
   const roleAccent  = counselRole ? COUNSEL_ROLE_COLORS[counselRole].col : '#888888';
   const roleBg      = counselRole ? COUNSEL_ROLE_COLORS[counselRole].bg  : '#ffffff';
   const roleBdr     = counselRole ? COUNSEL_ROLE_COLORS[counselRole].bdr : '#cccccc';
+
+  // ── Period-based computed deadlines (Phase E) ─────────────────────────────
+  const computedPeriods: ComputedPeriod[] = React.useMemo(() => {
+    if (!counselRole || !matterTrack || entries.length === 0) return [];
+    const anchors = extractAnchors(entries);
+    return computePeriods(matterTrack, counselRole, anchors);
+  }, [entries, counselRole, matterTrack]);
 
   // Stage selector
   const roleStages  = counselRole ? (ROLE_STAGES[counselRole] ?? []) : [];
@@ -523,6 +533,20 @@ export function CaseOverview({ activeCase }: Props) {
         </div>
       )}
 
+      {/* ── Phase F: Role-Specific Insight Panel ───────────────────────────── */}
+      {counselRole && matterTrack && (
+        <RoleInsightPanel
+          counselRole={counselRole}
+          matterTrack={matterTrack}
+          activeCase={activeCase}
+          entries={entries}
+          deadlines={deadlines}
+          computedPeriods={computedPeriods}
+          roleAccent={roleAccent}
+          onNavigate={setDashTab}
+        />
+      )}
+
       {/* ── Two-column: Deadlines + Intelligence ───────────────────────────── */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
 
@@ -694,6 +718,398 @@ export function CaseOverview({ activeCase }: Props) {
       </div>
 
     </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PHASE F — ROLE INSIGHT PANELS
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface RoleInsightPanelProps {
+  counselRole:     ReturnType<typeof import('@/types')['rolesForTrack']>[number];
+  matterTrack:     import('@/types').MatterTrack;
+  activeCase:      Case;
+  entries:         DocketEntry[];
+  deadlines:       Deadline[];
+  computedPeriods: import('@/utils/periodComputer').ComputedPeriod[];
+  roleAccent:      string;
+  onNavigate:      (tab: DashTabId) => void;
+}
+
+function RoleInsightPanel({
+  counselRole, matterTrack, activeCase, entries, deadlines,
+  computedPeriods, roleAccent, onNavigate,
+}: RoleInsightPanelProps) {
+  const intel = activeCase.intelligence_data;
+
+  // ── Helper: find most urgent period matching a trigger keyword ─────────────
+  function urgentPeriodFor(keywords: string[]) {
+    return computedPeriods.find(p =>
+      keywords.some(kw => p.rule.triggerEvent.includes(kw) || p.rule.label.toLowerCase().includes(kw))
+    );
+  }
+
+  // ── Civil Claimant ────────────────────────────────────────────────────────
+  if (counselRole === 'claimant_side' && matterTrack === 'civil') {
+    const appearancePeriod = urgentPeriodFor(['appearance', 'service']);
+    const enforcementReady = entries.some(e =>
+      e.docTitle?.toLowerCase().includes('judgment') ||
+      e.docTitle?.toLowerCase().includes('order')
+    ) && !entries.some(e =>
+      e.docTitle?.toLowerCase().includes('enforcement') ||
+      e.docTitle?.toLowerCase().includes('fifa') ||
+      e.docTitle?.toLowerCase().includes('garnishee')
+    );
+    const headsOfClaim   = intel?.extraction?.legal_issues?.length ?? 0;
+    const evidenceLinked = activeCase.intelligence_data?.evidenceM?.length ?? 0;
+    const claimStrength  = headsOfClaim > 0
+      ? Math.min(100, Math.round((evidenceLinked / headsOfClaim) * 100))
+      : null;
+
+    return (
+      <InsightCard icon="⚔" title="Claimant Position — Live Indicators" accent={roleAccent}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 10 }}>
+          <InsightTile
+            label="Default Judgment Opportunity"
+            icon="⏱"
+            accent={roleAccent}
+            status={appearancePeriod
+              ? appearancePeriod.status === 'overdue'
+                ? 'red'
+                : appearancePeriod.status === 'critical'
+                  ? 'amber'
+                  : 'green'
+              : 'neutral'
+            }
+            value={appearancePeriod
+              ? appearancePeriod.status === 'overdue'
+                ? 'Appearance overdue — assess default'
+                : `${appearancePeriod.daysRemaining}d remaining on appearance`
+              : 'Service not yet recorded in docket'
+            }
+            hint="Log service in Docket to activate"
+            onNavigate={() => onNavigate('docket' as DashTabId)}
+          />
+          <InsightTile
+            label="Enforcement Readiness"
+            icon="→"
+            accent={roleAccent}
+            status={enforcementReady ? 'amber' : 'neutral'}
+            value={enforcementReady
+              ? 'Judgment entered — enforcement not yet activated'
+              : 'No judgment entry detected yet'
+            }
+            hint="Go to Enforcement tab"
+            onNavigate={() => onNavigate('enforcement' as DashTabId)}
+          />
+          {claimStrength !== null && (
+            <InsightTile
+              label="Claim Strength"
+              icon="◎"
+              accent={roleAccent}
+              status={claimStrength >= 70 ? 'green' : claimStrength >= 40 ? 'amber' : 'red'}
+              value={`${claimStrength}% of legal issues have linked evidence`}
+              hint={`${evidenceLinked} of ${headsOfClaim} issues covered`}
+              onNavigate={() => onNavigate('evidence' as DashTabId)}
+            />
+          )}
+        </div>
+      </InsightCard>
+    );
+  }
+
+  // ── Civil Defendant ───────────────────────────────────────────────────────
+  if (counselRole === 'defendant_side' && matterTrack === 'civil') {
+    const appearancePeriod = urgentPeriodFor(['appearance', 'service']);
+    const sodPeriod        = urgentPeriodFor(['sod', 'statement_of_defence', 'soc']);
+    const defaultRisk: 'red' | 'amber' | 'green' | 'neutral' = appearancePeriod
+      ? appearancePeriod.status === 'overdue'  ? 'red'
+      : appearancePeriod.status === 'critical' ? 'amber'
+      : 'green'
+      : 'neutral';
+
+    return (
+      <InsightCard icon="🛡" title="Defendant Position — Live Indicators" accent={roleAccent}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 10 }}>
+          <InsightTile
+            label="Default Judgment Risk"
+            icon="⚠"
+            accent={roleAccent}
+            status={defaultRisk}
+            value={
+              defaultRisk === 'red'    ? 'Appearance period OVERDUE — apply immediately' :
+              defaultRisk === 'amber'  ? `${appearancePeriod!.daysRemaining}d to enter appearance` :
+              defaultRisk === 'green'  ? 'Appearance filed — default risk cleared' :
+              'Service not yet recorded in docket'
+            }
+            hint="Enter appearance in Docket"
+            onNavigate={() => onNavigate('docket' as DashTabId)}
+          />
+          {sodPeriod && (
+            <InsightTile
+              label="Statement of Defence Deadline"
+              icon="📜"
+              accent={roleAccent}
+              status={sodPeriod.status === 'overdue' ? 'red' : sodPeriod.status === 'critical' ? 'amber' : 'green'}
+              value={sodPeriod.status === 'overdue'
+                ? 'SoD deadline OVERDUE — file immediately'
+                : `${sodPeriod.daysRemaining}d to file Statement of Defence`
+              }
+              hint={sodPeriod.rule.authority}
+              onNavigate={() => onNavigate('pleadings' as DashTabId)}
+            />
+          )}
+          <InsightTile
+            label="Available Applications"
+            icon="⚡"
+            accent={roleAccent}
+            status="neutral"
+            value="Strike out, stay, preliminary objection, security for costs"
+            hint="Open Applications tab"
+            onNavigate={() => onNavigate('applications' as DashTabId)}
+          />
+        </div>
+      </InsightCard>
+    );
+  }
+
+  // ── Criminal Prosecution ──────────────────────────────────────────────────
+  if (counselRole === 'prosecution' && matterTrack === 'criminal') {
+    const acja90 = urgentPeriodFor(['trial_commencement', 'arraignment']);
+    const intPkg = intel?.intPkg as any;
+    const counts: string[] = intPkg?.counts ?? intPkg?.charges ?? [];
+    const witnesses = entries.filter(e =>
+      /pw\d|prosecution witness/i.test(e.docTitle ?? '')
+    );
+    const nextWitness = entries
+      .filter(e => /pw\d/i.test(e.docTitle ?? '') && e.status === 'Pending Hearing')
+      .sort((a, b) => new Date(a.dateFiled ?? a.createdAt).getTime() - new Date(b.dateFiled ?? b.createdAt).getTime())[0];
+
+    const caseStrength: 'red' | 'amber' | 'green' | 'neutral' = counts.length === 0
+      ? 'neutral'
+      : witnesses.length >= counts.length ? 'green'
+      : witnesses.length > 0 ? 'amber'
+      : 'red';
+
+    return (
+      <InsightCard icon="⚖" title="Prosecution Position — Live Indicators" accent={roleAccent}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 10 }}>
+          <InsightTile
+            label="Case Strength"
+            icon="◎"
+            accent={roleAccent}
+            status={caseStrength}
+            value={counts.length === 0
+              ? 'Run Intelligence to analyse counts'
+              : `${witnesses.length} witness entries across ${counts.length} count${counts.length !== 1 ? 's' : ''}`
+            }
+            hint="View prosecution case"
+            onNavigate={() => onNavigate('prosecution_case' as DashTabId)}
+          />
+          {acja90 && (
+            <InsightTile
+              label="ACJA 90-Day Trial Countdown"
+              icon="⏱"
+              accent={roleAccent}
+              status={acja90.status === 'overdue' ? 'red' : acja90.status === 'critical' ? 'red' : acja90.status === 'urgent' ? 'amber' : 'green'}
+              value={acja90.status === 'overdue'
+                ? `Trial period EXCEEDED by ${Math.abs(acja90.daysRemaining)} days`
+                : `${acja90.daysRemaining}d remaining on ACJA 90-day clock`
+              }
+              hint={acja90.rule.authority}
+              onNavigate={() => onNavigate('alerts' as DashTabId)}
+            />
+          )}
+          <InsightTile
+            label="Next Witness"
+            icon="👤"
+            accent={roleAccent}
+            status={nextWitness ? 'amber' : 'neutral'}
+            value={nextWitness
+              ? `${nextWitness.docTitle} — ${nextWitness.status}`
+              : 'No pending witness entries in docket'
+            }
+            hint="View docket"
+            onNavigate={() => onNavigate('docket' as DashTabId)}
+          />
+        </div>
+      </InsightCard>
+    );
+  }
+
+  // ── Criminal Defence ──────────────────────────────────────────────────────
+  if (counselRole === 'defence' && matterTrack === 'criminal') {
+    const remandPeriod    = urgentPeriodFor(['remand', 'criminal_remand']);
+    const accusedStatus   = (activeCase as any).charge_arraignment_data?.bail_status
+      ?? (entries.some(e => /bail granted/i.test(e.docTitle ?? '')) ? 'On Bail' : null)
+      ?? (entries.some(e => /remand/i.test(e.docTitle ?? '')) ? 'Remanded' : null);
+
+    // Prosecution witness tracker for no-case threshold
+    const pwEntries = entries.filter(e => /pw\d|prosecution witness/i.test(e.docTitle ?? ''));
+    const closedPw  = pwEntries.filter(e => /close|discharged|done/i.test(e.status ?? '') || /closed/i.test(e.notes ?? '')).length;
+    const intPkg2   = intel?.intPkg as any;
+    const expectedPw = intPkg2?.witnesses?.prosecution?.length ?? pwEntries.length;
+    const noCasePct  = expectedPw > 0 ? Math.round((closedPw / expectedPw) * 100) : null;
+
+    return (
+      <InsightCard icon="🛡" title="Defence Position — Live Indicators" accent={roleAccent}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 10 }}>
+          <InsightTile
+            label="Accused Status"
+            icon="👤"
+            accent={roleAccent}
+            status={accusedStatus === 'Remanded' ? 'red' : accusedStatus === 'On Bail' ? 'green' : 'neutral'}
+            value={accusedStatus ?? 'Status not yet recorded — log charge/arraignment'}
+            hint="View criminal engine"
+            onNavigate={() => onNavigate('criminal' as DashTabId)}
+          />
+          {remandPeriod && accusedStatus === 'Remanded' && (
+            <InsightTile
+              label="Remand Period Countdown"
+              icon="⏱"
+              accent={roleAccent}
+              status={remandPeriod.status === 'overdue' ? 'red' : remandPeriod.status === 'critical' ? 'red' : 'amber'}
+              value={remandPeriod.status === 'overdue'
+                ? `Remand review OVERDUE — apply immediately`
+                : `${remandPeriod.daysRemaining}d until remand review`
+              }
+              hint={remandPeriod.rule.authority}
+              onNavigate={() => onNavigate('alerts' as DashTabId)}
+            />
+          )}
+          <InsightTile
+            label="No-Case Threshold Tracker"
+            icon="◎"
+            accent={roleAccent}
+            status={noCasePct === null ? 'neutral' : noCasePct >= 100 ? 'green' : noCasePct >= 50 ? 'amber' : 'neutral'}
+            value={noCasePct === null
+              ? 'Run Intelligence — prosecution witnesses not yet mapped'
+              : noCasePct >= 100
+                ? 'All prosecution witnesses closed — assess no-case'
+                : `${closedPw}/${expectedPw} prosecution witnesses completed`
+            }
+            hint="View no-case submission"
+            onNavigate={() => onNavigate('no_case' as DashTabId)}
+          />
+        </div>
+      </InsightCard>
+    );
+  }
+
+  return null;
+}
+
+// ── Insight Card wrapper ────────────────────────────────────────────────────
+
+function InsightCard({ icon, title, accent, children }: {
+  icon: string; title: string; accent: string; children: React.ReactNode;
+}) {
+  return (
+    <div style={{
+      background: T.card,
+      border: `1px solid ${T.bdr}`,
+      borderLeft: `3px solid ${accent}`,
+      borderRadius: 10,
+      padding: '18px 20px',
+      marginBottom: 16,
+    }}>
+      <div style={{ marginBottom: 14 }}>
+        <SectionHeader icon={icon} title={title} />
+      </div>
+      {children}
+    </div>
+  );
+}
+
+// ── Insight Tile ────────────────────────────────────────────────────────────
+
+type TileStatus = 'red' | 'amber' | 'green' | 'neutral';
+
+const TILE_STATUS_STYLES: Record<TileStatus, { bg: string; bdr: string; valCol: string }> = {
+  red:     { bg: '#fdf4f4', bdr: '#e8c0c0', valCol: '#c04040' },
+  amber:   { bg: '#fdf8f0', bdr: '#e8d8a0', valCol: '#8a5800' },
+  green:   { bg: '#f4fbf6', bdr: '#b0dcc0', valCol: '#2a7048' },
+  neutral: { bg: T.bg,     bdr: T.bdr,     valCol: T.sub     },
+};
+
+function InsightTile({ label, icon, accent, status, value, hint, onNavigate }: {
+  label:      string;
+  icon:       string;
+  accent:     string;
+  status:     TileStatus;
+  value:      string;
+  hint?:      string;
+  onNavigate?: () => void;
+}) {
+  const st = TILE_STATUS_STYLES[status];
+  return (
+    <button
+      onClick={onNavigate}
+      disabled={!onNavigate}
+      style={{
+        background:   st.bg,
+        border:       `1px solid ${st.bdr}`,
+        borderRadius: 7,
+        padding:      '12px 14px',
+        textAlign:    'left',
+        cursor:       onNavigate ? 'pointer' : 'default',
+        transition:   'all .15s',
+      }}
+      onMouseEnter={e => {
+        if (onNavigate) {
+          (e.currentTarget as HTMLElement).style.borderColor = accent + '70';
+          (e.currentTarget as HTMLElement).style.background  = st.bg === T.bg ? '#fafafa' : st.bg;
+        }
+      }}
+      onMouseLeave={e => {
+        (e.currentTarget as HTMLElement).style.borderColor = st.bdr;
+        (e.currentTarget as HTMLElement).style.background  = st.bg;
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 6 }}>
+        <span style={{ fontSize: 11 }}>{icon}</span>
+        <span style={{
+          fontSize: 8, color: T.mute,
+          fontFamily: "'Times New Roman', Times, serif",
+          letterSpacing: '.1em', textTransform: 'uppercase', fontWeight: 700,
+        }}>
+          {label}
+        </span>
+        {status !== 'neutral' && (
+          <span style={{
+            marginLeft: 'auto',
+            width: 6, height: 6, borderRadius: '50%',
+            background: status === 'red' ? '#c04040' : status === 'amber' ? '#b07828' : '#2e8a50',
+            flexShrink: 0,
+          }} />
+        )}
+      </div>
+      <div style={{
+        fontSize: 12, color: st.valCol,
+        fontFamily: "'Times New Roman', Times, serif",
+        fontWeight: 600, lineHeight: 1.4, marginBottom: hint ? 5 : 0,
+      }}>
+        {value}
+      </div>
+      {hint && (
+        <div style={{
+          fontSize: 9, color: T.mute,
+          fontFamily: "'Times New Roman', Times, serif",
+          fontStyle: 'italic',
+        }}>
+          {hint}
+        </div>
+      )}
+      {onNavigate && (
+        <div style={{
+          fontSize: 9, color: accent,
+          fontFamily: "'Times New Roman', Times, serif",
+          marginTop: 5, letterSpacing: '.04em',
+        }}>
+          Open →
+        </div>
+      )}
+    </button>
   );
 }
 
