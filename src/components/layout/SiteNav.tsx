@@ -14,6 +14,7 @@ export function SiteNav() {
 
   function handleBack() {
     if (view === 'engine') setView('home');
+    if (view === 'home')   setView('home');
   }
 
   return (
@@ -23,23 +24,23 @@ export function SiteNav() {
         <span className="nav-tag">Full Litigation Suite · v11</span>
         {showDocket && (
           <button
-            className="nav-back"
+            className="nav-btn"
             onClick={() => setDocketOpen(!docketOpen)}
           >
             ⚖ Docket
           </button>
         )}
         {showBack && (
-          <button className="nav-back" onClick={handleBack}>
-            ← Back
+          <button className="nav-btn" onClick={handleBack}>
+            ← Home
           </button>
         )}
         {showSettings && (
           <button
-            className="nav-back"
+            className="nav-btn"
             onClick={() => setView('settings')}
             title="Settings"
-            style={{ fontSize: 16, padding: '4px 10px' }}
+            style={{ padding: '5px 10px' }}
           >
             ⚙
           </button>
