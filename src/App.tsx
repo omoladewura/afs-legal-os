@@ -59,14 +59,14 @@ export function App() {
           {view === 'resolver' && <ResearchResolver onBack={() => setView('home')} />}
           {view === 'settings' && <SettingsPanel />}
           {view === 'san'      && (
-            <Suspense fallback={<p style={{ color: T.mute, fontFamily: 'Inter, sans-serif', fontSize: 13, padding: 32 }}>Loading SAN Mode…</p>}>
+            <Suspense fallback={<p style={{ color: T.mute, fontFamily: "'Times New Roman', Times, serif", fontSize: 13, padding: 32 }}>Loading SAN Mode…</p>}>
               <div style={{ animation: 'fadeUp .3s ease' }}>
                 <button
                   onClick={() => setView('home')}
                   style={{
                     background: 'none', border: `1px solid ${T.bdr}`,
                     borderRadius: 5, color: T.mute, padding: '7px 16px',
-                    fontSize: 12, fontFamily: 'Inter, sans-serif',
+                    fontSize: 12, fontFamily: "'Times New Roman', Times, serif",
                     cursor: 'pointer', marginBottom: 24,
                   }}
                 >
