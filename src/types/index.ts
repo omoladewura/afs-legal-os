@@ -430,4 +430,6 @@ export type DashTabId =
   // Phase 7 — Civil Engines
   | 'pleadings' | 'motions' | 'enforcement'
   // Phase 7 Automation — Role-specific Alerts
-  | 'alerts';
+  | 'alerts'
+  // Phase A — Missing Criminal Engines
+  | 'defence_case' | 'final_address';
