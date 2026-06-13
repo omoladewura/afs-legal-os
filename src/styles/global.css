@@ -1,8 +1,14 @@
-/* AFS Advocates — Legal Case Intelligence OS — Global Styles */
+/* AFS Advocates — Legal Intelligence OS — Global Styles
+   White newspaper theme. Times New Roman throughout.
+   Role-accent colours work as tints on the white canvas.
+   No !important overrides on colour — inline styles carry role accents. */
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* ── Google Fonts ── */
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap');
 
 /* ── Reset ── */
 *, *::before, *::after {
@@ -14,88 +20,60 @@
 /* ── Base ── */
 html, body {
   background:  #ffffff;
-  color:       #000000;
-  font-family: 'Times New Roman', Times, serif !important;
+  color:       #111111;
+  font-family: 'Times New Roman', Times, serif;
   font-size:   14px;
   min-height:  100vh;
 }
 
 body {
-  padding-top: 48px;
+  padding-top: 52px;
 }
 
 #root {
-  max-width: 860px;
+  max-width: 880px;
   margin:    0 auto;
-  padding:   32px 24px 80px;
+  padding:   36px 28px 80px;
 }
 
-/* ── Global font + colour override (all elements except preserved) ── */
-/* Targets every div, p, span, button, input, textarea, select, label */
-div, p, span, h1, h2, h3, h4, h5, h6,
-button, input, textarea, select, label, a, li, ul, ol, td, th {
-  font-family: 'Times New Roman', Times, serif !important;
-  font-size:   14px;
+/* ── Typography — Times New Roman everywhere ── */
+*:not(code):not(pre):not(.preserve-mono) {
+  font-family: 'Times New Roman', Times, serif;
 }
 
-/* ── Background override — white everywhere ── */
-div, section, article, aside, main {
-  background-color: transparent;
-}
+/* ── Base text colours ── */
+h1, h2, h3, h4, h5, h6 { color: #111111; }
+p, span, li, td, th, label { color: #222222; }
+a { color: #111111; text-decoration: underline; }
 
-/* Root backgrounds */
-#root, #root-inner {
-  background: #ffffff !important;
-}
-
-/* ── Text colour — black everywhere ── */
-* {
-  color: #000000;
-}
-
-/* ── Border colour — light grey everywhere ── */
-/* We can't override inline border with CSS alone, but we set defaults */
+/* ── Inputs & selects — clean newspaper style ── */
 input, textarea, select {
-  background: #ffffff !important;
-  color:      #000000 !important;
-  border:     1px solid #cccccc !important;
+  font-family: 'Times New Roman', Times, serif;
+  font-size:   13px;
+  background:  #ffffff;
+  color:       #111111;
+  border:      1px solid #cccccc;
+  border-radius: 4px;
+  outline: none;
+  transition: border-color .15s;
+}
+input:focus, textarea:focus, select:focus {
+  border-color: #888888;
+}
+input::placeholder, textarea::placeholder {
+  color: #aaaaaa;
 }
 
-/* ── Buttons — clean black/white ── */
+/* ── Buttons — default newspaper style ── */
 button {
-  background:   #ffffff !important;
-  color:        #000000 !important;
-  border:       1px solid #cccccc !important;
-  font-family:  'Times New Roman', Times, serif !important;
-  font-size:    14px !important;
+  font-family:  'Times New Roman', Times, serif;
+  font-size:    13px;
+  cursor:       pointer;
+  transition:   background .15s, border-color .15s, color .15s;
 }
-
 button:disabled {
-  background: #eeeeee !important;
-  color:      #aaaaaa !important;
-  border:     1px solid #dddddd !important;
-  cursor:     not-allowed !important;
-}
-
-button:hover:not(:disabled) {
-  background:   #f0f0f0 !important;
-  border-color: #999999 !important;
-}
-
-/* Active/selected tab buttons — black filled */
-button[data-active="true"] {
-  background: #000000 !important;
-  color:      #ffffff !important;
-}
-
-/* ── PRESERVE: Alert colours ── */
-/* Error / danger states */
-.alert-error,
-[class*="error"],
-[class*="danger"] {
-  background-color: #fff5f5 !important;
-  border-color:     #ffcccc !important;
-  color:            #cc0000 !important;
+  cursor: not-allowed;
+  opacity: 0.45;
 }
 
 /* ── Navigation ── */
@@ -106,17 +84,17 @@ button[data-active="true"] {
   display:         flex;
   align-items:     center;
   justify-content: space-between;
-  padding:         0 24px;
-  height:          48px;
-  background:      #ffffff !important;
-  border-bottom:   1px solid #cccccc;
+  padding:         0 28px;
+  height:          52px;
+  background:      #ffffff;
+  border-bottom:   2px solid #111111;  /* strong rule — newspaper masthead */
 }
 
 .nav-logo {
-  font-family:     'Times New Roman', Times, serif !important;
-  font-size:       16px !important;
-  color:           #000000 !important;
-  letter-spacing:  0.05em;
+  font-family:     'Times New Roman', Times, serif;
+  font-size:       17px;
+  color:           #111111;
+  letter-spacing:  0.08em;
   font-weight:     700;
   text-decoration: none;
   cursor:          default;
@@ -126,43 +104,93 @@ button[data-active="true"] {
 .nav-right {
   display:     flex;
   align-items: center;
-  gap:         8px;
+  gap:         10px;
   flex-shrink: 0;
 }
 
 .nav-tag {
-  font-family:    'Times New Roman', Times, serif !important;
-  font-size:      11px !important;
-  color:          #666666 !important;
-  letter-spacing: 0.08em;
+  font-family:    'Times New Roman', Times, serif;
+  font-size:      11px;
+  color:          #888888;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   white-space:    nowrap;
 }
 
-.nav-back {
-  background:    #ffffff !important;
-  border:        1px solid #cccccc !important;
-  color:         #000000 !important;
-  border-radius: 4px;
+.nav-btn {
+  background:    transparent;
+  border:        1px solid #cccccc;
+  color:         #333333;
+  border-radius: 3px;
   padding:       5px 14px;
-  font-size:     13px !important;
-  font-family:   'Times New Roman', Times, serif !important;
+  font-size:     12px;
+  font-family:   'Times New Roman', Times, serif;
+  letter-spacing: .04em;
   cursor:        pointer;
   white-space:   nowrap;
-  transition:    background 0.15s;
+  transition:    background .15s, border-color .15s;
 }
-.nav-back:hover {
-  background:   #f0f0f0 !important;
-  border-color: #999999 !important;
+.nav-btn:hover {
+  background:   #f5f5f5;
+  border-color: #888888;
 }
+
+/* backwards compat — old class name */
+.nav-back { @extend .nav-btn; }
 
 /* ── Password Gate ── */
 .pw-gate {
-  min-height:      calc(100vh - 48px);
+  min-height:      calc(100vh - 52px);
   display:         flex;
   align-items:     center;
   justify-content: center;
   padding:         24px;
+}
+
+/* ── Tab Scroll Strip ──
+   Active tab = light gray fill, not black.
+   Role-accent tabs are handled via inline styles in CaseDashboard
+   and are not overridden here. */
+.tab-scroll {
+  display:            flex;
+  overflow-x:         auto;
+  scrollbar-width:    none;
+  -ms-overflow-style: none;
+  gap:                3px;
+  padding-bottom:     2px;
+  border-bottom:      2px solid #111111;
+  margin-bottom:      24px;
+}
+.tab-scroll::-webkit-scrollbar { display: none; }
+
+/* Tab buttons — base style.
+   Role-accented tabs carry inline styles and must not be overridden. */
+.tab-scroll > button {
+  flex-shrink:   0;
+  background:    transparent;
+  border:        1px solid transparent;
+  border-bottom: none;
+  color:         #888888;
+  border-radius: 3px 3px 0 0;
+  padding:       7px 15px;
+  font-size:     12px;
+  font-family:   'Times New Roman', Times, serif;
+  letter-spacing: .04em;
+  white-space:   nowrap;
+  transition:    background .15s, color .15s;
+}
+.tab-scroll > button:hover {
+  background: #f0f0f0;
+  color:      #111111;
+}
+/* Active tab — gray fill, strong border, newspaper rule */
+.tab-scroll > button.tab-active {
+  background:   #e8e8e8;
+  border-color: #cccccc;
+  border-bottom: 2px solid #e8e8e8;   /* covers bottom rule to look connected */
+  color:        #111111;
+  font-weight:  600;
+  margin-bottom: -2px;
 }
 
 /* ── Mode Grid ── */
@@ -172,84 +200,66 @@ button[data-active="true"] {
   gap:                   10px;
 }
 
-/* ── Tab Scroll Strip ── */
-.tab-scroll {
-  display:            flex;
-  overflow-x:         auto;
-  scrollbar-width:    none;
-  -ms-overflow-style: none;
-  gap:                4px;
-  padding-bottom:     4px;
-  border-bottom:      1px solid #cccccc;
-  margin-bottom:      20px;
-}
-.tab-scroll::-webkit-scrollbar { display: none; }
-
-/* Tab buttons inside scroll strip */
-.tab-scroll button {
-  background:    #ffffff !important;
-  border:        1px solid #cccccc !important;
-  color:         #444444 !important;
+/* ── Cards ── */
+.card {
+  background:    #f9f9f7;
+  border:        1px solid #cccccc;
   border-radius: 4px;
-  padding:       6px 14px !important;
-  font-size:     13px !important;
-  white-space:   nowrap;
-  flex-shrink:   0;
+  padding:       20px 22px;
 }
 
-.tab-scroll button:hover {
-  background:   #f0f0f0 !important;
-  border-color: #999999 !important;
-  color:        #000000 !important;
+/* ── Dividers ── */
+hr {
+  border: none;
+  border-top: 1px solid #cccccc;
+  margin: 20px 0;
 }
 
 /* ── Animations ── */
 @keyframes fadeUp {
-  from { opacity: 0; transform: translateY(10px); }
+  from { opacity: 0; transform: translateY(8px); }
   to   { opacity: 1; transform: translateY(0); }
 }
-
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
-
-@keyframes glow {
-  0%, 100% { opacity: 1; }
-  50%       { opacity: 0.35; }
-}
-
 @keyframes shake {
   0%, 100% { transform: translateX(0); }
   25%       { transform: translateX(-8px); }
   75%       { transform: translateX(8px); }
 }
+@keyframes glow {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
 
 /* ── Error Boundary ── */
 .error-boundary {
-  background:    #fff5f5 !important;
-  border:        1px solid #ffcccc !important;
-  border-radius: 8px;
-  padding:       24px;
+  background:    #fff8f8;
+  border:        1px solid #e8c0c0;
+  border-radius: 4px;
+  padding:       20px 24px;
   margin:        16px 0;
-  font-family:   'Times New Roman', Times, serif !important;
-  color:         #cc0000 !important;
+  color:         #8a1a1a;
 }
 
 /* ── Scrollbars ── */
-::-webkit-scrollbar       { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: #f5f5f5; }
-::-webkit-scrollbar-thumb { background: #cccccc; border-radius: 3px; }
+::-webkit-scrollbar       { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: #f5f5f3; }
+::-webkit-scrollbar-thumb { background: #cccccc; border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: #aaaaaa; }
 
 /* ── Print ── */
 @media print {
   .no-print  { display: none !important; }
   .site-nav  { display: none !important; }
-  body       { padding-top: 0; background: #fff; color: #000; }
+  body       { padding-top: 0; }
 }
 
 /* ── Responsive ── */
-@media (max-width: 600px) {
-  #root      { padding: 20px 14px 60px; }
+@media (max-width: 640px) {
+  #root      { padding: 20px 16px 60px; }
   .mode-grid { grid-template-columns: 1fr; }
   .nav-tag   { display: none; }
+  body       { padding-top: 52px; }
 }
