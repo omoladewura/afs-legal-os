@@ -130,37 +130,46 @@ export function CaseDocket() {
 
   // ── Styles ─────────────────────────────────────────────────────────────────
 
+  // Light-tinted role colours for white canvas
+  const ROLE_LIGHT: Record<CounselRole, { bg: string; bdr: string; col: string }> = {
+    claimant_side:  { bg: '#edf3fb', bdr: '#b8cfe8', col: '#1a4a8a' },
+    defendant_side: { bg: '#fbeaea', bdr: '#e0b8b8', col: '#7a1a1a' },
+    prosecution:    { bg: '#fdf3e0', bdr: '#e0cfa0', col: '#7a4a00' },
+    defence:        { bg: '#e8f5ee', bdr: '#a8d0b8', col: '#1a5a30' },
+  };
+
   const overlayStyle: React.CSSProperties = {
     position: 'fixed', inset: 0, zIndex: 2000,
-    background: 'rgba(7,7,15,0.96)',
+    background: 'rgba(0,0,0,0.55)',
     overflowY: 'auto', padding: '0 0 60px',
   };
 
   const innerStyle: React.CSSProperties = {
-    maxWidth: 860, margin: '0 auto', padding: '80px 24px 40px',
+    maxWidth: 860, margin: '0 auto', padding: '60px 24px 40px',
+    background: '#ffffff', minHeight: '100vh',
   };
 
   const pIStyle: React.CSSProperties = { ...S.inp, marginBottom: 0, fontSize: 13 };
 
-  const trackBtnStyle = (selected: boolean, track: MatterTrack): React.CSSProperties => ({
-    flex: 1, padding: '12px 16px',
-    background: selected ? MATTER_TRACK_COLORS[track].bg : 'transparent',
-    border: `1px solid ${selected ? MATTER_TRACK_COLORS[track].bdr : '#1e1e2e'}`,
-    borderRadius: 6, cursor: 'pointer',
-    color: selected ? MATTER_TRACK_COLORS[track].col : T.mute,
-    fontFamily: 'Inter, sans-serif', fontSize: 12, fontWeight: 700,
-    letterSpacing: '.1em', textTransform: 'uppercase' as const,
+  const trackBtnStyle = (selected: boolean, _track: MatterTrack): React.CSSProperties => ({
+    flex: 1, padding: '10px 14px',
+    background: selected ? '#f0f0ee' : '#ffffff',
+    border: `1px solid ${selected ? '#888888' : '#cccccc'}`,
+    borderRadius: 3, cursor: 'pointer',
+    color: selected ? '#111111' : '#888888',
+    fontFamily: "'Times New Roman', Times, serif", fontSize: 12, fontWeight: 700,
+    letterSpacing: '.08em', textTransform: 'uppercase' as const,
     transition: 'all .15s',
   });
 
   const roleBtnStyle = (selected: boolean, role: CounselRole): React.CSSProperties => ({
     flex: 1, padding: '10px 14px',
-    background: selected ? COUNSEL_ROLE_COLORS[role].bg : 'transparent',
-    border: `1px solid ${selected ? COUNSEL_ROLE_COLORS[role].bdr : '#1e1e2e'}`,
-    borderRadius: 6, cursor: 'pointer',
-    color: selected ? COUNSEL_ROLE_COLORS[role].col : T.mute,
-    fontFamily: 'Inter, sans-serif', fontSize: 11, fontWeight: 600,
-    letterSpacing: '.07em',
+    background: selected ? ROLE_LIGHT[role].bg : '#ffffff',
+    border: `1px solid ${selected ? ROLE_LIGHT[role].bdr : '#cccccc'}`,
+    borderRadius: 3, cursor: 'pointer',
+    color: selected ? ROLE_LIGHT[role].col : '#888888',
+    fontFamily: "'Times New Roman', Times, serif", fontSize: 12, fontWeight: 600,
+    letterSpacing: '.04em',
     transition: 'all .15s',
   });
 
@@ -169,21 +178,34 @@ export function CaseDocket() {
       <div style={innerStyle}>
 
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28 }}>
+        <div style={{
+          display: 'flex', alignItems: 'flex-start',
+          justifyContent: 'space-between', marginBottom: 28,
+          borderBottom: '2px solid #111111', paddingBottom: 16,
+        }}>
           <div>
-            <p style={{ fontSize: 9, color: T.mute, fontFamily: 'Inter, sans-serif', letterSpacing: '.2em', textTransform: 'uppercase', marginBottom: 4 }}>
+            <p style={{
+              fontSize: 9, color: '#888888',
+              fontFamily: "'Times New Roman', Times, serif",
+              letterSpacing: '.2em', textTransform: 'uppercase', marginBottom: 5,
+            }}>
               AFS Advocates
             </p>
-            <h1 style={{ fontSize: 28, color: T.goldL, fontFamily: "'Cormorant Garamond', serif", fontWeight: 300, fontStyle: 'italic' }}>
+            <h1 style={{
+              fontSize: 28, color: '#111111',
+              fontFamily: "'Times New Roman', Times, serif",
+              fontWeight: 700, fontStyle: 'italic',
+            }}>
               Case Docket
             </h1>
           </div>
           <button
             onClick={() => setDocketOpen(false)}
             style={{
-              background: 'transparent', border: `1px solid #1e1e2e`,
-              color: T.mute, borderRadius: 4, padding: '8px 16px',
-              fontSize: 12, fontFamily: 'Inter, sans-serif', cursor: 'pointer', marginTop: 8,
+              background: 'transparent', border: '1px solid #cccccc',
+              color: '#444444', borderRadius: 3, padding: '7px 16px',
+              fontSize: 12, fontFamily: "'Times New Roman', Times, serif",
+              cursor: 'pointer', marginTop: 8,
             }}
           >
             ✕ Close
@@ -195,12 +217,12 @@ export function CaseDocket() {
           <button
             onClick={() => { if (creating) resetForm(); setCreating(c => !c); }}
             style={{
-              background: creating ? 'transparent' : `linear-gradient(135deg,#c4a030,#a07820)`,
-              color: creating ? T.mute : '#05050c',
-              border: creating ? `1px solid #1e1e2e` : 'none',
-              borderRadius: 5, padding: '10px 20px', fontSize: 13,
-              fontFamily: "'Cormorant Garamond', serif",
-              cursor: 'pointer', fontWeight: 600, letterSpacing: '.03em',
+              background: creating ? 'transparent' : '#111111',
+              color: creating ? '#666666' : '#ffffff',
+              border: creating ? '1px solid #cccccc' : 'none',
+              borderRadius: 3, padding: '9px 20px', fontSize: 13,
+              fontFamily: "'Times New Roman', Times, serif",
+              cursor: 'pointer', fontWeight: 600, letterSpacing: '.02em',
             }}
           >
             {creating ? '✕ Cancel' : '+ New Matter'}
@@ -209,26 +231,31 @@ export function CaseDocket() {
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Search matters…"
-            style={{ ...S.inp, width: 240, marginBottom: 0, fontSize: 13, padding: '10px 14px' }}
+            style={{ ...S.inp, width: 240, marginBottom: 0, fontSize: 13, padding: '9px 14px' }}
           />
         </div>
 
         {/* ── New matter form ──────────────────────────────────────────────── */}
         {creating && (
           <div style={{
-            background: '#0a0a14', border: `1px solid ${T.gold}33`,
-            borderRadius: 8, padding: '22px 24px', marginBottom: 24,
+            background: '#fafaf8', border: '1px solid #cccccc',
+            borderRadius: 4, padding: '22px 24px', marginBottom: 24,
             animation: 'fadeUp .2s ease',
           }}>
-            <p style={{ fontSize: 9, color: T.gold, fontFamily: 'Inter, sans-serif', letterSpacing: '.18em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 18 }}>
+            <p style={{
+              fontSize: 9, color: '#444444',
+              fontFamily: "'Times New Roman', Times, serif",
+              letterSpacing: '.18em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 18,
+              borderBottom: '1px solid #cccccc', paddingBottom: 10,
+            }}>
               New Matter
             </p>
 
             {/* ── STEP 1: Track ── */}
             <div style={{ marginBottom: 18 }}>
               <label style={{ ...S.label, marginBottom: 8, display: 'block' }}>
-                Track <span style={{ color: T.gold }}>*</span>
-                <span style={{ color: T.mute, fontWeight: 400, fontSize: 10, marginLeft: 8 }}>
+                Track <span style={{ color: '#111111' }}>*</span>
+                <span style={{ color: '#888888', fontWeight: 400, fontSize: 10, marginLeft: 8 }}>
                   Cannot be changed after creation
                 </span>
               </label>
@@ -248,8 +275,8 @@ export function CaseDocket() {
             {/* ── STEP 2: Role ── */}
             <div style={{ marginBottom: 18 }}>
               <label style={{ ...S.label, marginBottom: 8, display: 'block' }}>
-                Our Role <span style={{ color: T.gold }}>*</span>
-                <span style={{ color: T.mute, fontWeight: 400, fontSize: 10, marginLeft: 8 }}>
+                Our Role <span style={{ color: '#111111' }}>*</span>
+                <span style={{ color: '#888888', fontWeight: 400, fontSize: 10, marginLeft: 8 }}>
                   Cannot be changed after creation
                 </span>
               </label>
@@ -267,10 +294,11 @@ export function CaseDocket() {
               {/* Role description strip */}
               <div style={{
                 marginTop: 8, padding: '8px 12px',
-                background: COUNSEL_ROLE_COLORS[ncRole].bg,
-                border: `1px solid ${COUNSEL_ROLE_COLORS[ncRole].bdr}`,
-                borderRadius: 5, fontSize: 11, color: COUNSEL_ROLE_COLORS[ncRole].col,
-                fontFamily: 'Inter, sans-serif',
+                background: ROLE_LIGHT[ncRole].bg,
+                border: `1px solid ${ROLE_LIGHT[ncRole].bdr}`,
+                borderRadius: 3, fontSize: 12, color: ROLE_LIGHT[ncRole].col,
+                fontFamily: "'Times New Roman', Times, serif",
+                fontStyle: 'italic',
               }}>
                 {ncRole === 'claimant_side'  && 'Acting for the claimant — advancing the claim, driving pleadings, trial, and enforcement.'}
                 {ncRole === 'defendant_side' && 'Acting for the defendant — resisting or managing the claim, filing defences and applications.'}
@@ -329,7 +357,7 @@ export function CaseDocket() {
                   <button onClick={() => removeParty(ncPartiesA, setNcPartiesA, p.id)} style={{ background: 'transparent', border: `1px solid #1e1e2e`, color: T.mute, borderRadius: 4, padding: '0 10px', cursor: 'pointer', fontSize: 13 }}>✕</button>
                 </div>
               ))}
-              <button onClick={() => addParty(ncPartiesA, setNcPartiesA)} style={{ background: 'transparent', border: `1px solid #1e1e2e`, color: T.mute, borderRadius: 4, padding: '6px 12px', fontSize: 11, fontFamily: 'Inter, sans-serif', cursor: 'pointer' }}>
+              <button onClick={() => addParty(ncPartiesA, setNcPartiesA)} style={{ background: 'transparent', border: `1px solid #1e1e2e`, color: T.mute, borderRadius: 4, padding: '6px 12px', fontSize: 11, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer' }}>
                 + Add {ncTrack === 'civil' ? 'Claimant' : 'Complainant'}
               </button>
             </div>
@@ -342,7 +370,7 @@ export function CaseDocket() {
                   <button onClick={() => removeParty(ncPartiesB, setNcPartiesB, p.id)} style={{ background: 'transparent', border: `1px solid #1e1e2e`, color: T.mute, borderRadius: 4, padding: '0 10px', cursor: 'pointer', fontSize: 13 }}>✕</button>
                 </div>
               ))}
-              <button onClick={() => addParty(ncPartiesB, setNcPartiesB)} style={{ background: 'transparent', border: `1px solid #1e1e2e`, color: T.mute, borderRadius: 4, padding: '6px 12px', fontSize: 11, fontFamily: 'Inter, sans-serif', cursor: 'pointer' }}>
+              <button onClick={() => addParty(ncPartiesB, setNcPartiesB)} style={{ background: 'transparent', border: `1px solid #1e1e2e`, color: T.mute, borderRadius: 4, padding: '6px 12px', fontSize: 11, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer' }}>
                 + Add {ncTrack === 'civil' ? 'Defendant' : 'Accused'}
               </button>
             </div>
@@ -352,7 +380,7 @@ export function CaseDocket() {
               <div style={{
                 marginBottom: 18, padding: '10px 14px',
                 background: '#060610', border: `1px solid #1a1a2e`,
-                borderRadius: 6, fontFamily: 'Inter, sans-serif', fontSize: 11,
+                borderRadius: 6, fontFamily: "'Times New Roman', Times, serif", fontSize: 11,
                 color: T.mute, lineHeight: 1.7,
               }}>
                 <span style={{ color: MATTER_TRACK_COLORS[ncTrack].col, fontWeight: 700 }}>
@@ -376,7 +404,7 @@ export function CaseDocket() {
                 color:       ncName.trim() ? '#05050c' : '#2a2a38',
                 border:      'none', borderRadius: 6,
                 padding:     '12px 28px', fontSize: 15,
-                fontFamily:  "'Cormorant Garamond', serif",
+                fontFamily:  "'Times New Roman', Times, serif",
                 cursor:      ncName.trim() ? 'pointer' : 'not-allowed',
                 fontWeight:  600, letterSpacing: '.04em',
               }}
@@ -388,81 +416,82 @@ export function CaseDocket() {
 
         {/* ── Matter list ─────────────────────────────────────────────────── */}
         {filtered.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '60px 24px' }}>
-            <p style={{ fontSize: 16, color: T.dim, fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic', marginBottom: 8 }}>
+          <div style={{ textAlign: 'center', padding: '60px 24px', borderTop: '1px solid #cccccc' }}>
+            <p style={{ fontSize: 14, color: '#888888', fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic' }}>
               {cases.length === 0 ? 'No matters yet. Create your first matter above.' : 'No matters match your search.'}
             </p>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ borderTop: '1px solid #cccccc' }}>
             {filtered.map(c => {
               const track = c.matter_track;
               const role  = c.counsel_role;
+              const roleL = role ? ROLE_LIGHT[role] : null;
               return (
                 <button
                   key={c.id}
                   onClick={() => openCase(c)}
                   style={{
-                    background: T.card, border: `1px solid ${T.bdr}`,
-                    borderRadius: 7, padding: '16px 18px',
+                    background: '#ffffff', border: 'none',
+                    borderBottom: '1px solid #eeeeee',
+                    padding: '16px 4px',
                     textAlign: 'left', cursor: 'pointer',
-                    transition: 'border-color .15s, background .15s',
+                    transition: 'background .12s',
                     display: 'block', width: '100%',
                   }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = T.gold; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = T.bdr; }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#f7f7f5'; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '#ffffff'; }}
                 >
                   <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ fontSize: 15, color: T.text, fontFamily: "'Cormorant Garamond', serif", fontWeight: 600, marginBottom: 5 }}>
+                      <p style={{
+                        fontSize: 15, color: '#111111',
+                        fontFamily: "'Times New Roman', Times, serif",
+                        fontWeight: 700, fontStyle: 'italic', marginBottom: 4,
+                      }}>
                         {c.caseName}
                       </p>
-                      <p style={{ fontSize: 11, color: T.mute, fontFamily: 'Inter, sans-serif', lineHeight: 1.5 }}>
+                      <p style={{
+                        fontSize: 11, color: '#888888',
+                        fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.5,
+                      }}>
                         {[c.court, c.suitNo].filter(Boolean).join(' · ')}
                       </p>
                     </div>
                     <div style={{ textAlign: 'right', flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
                       {/* Track badge */}
-                      {track ? (
+                      {track && (
                         <span style={{
-                          fontSize: 9, padding: '2px 7px', borderRadius: 3,
-                          fontFamily: 'Inter, sans-serif', fontWeight: 700,
+                          fontSize: 9, padding: '2px 7px', borderRadius: 2,
+                          fontFamily: "'Times New Roman', Times, serif", fontWeight: 700,
                           letterSpacing: '.1em', textTransform: 'uppercase',
-                          background: MATTER_TRACK_COLORS[track].bg,
-                          border: `1px solid ${MATTER_TRACK_COLORS[track].bdr}`,
-                          color: MATTER_TRACK_COLORS[track].col,
+                          background: '#f0f0ee', border: '1px solid #cccccc', color: '#555555',
                         }}>
                           {MATTER_TRACK_LABELS[track]}
                         </span>
-                      ) : null}
+                      )}
                       {/* Role badge */}
-                      {role ? (
+                      {role && roleL ? (
                         <span style={{
-                          fontSize: 9, padding: '2px 7px', borderRadius: 3,
-                          fontFamily: 'Inter, sans-serif', fontWeight: 700,
-                          letterSpacing: '.07em', textTransform: 'uppercase',
-                          background: COUNSEL_ROLE_COLORS[role].bg,
-                          border: `1px solid ${COUNSEL_ROLE_COLORS[role].bdr}`,
-                          color: COUNSEL_ROLE_COLORS[role].col,
+                          fontSize: 9, padding: '2px 7px', borderRadius: 2,
+                          fontFamily: "'Times New Roman', Times, serif", fontWeight: 700,
+                          letterSpacing: '.06em', textTransform: 'uppercase',
+                          background: roleL.bg, border: `1px solid ${roleL.bdr}`, color: roleL.col,
                         }}>
                           {COUNSEL_ROLE_LABELS[role]}
                         </span>
                       ) : (
-                        /* Legacy V1 matter — show old role string */
                         <span style={{
-                          fontSize: 9, padding: '2px 7px', borderRadius: 3,
-                          fontFamily: 'Inter, sans-serif', fontWeight: 600,
+                          fontSize: 9, padding: '2px 7px', borderRadius: 2,
+                          fontFamily: "'Times New Roman', Times, serif", fontWeight: 600,
                           letterSpacing: '.08em', textTransform: 'uppercase',
-                          background: '#0a0a14', border: `1px solid #1e1e2e`, color: T.mute,
+                          background: '#f5f5f5', border: '1px solid #cccccc', color: '#888888',
                         }}>
                           {c.role}
                         </span>
                       )}
-                      <p style={{ fontSize: 10, color: '#2a2a3e', fontFamily: 'Inter, sans-serif', marginTop: 2 }}>
+                      <p style={{ fontSize: 10, color: '#888888', fontFamily: "'Times New Roman', Times, serif", marginTop: 2 }}>
                         {formatDate(c.createdAt?.slice(0, 10) || '')}
-                      </p>
-                      <p style={{ fontSize: 10, color: T.mute, fontFamily: 'Inter, sans-serif' }}>
-                        {c.recent_entries?.length ?? 0} entries
                       </p>
                     </div>
                   </div>
