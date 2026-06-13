@@ -108,7 +108,7 @@ function CXSection({ title, children, accent }: { title: string; children: React
 function CXInput({ label, value, onChange, placeholder, multiline, rows = 3 }: {
   label?: string; value: string; onChange: (v: string) => void; placeholder?: string; multiline?: boolean; rows?: number;
 }) {
-  const s: React.CSSProperties = { width: '100%', background: T.bg, border: '1px solid #1e1e2e', borderRadius: 5, color: T.text, padding: '10px 13px', fontSize: 14, fontFamily: "'Cormorant Garamond',serif", outline: 'none', boxSizing: 'border-box' };
+  const s: React.CSSProperties = { width: '100%', background: T.bg, border: '1px solid #cccccc', borderRadius: 5, color: T.text, padding: '10px 13px', fontSize: 14, fontFamily: "'Times New Roman', Times, serif", outline: 'none', boxSizing: 'border-box' };
   return (
     <div style={{ marginBottom: 12 }}>
       {label && <label style={{ fontSize: 10, color: '#5a5a72', fontFamily: 'Inter,sans-serif', letterSpacing: '.1em', textTransform: 'uppercase' as const, fontWeight: 600, display: 'block', marginBottom: 5 }}>{label}</label>}
@@ -122,10 +122,10 @@ function CXInput({ label, value, onChange, placeholder, multiline, rows = 3 }: {
 function CXBtn({ onClick, disabled, children, variant = 'primary', small }: {
   onClick?: () => void; disabled?: boolean; children: React.ReactNode; variant?: 'primary' | 'ghost' | 'danger' | 'gold'; small?: boolean;
 }) {
-  const base: React.CSSProperties = { border: 'none', borderRadius: 5, cursor: disabled ? 'not-allowed' : 'pointer', fontFamily: "'Cormorant Garamond',serif", fontWeight: 600, letterSpacing: '.04em', transition: 'opacity .15s', opacity: disabled ? 0.4 : 1 };
+  const base: React.CSSProperties = { border: 'none', borderRadius: 5, cursor: disabled ? 'not-allowed' : 'pointer', fontFamily: "'Times New Roman', Times, serif", fontWeight: 600, letterSpacing: '.04em', transition: 'opacity .15s', opacity: disabled ? 0.4 : 1 };
   const vars: Record<string, React.CSSProperties> = {
     primary: { background: `linear-gradient(135deg,${CX_ACCENT},#a02020)`, color: '#fff8f8', padding: small ? '7px 18px' : '12px 24px', fontSize: small ? 13 : 15 },
-    ghost:   { background: '#0d0d1c', border: '1px solid #1e1e2e', color: T.mute, padding: small ? '6px 14px' : '10px 20px', fontSize: small ? 12 : 14 },
+    ghost:   { background: '#0d0d1c', border: '1px solid #cccccc', color: T.mute, padding: small ? '6px 14px' : '10px 20px', fontSize: small ? 12 : 14 },
     danger:  { background: '#1a0808', border: '1px solid #3a1010', color: '#c05050', padding: small ? '6px 14px' : '10px 20px', fontSize: small ? 12 : 14 },
     gold:    { background: 'linear-gradient(135deg,#c4a030,#a07820)', color: '#05050c', padding: small ? '7px 18px' : '12px 24px', fontSize: small ? 13 : 15 },
   };
@@ -144,7 +144,7 @@ function CXAIBlock({ loading, result, error }: { loading: boolean; result: strin
   return (
     <div style={{ background: '#0d0608', border: `1px solid ${CX_ACCENT}33`, borderRadius: 6, padding: '18px 22px', marginTop: 14 }}>
       <div style={{ fontSize: 9, color: CX_ACCENT, fontFamily: 'Inter,sans-serif', letterSpacing: '.16em', textTransform: 'uppercase' as const, fontWeight: 700, marginBottom: 10 }}>Cross-Examination Intelligence</div>
-      <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.9, fontFamily: "'Cormorant Garamond',serif", fontSize: 15, color: '#cac6ba' }}>{result}</div>
+      <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.9, fontFamily: "'Times New Roman', Times, serif", fontSize: 15, color: '#cac6ba' }}>{result}</div>
     </div>
   );
 }
@@ -266,8 +266,8 @@ Be specific, tactical, and assume Nigerian litigation procedure throughout.`,
           {witnesses.length === 0 && <p style={{ fontSize: 13, color: T.mute, fontFamily: 'Inter,sans-serif', lineHeight: 1.7 }}>No witnesses profiled yet. Add the witnesses you must cross-examine.</p>}
           {witnesses.map(w => (
             <div key={w.id} onClick={() => { setSelected(w.id); setForm({ ...w }); setAiRes(''); }}
-              style={{ background: selected === w.id ? '#150808' : '#070710', border: `1px solid ${selected === w.id ? CX_ACCENT : '#111120'}`, borderRadius: 5, padding: '9px 12px', marginBottom: 6, cursor: 'pointer', transition: 'border-color .15s' }}>
-              <div style={{ fontSize: 13, color: T.text, fontFamily: "'Cormorant Garamond',serif", fontWeight: 500, marginBottom: 2 }}>{w.name || 'Unnamed Witness'}</div>
+              style={{ background: selected === w.id ? '#150808' : '#070710', border: `1px solid ${selected === w.id ? CX_ACCENT : '#eeeeee'}`, borderRadius: 5, padding: '9px 12px', marginBottom: 6, cursor: 'pointer', transition: 'border-color .15s' }}>
+              <div style={{ fontSize: 13, color: T.text, fontFamily: "'Times New Roman', Times, serif", fontWeight: 500, marginBottom: 2 }}>{w.name || 'Unnamed Witness'}</div>
               <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
                 <span style={{ fontSize: 9, fontFamily: 'Inter,sans-serif', fontWeight: 600, letterSpacing: '.05em', color: CX_DIM, textTransform: 'uppercase' as const }}>{w.status}</span>
                 {w.role && <span style={{ fontSize: 10, color: '#303040', fontFamily: 'Inter,sans-serif' }}>· {w.role.slice(0, 20)}{w.role.length > 20 ? '…' : ''}</span>}
@@ -291,7 +291,7 @@ Be specific, tactical, and assume Nigerian litigation procedure throughout.`,
                 <CXInput label="Full Name" value={form.name} onChange={v => updateW('name', v)} placeholder="Witness full name" />
                 <div>
                   <label style={{ fontSize: 10, color: '#5a5a72', fontFamily: 'Inter,sans-serif', letterSpacing: '.1em', textTransform: 'uppercase' as const, fontWeight: 600, display: 'block', marginBottom: 5 }}>Status</label>
-                  <select value={form.status} onChange={e => updateW('status', e.target.value)} style={{ width: '100%', background: T.bg, border: '1px solid #1e1e2e', borderRadius: 5, color: T.text, padding: '10px 12px', fontSize: 14, fontFamily: "'Cormorant Garamond',serif", outline: 'none' }}>
+                  <select value={form.status} onChange={e => updateW('status', e.target.value)} style={{ width: '100%', background: T.bg, border: '1px solid #cccccc', borderRadius: 5, color: T.text, padding: '10px 12px', fontSize: 14, fontFamily: "'Times New Roman', Times, serif", outline: 'none' }}>
                     {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </div>
@@ -402,8 +402,8 @@ Be surgical. Every word must count.`,
           {maps.length === 0 && <p style={{ fontSize: 13, color: T.mute, fontFamily: 'Inter,sans-serif', lineHeight: 1.7 }}>No contradictions mapped. Add each contradiction between statements, affidavits, or prior proceedings.</p>}
           {maps.map(m => (
             <div key={m.id} onClick={() => { setSel(m.id); setForm({ ...m }); setAiRes(''); }}
-              style={{ background: sel === m.id ? '#150808' : '#070710', border: `1px solid ${sel === m.id ? CX_ACCENT : '#111120'}`, borderRadius: 5, padding: '9px 12px', marginBottom: 6, cursor: 'pointer' }}>
-              <div style={{ fontSize: 12, color: T.text, fontFamily: "'Cormorant Garamond',serif", fontWeight: 500, marginBottom: 2 }}>{m.witness || 'Unnamed Witness'}</div>
+              style={{ background: sel === m.id ? '#150808' : '#070710', border: `1px solid ${sel === m.id ? CX_ACCENT : '#eeeeee'}`, borderRadius: 5, padding: '9px 12px', marginBottom: 6, cursor: 'pointer' }}>
+              <div style={{ fontSize: 12, color: T.text, fontFamily: "'Times New Roman', Times, serif", fontWeight: 500, marginBottom: 2 }}>{m.witness || 'Unnamed Witness'}</div>
               <div style={{ fontSize: 10, color: T.mute, fontFamily: 'Inter,sans-serif' }}>{m.stmt1 ? m.stmt1.slice(0, 30) + '…' : 'No statement yet'}</div>
             </div>
           ))}
@@ -524,7 +524,7 @@ Q[N]: [Exact question text] → [Purpose / what this achieves]`,
     setTimeout(() => setCopied(false), 2000);
   }
 
-  const selStyle: React.CSSProperties = { width: '100%', background: T.bg, border: '1px solid #1e1e2e', borderRadius: 5, color: T.text, padding: '10px 12px', fontSize: 14, fontFamily: "'Cormorant Garamond',serif", outline: 'none' };
+  const selStyle: React.CSSProperties = { width: '100%', background: T.bg, border: '1px solid #cccccc', borderRadius: 5, color: T.text, padding: '10px 12px', fontSize: 14, fontFamily: "'Times New Roman', Times, serif", outline: 'none' };
 
   return (
     <div>
@@ -562,7 +562,7 @@ Q[N]: [Exact question text] → [Purpose / what this achieves]`,
               {copied ? '✓ Copied' : 'Copy All'}
             </button>
           </div>
-          <div style={{ background: '#0d0608', border: `1px solid ${CX_ACCENT}33`, borderRadius: 6, padding: '20px 24px', whiteSpace: 'pre-wrap', lineHeight: 1.9, fontFamily: "'Cormorant Garamond',serif", fontSize: 15, color: '#cac6ba' }}>
+          <div style={{ background: '#0d0608', border: `1px solid ${CX_ACCENT}33`, borderRadius: 6, padding: '20px 24px', whiteSpace: 'pre-wrap', lineHeight: 1.9, fontFamily: "'Times New Roman', Times, serif", fontSize: 15, color: '#cac6ba' }}>
             {aiRes}
           </div>
         </div>
@@ -637,7 +637,7 @@ Be specific to Nigerian evidence law (Evidence Act 2011).`,
             <CXInput label="Witness Name" value={form.witness} onChange={v => setForm(f => ({ ...f, witness: v }))} placeholder="Witness to impeach" />
             <div>
               <label style={{ fontSize: 10, color: '#5a5a72', fontFamily: 'Inter,sans-serif', letterSpacing: '.1em', textTransform: 'uppercase' as const, fontWeight: 600, display: 'block', marginBottom: 5 }}>Impeachment Type</label>
-              <select value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))} style={{ width: '100%', background: T.bg, border: '1px solid #1e1e2e', borderRadius: 5, color: T.text, padding: '10px 12px', fontSize: 14, fontFamily: "'Cormorant Garamond',serif", outline: 'none' }}>
+              <select value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))} style={{ width: '100%', background: T.bg, border: '1px solid #cccccc', borderRadius: 5, color: T.text, padding: '10px 12px', fontSize: 14, fontFamily: "'Times New Roman', Times, serif", outline: 'none' }}>
                 <option value="">Select type…</option>
                 {TYPES.map(t => <option key={t} value={t}>{t}</option>)}
               </select>
@@ -656,11 +656,11 @@ Be specific to Nigerian evidence law (Evidence Act 2011).`,
           <div>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
               {witnesses.map(w => (
-                <button key={w} onClick={() => setWitFilter(w)} style={{ fontSize: 10, padding: '4px 10px', borderRadius: 3, border: `1px solid ${witFilter === w ? CX_ACCENT : '#1e1e2e'}`, background: witFilter === w ? '#150808' : 'transparent', color: witFilter === w ? CX_LIGHT : T.mute, cursor: 'pointer', fontFamily: 'Inter,sans-serif', fontWeight: 600, letterSpacing: '.04em' }}>{w}</button>
+                <button key={w} onClick={() => setWitFilter(w)} style={{ fontSize: 10, padding: '4px 10px', borderRadius: 3, border: `1px solid ${witFilter === w ? CX_ACCENT : '#cccccc'}`, background: witFilter === w ? '#150808' : 'transparent', color: witFilter === w ? CX_LIGHT : T.mute, cursor: 'pointer', fontFamily: 'Inter,sans-serif', fontWeight: 600, letterSpacing: '.04em' }}>{w}</button>
               ))}
             </div>
             {filtered.map(item => (
-              <div key={item.id} style={{ background: '#07070f', border: '1px solid #111120', borderRadius: 5, padding: '14px 18px', marginBottom: 10 }}>
+              <div key={item.id} style={{ background: '#ffffff', border: '1px solid #111120', borderRadius: 5, padding: '14px 18px', marginBottom: 10 }}>
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10, marginBottom: 8 }}>
                   <div>
                     <span style={{ fontSize: 9, color: CX_ACCENT, fontFamily: 'Inter,sans-serif', fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase' as const, marginRight: 8 }}>{item.witness}</span>
@@ -668,7 +668,7 @@ Be specific to Nigerian evidence law (Evidence Act 2011).`,
                   </div>
                   <button onClick={() => setItems(p => p.filter(x => x.id !== item.id))} style={{ background: 'transparent', border: 'none', color: '#2a1a1a', cursor: 'pointer', fontSize: 13, padding: '2px 4px' }}>✕</button>
                 </div>
-                <p style={{ fontSize: 15, color: '#cac6ba', fontFamily: "'Cormorant Garamond',serif", lineHeight: 1.8, margin: '0 0 6px' }}>{item.weapon}</p>
+                <p style={{ fontSize: 15, color: '#cac6ba', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.8, margin: '0 0 6px' }}>{item.weapon}</p>
                 {item.impact && <p style={{ fontSize: 12, color: CX_DIM, fontFamily: 'Inter,sans-serif', margin: 0 }}>Impact: {item.impact}</p>}
               </div>
             ))}
@@ -762,7 +762,7 @@ Be direct. Be urgent. This is live courtroom intelligence.`,
       <div style={{ maxWidth: 580 }}>
         <CXSection title="Live Courtroom Mode — Setup">
           <div style={{ background: '#120606', border: `1px solid ${CX_ACCENT}33`, borderRadius: 6, padding: '14px 18px', marginBottom: 20 }}>
-            <p style={{ fontSize: 13, color: CX_LIGHT, fontFamily: "'Cormorant Garamond',serif", fontStyle: 'italic', lineHeight: 1.8, margin: 0 }}>
+            <p style={{ fontSize: 13, color: CX_LIGHT, fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic', lineHeight: 1.8, margin: 0 }}>
               Enter the courtroom. As the witness answers your questions, type each answer here. The AI monitors in real time — detecting contradictions, flagging admissions, and generating the next question sequence based on what the witness actually says.
             </p>
           </div>
@@ -789,12 +789,12 @@ Be direct. Be urgent. This is live courtroom intelligence.`,
           <CXSection title={`Witness Answers — ${answers.length} recorded`}>
             {answers.length === 0 && <p style={{ fontSize: 13, color: T.mute, fontFamily: 'Inter,sans-serif', lineHeight: 1.7 }}>No answers recorded yet. Type each answer the witness gives and press Enter.</p>}
             {answers.map((a, i) => (
-              <div key={a.id} style={{ background: '#07070f', border: '1px solid #111120', borderRadius: 5, padding: '11px 14px', marginBottom: 8 }}>
+              <div key={a.id} style={{ background: '#ffffff', border: '1px solid #111120', borderRadius: 5, padding: '11px 14px', marginBottom: 8 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
                   <span style={{ fontSize: 9, color: CX_ACCENT, fontFamily: 'Inter,sans-serif', fontWeight: 700 }}>ANSWER {i + 1}</span>
                   <span style={{ fontSize: 9, color: '#303040', fontFamily: 'Inter,sans-serif' }}>{a.time}</span>
                 </div>
-                <p style={{ fontSize: 15, color: '#cac6ba', fontFamily: "'Cormorant Garamond',serif", lineHeight: 1.8, margin: 0 }}>{a.text}</p>
+                <p style={{ fontSize: 15, color: '#cac6ba', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.8, margin: 0 }}>{a.text}</p>
               </div>
             ))}
           </CXSection>
@@ -809,7 +809,7 @@ Be direct. Be urgent. This is live courtroom intelligence.`,
                 onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addAnswer(); } }}
                 placeholder="Type what the witness just said… (Enter to log)"
                 rows={3}
-                style={{ width: '100%', background: '#0d0608', border: `1px solid ${CX_ACCENT}55`, borderRadius: 5, color: T.text, padding: '11px 14px', fontSize: 14, fontFamily: "'Cormorant Garamond',serif", outline: 'none', resize: 'vertical', lineHeight: 1.75, boxSizing: 'border-box' as const }}
+                style={{ width: '100%', background: '#0d0608', border: `1px solid ${CX_ACCENT}55`, borderRadius: 5, color: T.text, padding: '11px 14px', fontSize: 14, fontFamily: "'Times New Roman', Times, serif", outline: 'none', resize: 'vertical', lineHeight: 1.75, boxSizing: 'border-box' as const }}
               />
             </div>
             <CXBtn onClick={addAnswer} disabled={!input.trim()} variant="primary" small>Log Answer</CXBtn>
@@ -829,7 +829,7 @@ Be direct. Be urgent. This is live courtroom intelligence.`,
               </div>
             )}
             {aiRes && !loading && (
-              <div style={{ background: '#0d0608', border: `1px solid ${CX_ACCENT}22`, borderRadius: 6, padding: '16px 18px', marginTop: 12, whiteSpace: 'pre-wrap', lineHeight: 1.85, fontFamily: "'Cormorant Garamond',serif", fontSize: 14, color: '#cac6ba', maxHeight: 520, overflowY: 'auto' }}>
+              <div style={{ background: '#0d0608', border: `1px solid ${CX_ACCENT}22`, borderRadius: 6, padding: '16px 18px', marginTop: 12, whiteSpace: 'pre-wrap', lineHeight: 1.85, fontFamily: "'Times New Roman', Times, serif", fontSize: 14, color: '#cac6ba', maxHeight: 520, overflowY: 'auto' }}>
                 {aiRes}
               </div>
             )}
@@ -866,7 +866,7 @@ export function CrossExamEngine({ activeCase }: Props) {
         <span style={{ fontSize: 24, opacity: .7 }}>⚔</span>
         <div>
           <p style={{ fontSize: 9, color: CX_ACCENT, fontFamily: 'Inter,sans-serif', letterSpacing: '.18em', textTransform: 'uppercase' as const, fontWeight: 700, marginBottom: 3 }}>Cross-Examination Engine · Step 13</p>
-          <p style={{ fontSize: 13, color: T.mute, fontFamily: "'Cormorant Garamond',serif", fontStyle: 'italic', margin: 0 }}>The most dangerous room in litigation. Build, execute, and survive cross-examination.</p>
+          <p style={{ fontSize: 13, color: T.mute, fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic', margin: 0 }}>The most dangerous room in litigation. Build, execute, and survive cross-examination.</p>
         </div>
       </div>
 
@@ -875,7 +875,7 @@ export function CrossExamEngine({ activeCase }: Props) {
         {SUB_TABS.map(t => (
           <button key={t.id} onClick={() => setSub(t.id)} style={{
             background: sub === t.id ? '#150808' : 'transparent',
-            border: `1px solid ${sub === t.id ? CX_ACCENT : '#1e1e2e'}`,
+            border: `1px solid ${sub === t.id ? CX_ACCENT : '#cccccc'}`,
             color: sub === t.id ? CX_LIGHT : T.mute,
             borderRadius: 5, padding: '8px 14px', fontSize: 11,
             fontFamily: 'Inter,sans-serif', cursor: 'pointer',
@@ -885,7 +885,7 @@ export function CrossExamEngine({ activeCase }: Props) {
             <span style={{ fontSize: 13 }}>{t.icon}</span>
             {t.label}
             {t.id === 'live' && (
-              <span style={{ width: 5, height: 5, background: sub === t.id ? CX_ACCENT : '#2a1010', borderRadius: '50%', display: 'inline-block', animation: sub === t.id ? 'glow 1.5s ease infinite' : 'none', marginLeft: 3 }} />
+              <span style={{ width: 5, height: 5, background: sub === t.id ? CX_ACCENT : '#fdeaea', borderRadius: '50%', display: 'inline-block', animation: sub === t.id ? 'glow 1.5s ease infinite' : 'none', marginLeft: 3 }} />
             )}
           </button>
         ))}

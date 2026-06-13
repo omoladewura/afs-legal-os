@@ -70,18 +70,18 @@ interface SavedData {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const iS: React.CSSProperties = {
-  width: '100%', background: '#070710', border: '1px solid #1a1a28',
+  width: '100%', background: '#070710', border: '1px solid #cccccc',
   borderRadius: 5, color: '#e0dcd0', padding: '11px 14px', fontSize: 15,
   fontFamily: "'Times New Roman', Times, serif", outline: 'none', boxSizing: 'border-box',
 };
 const taS: React.CSSProperties = { ...iS, resize: 'vertical', lineHeight: 1.82, minHeight: 110 };
 const labelS: React.CSSProperties = {
-  fontSize: 10, color: T.mute, fontFamily: 'Inter, sans-serif',
+  fontSize: 10, color: T.mute, fontFamily: "'Times New Roman', Times, serif",
   letterSpacing: '.1em', textTransform: 'uppercase', fontWeight: 600,
   display: 'block', marginBottom: 6,
 };
 const cardS: React.CSSProperties = {
-  background: '#080810', border: '1px solid #14141e',
+  background: '#ffffff', border: '1px solid #14141e',
   borderRadius: 8, padding: '20px 22px', marginBottom: 16,
 };
 const hS: React.CSSProperties = {
@@ -121,10 +121,10 @@ function ResultBlock({ title, content, onClear, accent = '#c09030' }: {
   return (
     <div style={{ marginTop: 18, background: '#08080e', border: `1px solid ${accent}30`, borderRadius: 8, padding: '18px 20px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <span style={{ fontSize: 10, color: accent, fontFamily: 'Inter, sans-serif', letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 700 }}>
+        <span style={{ fontSize: 10, color: accent, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 700 }}>
           {title}
         </span>
-        <button onClick={onClear} style={{ background: 'transparent', border: 'none', color: T.mute, fontSize: 11, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+        <button onClick={onClear} style={{ background: 'transparent', border: 'none', color: T.mute, fontSize: 11, cursor: 'pointer', fontFamily: "'Times New Roman', Times, serif" }}>
           clear ×
         </button>
       </div>
@@ -149,12 +149,12 @@ function SubTabBar({ tabs, active, onSelect, accent }: {
             onClick={() => onSelect(t.id)}
             style={{
               background:    isActive ? `${accent}18` : 'transparent',
-              border:        `1px solid ${isActive ? `${accent}50` : '#1e1e2e'}`,
-              color:         isActive ? accent : T.mute,
+              border:        `1px solid ${isActive ? `${accent}50` : '#cccccc'}`,
+              color:         isActive ? accent : '#888888',
               borderRadius:  5,
               padding:       '7px 16px',
               fontSize:      11,
-              fontFamily:    'Inter, sans-serif',
+              fontFamily:    "'Times New Roman', Times, serif",
               cursor:        'pointer',
               fontWeight:    600,
               letterSpacing: '.06em',
@@ -258,12 +258,12 @@ As prosecution counsel, advise:
       {(guiltyCounts > 0 || notGuiltyCounts > 0) && (
         <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
           {guiltyCounts > 0 && (
-            <span style={{ fontSize: 10, padding: '3px 10px', borderRadius: 3, background: '#0d1a0d', border: '1px solid #1a4a1a', color: '#50c050', fontFamily: 'Inter, sans-serif', fontWeight: 700, letterSpacing: '.06em' }}>
+            <span style={{ fontSize: 10, padding: '3px 10px', borderRadius: 3, background: '#0d1a0d', border: '1px solid #1a4a1a', color: '#50c050', fontFamily: "'Times New Roman', Times, serif", fontWeight: 700, letterSpacing: '.06em' }}>
               ✓ GUILTY: {guiltyCounts} count{guiltyCounts !== 1 ? 's' : ''}
             </span>
           )}
           {notGuiltyCounts > 0 && (
-            <span style={{ fontSize: 10, padding: '3px 10px', borderRadius: 3, background: '#1a0d0d', border: '1px solid #4a1a1a', color: '#c05050', fontFamily: 'Inter, sans-serif', fontWeight: 700, letterSpacing: '.06em' }}>
+            <span style={{ fontSize: 10, padding: '3px 10px', borderRadius: 3, background: '#1a0d0d', border: '1px solid #4a1a1a', color: '#c05050', fontFamily: "'Times New Roman', Times, serif", fontWeight: 700, letterSpacing: '.06em' }}>
               ✗ NOT GUILTY: {notGuiltyCounts} count{notGuiltyCounts !== 1 ? 's' : ''}
             </span>
           )}
@@ -273,7 +273,7 @@ As prosecution counsel, advise:
       {/* Count rows */}
       {countPleas.map((c, idx) => (
         <div key={c.id} style={{
-          background: '#0a0a14', border: `1px solid ${accent}20`,
+          background: '#ffffff', border: `1px solid ${accent}20`,
           borderRadius: 7, padding: '16px 18px', marginBottom: 12,
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
@@ -292,7 +292,7 @@ As prosecution counsel, advise:
             {countPleas.length > 1 && (
               <button
                 onClick={() => removeCount(c.id)}
-                style={{ background: 'transparent', border: 'none', color: '#c05050', cursor: 'pointer', fontSize: 12, fontFamily: 'Inter, sans-serif', flexShrink: 0 }}
+                style={{ background: 'transparent', border: 'none', color: '#c05050', cursor: 'pointer', fontSize: 12, fontFamily: "'Times New Roman', Times, serif", flexShrink: 0 }}
               >
                 ×
               </button>
@@ -317,7 +317,7 @@ As prosecution counsel, advise:
         style={{
           background: 'transparent', border: `1px dashed ${accent}50`,
           color: accent, borderRadius: 6, padding: '8px 18px',
-          fontSize: 12, fontFamily: 'Inter, sans-serif', cursor: 'pointer',
+          fontSize: 12, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer',
           letterSpacing: '.06em', marginBottom: 18,
         }}
       >
@@ -333,7 +333,7 @@ As prosecution counsel, advise:
           accent={accent}
         />
         {!allEntered && countPleas.length > 0 && (
-          <p style={{ fontSize: 12, color: T.mute, fontFamily: 'Inter, sans-serif', marginTop: 8 }}>
+          <p style={{ fontSize: 12, color: T.mute, fontFamily: "'Times New Roman', Times, serif", marginTop: 8 }}>
             Enter a plea for every count before generating the routing analysis.
           </p>
         )}
@@ -734,7 +734,7 @@ Advise from the defence perspective:
 
       {countPleas.map((c, idx) => (
         <div key={c.id} style={{
-          background: '#0a0a14', border: `1px solid ${accent}20`,
+          background: '#ffffff', border: `1px solid ${accent}20`,
           borderRadius: 7, padding: '14px 16px', marginBottom: 12,
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
@@ -766,7 +766,7 @@ Advise from the defence perspective:
         style={{
           background: 'transparent', border: `1px dashed ${accent}50`,
           color: accent, borderRadius: 6, padding: '8px 18px',
-          fontSize: 12, fontFamily: 'Inter, sans-serif', cursor: 'pointer',
+          fontSize: 12, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer',
           letterSpacing: '.06em', marginBottom: 14,
         }}
       >
@@ -885,7 +885,7 @@ export function PleaEngine({ activeCase }: Props) {
       <div style={{ marginBottom: 28 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
           <span style={{
-            fontSize: 9, color: accent, fontFamily: 'Inter, sans-serif',
+            fontSize: 9, color: accent, fontFamily: "'Times New Roman', Times, serif",
             letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 700,
             background: `${accent}14`, border: `1px solid ${accent}30`,
             padding: '3px 9px', borderRadius: 3,
@@ -893,7 +893,7 @@ export function PleaEngine({ activeCase }: Props) {
             Criminal · {isPros ? 'Prosecution' : 'Defence'}
           </span>
           <span style={{
-            fontSize: 9, color: '#888', fontFamily: 'Inter, sans-serif',
+            fontSize: 9, color: '#888', fontFamily: "'Times New Roman', Times, serif",
             letterSpacing: '.1em', textTransform: 'uppercase',
           }}>
             Phase 6A
@@ -901,7 +901,7 @@ export function PleaEngine({ activeCase }: Props) {
         </div>
         <h2 style={{
           fontSize: 26, color: T.text, fontWeight: 300,
-          fontFamily: "'Cormorant Garamond', serif", marginBottom: 6,
+          fontFamily: "'Times New Roman', Times, serif", marginBottom: 6,
         }}>
           {headingLabel}
         </h2>

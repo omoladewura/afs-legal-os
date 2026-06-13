@@ -67,7 +67,7 @@ interface ArrestData {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const iS: React.CSSProperties = {
-  width: '100%', background: '#070710', border: '1px solid #1a1a28',
+  width: '100%', background: '#070710', border: '1px solid #cccccc',
   borderRadius: 5, color: '#e0dcd0', padding: '11px 14px', fontSize: 15,
   fontFamily: "'Times New Roman', Times, serif", outline: 'none', boxSizing: 'border-box',
 };
@@ -78,7 +78,7 @@ const labelS: React.CSSProperties = {
   display: 'block', marginBottom: 6,
 };
 const cardS: React.CSSProperties = {
-  background: '#080810', border: '1px solid #14141e',
+  background: '#ffffff', border: '1px solid #14141e',
   borderRadius: 8, padding: '20px 22px', marginBottom: 16,
 };
 const hS: React.CSSProperties = {
@@ -132,7 +132,7 @@ function ResultBlock({
           {title}
         </span>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button onClick={copy} style={{ background: T.card, border: '1px solid #1a1a28', color: copied ? '#60b040' : '#808090', borderRadius: 4, padding: '4px 12px', fontSize: 10, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', letterSpacing: '.04em' }}>
+          <button onClick={copy} style={{ background: T.card, border: '1px solid #cccccc', color: copied ? '#60b040' : '#666666', borderRadius: 4, padding: '4px 12px', fontSize: 10, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', letterSpacing: '.04em' }}>
             {copied ? '✓ Copied' : 'Copy'}
           </button>
           <button onClick={onClear} style={{ background: 'none', border: '1px solid #2a1818', color: '#604040', borderRadius: 4, padding: '4px 12px', fontSize: 10, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer' }}>
@@ -459,7 +459,7 @@ export function CriminalDefence({ activeCase }: Props) {
                 placeholder="Describe this piece of evidence — what it is, what it purports to show"
                 style={iS} />
             </div>
-            <button onClick={addEvidence} style={{ background: T.card, border: '1px solid #2a2a3e', color: T.gold, borderRadius: 5, padding: '11px 18px', fontSize: 13, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', whiteSpace: 'nowrap' }}>
+            <button onClick={addEvidence} style={{ background: T.card, border: '1px solid #cccccc', color: '#444444', borderRadius: 5, padding: '11px 18px', fontSize: 13, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', whiteSpace: 'nowrap' }}>
               + Add
             </button>
           </div>
@@ -468,7 +468,7 @@ export function CriminalDefence({ activeCase }: Props) {
             <div style={{ marginBottom: 16 }}>
               {evidenceList.map(e => (
                 <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 14px', background: '#060610', border: '1px solid #111120', borderRadius: 5, marginBottom: 7 }}>
-                  <span style={{ fontSize: 10, color: T.gold, fontFamily: "'Times New Roman', Times, serif", border: '1px solid #3a2208', padding: '2px 8px', borderRadius: 2, letterSpacing: '.06em', whiteSpace: 'nowrap' }}>{e.type}</span>
+                  <span style={{ fontSize: 10, color: '#444444', fontFamily: "'Times New Roman', Times, serif", border: '1px solid #3a2208', padding: '2px 8px', borderRadius: 2, letterSpacing: '.06em', whiteSpace: 'nowrap' }}>{e.type}</span>
                   <span style={{ fontSize: 14, color: T.text, fontFamily: "'Times New Roman', Times, serif", flex: 1 }}>{e.desc}</span>
                   <button onClick={() => removeEvidence(e.id)} style={{ background: 'none', border: 'none', color: T.mute, cursor: 'pointer', fontSize: 16, padding: 0 }}>×</button>
                 </div>
@@ -740,7 +740,7 @@ export function CriminalDefence({ activeCase }: Props) {
       {/* Header */}
       <div style={{ marginBottom: 22 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 8 }}>
-          <span style={{ fontSize: 11, color: T.gold, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.16em', textTransform: 'uppercase', fontWeight: 600, border: '1px solid #3a2208', padding: '3px 10px', borderRadius: 2 }}>
+          <span style={{ fontSize: 11, color: '#444444', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.16em', textTransform: 'uppercase', fontWeight: 600, border: '1px solid #3a2208', padding: '3px 10px', borderRadius: 2 }}>
             {isProsecution ? 'Criminal — Prosecution View' : 'Criminal Defence'}
           </span>
           <span style={{ fontSize: 11, color: T.mute, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.08em', textTransform: 'uppercase' }}>
@@ -766,7 +766,7 @@ export function CriminalDefence({ activeCase }: Props) {
             key={st.id}
             onClick={() => { setSubTab(st.id); clearError(); }}
             style={{
-              background:   subTab === st.id ? '#0e0e1e' : 'transparent',
+              background:   subTab === st.id ? '#e8e8e8' : 'transparent',
               border:       subTab === st.id ? '1px solid #2a2a3e' : '1px solid transparent',
               color:        subTab === st.id ? T.gold : '#505060',
               borderRadius: 5, padding: '7px 14px', fontSize: 12,

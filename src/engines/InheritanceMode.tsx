@@ -73,7 +73,7 @@ function sevCol(s: string): string {
 function Prose({ text, size = 15 }: { text?: string; size?: number }) {
   if (!text) return null;
   return (
-    <div style={{ fontSize: size, color: '#cac6ba', lineHeight: 1.9, fontFamily: "'Cormorant Garamond', serif", whiteSpace: 'pre-wrap' }}>
+    <div style={{ fontSize: size, color: '#cac6ba', lineHeight: 1.9, fontFamily: "'Times New Roman', Times, serif", whiteSpace: 'pre-wrap' }}>
       {text}
     </div>
   );
@@ -83,12 +83,12 @@ function Prose({ text, size = 15 }: { text?: string; size?: number }) {
 
 function BulletList({ items, accent = INH_ACCENT }: { items?: string[]; accent?: string }) {
   if (!items || items.length === 0) {
-    return <p style={{ color: T.mute, fontStyle: 'italic', fontSize: 13, fontFamily: 'Inter, sans-serif' }}>None identified.</p>;
+    return <p style={{ color: T.mute, fontStyle: 'italic', fontSize: 13, fontFamily: "'Times New Roman', Times, serif" }}>None identified.</p>;
   }
   return (
     <ul style={{ margin: 0, padding: '0 0 0 18px' }}>
       {items.map((it, i) => (
-        <li key={i} style={{ fontSize: 15, color: '#c8c4b8', lineHeight: 1.85, fontFamily: "'Cormorant Garamond', serif", marginBottom: 6, paddingLeft: 4 }}>
+        <li key={i} style={{ fontSize: 15, color: '#c8c4b8', lineHeight: 1.85, fontFamily: "'Times New Roman', Times, serif", marginBottom: 6, paddingLeft: 4 }}>
           <span style={{ color: accent, marginRight: 4 }}>▸</span>{it}
         </li>
       ))}
@@ -113,13 +113,13 @@ function SectionHead({
 }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, marginTop: 28 }}>
-      <p style={{ fontSize: 10, color: INH_ACCENT, fontFamily: 'Inter, sans-serif', letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 700, margin: 0 }}>
+      <p style={{ fontSize: 10, color: INH_ACCENT, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 700, margin: 0 }}>
         {label}
       </p>
       {text && (
         <button
           onClick={() => onCopy(text, secKey)}
-          style={{ background: 'transparent', border: '1px solid #1a1a28', color: copiedSec === secKey ? INH_ACCENT : T.mute, borderRadius: 3, padding: '3px 10px', fontSize: 10, fontFamily: 'Inter, sans-serif', cursor: 'pointer', letterSpacing: '.04em' }}
+          style={{ background: 'transparent', border: '1px solid #cccccc', color: copiedSec === secKey ? INH_ACCENT : T.mute, borderRadius: 3, padding: '3px 10px', fontSize: 10, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', letterSpacing: '.04em' }}
         >
           {copiedSec === secKey ? '✓ Copied' : 'Copy'}
         </button>
@@ -338,14 +338,14 @@ Return ONLY the JSON object. No additional text.`;
   const hasResult = !!result;
 
   const taStyle: React.CSSProperties = {
-    width: '100%', background: T.bg, border: '1px solid #1e1e2e', borderRadius: 5,
+    width: '100%', background: T.bg, border: '1px solid #cccccc', borderRadius: 5,
     color: T.text, padding: '12px 14px', fontSize: 14,
-    fontFamily: "'Cormorant Garamond', serif", outline: 'none',
+    fontFamily: "'Times New Roman', Times, serif", outline: 'none',
     resize: 'vertical', lineHeight: 1.8, boxSizing: 'border-box',
   };
 
   const labelStyle: React.CSSProperties = {
-    fontSize: 10, color: INH_ACCENT, fontFamily: 'Inter, sans-serif',
+    fontSize: 10, color: INH_ACCENT, fontFamily: "'Times New Roman', Times, serif",
     letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 600,
     display: 'block', marginBottom: 8,
   };
@@ -355,20 +355,20 @@ Return ONLY the JSON object. No additional text.`;
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <p style={{ fontSize: 9, color: INH_ACCENT, fontFamily: 'Inter, sans-serif', letterSpacing: '.22em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 6 }}>
+          <p style={{ fontSize: 9, color: INH_ACCENT, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.22em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 6 }}>
             Mid-Case Inheritance · Step 11
           </p>
-          <h2 style={{ fontSize: 28, color: INH_LIGHT, fontFamily: "'Cormorant Garamond', serif", fontWeight: 300, fontStyle: 'italic', margin: 0 }}>
+          <h2 style={{ fontSize: 28, color: INH_LIGHT, fontFamily: "'Times New Roman', Times, serif", fontWeight: 300, fontStyle: 'italic', margin: 0 }}>
             Inheritance Mode
           </h2>
-          <p style={{ fontSize: 13, color: T.dim, fontFamily: 'Inter, sans-serif', marginTop: 6, lineHeight: 1.6, maxWidth: 520 }}>
+          <p style={{ fontSize: 13, color: T.dim, fontFamily: "'Times New Roman', Times, serif", marginTop: 6, lineHeight: 1.6, maxWidth: 520 }}>
             Forensic audit of a case inherited from another counsel. Upload every document you have received — produces a State-of-Case Audit, Gap &amp; Damage Report, Risk Register, and full Intelligence Package.
           </p>
         </div>
         {hasResult && (
           <div style={{ background: '#0c0c18', border: `1px solid ${INH_ACCENT}33`, borderRadius: 6, padding: '8px 16px', textAlign: 'right' }}>
-            <p style={{ fontSize: 9, color: INH_ACCENT, fontFamily: 'Inter, sans-serif', letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 600, margin: '0 0 3px' }}>Last Audit</p>
-            <p style={{ fontSize: 12, color: T.dim, fontFamily: 'Inter, sans-serif', margin: 0 }}>
+            <p style={{ fontSize: 9, color: INH_ACCENT, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 600, margin: '0 0 3px' }}>Last Audit</p>
+            <p style={{ fontSize: 12, color: T.dim, fontFamily: "'Times New Roman', Times, serif", margin: 0 }}>
               {new Date(result!._auditDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
             </p>
           </div>
@@ -391,7 +391,7 @@ Return ONLY the JSON object. No additional text.`;
                 color:         locked ? '#252535' : isActive ? INH_LIGHT : T.mute,
                 padding:       '10px 16px 12px',
                 fontSize:      11,
-                fontFamily:    'Inter, sans-serif',
+                fontFamily:    "'Times New Roman', Times, serif",
                 cursor:        locked ? 'not-allowed' : 'pointer',
                 letterSpacing: '.08em',
                 textTransform: 'uppercase',
@@ -406,7 +406,7 @@ Return ONLY the JSON object. No additional text.`;
               <span style={{ opacity: locked ? 0.25 : 1 }}>{st.icon}</span>
               <span style={{ opacity: locked ? 0.25 : 1 }}>{st.label}</span>
               {st.id !== 'upload' && !hasResult && (
-                <span style={{ fontSize: 8, color: '#1e1e2e', border: '1px solid #181828', padding: '1px 4px', borderRadius: 2 }}>PENDING</span>
+                <span style={{ fontSize: 8, color: '#888888', border: '1px solid #181828', padding: '1px 4px', borderRadius: 2 }}>PENDING</span>
               )}
             </button>
           );
@@ -421,15 +421,15 @@ Return ONLY the JSON object. No additional text.`;
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <span style={{ fontSize: 18, color: '#5a9a5a' }}>✓</span>
                 <div>
-                  <p style={{ fontSize: 12, color: '#7ab87a', fontFamily: 'Inter, sans-serif', fontWeight: 600, margin: '0 0 2px' }}>
+                  <p style={{ fontSize: 12, color: '#7ab87a', fontFamily: "'Times New Roman', Times, serif", fontWeight: 600, margin: '0 0 2px' }}>
                     Audit complete — {new Date(result!._auditDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
                   </p>
-                  <p style={{ fontSize: 11, color: T.mute, fontFamily: 'Inter, sans-serif', margin: 0 }}>
+                  <p style={{ fontSize: 11, color: T.mute, fontFamily: "'Times New Roman', Times, serif", margin: 0 }}>
                     Files audited: {(result!._uploadNames || []).join(', ') || '(pasted text)'}
                   </p>
                 </div>
               </div>
-              <button onClick={() => setSubTab('audit')} style={{ background: 'transparent', border: '1px solid #2a4a2a', color: '#7ab87a', borderRadius: 4, padding: '6px 14px', fontSize: 11, fontFamily: 'Inter, sans-serif', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+              <button onClick={() => setSubTab('audit')} style={{ background: 'transparent', border: '1px solid #2a4a2a', color: '#7ab87a', borderRadius: 4, padding: '6px 14px', fontSize: 11, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', whiteSpace: 'nowrap' }}>
                 View Results →
               </button>
             </div>
@@ -463,8 +463,8 @@ Return ONLY the JSON object. No additional text.`;
               style={{ border: `1px dashed ${INH_ACCENT}66`, borderRadius: 6, padding: '28px 20px', textAlign: 'center', cursor: 'pointer', background: '#08080f' }}
             >
               <div style={{ fontSize: 28, marginBottom: 8, opacity: .4 }}>⬆</div>
-              <p style={{ fontSize: 13, color: T.mute, fontFamily: 'Inter, sans-serif', margin: 0 }}>Click to upload or drag files here</p>
-              <p style={{ fontSize: 11, color: '#303040', fontFamily: 'Inter, sans-serif', marginTop: 4 }}>
+              <p style={{ fontSize: 13, color: T.mute, fontFamily: "'Times New Roman', Times, serif", margin: 0 }}>Click to upload or drag files here</p>
+              <p style={{ fontSize: 11, color: '#303040', fontFamily: "'Times New Roman', Times, serif", marginTop: 4 }}>
                 Pleadings · Orders · Correspondence · Affidavits · Judgments · Any case document
               </p>
             </div>
@@ -481,11 +481,11 @@ Return ONLY the JSON object. No additional text.`;
           {uploads.length > 0 && (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
               {uploads.map(u => (
-                <div key={u.id} style={{ background: '#0e0e1c', border: `1px solid ${INH_ACCENT}33`, borderRadius: 4, padding: '5px 10px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div key={u.id} style={{ background: '#f7f7f5', border: '1px solid #cccccc', borderRadius: 4, padding: '5px 10px', display: 'flex', alignItems: 'center', gap: 8 }}>
                   <span style={{ fontSize: 12 }}>
                     {u.type === 'application/pdf' ? '📄' : u.type === 'text' ? '📝' : '🖼'}
                   </span>
-                  <span style={{ fontSize: 11, color: T.dim, fontFamily: 'Inter, sans-serif', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <span style={{ fontSize: 11, color: T.dim, fontFamily: "'Times New Roman', Times, serif", maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {u.name}
                   </span>
                   <button onClick={() => removeFile(u.id)} style={{ background: 'transparent', border: 'none', color: '#4a4a5a', cursor: 'pointer', fontSize: 13, padding: '0 2px', lineHeight: 1 }}>×</button>
@@ -506,13 +506,13 @@ Return ONLY the JSON object. No additional text.`;
               rows={8}
               style={taStyle}
             />
-            <p style={{ fontSize: 10, color: '#303040', fontFamily: 'Inter, sans-serif', marginTop: 5, textAlign: 'right' }}>
+            <p style={{ fontSize: 10, color: '#303040', fontFamily: "'Times New Roman', Times, serif", marginTop: 5, textAlign: 'right' }}>
               {pastedTxt.length.toLocaleString()} characters
             </p>
           </div>
 
           {errMsg && (
-            <div style={{ background: '#1a0810', border: '1px solid #4a1830', borderRadius: 5, padding: '10px 14px', color: '#c07070', fontSize: 13, fontFamily: 'Inter, sans-serif', marginBottom: 16 }}>
+            <div style={{ background: '#1a0810', border: '1px solid #4a1830', borderRadius: 5, padding: '10px 14px', color: '#c07070', fontSize: 13, fontFamily: "'Times New Roman', Times, serif", marginBottom: 16 }}>
               {errMsg}
             </div>
           )}
@@ -524,8 +524,8 @@ Return ONLY the JSON object. No additional text.`;
                 onClick={runAudit}
                 disabled={!canRun}
                 style={canRun
-                  ? { background: `linear-gradient(135deg,${INH_ACCENT},#5a50b0)`, color: '#f0f0ff', border: 'none', borderRadius: 6, padding: '15px 28px', fontSize: 16, fontFamily: "'Cormorant Garamond', serif", cursor: 'pointer', width: '100%', letterSpacing: '.04em', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }
-                  : { background: '#101018', color: '#2a2a38', border: `1px solid ${T.bdr}`, borderRadius: 6, padding: '15px 28px', fontSize: 16, fontFamily: "'Cormorant Garamond', serif", cursor: 'not-allowed', width: '100%', letterSpacing: '.04em' }
+                  ? { background: `linear-gradient(135deg,${INH_ACCENT},#5a50b0)`, color: '#f0f0ff', border: 'none', borderRadius: 6, padding: '15px 28px', fontSize: 16, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', width: '100%', letterSpacing: '.04em', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }
+                  : { background: '#101018', color: '#2a2a38', border: `1px solid ${T.bdr}`, borderRadius: 6, padding: '15px 28px', fontSize: 16, fontFamily: "'Times New Roman', Times, serif", cursor: 'not-allowed', width: '100%', letterSpacing: '.04em' }
                 }
               >
                 {running
@@ -538,8 +538,8 @@ Return ONLY the JSON object. No additional text.`;
 
           {running && (
             <div style={{ marginTop: 12, textAlign: 'center' }}>
-              <p style={{ fontSize: 11, color: INH_ACCENT, fontFamily: 'Inter, sans-serif', letterSpacing: '.08em' }}>{runPhase}</p>
-              <p style={{ fontSize: 10, color: T.mute, fontFamily: 'Inter, sans-serif', marginTop: 4 }}>Analysing all documents — this may take 15–30 seconds</p>
+              <p style={{ fontSize: 11, color: INH_ACCENT, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.08em' }}>{runPhase}</p>
+              <p style={{ fontSize: 10, color: T.mute, fontFamily: "'Times New Roman', Times, serif", marginTop: 4 }}>Analysing all documents — this may take 15–30 seconds</p>
             </div>
           )}
         </div>
@@ -553,13 +553,13 @@ Return ONLY the JSON object. No additional text.`;
           </div>
 
           <SectionHead label="What the Previous Lawyer Did" text={(result.what_was_done || []).join('\n')} secKey="wwd" copiedSec={copiedSec} onCopy={copyText} />
-          <div style={{ background: '#070710', border: '1px solid #1e1e2e', borderRadius: 6, padding: '18px 22px', marginBottom: 24 }}>
+          <div style={{ background: '#070710', border: '1px solid #cccccc', borderRadius: 6, padding: '18px 22px', marginBottom: 24 }}>
             <BulletList items={result.what_was_done} />
           </div>
 
           <div style={{ background: '#0a080f', border: `1px solid ${INH_ACCENT}33`, borderRadius: 6, padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
-            <p style={{ fontSize: 13, color: T.mute, fontFamily: 'Inter, sans-serif', margin: 0 }}>Proceed to Gap &amp; Damage Report →</p>
-            <button onClick={() => setSubTab('gap')} style={{ background: 'transparent', border: `1px solid ${INH_ACCENT}`, color: INH_LIGHT, borderRadius: 4, padding: '7px 18px', fontSize: 12, fontFamily: 'Inter, sans-serif', cursor: 'pointer', letterSpacing: '.04em' }}>
+            <p style={{ fontSize: 13, color: T.mute, fontFamily: "'Times New Roman', Times, serif", margin: 0 }}>Proceed to Gap &amp; Damage Report →</p>
+            <button onClick={() => setSubTab('gap')} style={{ background: 'transparent', border: `1px solid ${INH_ACCENT}`, color: INH_LIGHT, borderRadius: 4, padding: '7px 18px', fontSize: 12, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', letterSpacing: '.04em' }}>
               Gap Report →
             </button>
           </div>
@@ -579,7 +579,7 @@ Return ONLY the JSON object. No additional text.`;
           </div>
 
           <div style={{ marginBottom: 12, marginTop: 28, display: 'flex', alignItems: 'center', gap: 10 }}>
-            <p style={{ fontSize: 10, color: '#c05050', fontFamily: 'Inter, sans-serif', letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 700, margin: 0 }}>
+            <p style={{ fontSize: 10, color: '#c05050', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 700, margin: 0 }}>
               ⛔ Now Too Late To Fix
             </p>
           </div>
@@ -593,8 +593,8 @@ Return ONLY the JSON object. No additional text.`;
           </div>
 
           <div style={{ background: '#0a080f', border: `1px solid ${INH_ACCENT}33`, borderRadius: 6, padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
-            <p style={{ fontSize: 13, color: T.mute, fontFamily: 'Inter, sans-serif', margin: 0 }}>Proceed to Risk Register →</p>
-            <button onClick={() => setSubTab('risk')} style={{ background: 'transparent', border: `1px solid ${INH_ACCENT}`, color: INH_LIGHT, borderRadius: 4, padding: '7px 18px', fontSize: 12, fontFamily: 'Inter, sans-serif', cursor: 'pointer', letterSpacing: '.04em' }}>
+            <p style={{ fontSize: 13, color: T.mute, fontFamily: "'Times New Roman', Times, serif", margin: 0 }}>Proceed to Risk Register →</p>
+            <button onClick={() => setSubTab('risk')} style={{ background: 'transparent', border: `1px solid ${INH_ACCENT}`, color: INH_LIGHT, borderRadius: 4, padding: '7px 18px', fontSize: 12, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', letterSpacing: '.04em' }}>
               Risk Register →
             </button>
           </div>
@@ -612,30 +612,30 @@ Return ONLY the JSON object. No additional text.`;
           />
 
           {(!result.risk_register || result.risk_register.length === 0) && (
-            <p style={{ color: T.mute, fontStyle: 'italic', fontSize: 13, fontFamily: 'Inter, sans-serif' }}>
+            <p style={{ color: T.mute, fontStyle: 'italic', fontSize: 13, fontFamily: "'Times New Roman', Times, serif" }}>
               No risks identified — consider re-running with more documents pasted.
             </p>
           )}
 
           {(result.risk_register || []).map((r: InheritanceRisk, i: number) => (
-            <div key={i} style={{ background: '#080810', border: `1px solid ${sevCol(r.severity)}33`, borderRadius: 6, padding: '16px 20px', marginBottom: 14 }}>
+            <div key={i} style={{ background: '#ffffff', border: `1px solid ${sevCol(r.severity)}33`, borderRadius: 6, padding: '16px 20px', marginBottom: 14 }}>
               <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10, marginBottom: 10 }}>
-                <p style={{ fontSize: 15, color: T.text, fontFamily: "'Cormorant Garamond', serif", fontWeight: 600, margin: 0, flex: 1 }}>{r.risk}</p>
-                <span style={{ fontSize: 9, color: sevCol(r.severity), border: `1px solid ${sevCol(r.severity)}55`, borderRadius: 2, padding: '3px 8px', fontFamily: 'Inter, sans-serif', fontWeight: 700, letterSpacing: '.1em', whiteSpace: 'nowrap' }}>
+                <p style={{ fontSize: 15, color: T.text, fontFamily: "'Times New Roman', Times, serif", fontWeight: 600, margin: 0, flex: 1 }}>{r.risk}</p>
+                <span style={{ fontSize: 9, color: sevCol(r.severity), border: `1px solid ${sevCol(r.severity)}55`, borderRadius: 2, padding: '3px 8px', fontFamily: "'Times New Roman', Times, serif", fontWeight: 700, letterSpacing: '.1em', whiteSpace: 'nowrap' }}>
                   {r.severity || 'UNKNOWN'}
                 </span>
               </div>
-              <p style={{ fontSize: 14, color: '#c0bbb0', fontFamily: "'Cormorant Garamond', serif", lineHeight: 1.85, margin: '0 0 10px' }}>{r.detail}</p>
+              <p style={{ fontSize: 14, color: '#c0bbb0', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.85, margin: '0 0 10px' }}>{r.detail}</p>
               <div style={{ borderTop: '1px solid #111120', paddingTop: 10 }}>
-                <p style={{ fontSize: 9, color: INH_ACCENT, fontFamily: 'Inter, sans-serif', letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 5 }}>Required Action</p>
-                <p style={{ fontSize: 13, color: '#9090b0', fontFamily: 'Inter, sans-serif', lineHeight: 1.7, margin: 0 }}>{r.action}</p>
+                <p style={{ fontSize: 9, color: INH_ACCENT, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 5 }}>Required Action</p>
+                <p style={{ fontSize: 13, color: '#9090b0', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.7, margin: 0 }}>{r.action}</p>
               </div>
             </div>
           ))}
 
           <div style={{ background: '#0a080f', border: `1px solid ${INH_ACCENT}33`, borderRadius: 6, padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, marginTop: 20 }}>
-            <p style={{ fontSize: 13, color: T.mute, fontFamily: 'Inter, sans-serif', margin: 0 }}>Proceed to Inheritance Intelligence Package →</p>
-            <button onClick={() => setSubTab('package')} style={{ background: `linear-gradient(135deg,${INH_ACCENT},#5a50b0)`, color: '#f0f0ff', border: 'none', borderRadius: 4, padding: '8px 18px', fontSize: 12, fontFamily: 'Inter, sans-serif', cursor: 'pointer', letterSpacing: '.04em', fontWeight: 600 }}>
+            <p style={{ fontSize: 13, color: T.mute, fontFamily: "'Times New Roman', Times, serif", margin: 0 }}>Proceed to Inheritance Intelligence Package →</p>
+            <button onClick={() => setSubTab('package')} style={{ background: `linear-gradient(135deg,${INH_ACCENT},#5a50b0)`, color: '#f0f0ff', border: 'none', borderRadius: 4, padding: '8px 18px', fontSize: 12, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', letterSpacing: '.04em', fontWeight: 600 }}>
               Intel Package →
             </button>
           </div>
@@ -664,30 +664,30 @@ Return ONLY the JSON object. No additional text.`;
             </div>
 
             <SectionHead label="Immediate Actions — This Week" text={(pkg.immediate_actions || []).join('\n')} secKey="pia" copiedSec={copiedSec} onCopy={copyText} />
-            <div style={{ background: '#070710', border: '1px solid #1a1a28', borderRadius: 6, padding: '18px 22px', marginBottom: 24 }}>
+            <div style={{ background: '#070710', border: '1px solid #cccccc', borderRadius: 6, padding: '18px 22px', marginBottom: 24 }}>
               {(pkg.immediate_actions || []).length > 0 ? (pkg.immediate_actions || []).map((a, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 12, padding: '10px 12px', background: '#0a0a18', borderRadius: 4, border: '1px solid #111122' }}>
-                  <span style={{ fontSize: 11, color: INH_ACCENT, fontFamily: 'Inter, sans-serif', fontWeight: 700, minWidth: 22, paddingTop: 3 }}>{i + 1}.</span>
-                  <p style={{ fontSize: 15, color: '#cac6ba', fontFamily: "'Cormorant Garamond', serif", lineHeight: 1.8, margin: 0 }}>{a}</p>
+                <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 12, padding: '10px 12px', background: '#ffffff', borderRadius: 4, border: '1px solid #111122' }}>
+                  <span style={{ fontSize: 11, color: INH_ACCENT, fontFamily: "'Times New Roman', Times, serif", fontWeight: 700, minWidth: 22, paddingTop: 3 }}>{i + 1}.</span>
+                  <p style={{ fontSize: 15, color: '#cac6ba', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.8, margin: 0 }}>{a}</p>
                 </div>
-              )) : <p style={{ color: T.mute, fontStyle: 'italic', fontSize: 13, fontFamily: 'Inter, sans-serif' }}>None identified.</p>}
+              )) : <p style={{ color: T.mute, fontStyle: 'italic', fontSize: 13, fontFamily: "'Times New Roman', Times, serif" }}>None identified.</p>}
             </div>
 
             <SectionHead label="Procedural Roadmap — Remaining Steps" text={(pkg.remaining_steps || []).join('\n')} secKey="prs" copiedSec={copiedSec} onCopy={copyText} />
-            <div style={{ background: '#070710', border: '1px solid #1a1a28', borderRadius: 6, padding: '18px 22px', marginBottom: 24 }}>
+            <div style={{ background: '#070710', border: '1px solid #cccccc', borderRadius: 6, padding: '18px 22px', marginBottom: 24 }}>
               <BulletList items={pkg.remaining_steps} accent={INH_ACCENT} />
             </div>
 
             <SectionHead label="Strategy Options From This Position" text={pkg.strategy_options} secKey="pso" copiedSec={copiedSec} onCopy={copyText} />
-            <div style={{ background: '#070710', border: '1px solid #1a1a28', borderRadius: 6, padding: '20px 22px', marginBottom: 24 }}>
+            <div style={{ background: '#070710', border: '1px solid #cccccc', borderRadius: 6, padding: '20px 22px', marginBottom: 24 }}>
               <Prose text={pkg.strategy_options} />
             </div>
 
             <div style={{ marginBottom: 12, marginTop: 28 }}>
-              <p style={{ fontSize: 10, color: INH_ACCENT, fontFamily: 'Inter, sans-serif', letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 700, margin: '0 0 4px' }}>
+              <p style={{ fontSize: 10, color: INH_ACCENT, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 700, margin: '0 0 4px' }}>
                 SAN's Recommended Starting Posture
               </p>
-              <p style={{ fontSize: 10, color: T.mute, fontFamily: 'Inter, sans-serif', margin: 0 }}>Guidance only — the decision is yours</p>
+              <p style={{ fontSize: 10, color: T.mute, fontFamily: "'Times New Roman', Times, serif", margin: 0 }}>Guidance only — the decision is yours</p>
             </div>
             <div style={{ background: `${INH_ACCENT}0d`, border: `1px solid ${INH_ACCENT}44`, borderRadius: 6, padding: '20px 22px', marginBottom: 28 }}>
               <Prose text={pkg.recommended_starting_posture} />
@@ -696,21 +696,21 @@ Return ONLY the JSON object. No additional text.`;
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 20 }}>
               <button
                 onClick={() => copyText(fullExport, 'full_pkg')}
-                style={{ background: 'transparent', border: `1px solid ${INH_ACCENT}`, color: INH_LIGHT, borderRadius: 4, padding: '9px 20px', fontSize: 12, fontFamily: 'Inter, sans-serif', cursor: 'pointer', letterSpacing: '.04em', fontWeight: 600 }}
+                style={{ background: 'transparent', border: `1px solid ${INH_ACCENT}`, color: INH_LIGHT, borderRadius: 4, padding: '9px 20px', fontSize: 12, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', letterSpacing: '.04em', fontWeight: 600 }}
               >
                 {copiedSec === 'full_pkg' ? '✓ Copied' : 'Copy Full Package'}
               </button>
               <button
                 onClick={() => setSubTab('upload')}
-                style={{ background: 'transparent', border: '1px solid #1e1e2e', color: T.mute, borderRadius: 4, padding: '9px 20px', fontSize: 12, fontFamily: 'Inter, sans-serif', cursor: 'pointer', letterSpacing: '.04em' }}
+                style={{ background: 'transparent', border: '1px solid #cccccc', color: T.mute, borderRadius: 4, padding: '9px 20px', fontSize: 12, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', letterSpacing: '.04em' }}
               >
                 ⟳ Re-run Audit
               </button>
             </div>
 
             <div style={{ background: '#060f08', border: '1px solid #1a3020', borderRadius: 6, padding: '16px 20px' }}>
-              <p style={{ fontSize: 11, color: '#5a9a5a', fontFamily: 'Inter, sans-serif', letterSpacing: '.08em', fontWeight: 600, margin: '0 0 6px' }}>✓ INHERITANCE COMPLETE</p>
-              <p style={{ fontSize: 13, color: T.dim, fontFamily: 'Inter, sans-serif', lineHeight: 1.7, margin: 0 }}>
+              <p style={{ fontSize: 11, color: '#5a9a5a', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.08em', fontWeight: 600, margin: '0 0 6px' }}>✓ INHERITANCE COMPLETE</p>
+              <p style={{ fontSize: 13, color: T.dim, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.7, margin: 0 }}>
                 You now operate as if you built this case — with full awareness of what came before you. All other modules (Intelligence Engine, Argument Builder, Docket, Evidence Vault, Brief Me) are available and will function normally from this point forward.
               </p>
             </div>

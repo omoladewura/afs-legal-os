@@ -152,8 +152,8 @@ export function CaseOverview({ activeCase }: Props) {
   const nextAction  = nextActionResult.action || null;
 
   const roleAccent  = counselRole ? COUNSEL_ROLE_COLORS[counselRole].col : '#888888';
-  const roleBg      = counselRole ? COUNSEL_ROLE_COLORS[counselRole].bg  : '#0a0a14';
-  const roleBdr     = counselRole ? COUNSEL_ROLE_COLORS[counselRole].bdr : '#1e1e2e';
+  const roleBg      = counselRole ? COUNSEL_ROLE_COLORS[counselRole].bg  : '#ffffff';
+  const roleBdr     = counselRole ? COUNSEL_ROLE_COLORS[counselRole].bdr : '#cccccc';
 
   // Stage selector
   const roleStages  = counselRole ? (ROLE_STAGES[counselRole] ?? []) : [];
@@ -265,7 +265,7 @@ export function CaseOverview({ activeCase }: Props) {
             <div>
               <div style={{
                 fontSize: 7, color: borderAccent,
-                fontFamily: 'Inter, sans-serif',
+                fontFamily: "'Times New Roman', Times, serif",
                 letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 2,
               }}>
                 {posConfig ? posConfig.positionLabel : 'Our Role'}
@@ -296,7 +296,7 @@ export function CaseOverview({ activeCase }: Props) {
               {matterTrack && (
                 <span style={{
                   fontSize: 9, padding: '2px 7px', borderRadius: 3,
-                  fontFamily: 'Inter, sans-serif', fontWeight: 700,
+                  fontFamily: "'Times New Roman', Times, serif", fontWeight: 700,
                   letterSpacing: '.1em', textTransform: 'uppercase',
                   background: MATTER_TRACK_COLORS[matterTrack].bg,
                   border: `1px solid ${MATTER_TRACK_COLORS[matterTrack].bdr}`,
@@ -354,7 +354,7 @@ export function CaseOverview({ activeCase }: Props) {
           }}>
             <span style={{ fontSize: 14, color: roleAccent, flexShrink: 0, marginTop: 1 }}>→</span>
             <div>
-              <div style={{ fontSize: 8, color: roleAccent, fontFamily: 'Inter, sans-serif', letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 3 }}>
+              <div style={{ fontSize: 8, color: roleAccent, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 3 }}>
                 {posConfig?.nextActionLabel ?? 'Next Action'}
               </div>
               <div style={{ fontSize: 13, color: T.text, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.5 }}>
@@ -370,7 +370,7 @@ export function CaseOverview({ activeCase }: Props) {
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
               <span style={{
                 fontSize: 8, color: T.mute,
-                fontFamily: 'Inter, sans-serif',
+                fontFamily: "'Times New Roman', Times, serif",
                 letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 600,
               }}>
                 Current Stage
@@ -380,7 +380,7 @@ export function CaseOverview({ activeCase }: Props) {
                 return st ? (
                   <span style={{
                     fontSize: 10, color: roleAccent,
-                    fontFamily: 'Inter, sans-serif',
+                    fontFamily: "'Times New Roman', Times, serif",
                     background: `${roleAccent}18`,
                     border: `1px solid ${roleAccent}40`,
                     padding: '2px 9px', borderRadius: 3,
@@ -396,7 +396,7 @@ export function CaseOverview({ activeCase }: Props) {
                   border: `1px solid ${stagePickerOpen ? roleAccent + '60' : T.bdr}`,
                   color: stagePickerOpen ? roleAccent : T.mute,
                   borderRadius: 4, padding: '4px 11px',
-                  fontSize: 10, fontFamily: 'Inter, sans-serif',
+                  fontSize: 10, fontFamily: "'Times New Roman', Times, serif",
                   cursor: 'pointer', letterSpacing: '.04em',
                   transition: 'all .15s',
                 }}
@@ -408,7 +408,7 @@ export function CaseOverview({ activeCase }: Props) {
                 style={{
                   background: 'transparent', border: 'none',
                   color: T.mute, fontSize: 10,
-                  fontFamily: 'Inter, sans-serif',
+                  fontFamily: "'Times New Roman', Times, serif",
                   cursor: 'pointer', letterSpacing: '.04em',
                   textDecoration: 'underline',
                 }}
@@ -450,7 +450,7 @@ export function CaseOverview({ activeCase }: Props) {
                         <span style={{ fontSize: 12, color: isActive ? roleAccent : T.sub, fontFamily: "'Times New Roman', Times, serif", fontWeight: isActive ? 600 : 400 }}>
                           {stage.label}
                         </span>
-                        {isActive && <span style={{ marginLeft: 'auto', fontSize: 8, color: roleAccent, fontFamily: 'Inter, sans-serif', letterSpacing: '.08em' }}>CURRENT</span>}
+                        {isActive && <span style={{ marginLeft: 'auto', fontSize: 8, color: roleAccent, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.08em' }}>CURRENT</span>}
                       </div>
                     </button>
                   );
@@ -506,7 +506,7 @@ export function CaseOverview({ activeCase }: Props) {
                 }}>
                   <span style={{
                     fontSize: 8, color: sc.col,
-                    fontFamily: 'Inter, sans-serif', fontWeight: 700,
+                    fontFamily: "'Times New Roman', Times, serif", fontWeight: 700,
                     letterSpacing: '.1em', textTransform: 'uppercase',
                     background: `${sc.col}15`, border: `1px solid ${sc.bdr}`,
                     borderRadius: 3, padding: '2px 6px', flexShrink: 0, marginTop: 2,

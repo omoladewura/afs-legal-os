@@ -184,7 +184,7 @@ function Spinner() {
 function ErrorBlock({ message }: { message: string }) {
   return (
     <div style={{ background: '#180808', border: '1px solid #4a1818', borderRadius: 6, padding: '12px 16px', marginTop: 12 }}>
-      <p style={{ fontSize: 13, color: '#c05050', fontFamily: 'Inter, sans-serif', margin: 0 }}>{message}</p>
+      <p style={{ fontSize: 13, color: '#c05050', fontFamily: "'Times New Roman', Times, serif", margin: 0 }}>{message}</p>
     </div>
   );
 }
@@ -264,7 +264,7 @@ export function RiskAnalytics({ activeCase }: Props) {
   const labelS: React.CSSProperties = {
     fontSize:      10,
     color:         '#5a5a72',
-    fontFamily:    'Inter, sans-serif',
+    fontFamily:    "'Times New Roman', Times, serif",
     letterSpacing: '.1em',
     textTransform: 'uppercase',
     fontWeight:    600,
@@ -273,13 +273,13 @@ export function RiskAnalytics({ activeCase }: Props) {
   };
   const inputS: React.CSSProperties = {
     width:        '100%',
-    background:   '#07070f',
+    background:   '#ffffff',
     border:       '1px solid #1e1e2e',
     borderRadius: 5,
     color:        '#e0dcd0',
     padding:      '11px 14px',
     fontSize:     15,
-    fontFamily:   "'Cormorant Garamond', serif",
+    fontFamily:   "'Times New Roman', Times, serif",
     outline:      'none',
     resize:       'vertical',
     lineHeight:   1.82,
@@ -288,13 +288,13 @@ export function RiskAnalytics({ activeCase }: Props) {
   };
   const selS: React.CSSProperties = {
     width:            '100%',
-    background:       '#07070f',
+    background:       '#ffffff',
     border:           '1px solid #1e1e2e',
     borderRadius:     5,
     color:            '#e0dcd0',
     padding:          '11px 14px',
     fontSize:         14,
-    fontFamily:       "'Cormorant Garamond', serif",
+    fontFamily:       "'Times New Roman', Times, serif",
     outline:          'none',
     appearance:       'none',
     WebkitAppearance: 'none',
@@ -307,7 +307,7 @@ export function RiskAnalytics({ activeCase }: Props) {
     borderRadius:   6,
     padding:        '13px 28px',
     fontSize:       16,
-    fontFamily:     "'Cormorant Garamond', serif",
+    fontFamily:     "'Times New Roman', Times, serif",
     cursor:         enabled ? 'pointer' : 'not-allowed',
     width:          '100%',
     fontWeight:     600,
@@ -402,13 +402,13 @@ export function RiskAnalytics({ activeCase }: Props) {
 
       {/* ── Header ── */}
       <div style={{ marginBottom: 24 }}>
-        <p style={{ fontSize: 10, color: '#5a5a72', fontFamily: 'Inter, sans-serif', letterSpacing: '.16em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 8 }}>
+        <p style={{ fontSize: 10, color: '#5a5a72', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.16em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 8 }}>
           Risk Analytics Engine
         </p>
-        <p style={{ fontSize: 22, color: T.goldL, fontFamily: "'Cormorant Garamond', serif", fontWeight: 400, marginBottom: 4 }}>
+        <p style={{ fontSize: 22, color: '#111111', fontFamily: "'Times New Roman', Times, serif", fontWeight: 400, marginBottom: 4 }}>
           Strategic Risk Scoring
         </p>
-        <p style={{ fontSize: 13, color: '#5a5a72', fontFamily: 'Inter, sans-serif', lineHeight: 1.65, maxWidth: 680 }}>
+        <p style={{ fontSize: 13, color: '#5a5a72', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.65, maxWidth: 680 }}>
           Numerical risk assessment across 8 dimensions calibrated to Nigerian litigation standards.
           Scores are AI-generated — verify independently before advising clients.
         </p>
@@ -425,13 +425,13 @@ export function RiskAnalytics({ activeCase }: Props) {
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             style={{
-              background:    activeTab === tab.id ? '#0e0e1e' : 'transparent',
+              background:    activeTab === tab.id ? '#e8e8e8' : 'transparent',
               border:        activeTab === tab.id ? '1px solid #2a2a3e' : '1px solid transparent',
               color:         activeTab === tab.id ? T.gold : '#505060',
               borderRadius:  5,
               padding:       '7px 14px',
               fontSize:      12,
-              fontFamily:    'Inter, sans-serif',
+              fontFamily:    "'Times New Roman', Times, serif",
               cursor:        'pointer',
               letterSpacing: '.06em',
               fontWeight:    600,
@@ -455,7 +455,7 @@ export function RiskAnalytics({ activeCase }: Props) {
                 placeholder="Summarise the key facts, parties, claims, available evidence, and legal issues. The more detail you provide, the more precise the risk scores will be."
                 style={inputS}
               />
-              <p style={{ fontSize: 10, color: '#3a3a52', fontFamily: 'Inter, sans-serif', textAlign: 'right', marginTop: 4 }}>
+              <p style={{ fontSize: 10, color: '#3a3a52', fontFamily: "'Times New Roman', Times, serif", textAlign: 'right', marginTop: 4 }}>
                 {facts.length} chars
               </p>
             </div>
@@ -469,7 +469,7 @@ export function RiskAnalytics({ activeCase }: Props) {
               {result && (
                 <button
                   onClick={clearResult}
-                  style={{ background: 'transparent', border: '1px solid #1e1e2e', color: '#505068', borderRadius: 5, padding: '11px 16px', fontSize: 11, fontFamily: 'Inter, sans-serif', cursor: 'pointer', letterSpacing: '.06em', whiteSpace: 'nowrap', alignSelf: 'flex-end' }}
+                  style={{ background: 'transparent', border: '1px solid #cccccc', color: '#505068', borderRadius: 5, padding: '11px 16px', fontSize: 11, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', letterSpacing: '.06em', whiteSpace: 'nowrap', alignSelf: 'flex-end' }}
                 >
                   ✕ Clear
                 </button>
@@ -487,17 +487,17 @@ export function RiskAnalytics({ activeCase }: Props) {
             <div style={{ animation: 'fadeUp .3s ease' }}>
 
               {/* Meta bar */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, padding: '10px 14px', background: '#080810', border: '1px solid #111120', borderRadius: 6 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, padding: '10px 14px', background: '#ffffff', border: '1px solid #111120', borderRadius: 6 }}>
                 <div>
-                  <p style={{ fontSize: 9, color: '#5a5a72', fontFamily: 'Inter, sans-serif', letterSpacing: '.12em', textTransform: 'uppercase' }}>Last analysed · {result.stage}</p>
-                  <p style={{ fontSize: 11, color: '#3a3a52', fontFamily: 'Inter, sans-serif', marginTop: 2 }}>
+                  <p style={{ fontSize: 9, color: '#5a5a72', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase' }}>Last analysed · {result.stage}</p>
+                  <p style={{ fontSize: 11, color: '#3a3a52', fontFamily: "'Times New Roman', Times, serif", marginTop: 2 }}>
                     {new Date(result.timestamp).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                   </p>
                 </div>
                 {overall !== null && (
                   <div style={{ textAlign: 'right' }}>
-                    <p style={{ fontSize: 9, color: '#5a5a72', fontFamily: 'Inter, sans-serif', letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 2 }}>Overall</p>
-                    <span style={{ fontSize: 32, color: overallC, fontFamily: "'Cormorant Garamond', serif", fontWeight: 300, lineHeight: 1 }}>{overall}</span>
+                    <p style={{ fontSize: 9, color: '#5a5a72', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 2 }}>Overall</p>
+                    <span style={{ fontSize: 32, color: overallC, fontFamily: "'Times New Roman', Times, serif", fontWeight: 300, lineHeight: 1 }}>{overall}</span>
                   </div>
                 )}
               </div>
@@ -506,13 +506,13 @@ export function RiskAnalytics({ activeCase }: Props) {
               {result.verdict && (() => {
                 const v = VERDICT_CONFIG[result.verdict] || VERDICT_CONFIG.NEGOTIATE;
                 return (
-                  <div style={{ textAlign: 'center', marginBottom: 18, padding: '18px 24px', background: '#080810', border: `1px solid ${v.color}33`, borderRadius: 8 }}>
-                    <p style={{ fontSize: 9, color: '#5a5a72', fontFamily: 'Inter, sans-serif', letterSpacing: '.16em', textTransform: 'uppercase', marginBottom: 8 }}>Strategic Verdict</p>
+                  <div style={{ textAlign: 'center', marginBottom: 18, padding: '18px 24px', background: '#ffffff', border: `1px solid ${v.color}33`, borderRadius: 8 }}>
+                    <p style={{ fontSize: 9, color: '#5a5a72', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.16em', textTransform: 'uppercase', marginBottom: 8 }}>Strategic Verdict</p>
                     <div style={{ display: 'inline-block', background: `${v.color}18`, border: `1px solid ${v.color}55`, borderRadius: 4, padding: '6px 24px', marginBottom: 12 }}>
-                      <span style={{ fontSize: 14, color: v.color, fontFamily: 'Inter, sans-serif', fontWeight: 700, letterSpacing: '.16em', textTransform: 'uppercase' }}>{v.label}</span>
+                      <span style={{ fontSize: 14, color: v.color, fontFamily: "'Times New Roman', Times, serif", fontWeight: 700, letterSpacing: '.16em', textTransform: 'uppercase' }}>{v.label}</span>
                     </div>
                     {result.recommendation && (
-                      <p style={{ fontSize: 15, color: '#cac6ba', fontFamily: "'Cormorant Garamond', serif", lineHeight: 1.85, maxWidth: 600, margin: '0 auto' }}>
+                      <p style={{ fontSize: 15, color: '#cac6ba', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.85, maxWidth: 600, margin: '0 auto' }}>
                         {result.recommendation}
                       </p>
                     )}
@@ -531,18 +531,18 @@ export function RiskAnalytics({ activeCase }: Props) {
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           <span style={{ fontSize: 13, opacity: .7 }}>{dim.icon}</span>
-                          <p style={{ fontSize: 10, color: '#8a8a9a', fontFamily: 'Inter, sans-serif', letterSpacing: '.08em', textTransform: 'uppercase', fontWeight: 600 }}>{dim.label}</p>
+                          <p style={{ fontSize: 10, color: '#8a8a9a', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.08em', textTransform: 'uppercase', fontWeight: 600 }}>{dim.label}</p>
                         </div>
-                        <span style={{ fontSize: 28, color, fontFamily: "'Cormorant Garamond', serif", fontWeight: 300, lineHeight: 1 }}>{score}</span>
+                        <span style={{ fontSize: 28, color, fontFamily: "'Times New Roman', Times, serif", fontWeight: 300, lineHeight: 1 }}>{score}</span>
                       </div>
-                      <div style={{ background: '#0a0a14', borderRadius: 3, height: 5, marginBottom: 10, overflow: 'hidden' }}>
+                      <div style={{ background: '#ffffff', borderRadius: 3, height: 5, marginBottom: 10, overflow: 'hidden' }}>
                         <div style={{ height: '100%', width: animated ? `${score}%` : '0%', background: color, borderRadius: 3, transition: 'width .9s cubic-bezier(.25,.46,.45,.94)' }} />
                       </div>
                       {dim.invert && (
-                        <p style={{ fontSize: 9, color: '#3a3a52', fontFamily: 'Inter, sans-serif', letterSpacing: '.06em', textTransform: 'uppercase', marginBottom: 4 }}>↑ higher = more risk</p>
+                        <p style={{ fontSize: 9, color: '#3a3a52', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.06em', textTransform: 'uppercase', marginBottom: 4 }}>↑ higher = more risk</p>
                       )}
                       {reason && (
-                        <p style={{ fontSize: 12, color: '#6a6050', fontFamily: 'Inter, sans-serif', fontStyle: 'italic', lineHeight: 1.55, margin: 0 }}>{reason}</p>
+                        <p style={{ fontSize: 12, color: '#6a6050', fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic', lineHeight: 1.55, margin: 0 }}>{reason}</p>
                       )}
                     </div>
                   );
@@ -557,22 +557,22 @@ export function RiskAnalytics({ activeCase }: Props) {
       {activeTab === 'scenarios' && (
         <div>
           <div style={cardS}>
-            <p style={{ fontSize: 18, color: T.goldL, fontFamily: "'Cormorant Garamond', serif", fontWeight: 400, marginBottom: 6 }}>Scenario Analysis</p>
-            <p style={{ fontSize: 13, color: '#505060', fontFamily: 'Inter, sans-serif', lineHeight: 1.65, marginBottom: 16 }}>
+            <p style={{ fontSize: 18, color: '#111111', fontFamily: "'Times New Roman', Times, serif", fontWeight: 400, marginBottom: 6 }}>Scenario Analysis</p>
+            <p style={{ fontSize: 13, color: '#505060', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.65, marginBottom: 16 }}>
               Runs Best Case, Base Case, and Worst Case scenarios simultaneously. Requires case facts entered on the Dashboard tab.
             </p>
 
             {!facts.trim() && (
               <div style={{ background: '#100a00', border: '1px solid #3a2808', borderRadius: 6, padding: '12px 16px', marginBottom: 16 }}>
-                <p style={{ fontSize: 13, color: '#9a7030', fontFamily: 'Inter, sans-serif' }}>Enter case facts on the Dashboard tab before running scenario analysis.</p>
+                <p style={{ fontSize: 13, color: '#9a7030', fontFamily: "'Times New Roman', Times, serif" }}>Enter case facts on the Dashboard tab before running scenario analysis.</p>
               </div>
             )}
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 10, marginBottom: 16 }}>
               {PRESET_SCENARIOS.map(sc => (
-                <div key={sc.id} style={{ background: '#080810', border: '1px solid #141428', borderRadius: 6, padding: '12px 14px' }}>
-                  <p style={{ fontSize: 11, color: T.gold, fontFamily: 'Inter, sans-serif', fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', marginBottom: 6 }}>{sc.label}</p>
-                  <p style={{ fontSize: 12, color: '#505060', fontFamily: 'Inter, sans-serif', lineHeight: 1.55 }}>{sc.description}</p>
+                <div key={sc.id} style={{ background: '#ffffff', border: '1px solid #141428', borderRadius: 6, padding: '12px 14px' }}>
+                  <p style={{ fontSize: 11, color: '#444444', fontFamily: "'Times New Roman', Times, serif", fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', marginBottom: 6 }}>{sc.label}</p>
+                  <p style={{ fontSize: 12, color: '#505060', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.55 }}>{sc.description}</p>
                 </div>
               ))}
             </div>
@@ -591,13 +591,13 @@ export function RiskAnalytics({ activeCase }: Props) {
                   const v  = VERDICT_CONFIG[sc.verdict] || VERDICT_CONFIG.NEGOTIATE;
                   const ov = overallScore(sc.scores);
                   return (
-                    <div key={sc.id} style={{ background: '#080810', border: `1px solid ${v.color}33`, borderRadius: 8, padding: '16px', textAlign: 'center' }}>
-                      <p style={{ fontSize: 9, color: '#5a5a72', fontFamily: 'Inter, sans-serif', letterSpacing: '.14em', textTransform: 'uppercase', marginBottom: 8 }}>{sc.label}</p>
+                    <div key={sc.id} style={{ background: '#ffffff', border: `1px solid ${v.color}33`, borderRadius: 8, padding: '16px', textAlign: 'center' }}>
+                      <p style={{ fontSize: 9, color: '#5a5a72', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.14em', textTransform: 'uppercase', marginBottom: 8 }}>{sc.label}</p>
                       <div style={{ display: 'inline-block', background: `${v.color}18`, border: `1px solid ${v.color}55`, borderRadius: 3, padding: '4px 14px', marginBottom: 10 }}>
-                        <span style={{ fontSize: 11, color: v.color, fontFamily: 'Inter, sans-serif', fontWeight: 700, letterSpacing: '.14em' }}>{v.label}</span>
+                        <span style={{ fontSize: 11, color: v.color, fontFamily: "'Times New Roman', Times, serif", fontWeight: 700, letterSpacing: '.14em' }}>{v.label}</span>
                       </div>
-                      <p style={{ fontSize: 36, color: scoreColor(ov), fontFamily: "'Cormorant Garamond', serif", fontWeight: 300, lineHeight: 1, marginBottom: 8 }}>{ov}</p>
-                      <p style={{ fontSize: 11, color: '#5a5a72', fontFamily: 'Inter, sans-serif', lineHeight: 1.55 }}>{sc.recommendation}</p>
+                      <p style={{ fontSize: 36, color: scoreColor(ov), fontFamily: "'Times New Roman', Times, serif", fontWeight: 300, lineHeight: 1, marginBottom: 8 }}>{ov}</p>
+                      <p style={{ fontSize: 11, color: '#5a5a72', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.55 }}>{sc.recommendation}</p>
                     </div>
                   );
                 })}
@@ -607,23 +607,23 @@ export function RiskAnalytics({ activeCase }: Props) {
               <div style={{ background: '#0d0d18', border: '1px solid #181828', borderRadius: 8, overflow: 'hidden' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr repeat(3, 80px)', gap: 0 }}>
                   <div style={{ padding: '10px 16px', borderBottom: '1px solid #181828' }}>
-                    <p style={{ fontSize: 9, color: '#3a3a52', fontFamily: 'Inter, sans-serif', letterSpacing: '.1em', textTransform: 'uppercase', fontWeight: 600 }}>Dimension</p>
+                    <p style={{ fontSize: 9, color: '#3a3a52', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.1em', textTransform: 'uppercase', fontWeight: 600 }}>Dimension</p>
                   </div>
                   {scenarioResults.map(sc => (
                     <div key={sc.id} style={{ padding: '10px 0', borderBottom: '1px solid #181828', textAlign: 'center' }}>
-                      <p style={{ fontSize: 9, color: '#5a5a72', fontFamily: 'Inter, sans-serif', letterSpacing: '.1em', textTransform: 'uppercase', fontWeight: 600 }}>{sc.label}</p>
+                      <p style={{ fontSize: 9, color: '#5a5a72', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.1em', textTransform: 'uppercase', fontWeight: 600 }}>{sc.label}</p>
                     </div>
                   ))}
                   {DIMENSIONS.map((dim, i) => (
                     <React.Fragment key={dim.id}>
                       <div style={{ padding: '10px 16px', borderBottom: i < DIMENSIONS.length - 1 ? '1px solid #0e0e1e' : 'none', display: 'flex', alignItems: 'center', gap: 8 }}>
                         <span style={{ fontSize: 11, opacity: .6 }}>{dim.icon}</span>
-                        <p style={{ fontSize: 11, color: '#8a8a9a', fontFamily: 'Inter, sans-serif' }}>{dim.label}</p>
-                        {dim.invert && <span style={{ fontSize: 8, color: '#3a3a52', fontFamily: 'Inter, sans-serif' }}>↑risk</span>}
+                        <p style={{ fontSize: 11, color: '#8a8a9a', fontFamily: "'Times New Roman', Times, serif" }}>{dim.label}</p>
+                        {dim.invert && <span style={{ fontSize: 8, color: '#3a3a52', fontFamily: "'Times New Roman', Times, serif" }}>↑risk</span>}
                       </div>
                       {scenarioResults.map(sc => (
                         <div key={sc.id} style={{ padding: '10px 0', borderBottom: i < DIMENSIONS.length - 1 ? '1px solid #0e0e1e' : 'none', textAlign: 'center' }}>
-                          <span style={{ fontSize: 18, color: scoreColor(sc.scores[dim.id], dim.invert), fontFamily: "'Cormorant Garamond', serif", fontWeight: 300 }}>
+                          <span style={{ fontSize: 18, color: scoreColor(sc.scores[dim.id], dim.invert), fontFamily: "'Times New Roman', Times, serif", fontWeight: 300 }}>
                             {sc.scores[dim.id]}
                           </span>
                         </div>
@@ -641,8 +641,8 @@ export function RiskAnalytics({ activeCase }: Props) {
       {activeTab === 'register' && (
         <div>
           <div style={cardS}>
-            <p style={{ fontSize: 18, color: T.goldL, fontFamily: "'Cormorant Garamond', serif", fontWeight: 400, marginBottom: 6 }}>Litigation Risk Register</p>
-            <p style={{ fontSize: 13, color: '#505060', fontFamily: 'Inter, sans-serif', lineHeight: 1.65, marginBottom: 16 }}>
+            <p style={{ fontSize: 18, color: '#111111', fontFamily: "'Times New Roman', Times, serif", fontWeight: 400, marginBottom: 6 }}>Litigation Risk Register</p>
+            <p style={{ fontSize: 13, color: '#505060', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.65, marginBottom: 16 }}>
               Generates a formal risk register with Risk IDs, Likelihood, Impact, Ratings, and Mitigation Actions — grouped by category. Integrates existing risk scores if available.
             </p>
             <button onClick={generateRegister} disabled={registerLoading || (!facts.trim() && !result)} style={primaryBtnS(Boolean((facts.trim() || result) && !registerLoading))}>
@@ -654,19 +654,19 @@ export function RiskAnalytics({ activeCase }: Props) {
           {registerContent && (
             <div style={{ background: '#060610', border: '1px solid #1a2a1a', borderRadius: 8, padding: '20px 22px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-                <span style={{ fontSize: 11, color: '#508050', fontFamily: 'Inter, sans-serif', letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 600 }}>Litigation Risk Register</span>
+                <span style={{ fontSize: 11, color: '#508050', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 600 }}>Litigation Risk Register</span>
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button
                     onClick={() => { try { navigator.clipboard.writeText(registerContent); } catch { /* ignore */ } }}
-                    style={{ background: '#0a0a18', border: '1px solid #1a1a28', color: '#808090', borderRadius: 4, padding: '4px 12px', fontSize: 10, fontFamily: 'Inter, sans-serif', cursor: 'pointer' }}
+                    style={{ background: '#ffffff', border: '1px solid #cccccc', color: '#666666', borderRadius: 4, padding: '4px 12px', fontSize: 10, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer' }}
                   >Copy</button>
                   <button
                     onClick={() => { setRegisterContent(''); saveBlindSpot(caseId, 'risk', { facts, stage, result, register: '' }); }}
-                    style={{ background: 'none', border: '1px solid #2a1818', color: '#604040', borderRadius: 4, padding: '4px 12px', fontSize: 10, fontFamily: 'Inter, sans-serif', cursor: 'pointer' }}
+                    style={{ background: 'none', border: '1px solid #2a1818', color: '#604040', borderRadius: 4, padding: '4px 12px', fontSize: 10, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer' }}
                   >Clear</button>
                 </div>
               </div>
-              <div style={{ fontSize: 14, color: '#cac6ba', fontFamily: "'Cormorant Garamond', serif", lineHeight: 1.9, whiteSpace: 'pre-wrap' }}>
+              <div style={{ fontSize: 14, color: '#cac6ba', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.9, whiteSpace: 'pre-wrap' }}>
                 {registerContent}
               </div>
             </div>

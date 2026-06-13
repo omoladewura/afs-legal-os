@@ -33,9 +33,9 @@ import type { Case, DocketEntry, Deadline } from '@/types';
 // ─────────────────────────────────────────────────────────────────────────────
 
 const iS: React.CSSProperties = {
-  width: '100%', background: '#07070f', border: '1px solid #1e1e2e',
+  width: '100%', background: '#ffffff', border: '1px solid #cccccc',
   borderRadius: 5, color: '#e0dcd0', padding: '10px 13px',
-  fontSize: 14, fontFamily: "'Cormorant Garamond', serif",
+  fontSize: 14, fontFamily: "'Times New Roman', Times, serif",
   outline: 'none', boxSizing: 'border-box',
 };
 
@@ -44,7 +44,7 @@ const selS: React.CSSProperties = {
 };
 
 const lbS: React.CSSProperties = {
-  fontSize: 9, color: '#5a5a72', fontFamily: 'Inter, sans-serif',
+  fontSize: 9, color: '#5a5a72', fontFamily: "'Times New Roman', Times, serif",
   letterSpacing: '.1em', textTransform: 'uppercase',
   fontWeight: 600, display: 'block', marginBottom: 5,
 };
@@ -59,7 +59,7 @@ function StatusBadge({ status }: { status: string }) {
     <span style={{
       background: sc.bg, border: `1px solid ${sc.bdr}`, color: sc.col,
       fontSize: 9, padding: '2px 8px', borderRadius: 3,
-      fontFamily: 'Inter, sans-serif', letterSpacing: '.06em',
+      fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.06em',
       fontWeight: 600, display: 'inline-block', whiteSpace: 'nowrap',
     }}>
       {status || 'Filed'}
@@ -93,17 +93,17 @@ function MdLine({ line }: { line: string }) {
         : p
     );
 
-  if (line.startsWith('### ')) return <h3 style={{ fontSize: 10, color: '#606070', fontWeight: 600, marginTop: 18, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '.1em', fontFamily: 'Inter, sans-serif' }}>{line.slice(4)}</h3>;
-  if (line.startsWith('## '))  return <h2 style={{ fontSize: 17, color: '#b8985a', fontWeight: 400, marginTop: 22, marginBottom: 7, fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic' }}>{line.slice(3)}</h2>;
-  if (line.startsWith('# '))   return <h1 style={{ fontSize: 22, color: T.goldL, fontWeight: 400, borderBottom: `1px solid ${T.bdr}`, paddingBottom: 10, marginTop: 28, marginBottom: 12, fontFamily: "'Cormorant Garamond', serif" }}>{line.slice(2)}</h1>;
+  if (line.startsWith('### ')) return <h3 style={{ fontSize: 10, color: '#606070', fontWeight: 600, marginTop: 18, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '.1em', fontFamily: "'Times New Roman', Times, serif" }}>{line.slice(4)}</h3>;
+  if (line.startsWith('## '))  return <h2 style={{ fontSize: 17, color: '#b8985a', fontWeight: 400, marginTop: 22, marginBottom: 7, fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic' }}>{line.slice(3)}</h2>;
+  if (line.startsWith('# '))   return <h1 style={{ fontSize: 22, color: '#111111', fontWeight: 400, borderBottom: `1px solid ${T.bdr}`, paddingBottom: 10, marginTop: 28, marginBottom: 12, fontFamily: "'Times New Roman', Times, serif" }}>{line.slice(2)}</h1>;
   if (line.startsWith('- ') || line.startsWith('• '))
-    return <li style={{ margin: '5px 0 5px 20px', fontSize: 15, color: '#c2beb2', lineHeight: 1.85, listStyleType: 'disc', fontFamily: "'Cormorant Garamond', serif" }}>{renderInline(line.replace(/^[-•] /, ''))}</li>;
+    return <li style={{ margin: '5px 0 5px 20px', fontSize: 15, color: '#c2beb2', lineHeight: 1.85, listStyleType: 'disc', fontFamily: "'Times New Roman', Times, serif" }}>{renderInline(line.replace(/^[-•] /, ''))}</li>;
   if (/^\d+\.\s/.test(line))
-    return <li style={{ margin: '5px 0 5px 28px', fontSize: 15, color: '#c2beb2', lineHeight: 1.85, listStyleType: 'decimal', fontFamily: "'Cormorant Garamond', serif" }}>{renderInline(line.replace(/^\d+\.\s*/, ''))}</li>;
+    return <li style={{ margin: '5px 0 5px 28px', fontSize: 15, color: '#c2beb2', lineHeight: 1.85, listStyleType: 'decimal', fontFamily: "'Times New Roman', Times, serif" }}>{renderInline(line.replace(/^\d+\.\s*/, ''))}</li>;
   if (/^[-═─]{3,}$/.test(line.trim()))
     return <hr style={{ border: 'none', borderTop: `1px solid ${T.bdr}`, margin: '16px 0' }} />;
   if (line.trim() === '') return <div style={{ height: 8 }} />;
-  return <p style={{ margin: '6px 0', fontSize: 15, color: '#cac6ba', lineHeight: 1.9, fontFamily: "'Cormorant Garamond', serif" }}>{renderInline(line)}</p>;
+  return <p style={{ margin: '6px 0', fontSize: 15, color: '#cac6ba', lineHeight: 1.9, fontFamily: "'Times New Roman', Times, serif" }}>{renderInline(line)}</p>;
 }
 
 function Md({ text }: { text: string }) {
@@ -404,8 +404,8 @@ Provide a structured briefing:
 
   if (loading) return (
     <div style={{ textAlign: 'center', padding: '60px 0' }}>
-      <div style={{ width: 28, height: 28, border: '2px solid #1e1e2e', borderTop: `2px solid ${T.gold}`, borderRadius: '50%', margin: '0 auto 14px', animation: 'spin .9s linear infinite' }} />
-      <p style={{ fontSize: 14, color: T.dim, fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic' }}>Loading docket…</p>
+      <div style={{ width: 28, height: 28, border: '2px solid #cccccc', borderTop: `2px solid ${T.gold}`, borderRadius: '50%', margin: '0 auto 14px', animation: 'spin .9s linear infinite' }} />
+      <p style={{ fontSize: 14, color: T.dim, fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic' }}>Loading docket…</p>
     </div>
   );
 
@@ -433,7 +433,7 @@ Provide a structured briefing:
                 border: `1px solid ${isActive ? T.gold : 'transparent'}`,
                 color: isActive ? T.gold : T.mute,
                 borderRadius: 5, padding: '7px 12px', fontSize: 10,
-                fontFamily: 'Inter, sans-serif', cursor: 'pointer',
+                fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer',
                 letterSpacing: '.06em', textTransform: 'uppercase', fontWeight: 600,
                 transition: 'all .2s', display: 'flex', alignItems: 'center',
                 justifyContent: 'center', gap: 6,
@@ -464,7 +464,7 @@ Provide a structured briefing:
                 color: butsL ? T.mute : '#05050c',
                 border: butsL ? '1px solid #1e1e2e' : 'none',
                 borderRadius: 5, padding: '9px 18px', fontSize: 13,
-                fontFamily: "'Cormorant Garamond', serif", cursor: butsL ? 'not-allowed' : 'pointer',
+                fontFamily: "'Times New Roman', Times, serif", cursor: butsL ? 'not-allowed' : 'pointer',
                 fontWeight: 600, letterSpacing: '.03em',
                 display: 'flex', alignItems: 'center', gap: 7,
               }}>
@@ -477,11 +477,11 @@ Provide a structured briefing:
             <button
               onClick={() => setShowForm(f => !f)}
               style={{
-                background: showForm ? '#0a0a14' : 'transparent',
-                border: `1px solid ${showForm ? T.gold : '#1e1e2e'}`,
+                background: showForm ? '#ffffff' : 'transparent',
+                border: `1px solid ${showForm ? T.gold : '#cccccc'}`,
                 color: showForm ? T.gold : T.mute,
                 borderRadius: 5, padding: '9px 16px', fontSize: 12,
-                fontFamily: 'Inter, sans-serif', cursor: 'pointer', letterSpacing: '.04em',
+                fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', letterSpacing: '.04em',
               }}>
               {showForm ? 'Cancel' : '+ New Entry'}
             </button>
@@ -492,9 +492,9 @@ Provide a structured briefing:
                 onClick={compressNow}
                 disabled={compL}
                 style={{
-                  background: 'transparent', border: '1px solid #1e1e2e',
+                  background: 'transparent', border: '1px solid #cccccc',
                   color: compL ? T.mute : '#5a5a78', borderRadius: 5,
-                  padding: '9px 13px', fontSize: 11, fontFamily: 'Inter, sans-serif',
+                  padding: '9px 13px', fontSize: 11, fontFamily: "'Times New Roman', Times, serif",
                   cursor: compL ? 'not-allowed' : 'pointer', letterSpacing: '.04em',
                   display: 'flex', alignItems: 'center', gap: 6,
                 }}>
@@ -504,7 +504,7 @@ Provide a structured briefing:
               </button>
             )}
 
-            <span style={{ marginLeft: 'auto', fontSize: 10, color: T.mute, fontFamily: 'Inter, sans-serif', letterSpacing: '.05em' }}>
+            <span style={{ marginLeft: 'auto', fontSize: 10, color: T.mute, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.05em' }}>
               {entries.length} {entries.length === 1 ? 'entry' : 'entries'}
               {activeCase.compressed_summary ? ' · history compressed' : ''}
             </span>
@@ -512,32 +512,32 @@ Provide a structured briefing:
 
           {/* BUTS Panel */}
           {butsOpen && (
-            <div style={{ background: '#0a0a14', border: `1px solid ${butsErr ? '#4a1828' : T.gold}`, borderRadius: 10, padding: '20px 24px', marginBottom: 20, animation: 'fadeUp .25s ease' }}>
+            <div style={{ background: '#ffffff', border: `1px solid ${butsErr ? '#4a1828' : T.gold}`, borderRadius: 10, padding: '20px 24px', marginBottom: 20, animation: 'fadeUp .25s ease' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-                <p style={{ fontSize: 9, color: T.gold, fontFamily: 'Inter, sans-serif', letterSpacing: '.18em', textTransform: 'uppercase', fontWeight: 600 }}>Senior Counsel's Briefing</p>
+                <p style={{ fontSize: 9, color: '#444444', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.18em', textTransform: 'uppercase', fontWeight: 600 }}>Senior Counsel's Briefing</p>
                 <button onClick={() => setButsOpen(false)} style={{ background: 'transparent', border: 'none', color: T.mute, cursor: 'pointer', fontSize: 15, padding: '0 4px', lineHeight: 1 }}>✕</button>
               </div>
               {butsL
                 ? <div style={{ textAlign: 'center', padding: '32px 0' }}>
-                    <div style={{ width: 28, height: 28, border: '2px solid #1e1e2e', borderTop: `2px solid ${T.gold}`, borderRadius: '50%', margin: '0 auto 14px', animation: 'spin .9s linear infinite' }} />
-                    <p style={{ fontSize: 15, color: T.dim, fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic' }}>Reviewing the file…</p>
+                    <div style={{ width: 28, height: 28, border: '2px solid #cccccc', borderTop: `2px solid ${T.gold}`, borderRadius: '50%', margin: '0 auto 14px', animation: 'spin .9s linear infinite' }} />
+                    <p style={{ fontSize: 15, color: T.dim, fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic' }}>Reviewing the file…</p>
                   </div>
                 : butsErr
-                  ? <p style={{ color: '#c07070', fontSize: 13, fontFamily: 'Inter, sans-serif', lineHeight: 1.6 }}>{butsErr}</p>
+                  ? <p style={{ color: '#c07070', fontSize: 13, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.6 }}>{butsErr}</p>
                   : butsRes ? <Md text={butsRes} /> : null}
             </div>
           )}
 
           {/* Compressed history */}
           {activeCase.compressed_summary && (
-            <details style={{ background: '#0a0a14', border: '1px solid #181828', borderRadius: 8, marginBottom: 16 }}>
-              <summary style={{ padding: '11px 16px', fontSize: 9, color: T.mute, fontFamily: 'Inter, sans-serif', letterSpacing: '.12em', textTransform: 'uppercase', listStyle: 'none', display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', userSelect: 'none' }}>
+            <details style={{ background: '#ffffff', border: '1px solid #181828', borderRadius: 8, marginBottom: 16 }}>
+              <summary style={{ padding: '11px 16px', fontSize: 9, color: T.mute, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', listStyle: 'none', display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', userSelect: 'none' }}>
                 <span style={{ width: 5, height: 5, background: T.gold, borderRadius: '50%', display: 'inline-block', flexShrink: 0, animation: 'glow 2.5s ease infinite' }} />
                 Compressed History — Older Entries
-                <span style={{ marginLeft: 'auto', fontSize: 9, color: '#2a2a3e' }}>▸</span>
+                <span style={{ marginLeft: 'auto', fontSize: 9, color: '#cccccc' }}>▸</span>
               </summary>
               <div style={{ padding: '0 18px 16px', borderTop: '1px solid #131322' }}>
-                <pre style={{ fontSize: 13, color: T.dim, fontFamily: "'Cormorant Garamond', serif", lineHeight: 1.9, whiteSpace: 'pre-wrap', margin: '12px 0 0', wordBreak: 'break-word' }}>{activeCase.compressed_summary}</pre>
+                <pre style={{ fontSize: 13, color: T.dim, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.9, whiteSpace: 'pre-wrap', margin: '12px 0 0', wordBreak: 'break-word' }}>{activeCase.compressed_summary}</pre>
               </div>
             </details>
           )}
@@ -545,7 +545,7 @@ Provide a structured briefing:
           {/* Entry form */}
           {showForm && (
             <div style={{ background: '#0d0d1c', border: `1px solid ${T.gold}`, borderRadius: 10, padding: '22px 24px', marginBottom: 20, animation: 'fadeUp .22s ease' }}>
-              <p style={{ fontSize: 9, color: T.gold, fontFamily: 'Inter, sans-serif', letterSpacing: '.16em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 18 }}>New Docket Entry</p>
+              <p style={{ fontSize: 9, color: '#444444', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.16em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 18 }}>New Docket Entry</p>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 13, marginBottom: 13 }}>
                 <div>
@@ -593,13 +593,13 @@ Provide a structured briefing:
                 <label style={lbS}>Attachment (PDF or Image — max 4MB)</label>
                 <input type="file" ref={fileRef} style={{ display: 'none' }} accept=".pdf,.jpg,.jpeg,.png,.gif,.webp" onChange={e => handleFile(e.target.files?.[0] ?? null)} />
                 {efAttach
-                  ? <div style={{ display: 'flex', gap: 10, alignItems: 'center', background: '#0a0a14', border: '1px solid #1e1e2e', borderRadius: 5, padding: '9px 12px' }}>
+                  ? <div style={{ display: 'flex', gap: 10, alignItems: 'center', background: '#ffffff', border: '1px solid #cccccc', borderRadius: 5, padding: '9px 12px' }}>
                       <span style={{ fontSize: 14 }}>📎</span>
-                      <span style={{ flex: 1, fontSize: 12, color: T.dim, fontFamily: 'Inter, sans-serif', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{efAttach.name}</span>
-                      <span style={{ fontSize: 9, color: T.mute, fontFamily: 'Inter, sans-serif', flexShrink: 0 }}>{(efAttach.size / 1024).toFixed(0)}KB</span>
+                      <span style={{ flex: 1, fontSize: 12, color: T.dim, fontFamily: "'Times New Roman', Times, serif", overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{efAttach.name}</span>
+                      <span style={{ fontSize: 9, color: T.mute, fontFamily: "'Times New Roman', Times, serif", flexShrink: 0 }}>{(efAttach.size / 1024).toFixed(0)}KB</span>
                       <button onClick={() => setEfAttach(null)} style={{ background: 'transparent', border: 'none', color: '#804040', cursor: 'pointer', fontSize: 13, padding: '0 3px', flexShrink: 0 }}>✕</button>
                     </div>
-                  : <button onClick={() => fileRef.current?.click()} style={{ background: '#0a0a14', border: '1px dashed #1e1e2e', color: T.mute, borderRadius: 5, padding: '10px', fontSize: 12, fontFamily: 'Inter, sans-serif', cursor: 'pointer', width: '100%', textAlign: 'center', letterSpacing: '.04em' }}>📎 Attach PDF or Image</button>}
+                  : <button onClick={() => fileRef.current?.click()} style={{ background: '#ffffff', border: '1px dashed #1e1e2e', color: T.mute, borderRadius: 5, padding: '10px', fontSize: 12, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', width: '100%', textAlign: 'center', letterSpacing: '.04em' }}>📎 Attach PDF or Image</button>}
               </div>
 
               <div style={{ display: 'flex', gap: 10 }}>
@@ -612,13 +612,13 @@ Provide a structured briefing:
                     color: efTitle.trim() && efDate ? '#05050c' : '#2a2a38',
                     border: efTitle.trim() && efDate ? 'none' : '1px solid #181828',
                     borderRadius: 5, padding: '11px', fontSize: 15,
-                    fontFamily: "'Cormorant Garamond', serif",
+                    fontFamily: "'Times New Roman', Times, serif",
                     cursor: efTitle.trim() && efDate ? 'pointer' : 'not-allowed',
                     fontWeight: 600, letterSpacing: '.03em',
                   }}>
                   File Entry →
                 </button>
-                <button onClick={() => setShowForm(false)} style={{ background: 'transparent', border: '1px solid #1e1e2e', color: T.mute, borderRadius: 5, padding: '11px 18px', fontSize: 12, fontFamily: 'Inter, sans-serif', cursor: 'pointer' }}>Cancel</button>
+                <button onClick={() => setShowForm(false)} style={{ background: 'transparent', border: '1px solid #cccccc', color: T.mute, borderRadius: 5, padding: '11px 18px', fontSize: 12, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer' }}>Cancel</button>
               </div>
             </div>
           )}
@@ -627,11 +627,11 @@ Provide a structured briefing:
           {entries.length === 0 && !showForm && (
             <div style={{ textAlign: 'center', padding: '56px 24px', background: '#0d0d18', border: '1px solid #181828', borderRadius: 10 }}>
               <div style={{ fontSize: 34, opacity: .07, marginBottom: 14 }}>§</div>
-              <p style={{ fontSize: 18, color: T.dim, fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic', marginBottom: 6 }}>No entries recorded yet.</p>
-              <p style={{ fontSize: 11, color: T.mute, fontFamily: 'Inter, sans-serif', lineHeight: 1.7, maxWidth: 400, margin: '0 auto 18px' }}>
+              <p style={{ fontSize: 18, color: T.dim, fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic', marginBottom: 6 }}>No entries recorded yet.</p>
+              <p style={{ fontSize: 11, color: T.mute, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.7, maxWidth: 400, margin: '0 auto 18px' }}>
                 Record each document after verifying and filing in court. Build the docket as the case progresses.
               </p>
-              <button onClick={() => setShowForm(true)} style={{ background: 'transparent', border: `1px solid ${T.gold}`, color: T.gold, borderRadius: 5, padding: '9px 24px', fontSize: 14, fontFamily: "'Cormorant Garamond', serif", cursor: 'pointer', letterSpacing: '.04em' }}>
+              <button onClick={() => setShowForm(true)} style={{ background: 'transparent', border: `1px solid ${T.gold}`, color: '#444444', borderRadius: 5, padding: '9px 24px', fontSize: 14, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', letterSpacing: '.04em' }}>
                 + File First Entry
               </button>
             </div>
@@ -653,36 +653,36 @@ Provide a structured briefing:
                         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 5 }}>
-                              <span style={{ fontSize: 10, color: T.gold, fontFamily: 'Inter, sans-serif', fontWeight: 600, letterSpacing: '.02em' }}>
+                              <span style={{ fontSize: 10, color: '#444444', fontFamily: "'Times New Roman', Times, serif", fontWeight: 600, letterSpacing: '.02em' }}>
                                 {new Date(entry.dateFiled + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
                               </span>
                               {entry.filedBy && (
-                                <span style={{ fontSize: 9, color: T.mute, fontFamily: 'Inter, sans-serif' }}>
+                                <span style={{ fontSize: 9, color: T.mute, fontFamily: "'Times New Roman', Times, serif" }}>
                                   filed by <span style={{ color: T.dim }}>{entry.filedBy}</span>
                                 </span>
                               )}
                             </div>
-                            <div style={{ fontSize: 16, color: '#e0dcd0', fontFamily: "'Cormorant Garamond', serif", fontWeight: 600, marginBottom: 7, lineHeight: 1.25 }}>
+                            <div style={{ fontSize: 16, color: '#e0dcd0', fontFamily: "'Times New Roman', Times, serif", fontWeight: 600, marginBottom: 7, lineHeight: 1.25 }}>
                               {entry.docTitle}
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                               {entry.docType && (
-                                <span style={{ fontSize: 9, color: '#4a5068', fontFamily: 'Inter, sans-serif', border: '1px solid #1a1a2a', padding: '2px 7px', borderRadius: 2 }}>{entry.docType}</span>
+                                <span style={{ fontSize: 9, color: '#4a5068', fontFamily: "'Times New Roman', Times, serif", border: '1px solid #1a1a2a', padding: '2px 7px', borderRadius: 2 }}>{entry.docType}</span>
                               )}
                               <StatusBadge status={entry.status || 'Filed'} />
                               {entry.nextAdjournedDate && (
-                                <span style={{ fontSize: 9, color: '#7a5028', fontFamily: 'Inter, sans-serif', border: '1px solid #2a1e08', padding: '2px 8px', borderRadius: 2 }}>
+                                <span style={{ fontSize: 9, color: '#7a5028', fontFamily: "'Times New Roman', Times, serif", border: '1px solid #2a1e08', padding: '2px 8px', borderRadius: 2 }}>
                                   ⏱ Next: {new Date(entry.nextAdjournedDate + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
                                 </span>
                               )}
                               {entry.attachment && (
-                                <button onClick={() => openAttachment(entry.attachment)} style={{ background: 'transparent', border: '1px solid #1e1e2e', color: T.mute, borderRadius: 3, padding: '2px 8px', fontSize: 9, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+                                <button onClick={() => openAttachment(entry.attachment)} style={{ background: 'transparent', border: '1px solid #cccccc', color: T.mute, borderRadius: 3, padding: '2px 8px', fontSize: 9, cursor: 'pointer', fontFamily: "'Times New Roman', Times, serif" }}>
                                   📎 {entry.attachment.name.length > 20 ? entry.attachment.name.slice(0, 17) + '…' : entry.attachment.name}
                                 </button>
                               )}
                             </div>
                             {entry.notes && (
-                              <p style={{ fontSize: 13, color: T.mute, fontFamily: "'Cormorant Garamond', serif", lineHeight: 1.8, borderTop: '1px solid #131322', paddingTop: 8, marginTop: 9 }}>{entry.notes}</p>
+                              <p style={{ fontSize: 13, color: T.mute, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.8, borderTop: '1px solid #131322', paddingTop: 8, marginTop: 9 }}>{entry.notes}</p>
                             )}
                           </div>
                           <button

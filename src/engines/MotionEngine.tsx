@@ -129,17 +129,17 @@ function ResultBlock({
   return (
     <div style={{ marginTop: 18, background: '#08080e', border: `1px solid ${accent}30`, borderRadius: 8, padding: '18px 20px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <span style={{ fontSize: 10, color: accent, fontFamily: 'Inter, sans-serif', letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 700 }}>
+        <span style={{ fontSize: 10, color: accent, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 700 }}>
           {title}
         </span>
         <div style={{ display: 'flex', gap: 10 }}>
           <button
             onClick={() => navigator.clipboard?.writeText(content)}
-            style={{ background: 'transparent', border: `1px solid ${accent}30`, color: accent, fontSize: 11, cursor: 'pointer', fontFamily: 'Inter, sans-serif', borderRadius: 4, padding: '3px 10px' }}
+            style={{ background: 'transparent', border: `1px solid ${accent}30`, color: accent, fontSize: 11, cursor: 'pointer', fontFamily: "'Times New Roman', Times, serif", borderRadius: 4, padding: '3px 10px' }}
           >
             copy
           </button>
-          <button onClick={onClear} style={{ background: 'transparent', border: 'none', color: T.mute, fontSize: 11, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+          <button onClick={onClear} style={{ background: 'transparent', border: 'none', color: T.mute, fontSize: 11, cursor: 'pointer', fontFamily: "'Times New Roman', Times, serif" }}>
             clear ×
           </button>
         </div>
@@ -165,11 +165,11 @@ function SubTabBar({
           onClick={() => onSelect(t.id)}
           style={{
             background:   active === t.id ? `${accent}18` : 'transparent',
-            border:       `1px solid ${active === t.id ? accent : '#1e1e2e'}`,
+            border:       `1px solid ${active === t.id ? accent : '#cccccc'}`,
             color:        active === t.id ? accent : T.mute,
             borderRadius: 5, padding: '6px 14px',
             fontSize: 12, cursor: 'pointer',
-            fontFamily: 'Inter, sans-serif', letterSpacing: '.04em',
+            fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.04em',
             transition: 'all .15s',
           }}
         >
@@ -182,7 +182,7 @@ function SubTabBar({
 
 function Label({ text }: { text: string }) {
   return (
-    <label style={{ display: 'block', fontSize: 11, color: T.mute, fontFamily: 'Inter, sans-serif', letterSpacing: '.08em', textTransform: 'uppercase', marginBottom: 6 }}>
+    <label style={{ display: 'block', fontSize: 11, color: T.mute, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.08em', textTransform: 'uppercase', marginBottom: 6 }}>
       {text}
     </label>
   );
@@ -200,7 +200,7 @@ function Textarea({
       rows={rows}
       placeholder={placeholder}
       style={{
-        width: '100%', background: '#08080e', border: '1px solid #1e1e2e',
+        width: '100%', background: '#08080e', border: '1px solid #cccccc',
         borderRadius: 6, padding: '10px 14px', color: T.fg,
         fontSize: 13, fontFamily: "'Times New Roman', Times, serif",
         resize: 'vertical', boxSizing: 'border-box', outline: 'none',
@@ -221,7 +221,7 @@ function Input({
       onChange={e => onChange(e.target.value)}
       placeholder={placeholder}
       style={{
-        width: '100%', background: '#08080e', border: '1px solid #1e1e2e',
+        width: '100%', background: '#08080e', border: '1px solid #cccccc',
         borderRadius: 6, padding: '8px 12px', color: T.fg,
         fontSize: 13, fontFamily: "'Times New Roman', Times, serif",
         boxSizing: 'border-box', outline: 'none',
@@ -232,7 +232,7 @@ function Input({
 
 function SectionTitle({ text, accent }: { text: string; accent: string }) {
   return (
-    <div style={{ fontSize: 11, color: accent, fontFamily: 'Inter, sans-serif', letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 14, borderBottom: `1px solid ${accent}20`, paddingBottom: 8 }}>
+    <div style={{ fontSize: 11, color: accent, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 14, borderBottom: `1px solid ${accent}20`, paddingBottom: 8 }}>
       {text}
     </div>
   );
@@ -251,7 +251,7 @@ function StatusBadge({ status }: { status: MotionStatus }) {
   };
   const col = map[status] ?? '#606070';
   return (
-    <span style={{ fontSize: 9, color: col, border: `1px solid ${col}40`, borderRadius: 3, padding: '1px 6px', fontFamily: 'Inter, sans-serif', letterSpacing: '.06em', textTransform: 'uppercase', fontWeight: 700 }}>
+    <span style={{ fontSize: 9, color: col, border: `1px solid ${col}40`, borderRadius: 3, padding: '1px 6px', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.06em', textTransform: 'uppercase', fontWeight: 700 }}>
       {status}
     </span>
   );
@@ -302,7 +302,7 @@ function MotionTracker({
       {entries.length > 0 && (
         <div style={{ marginBottom: 20 }}>
           {entries.map(entry => (
-            <div key={entry.id} style={{ background: '#0a0a14', border: '1px solid #1e1e2e', borderRadius: 8, padding: '16px 18px', marginBottom: 12 }}>
+            <div key={entry.id} style={{ background: '#ffffff', border: '1px solid #cccccc', borderRadius: 8, padding: '16px 18px', marginBottom: 12 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 10 }}>
                 <div style={{ flex: 1 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 6 }}>
@@ -311,10 +311,10 @@ function MotionTracker({
                   </div>
                   <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
                     {entry.filedDate && (
-                      <span style={{ fontSize: 11, color: T.mute, fontFamily: 'Inter, sans-serif' }}>Filed: {entry.filedDate}</span>
+                      <span style={{ fontSize: 11, color: T.mute, fontFamily: "'Times New Roman', Times, serif" }}>Filed: {entry.filedDate}</span>
                     )}
                     {entry.hearingDate && (
-                      <span style={{ fontSize: 11, color: T.mute, fontFamily: 'Inter, sans-serif' }}>Hearing: {entry.hearingDate}</span>
+                      <span style={{ fontSize: 11, color: T.mute, fontFamily: "'Times New Roman', Times, serif" }}>Hearing: {entry.hearingDate}</span>
                     )}
                   </div>
                   {entry.notes && (
@@ -324,7 +324,7 @@ function MotionTracker({
                     <p style={{ fontSize: 12, color: accent, fontFamily: "'Times New Roman', Times, serif", margin: '6px 0 0', lineHeight: 1.5 }}>Ruling: {entry.ruling}</p>
                   )}
                 </div>
-                <button onClick={() => remove(entry.id)} style={{ background: 'transparent', border: '1px solid #2a0808', color: '#804040', fontSize: 11, borderRadius: 4, padding: '4px 8px', cursor: 'pointer', fontFamily: 'Inter, sans-serif', flexShrink: 0 }}>
+                <button onClick={() => remove(entry.id)} style={{ background: 'transparent', border: '1px solid #2a0808', color: '#804040', fontSize: 11, borderRadius: 4, padding: '4px 8px', cursor: 'pointer', fontFamily: "'Times New Roman', Times, serif", flexShrink: 0 }}>
                   ×
                 </button>
               </div>
@@ -332,7 +332,7 @@ function MotionTracker({
                 <select
                   value={entry.status}
                   onChange={e => updateField(entry.id, 'status', e.target.value)}
-                  style={{ background: '#08080e', border: '1px solid #1e1e2e', borderRadius: 4, padding: '4px 8px', color: T.mute, fontSize: 11, fontFamily: 'Inter, sans-serif', cursor: 'pointer' }}
+                  style={{ background: '#08080e', border: '1px solid #cccccc', borderRadius: 4, padding: '4px 8px', color: T.mute, fontSize: 11, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer' }}
                 >
                   {statuses.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
@@ -340,7 +340,7 @@ function MotionTracker({
                   value={entry.ruling}
                   onChange={e => updateField(entry.id, 'ruling', e.target.value)}
                   placeholder="Ruling / outcome…"
-                  style={{ background: '#08080e', border: '1px solid #1e1e2e', borderRadius: 4, padding: '4px 10px', color: T.fg, fontSize: 11, fontFamily: "'Times New Roman', Times, serif", outline: 'none', flex: 1, minWidth: 140 }}
+                  style={{ background: '#08080e', border: '1px solid #cccccc', borderRadius: 4, padding: '4px 10px', color: T.fg, fontSize: 11, fontFamily: "'Times New Roman', Times, serif", outline: 'none', flex: 1, minWidth: 140 }}
                 />
               </div>
             </div>
@@ -349,8 +349,8 @@ function MotionTracker({
       )}
 
       {entries.length === 0 && (
-        <div style={{ background: '#08080e', border: '1px solid #1e1e2e', borderRadius: 8, padding: '20px', marginBottom: 20, textAlign: 'center' }}>
-          <p style={{ fontSize: 13, color: T.mute, fontFamily: 'Inter, sans-serif', margin: 0 }}>No motions recorded yet.</p>
+        <div style={{ background: '#08080e', border: '1px solid #cccccc', borderRadius: 8, padding: '20px', marginBottom: 20, textAlign: 'center' }}>
+          <p style={{ fontSize: 13, color: T.mute, fontFamily: "'Times New Roman', Times, serif", margin: 0 }}>No motions recorded yet.</p>
         </div>
       )}
 
@@ -363,7 +363,7 @@ function MotionTracker({
             <select
               value={newType}
               onChange={e => setNewType(e.target.value)}
-              style={{ background: '#08080e', border: '1px solid #1e1e2e', borderRadius: 6, padding: '8px 12px', color: newType ? T.fg : T.mute, fontSize: 13, fontFamily: "'Times New Roman', Times, serif", outline: 'none', cursor: 'pointer', width: '100%' }}
+              style={{ background: '#08080e', border: '1px solid #cccccc', borderRadius: 6, padding: '8px 12px', color: newType ? T.fg : T.mute, fontSize: 13, fontFamily: "'Times New Roman', Times, serif", outline: 'none', cursor: 'pointer', width: '100%' }}
             >
               <option value="">Select type…</option>
               {motionTypes.map(t => <option key={t} value={t}>{t}</option>)}
@@ -374,7 +374,7 @@ function MotionTracker({
             <select
               value={newStatus}
               onChange={e => setNewStatus(e.target.value as MotionStatus)}
-              style={{ background: '#08080e', border: '1px solid #1e1e2e', borderRadius: 6, padding: '8px 12px', color: T.fg, fontSize: 13, fontFamily: "'Times New Roman', Times, serif", outline: 'none', cursor: 'pointer', width: '100%' }}
+              style={{ background: '#08080e', border: '1px solid #cccccc', borderRadius: 6, padding: '8px 12px', color: T.fg, fontSize: 13, fontFamily: "'Times New Roman', Times, serif", outline: 'none', cursor: 'pointer', width: '100%' }}
             >
               {statuses.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
@@ -448,15 +448,15 @@ Apply the applicable High Court (Civil Procedure) Rules. Use formal Nigerian cou
       </p>
 
       <div style={{ background: '#0a0814', border: `1px solid ${accent}20`, borderRadius: 8, padding: '14px 16px', marginBottom: 18 }}>
-        <div style={{ fontSize: 10, color: accent, fontFamily: 'Inter, sans-serif', letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 8, fontWeight: 700 }}>When to Apply</div>
+        <div style={{ fontSize: 10, color: accent, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 8, fontWeight: 700 }}>When to Apply</div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-          <div style={{ background: '#08080e', borderRadius: 6, padding: '12px 14px', border: '1px solid #1e1e2e' }}>
-            <div style={{ fontSize: 11, color: accent, fontFamily: 'Inter, sans-serif', marginBottom: 4, fontWeight: 600 }}>Default of Appearance</div>
-            <div style={{ fontSize: 12, color: T.mute, fontFamily: 'Inter, sans-serif', lineHeight: 1.5 }}>Defendant served but did not enter appearance within the required time (usually 8–10 days).</div>
+          <div style={{ background: '#08080e', borderRadius: 6, padding: '12px 14px', border: '1px solid #cccccc' }}>
+            <div style={{ fontSize: 11, color: accent, fontFamily: "'Times New Roman', Times, serif", marginBottom: 4, fontWeight: 600 }}>Default of Appearance</div>
+            <div style={{ fontSize: 12, color: T.mute, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.5 }}>Defendant served but did not enter appearance within the required time (usually 8–10 days).</div>
           </div>
-          <div style={{ background: '#08080e', borderRadius: 6, padding: '12px 14px', border: '1px solid #1e1e2e' }}>
-            <div style={{ fontSize: 11, color: accent, fontFamily: 'Inter, sans-serif', marginBottom: 4, fontWeight: 600 }}>Default of Defence</div>
-            <div style={{ fontSize: 12, color: T.mute, fontFamily: 'Inter, sans-serif', lineHeight: 1.5 }}>Defendant entered appearance but failed to file a Statement of Defence within 30 days of service of the SoC.</div>
+          <div style={{ background: '#08080e', borderRadius: 6, padding: '12px 14px', border: '1px solid #cccccc' }}>
+            <div style={{ fontSize: 11, color: accent, fontFamily: "'Times New Roman', Times, serif", marginBottom: 4, fontWeight: 600 }}>Default of Defence</div>
+            <div style={{ fontSize: 12, color: T.mute, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.5 }}>Defendant entered appearance but failed to file a Statement of Defence within 30 days of service of the SoC.</div>
           </div>
         </div>
       </div>
@@ -601,10 +601,10 @@ Use formal Nigerian court drafting language. Cite relevant Nigerian authorities.
               onClick={() => setInjType(t)}
               style={{
                 background: injType === t ? `${accent}18` : 'transparent',
-                border: `1px solid ${injType === t ? accent : '#1e1e2e'}`,
+                border: `1px solid ${injType === t ? accent : '#cccccc'}`,
                 color: injType === t ? accent : T.mute,
                 borderRadius: 5, padding: '6px 14px', fontSize: 12,
-                cursor: 'pointer', fontFamily: 'Inter, sans-serif',
+                cursor: 'pointer', fontFamily: "'Times New Roman', Times, serif",
                 transition: 'all .15s',
               }}
             >
@@ -688,10 +688,10 @@ Apply Nigerian High Court Rules and leading authorities on each ground.`;
       </p>
 
       <div style={{ background: '#0a0814', border: `1px solid ${accent}20`, borderRadius: 8, padding: '14px 16px', marginBottom: 18 }}>
-        <div style={{ fontSize: 10, color: accent, fontFamily: 'Inter, sans-serif', letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 10, fontWeight: 700 }}>Grounds to be Assessed</div>
+        <div style={{ fontSize: 10, color: accent, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 10, fontWeight: 700 }}>Grounds to be Assessed</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 8 }}>
           {['Jurisdiction', 'Competence of Process', 'Limitation', 'Locus Standi', 'No Cause of Action', 'Pre-conditions', 'Misjoinder / Non-joinder'].map(g => (
-            <div key={g} style={{ background: '#08080e', borderRadius: 5, padding: '8px 12px', border: '1px solid #1e1e2e', fontSize: 12, color: T.mute, fontFamily: 'Inter, sans-serif' }}>
+            <div key={g} style={{ background: '#08080e', borderRadius: 5, padding: '8px 12px', border: '1px solid #cccccc', fontSize: 12, color: T.mute, fontFamily: "'Times New Roman', Times, serif" }}>
               {g}
             </div>
           ))}
@@ -835,10 +835,10 @@ Apply Nigerian procedural law throughout.`;
               onClick={() => setStayBasis(b)}
               style={{
                 background: stayBasis === b ? `${accent}18` : 'transparent',
-                border: `1px solid ${stayBasis === b ? accent : '#1e1e2e'}`,
+                border: `1px solid ${stayBasis === b ? accent : '#cccccc'}`,
                 color: stayBasis === b ? accent : T.mute,
                 borderRadius: 5, padding: '6px 14px', fontSize: 12,
-                cursor: 'pointer', fontFamily: 'Inter, sans-serif', transition: 'all .15s',
+                cursor: 'pointer', fontFamily: "'Times New Roman', Times, serif", transition: 'all .15s',
               }}
             >
               {b}
@@ -994,7 +994,7 @@ export function MotionEngine({ activeCase }: Props) {
 
   if (!loaded) {
     return (
-      <div style={{ padding: 40, color: T.mute, fontFamily: 'Inter, sans-serif', fontSize: 13 }}>
+      <div style={{ padding: 40, color: T.mute, fontFamily: "'Times New Roman', Times, serif", fontSize: 13 }}>
         Loading Motion Engine…
       </div>
     );
@@ -1002,8 +1002,8 @@ export function MotionEngine({ activeCase }: Props) {
 
   if (activeCase.counsel_role !== 'claimant_side' && activeCase.counsel_role !== 'defendant_side') {
     return (
-      <div style={{ padding: 32, background: '#08080e', border: '1px solid #1e1e2e', borderRadius: 8 }}>
-        <p style={{ fontSize: 13, color: T.mute, fontFamily: 'Inter, sans-serif' }}>
+      <div style={{ padding: 32, background: '#08080e', border: '1px solid #cccccc', borderRadius: 8 }}>
+        <p style={{ fontSize: 13, color: T.mute, fontFamily: "'Times New Roman', Times, serif" }}>
           The Motion Engine is only available on civil matters.
         </p>
       </div>
@@ -1020,19 +1020,19 @@ export function MotionEngine({ activeCase }: Props) {
       <div style={{ marginBottom: 24 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
           <span style={{ fontSize: 18, color: accent }}>⚖</span>
-          <h3 style={{ fontSize: 18, color: T.text, fontFamily: "'Cormorant Garamond', serif", fontWeight: 300, margin: 0 }}>
+          <h3 style={{ fontSize: 18, color: T.text, fontFamily: "'Times New Roman', Times, serif", fontWeight: 300, margin: 0 }}>
             {isClaim ? 'Motions Engine' : 'Applications Engine'}
           </h3>
           <span style={{
             fontSize: 9, padding: '3px 8px', borderRadius: 3,
-            fontFamily: 'Inter, sans-serif', fontWeight: 700,
+            fontFamily: "'Times New Roman', Times, serif", fontWeight: 700,
             letterSpacing: '.08em', textTransform: 'uppercase',
             background: `${accent}15`, border: `1px solid ${accent}30`, color: accent,
           }}>
             {isClaim ? 'Claimant Side' : 'Defendant Side'}
           </span>
         </div>
-        <p style={{ fontSize: 13, color: T.mute, fontFamily: 'Inter, sans-serif', margin: 0 }}>
+        <p style={{ fontSize: 13, color: T.mute, fontFamily: "'Times New Roman', Times, serif", margin: 0 }}>
           {isClaim
             ? 'Draft and track interlocutory motions — default judgment, summary judgment, and injunctions.'
             : 'Draft and track interlocutory applications — preliminary objections, strike out, stay, and security for costs.'}

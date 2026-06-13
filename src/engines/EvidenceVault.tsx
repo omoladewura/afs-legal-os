@@ -125,26 +125,26 @@ function PreviewPanel({
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 22 }}>
         <button onClick={onBack}
-          style={{ background: 'transparent', border: '1px solid #1e1e2e', color: T.mute, borderRadius: 4, padding: '7px 14px', fontSize: 11, fontFamily: 'Inter, sans-serif', cursor: 'pointer' }}>
+          style={{ background: 'transparent', border: '1px solid #cccccc', color: T.mute, borderRadius: 4, padding: '7px 14px', fontSize: 11, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer' }}>
           ← Vault
         </button>
         <span style={{ fontSize: 16, opacity: .7 }}>{cat.icon}</span>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <p style={{ fontSize: 14, color: T.text, fontFamily: "'Cormorant Garamond', serif", fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <p style={{ fontSize: 14, color: T.text, fontFamily: "'Times New Roman', Times, serif", fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {meta.filename}
           </p>
-          <p style={{ fontSize: 9, color: T.mute, fontFamily: 'Inter, sans-serif', letterSpacing: '.1em', textTransform: 'uppercase', marginTop: 2 }}>
+          <p style={{ fontSize: 9, color: T.mute, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.1em', textTransform: 'uppercase', marginTop: 2 }}>
             {cat.label} · {fmtDate(meta.timestamp)} · {fmtSize(meta.fileSize)}
           </p>
         </div>
         {src && (
           <a href={src} download={meta.filename}
-            style={{ background: 'transparent', border: '1px solid #1e1e2e', color: T.mute, borderRadius: 4, padding: '7px 12px', fontSize: 11, fontFamily: 'Inter, sans-serif', cursor: 'pointer', textDecoration: 'none', flexShrink: 0 }}>
+            style={{ background: 'transparent', border: '1px solid #cccccc', color: T.mute, borderRadius: 4, padding: '7px 12px', fontSize: 11, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', textDecoration: 'none', flexShrink: 0 }}>
             ↓ Save
           </a>
         )}
         <button onClick={() => onDelete(meta.id)}
-          style={{ background: 'transparent', border: '1px solid #2a1a1a', color: '#804040', borderRadius: 4, padding: '7px 11px', fontSize: 11, cursor: 'pointer', fontFamily: 'Inter, sans-serif', flexShrink: 0 }}>
+          style={{ background: 'transparent', border: '1px solid #2a1a1a', color: '#804040', borderRadius: 4, padding: '7px 11px', fontSize: 11, cursor: 'pointer', fontFamily: "'Times New Roman', Times, serif", flexShrink: 0 }}>
           Delete
         </button>
       </div>
@@ -158,9 +158,9 @@ function PreviewPanel({
           {isPdf && (
             <object data={src} type="application/pdf" width="100%" style={{ height: 520, borderRadius: 5 }}>
               <div style={{ padding: '40px 24px' }}>
-                <p style={{ fontSize: 13, color: T.dim, fontFamily: 'Inter, sans-serif', marginBottom: 14 }}>PDF preview unavailable in this browser.</p>
+                <p style={{ fontSize: 13, color: T.dim, fontFamily: "'Times New Roman', Times, serif", marginBottom: 14 }}>PDF preview unavailable in this browser.</p>
                 <a href={src} download={meta.filename}
-                  style={{ color: T.gold, fontSize: 12, fontFamily: 'Inter, sans-serif', border: `1px solid ${T.gold}`, padding: '8px 20px', borderRadius: 4, textDecoration: 'none' }}>
+                  style={{ color: '#444444', fontSize: 12, fontFamily: "'Times New Roman', Times, serif", border: `1px solid ${T.gold}`, padding: '8px 20px', borderRadius: 4, textDecoration: 'none' }}>
                   Download PDF
                 </a>
               </div>
@@ -169,12 +169,12 @@ function PreviewPanel({
           {!isImage && !isPdf && (
             <div style={{ padding: '44px 24px' }}>
               <p style={{ fontSize: 46, marginBottom: 12, opacity: .2 }}>{cat.icon}</p>
-              <p style={{ fontSize: 15, color: T.dim, fontFamily: "'Cormorant Garamond', serif", marginBottom: 6 }}>{meta.filename}</p>
-              <p style={{ fontSize: 11, color: T.mute, fontFamily: 'Inter, sans-serif', marginBottom: 22 }}>
+              <p style={{ fontSize: 15, color: T.dim, fontFamily: "'Times New Roman', Times, serif", marginBottom: 6 }}>{meta.filename}</p>
+              <p style={{ fontSize: 11, color: T.mute, fontFamily: "'Times New Roman', Times, serif", marginBottom: 22 }}>
                 {meta.fileType || 'Unknown type'} · {fmtSize(meta.fileSize)}
               </p>
               <a href={src} download={meta.filename}
-                style={{ color: T.gold, fontSize: 12, fontFamily: 'Inter, sans-serif', border: `1px solid ${T.gold}`, padding: '9px 22px', borderRadius: 4, textDecoration: 'none' }}>
+                style={{ color: '#444444', fontSize: 12, fontFamily: "'Times New Roman', Times, serif", border: `1px solid ${T.gold}`, padding: '9px 22px', borderRadius: 4, textDecoration: 'none' }}>
                 ↓ Download File
               </a>
             </div>
@@ -185,25 +185,25 @@ function PreviewPanel({
       {/* Lawyer's Notes */}
       {meta.notes && (
         <div style={{ background: '#080808', border: '1px solid #1a1a2a', borderRadius: 6, padding: '12px 16px', marginBottom: 14 }}>
-          <p style={{ fontSize: 9, color: T.gold, fontFamily: 'Inter, sans-serif', letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 6 }}>Lawyer's Notes</p>
-          <p style={{ fontSize: 13, color: T.dim, fontFamily: "'Cormorant Garamond', serif", lineHeight: 1.7 }}>{meta.notes}</p>
+          <p style={{ fontSize: 9, color: '#444444', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 6 }}>Lawyer's Notes</p>
+          <p style={{ fontSize: 13, color: T.dim, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.7 }}>{meta.notes}</p>
         </div>
       )}
 
       {/* SAN Document Intelligence */}
-      <div style={{ background: '#080810', border: '1px solid #1a1a2e', borderRadius: 7, padding: '16px 18px' }}>
+      <div style={{ background: '#ffffff', border: '1px solid #1a1a2e', borderRadius: 7, padding: '16px 18px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: (loadingAI || analysis) ? 14 : 0 }}>
           <div>
-            <p style={{ fontSize: 9, color: '#7060d0', fontFamily: 'Inter, sans-serif', letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 2 }}>
+            <p style={{ fontSize: 9, color: '#7060d0', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 2 }}>
               SAN — Document Intelligence
             </p>
-            <p style={{ fontSize: 11, color: '#252540', fontFamily: 'Inter, sans-serif' }}>
+            <p style={{ fontSize: 11, color: '#252540', fontFamily: "'Times New Roman', Times, serif" }}>
               {(isImage || isPdf) ? 'AI reads this document and gives you its full litigation assessment.' : 'AI analysis available for images and PDFs.'}
             </p>
           </div>
           {(isImage || isPdf) && !loadingAI && (
             <button onClick={() => onAnalyse(meta)}
-              style={{ background: 'transparent', border: '1px solid #2a2248', color: '#7060d0', borderRadius: 4, padding: '6px 13px', fontSize: 10, fontFamily: 'Inter, sans-serif', cursor: 'pointer', letterSpacing: '.04em', flexShrink: 0, marginLeft: 12 }}>
+              style={{ background: 'transparent', border: '1px solid #2a2248', color: '#7060d0', borderRadius: 4, padding: '6px 13px', fontSize: 10, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', letterSpacing: '.04em', flexShrink: 0, marginLeft: 12 }}>
               {analysis ? '↺ Re-Analyse' : 'Analyse →'}
             </button>
           )}
@@ -212,7 +212,7 @@ function PreviewPanel({
         {loadingAI && (
           <div style={{ textAlign: 'center', padding: '28px 0' }}>
             <div style={{ width: 24, height: 24, border: `2px solid ${T.bdr}`, borderTop: '2px solid #7060d0', borderRadius: '50%', margin: '0 auto 12px', animation: 'spin .9s linear infinite' }} />
-            <p style={{ fontSize: 13, color: T.mute, fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic' }}>SAN is reading this document…</p>
+            <p style={{ fontSize: 13, color: T.mute, fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic' }}>SAN is reading this document…</p>
           </div>
         )}
 
@@ -290,10 +290,10 @@ function UploadPanel({ onBack, onUploaded, caseId }: UploadProps) {
       {/* Back nav */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 22 }}>
         <button onClick={onBack}
-          style={{ background: 'transparent', border: '1px solid #1e1e2e', color: T.mute, borderRadius: 4, padding: '7px 14px', fontSize: 11, fontFamily: 'Inter, sans-serif', cursor: 'pointer' }}>
+          style={{ background: 'transparent', border: '1px solid #cccccc', color: T.mute, borderRadius: 4, padding: '7px 14px', fontSize: 11, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer' }}>
           ← Vault
         </button>
-        <p style={{ fontSize: 9, color: T.gold, fontFamily: 'Inter, sans-serif', letterSpacing: '.16em', textTransform: 'uppercase', fontWeight: 600 }}>
+        <p style={{ fontSize: 9, color: '#444444', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.16em', textTransform: 'uppercase', fontWeight: 600 }}>
           Add Document to Evidence Vault
         </p>
       </div>
@@ -305,11 +305,11 @@ function UploadPanel({ onBack, onUploaded, caseId }: UploadProps) {
         onDrop={e => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files[0]; if (f) handleFile(f); }}
         onClick={() => fileRef.current?.click()}
         style={{
-          border: `2px dashed ${dragOver ? T.gold : '#1e1e2e'}`,
+          border: `2px dashed ${dragOver ? '#888888' : '#cccccc'}`,
           borderRadius: 8, padding: '38px 24px', textAlign: 'center',
           cursor: 'pointer', marginBottom: 20,
           transition: 'border-color .15s',
-          background: dragOver ? '#0a0a10' : 'transparent',
+          background: dragOver ? '#ffffff' : 'transparent',
         }}
       >
         <input
@@ -319,16 +319,16 @@ function UploadPanel({ onBack, onUploaded, caseId }: UploadProps) {
         {upFile ? (
           <>
             <p style={{ fontSize: 30, marginBottom: 8 }}>📄</p>
-            <p style={{ fontSize: 14, color: T.text, fontFamily: "'Cormorant Garamond', serif", fontWeight: 600, marginBottom: 4 }}>{upFile.name}</p>
-            <p style={{ fontSize: 11, color: T.mute, fontFamily: 'Inter, sans-serif' }}>{fmtSize(upFile.size)} · Click to change</p>
+            <p style={{ fontSize: 14, color: T.text, fontFamily: "'Times New Roman', Times, serif", fontWeight: 600, marginBottom: 4 }}>{upFile.name}</p>
+            <p style={{ fontSize: 11, color: T.mute, fontFamily: "'Times New Roman', Times, serif" }}>{fmtSize(upFile.size)} · Click to change</p>
           </>
         ) : (
           <>
             <p style={{ fontSize: 30, marginBottom: 10, opacity: .18 }}>📁</p>
-            <p style={{ fontSize: 15, color: T.dim, fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic', marginBottom: 6 }}>
+            <p style={{ fontSize: 15, color: T.dim, fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic', marginBottom: 6 }}>
               Drop file here or click to browse
             </p>
-            <p style={{ fontSize: 11, color: T.mute, fontFamily: 'Inter, sans-serif' }}>
+            <p style={{ fontSize: 11, color: T.mute, fontFamily: "'Times New Roman', Times, serif" }}>
               Images · PDFs · Documents · Audio — up to 2 MB per file
             </p>
           </>
@@ -336,7 +336,7 @@ function UploadPanel({ onBack, onUploaded, caseId }: UploadProps) {
       </div>
 
       {/* Category Selector */}
-      <p style={{ fontSize: 9, color: T.mute, fontFamily: 'Inter, sans-serif', letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 9 }}>
+      <p style={{ fontSize: 9, color: T.mute, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 9 }}>
         Category
       </p>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 7, marginBottom: 20 }}>
@@ -344,11 +344,11 @@ function UploadPanel({ onBack, onUploaded, caseId }: UploadProps) {
           <button key={cat.id} onClick={() => setUpCat(cat.id)}
             style={{
               background: upCat === cat.id ? '#0f0f1e' : '#080808',
-              border: `1px solid ${upCat === cat.id ? cat.col : '#111120'}`,
+              border: `1px solid ${upCat === cat.id ? cat.col : '#eeeeee'}`,
               borderRadius: 6, padding: '10px 8px', cursor: 'pointer', textAlign: 'center', transition: 'all .15s',
             }}>
             <span style={{ fontSize: 18, display: 'block', marginBottom: 4 }}>{cat.icon}</span>
-            <span style={{ fontSize: 9, color: upCat === cat.id ? cat.col : '#3a3a50', fontFamily: 'Inter, sans-serif', letterSpacing: '.07em' }}>
+            <span style={{ fontSize: 9, color: upCat === cat.id ? cat.col : '#3a3a50', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.07em' }}>
               {cat.label}
             </span>
           </button>
@@ -356,7 +356,7 @@ function UploadPanel({ onBack, onUploaded, caseId }: UploadProps) {
       </div>
 
       {/* Notes */}
-      <p style={{ fontSize: 9, color: T.mute, fontFamily: 'Inter, sans-serif', letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 7 }}>
+      <p style={{ fontSize: 9, color: T.mute, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 7 }}>
         Lawyer's Notes{' '}
         <span style={{ color: '#252535', textTransform: 'none', letterSpacing: 'normal', fontSize: 10, fontWeight: 400 }}>(optional)</span>
       </p>
@@ -365,7 +365,7 @@ function UploadPanel({ onBack, onUploaded, caseId }: UploadProps) {
         placeholder="What does this document establish? Any concerns? Link to which issue in the case?"
         style={{
           width: '100%', background: '#080808', border: '1px solid #1a1a2a',
-          borderRadius: 5, color: T.text, fontFamily: "'Cormorant Garamond', serif",
+          borderRadius: 5, color: T.text, fontFamily: "'Times New Roman', Times, serif",
           fontSize: 13, padding: '10px 12px', resize: 'vertical', lineHeight: 1.65,
           boxSizing: 'border-box', marginBottom: 16, outline: 'none',
         }}
@@ -373,14 +373,14 @@ function UploadPanel({ onBack, onUploaded, caseId }: UploadProps) {
 
       {err && (
         <div style={{ background: '#1a0808', border: '1px solid #2a1010', borderRadius: 5, padding: '10px 14px', marginBottom: 14 }}>
-          <p style={{ fontSize: 12, color: '#d06060', fontFamily: 'Inter, sans-serif', lineHeight: 1.5 }}>{err}</p>
+          <p style={{ fontSize: 12, color: '#d06060', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.5 }}>{err}</p>
         </div>
       )}
 
       <button onClick={handleUpload} disabled={!upFile || uploading}
         style={{
           background: T.gold, color: '#050505', border: 'none', borderRadius: 5,
-          padding: '11px 28px', fontSize: 13, fontFamily: "'Cormorant Garamond', serif",
+          padding: '11px 28px', fontSize: 13, fontFamily: "'Times New Roman', Times, serif",
           cursor: upFile && !uploading ? 'pointer' : 'not-allowed',
           opacity: upFile && !uploading ? 1 : .35,
           letterSpacing: '.04em', fontWeight: 600,
@@ -551,18 +551,18 @@ export function EvidenceVault({ activeCase }: Props) {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20, gap: 12 }}>
         <div>
-          <p style={{ fontSize: 10, color: T.gold, fontFamily: 'Inter, sans-serif', letterSpacing: '.16em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 4 }}>
+          <p style={{ fontSize: 10, color: '#444444', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.16em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 4 }}>
             Evidence Vault · Step 7
           </p>
-          <h2 style={{ fontSize: 22, color: T.goldL, fontFamily: "'Cormorant Garamond', serif", fontWeight: 300, marginBottom: 4 }}>
+          <h2 style={{ fontSize: 22, color: '#111111', fontFamily: "'Times New Roman', Times, serif", fontWeight: 300, marginBottom: 4 }}>
             Case Documents
           </h2>
-          <p style={{ fontSize: 13, color: T.dim, fontFamily: 'Inter, sans-serif', lineHeight: 1.6 }}>
+          <p style={{ fontSize: 13, color: T.dim, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.6 }}>
             Upload, categorise, and analyse every document in this matter.
           </p>
         </div>
         <button onClick={() => setView('upload')}
-          style={{ background: 'transparent', border: `1px solid ${T.gold}`, color: T.gold, borderRadius: 5, padding: '9px 18px', fontSize: 12, fontFamily: "'Cormorant Garamond', serif", cursor: 'pointer', letterSpacing: '.04em', flexShrink: 0 }}>
+          style={{ background: 'transparent', border: `1px solid ${T.gold}`, color: '#444444', borderRadius: 5, padding: '9px 18px', fontSize: 12, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', letterSpacing: '.04em', flexShrink: 0 }}>
           + Add Document
         </button>
       </div>
@@ -571,12 +571,12 @@ export function EvidenceVault({ activeCase }: Props) {
       {items.length > 0 && (
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
           <button onClick={() => setFilterCat('all')}
-            style={{ background: filterCat === 'all' ? '#0f0f1e' : 'transparent', border: `1px solid ${filterCat === 'all' ? T.gold : '#1a1a2a'}`, color: filterCat === 'all' ? T.gold : T.mute, borderRadius: 4, padding: '5px 11px', fontSize: 9, fontFamily: 'Inter, sans-serif', cursor: 'pointer', letterSpacing: '.08em', textTransform: 'uppercase' }}>
+            style={{ background: filterCat === 'all' ? '#0f0f1e' : 'transparent', border: `1px solid ${filterCat === 'all' ? T.gold : '#1a1a2a'}`, color: filterCat === 'all' ? T.gold : T.mute, borderRadius: 4, padding: '5px 11px', fontSize: 9, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', letterSpacing: '.08em', textTransform: 'uppercase' }}>
             All ({items.length})
           </button>
           {EV_CATS.filter(c => catCounts[c.id]).map(c => (
             <button key={c.id} onClick={() => setFilterCat(filterCat === c.id ? 'all' : c.id)}
-              style={{ background: filterCat === c.id ? '#0f0f1e' : 'transparent', border: `1px solid ${filterCat === c.id ? c.col : '#1a1a2a'}`, color: filterCat === c.id ? c.col : T.mute, borderRadius: 4, padding: '5px 11px', fontSize: 9, fontFamily: 'Inter, sans-serif', cursor: 'pointer', letterSpacing: '.08em', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 5 }}>
+              style={{ background: filterCat === c.id ? '#0f0f1e' : 'transparent', border: `1px solid ${filterCat === c.id ? c.col : '#1a1a2a'}`, color: filterCat === c.id ? c.col : T.mute, borderRadius: 4, padding: '5px 11px', fontSize: 9, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', letterSpacing: '.08em', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 5 }}>
               <span>{c.icon}</span>{c.label} ({catCounts[c.id]})
             </button>
           ))}
@@ -588,7 +588,7 @@ export function EvidenceVault({ activeCase }: Props) {
         <input
           value={searchQ} onChange={e => setSearchQ(e.target.value)}
           placeholder="Search by filename, notes, or category…"
-          style={{ width: '100%', background: '#080808', border: '1px solid #1a1a2a', borderRadius: 5, color: T.text, fontFamily: 'Inter, sans-serif', fontSize: 12, padding: '9px 12px', marginBottom: 18, boxSizing: 'border-box', outline: 'none' }}
+          style={{ width: '100%', background: '#080808', border: '1px solid #1a1a2a', borderRadius: 5, color: T.text, fontFamily: "'Times New Roman', Times, serif", fontSize: 12, padding: '9px 12px', marginBottom: 18, boxSizing: 'border-box', outline: 'none' }}
         />
       )}
 
@@ -598,24 +598,24 @@ export function EvidenceVault({ activeCase }: Props) {
           {items.length === 0 ? (
             <>
               <p style={{ fontSize: 48, marginBottom: 14, opacity: .05 }}>📁</p>
-              <p style={{ fontSize: 24, color: T.goldL, fontFamily: "'Cormorant Garamond', serif", fontWeight: 300, fontStyle: 'italic', marginBottom: 10 }}>
+              <p style={{ fontSize: 24, color: '#111111', fontFamily: "'Times New Roman', Times, serif", fontWeight: 300, fontStyle: 'italic', marginBottom: 10 }}>
                 Vault is Empty
               </p>
-              <p style={{ fontSize: 13, color: T.dim, fontFamily: 'Inter, sans-serif', lineHeight: 1.75, maxWidth: 460, margin: '0 auto 24px' }}>
+              <p style={{ fontSize: 13, color: T.dim, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.75, maxWidth: 460, margin: '0 auto 24px' }}>
                 Upload every document this case turns on — the contract, the court order, the chat screenshots, the photographs. Everything goes in the Vault. Nothing gets lost.
               </p>
               <button onClick={() => setView('upload')}
-                style={{ background: T.gold, color: '#050505', border: 'none', borderRadius: 5, padding: '10px 26px', fontSize: 14, fontFamily: "'Cormorant Garamond', serif", cursor: 'pointer', letterSpacing: '.04em', fontWeight: 600 }}>
+                style={{ background: T.gold, color: '#050505', border: 'none', borderRadius: 5, padding: '10px 26px', fontSize: 14, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', letterSpacing: '.04em', fontWeight: 600 }}>
                 Add First Document →
               </button>
             </>
           ) : (
             <>
-              <p style={{ fontSize: 18, color: T.dim, fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic', marginBottom: 14 }}>
+              <p style={{ fontSize: 18, color: T.dim, fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic', marginBottom: 14 }}>
                 No documents match that search.
               </p>
               <button onClick={() => { setFilterCat('all'); setSearchQ(''); }}
-                style={{ background: 'transparent', border: '1px solid #1e1e2e', color: T.mute, borderRadius: 4, padding: '7px 14px', fontSize: 11, fontFamily: 'Inter, sans-serif', cursor: 'pointer' }}>
+                style={{ background: 'transparent', border: '1px solid #cccccc', color: T.mute, borderRadius: 4, padding: '7px 14px', fontSize: 11, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer' }}>
                 Clear Filters
               </button>
             </>
@@ -631,7 +631,7 @@ export function EvidenceVault({ activeCase }: Props) {
                 key={it.id}
                 style={{ background: '#080808', border: '1px solid #111120', borderRadius: 7, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', transition: 'border-color .15s' }}
                 onMouseEnter={e => (e.currentTarget.style.borderColor = cat.col + '55')}
-                onMouseLeave={e => (e.currentTarget.style.borderColor = '#111120')}
+                onMouseLeave={e => (e.currentTarget.style.borderColor = '#eeeeee')}
               >
                 {/* Icon / thumbnail */}
                 <div
@@ -646,16 +646,16 @@ export function EvidenceVault({ activeCase }: Props) {
 
                 {/* Metadata */}
                 <div style={{ flex: 1, minWidth: 0 }} onClick={() => openPreview(it)}>
-                  <p style={{ fontSize: 13, color: T.text, fontFamily: "'Cormorant Garamond', serif", fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 3 }}>
+                  <p style={{ fontSize: 13, color: T.text, fontFamily: "'Times New Roman', Times, serif", fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 3 }}>
                     {it.filename}
                   </p>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: 9, color: cat.col, fontFamily: 'Inter, sans-serif', letterSpacing: '.08em', textTransform: 'uppercase', fontWeight: 600 }}>{cat.label}</span>
-                    <span style={{ fontSize: 9, color: T.mute, fontFamily: 'Inter, sans-serif' }}>{fmtDate(it.timestamp)}</span>
-                    {it.fileSize && <span style={{ fontSize: 9, color: '#252535', fontFamily: 'Inter, sans-serif' }}>{fmtSize(it.fileSize)}</span>}
+                    <span style={{ fontSize: 9, color: cat.col, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.08em', textTransform: 'uppercase', fontWeight: 600 }}>{cat.label}</span>
+                    <span style={{ fontSize: 9, color: T.mute, fontFamily: "'Times New Roman', Times, serif" }}>{fmtDate(it.timestamp)}</span>
+                    {it.fileSize && <span style={{ fontSize: 9, color: '#252535', fontFamily: "'Times New Roman', Times, serif" }}>{fmtSize(it.fileSize)}</span>}
                   </div>
                   {it.notes && (
-                    <p style={{ fontSize: 11, color: T.mute, fontFamily: "'Cormorant Garamond', serif", marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontStyle: 'italic' }}>
+                    <p style={{ fontSize: 11, color: T.mute, fontFamily: "'Times New Roman', Times, serif", marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontStyle: 'italic' }}>
                       {it.notes}
                     </p>
                   )}
@@ -664,7 +664,7 @@ export function EvidenceVault({ activeCase }: Props) {
                 {/* Actions */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
                   <button onClick={e => { e.stopPropagation(); openPreview(it); }}
-                    style={{ background: 'transparent', border: '1px solid #1a1a2e', color: T.mute, borderRadius: 3, padding: '5px 9px', fontSize: 10, cursor: 'pointer', fontFamily: 'Inter, sans-serif', letterSpacing: '.04em' }}>
+                    style={{ background: 'transparent', border: '1px solid #1a1a2e', color: T.mute, borderRadius: 3, padding: '5px 9px', fontSize: 10, cursor: 'pointer', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.04em' }}>
                     Open
                   </button>
                   <button onClick={e => { e.stopPropagation(); deleteItem(it.id); }}
@@ -680,7 +680,7 @@ export function EvidenceVault({ activeCase }: Props) {
 
       {/* Footer count */}
       {items.length > 0 && (
-        <p style={{ fontSize: 10, color: '#1e1e2a', fontFamily: 'Inter, sans-serif', textAlign: 'center', marginTop: 20, letterSpacing: '.06em' }}>
+        <p style={{ fontSize: 10, color: '#1e1e2a', fontFamily: "'Times New Roman', Times, serif", textAlign: 'center', marginTop: 20, letterSpacing: '.06em' }}>
           {filteredItems.length} of {items.length} document{items.length !== 1 ? 's' : ''} · Evidence Vault · {activeCase.caseName}
         </p>
       )}

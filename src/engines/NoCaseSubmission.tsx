@@ -84,18 +84,18 @@ interface ProsSufficiencyCount {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const iS: React.CSSProperties = {
-  width: '100%', background: '#070710', border: '1px solid #1a1a28',
+  width: '100%', background: '#070710', border: '1px solid #cccccc',
   borderRadius: 5, color: '#e0dcd0', padding: '11px 14px', fontSize: 15,
   fontFamily: "'Times New Roman', Times, serif", outline: 'none', boxSizing: 'border-box',
 };
 const taS: React.CSSProperties = { ...iS, resize: 'vertical', lineHeight: 1.82, minHeight: 110 };
 const labelS: React.CSSProperties = {
-  fontSize: 10, color: T.mute, fontFamily: 'Inter, sans-serif',
+  fontSize: 10, color: T.mute, fontFamily: "'Times New Roman', Times, serif",
   letterSpacing: '.1em', textTransform: 'uppercase', fontWeight: 600,
   display: 'block', marginBottom: 6,
 };
 const cardS: React.CSSProperties = {
-  background: '#080810', border: '1px solid #14141e',
+  background: '#ffffff', border: '1px solid #14141e',
   borderRadius: 8, padding: '20px 22px', marginBottom: 16,
 };
 const hS: React.CSSProperties = {
@@ -135,10 +135,10 @@ function ResultBlock({ title, content, onClear, accent = '#c09030' }: {
   return (
     <div style={{ marginTop: 18, background: '#08080e', border: `1px solid ${accent}30`, borderRadius: 8, padding: '18px 20px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <span style={{ fontSize: 10, color: accent, fontFamily: 'Inter, sans-serif', letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 700 }}>
+        <span style={{ fontSize: 10, color: accent, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 700 }}>
           {title}
         </span>
-        <button onClick={onClear} style={{ background: 'transparent', border: 'none', color: T.mute, fontSize: 11, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+        <button onClick={onClear} style={{ background: 'transparent', border: 'none', color: T.mute, fontSize: 11, cursor: 'pointer', fontFamily: "'Times New Roman', Times, serif" }}>
           clear ×
         </button>
       </div>
@@ -163,12 +163,12 @@ function SubTabBar({ tabs, active, onSelect, accent }: {
             onClick={() => onSelect(t.id)}
             style={{
               background:    isActive ? `${accent}18` : 'transparent',
-              border:        `1px solid ${isActive ? `${accent}50` : '#1e1e2e'}`,
-              color:         isActive ? accent : T.mute,
+              border:        `1px solid ${isActive ? `${accent}50` : '#cccccc'}`,
+              color:         isActive ? accent : '#888888',
               borderRadius:  5,
               padding:       '7px 16px',
               fontSize:      11,
-              fontFamily:    'Inter, sans-serif',
+              fontFamily:    "'Times New Roman', Times, serif",
               cursor:        'pointer',
               fontWeight:    600,
               letterSpacing: '.06em',
@@ -253,7 +253,7 @@ function SubmissionDrafterTab({
 
         {counts.map((c, idx) => (
           <div key={c.id} style={{
-            background: '#0a0a14', border: `1px solid ${accent}28`,
+            background: '#ffffff', border: `1px solid ${accent}28`,
             borderRadius: 7, padding: '16px 18px', marginBottom: 14,
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
@@ -272,7 +272,7 @@ function SubmissionDrafterTab({
               {counts.length > 1 && (
                 <button
                   onClick={() => remove(c.id)}
-                  style={{ background: 'transparent', border: 'none', color: '#c05050', cursor: 'pointer', fontSize: 11, fontFamily: 'Inter, sans-serif', flexShrink: 0 }}
+                  style={{ background: 'transparent', border: 'none', color: '#c05050', cursor: 'pointer', fontSize: 11, fontFamily: "'Times New Roman', Times, serif", flexShrink: 0 }}
                 >
                   remove
                 </button>
@@ -317,7 +317,7 @@ function SubmissionDrafterTab({
             style={{
               background: 'transparent', border: `1px dashed ${accent}50`,
               color: accent, borderRadius: 6, padding: '9px 20px',
-              fontSize: 12, fontFamily: 'Inter, sans-serif', cursor: 'pointer',
+              fontSize: 12, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer',
               letterSpacing: '.06em',
             }}
           >
@@ -349,7 +349,7 @@ function SubmissionDrafterTab({
             style={{
               marginTop: 10, background: 'transparent', border: '1px solid #301818',
               color: '#c05050', borderRadius: 5, padding: '6px 16px',
-              fontSize: 11, fontFamily: 'Inter, sans-serif', cursor: 'pointer',
+              fontSize: 11, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer',
             }}
           >
             clear draft ×
@@ -493,12 +493,12 @@ function RulingTrackerTab({
           }}>
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
               {discharged > 0 && (
-                <span style={{ fontSize: 11, color: '#50c050', fontFamily: 'Inter, sans-serif', fontWeight: 700 }}>
+                <span style={{ fontSize: 11, color: '#50c050', fontFamily: "'Times New Roman', Times, serif", fontWeight: 700 }}>
                   ✓ DISCHARGED: {discharged} count{discharged !== 1 ? 's' : ''}
                 </span>
               )}
               {overruled > 0 && (
-                <span style={{ fontSize: 11, color: '#c05050', fontFamily: 'Inter, sans-serif', fontWeight: 700 }}>
+                <span style={{ fontSize: 11, color: '#c05050', fontFamily: "'Times New Roman', Times, serif", fontWeight: 700 }}>
                   ✗ OVERRULED: {overruled} count{overruled !== 1 ? 's' : ''}
                 </span>
               )}
@@ -565,7 +565,7 @@ function RulingTrackerTab({
                 {rulings.length > 1 && (
                   <button
                     onClick={() => remove(r.id)}
-                    style={{ background: 'transparent', border: 'none', color: '#c05050', cursor: 'pointer', fontSize: 11, fontFamily: 'Inter, sans-serif', flexShrink: 0 }}
+                    style={{ background: 'transparent', border: 'none', color: '#c05050', cursor: 'pointer', fontSize: 11, fontFamily: "'Times New Roman', Times, serif", flexShrink: 0 }}
                   >
                     remove
                   </button>
@@ -588,7 +588,7 @@ function RulingTrackerTab({
             style={{
               background: 'transparent', border: `1px dashed ${accent}50`,
               color: accent, borderRadius: 6, padding: '9px 20px',
-              fontSize: 12, fontFamily: 'Inter, sans-serif', cursor: 'pointer',
+              fontSize: 12, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer',
               letterSpacing: '.06em',
             }}
           >
@@ -612,7 +612,7 @@ function RulingTrackerTab({
           accent={accent}
         />
         {!allRulingsDone && rulings.length > 0 && (
-          <p style={{ fontSize: 12, color: T.mute, fontFamily: 'Inter, sans-serif', marginTop: 8 }}>
+          <p style={{ fontSize: 12, color: T.mute, fontFamily: "'Times New Roman', Times, serif", marginTop: 8 }}>
             Record the ruling on every count before generating next steps.
           </p>
         )}
@@ -753,7 +753,7 @@ function EvidenceSummaryTab({
 
       {prosCounts.map((c, idx) => (
         <div key={c.id} style={{
-          background: '#0a0a14', border: `1px solid ${accent}22`,
+          background: '#ffffff', border: `1px solid ${accent}22`,
           borderRadius: 7, padding: '16px 18px', marginBottom: 14,
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
@@ -772,7 +772,7 @@ function EvidenceSummaryTab({
             {prosCounts.length > 1 && (
               <button
                 onClick={() => remove(c.id)}
-                style={{ background: 'transparent', border: 'none', color: '#c05050', cursor: 'pointer', fontSize: 11, fontFamily: 'Inter, sans-serif', flexShrink: 0 }}
+                style={{ background: 'transparent', border: 'none', color: '#c05050', cursor: 'pointer', fontSize: 11, fontFamily: "'Times New Roman', Times, serif", flexShrink: 0 }}
               >
                 remove
               </button>
@@ -807,7 +807,7 @@ function EvidenceSummaryTab({
           style={{
             background: 'transparent', border: `1px dashed ${accent}50`,
             color: accent, borderRadius: 6, padding: '9px 20px',
-            fontSize: 12, fontFamily: 'Inter, sans-serif', cursor: 'pointer',
+            fontSize: 12, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer',
             letterSpacing: '.06em',
           }}
         >
@@ -924,7 +924,7 @@ export function NoCaseSubmission({ activeCase }: Props) {
       <div style={{ marginBottom: 28 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6, flexWrap: 'wrap' }}>
           <span style={{
-            fontSize: 9, color: accent, fontFamily: 'Inter, sans-serif',
+            fontSize: 9, color: accent, fontFamily: "'Times New Roman', Times, serif",
             letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 700,
             background: `${accent}14`, border: `1px solid ${accent}30`,
             padding: '3px 9px', borderRadius: 3,
@@ -932,14 +932,14 @@ export function NoCaseSubmission({ activeCase }: Props) {
             Criminal · {isDefence ? 'Defence' : 'Prosecution'}
           </span>
           <span style={{
-            fontSize: 9, color: '#888', fontFamily: 'Inter, sans-serif',
+            fontSize: 9, color: '#888', fontFamily: "'Times New Roman', Times, serif",
             letterSpacing: '.1em', textTransform: 'uppercase',
           }}>
             Phase 6B
           </span>
           {isDefence && submissionDraft && (
             <span style={{
-              fontSize: 9, color: accent, fontFamily: 'Inter, sans-serif',
+              fontSize: 9, color: accent, fontFamily: "'Times New Roman', Times, serif",
               letterSpacing: '.1em', textTransform: 'uppercase', fontWeight: 700,
               background: `${accent}14`, border: `1px solid ${accent}30`,
               padding: '3px 9px', borderRadius: 3,
@@ -949,7 +949,7 @@ export function NoCaseSubmission({ activeCase }: Props) {
           )}
           {dischargedCount > 0 && (
             <span style={{
-              fontSize: 9, fontFamily: 'Inter, sans-serif',
+              fontSize: 9, fontFamily: "'Times New Roman', Times, serif",
               letterSpacing: '.1em', textTransform: 'uppercase', fontWeight: 700,
               padding: '3px 9px', borderRadius: 3,
               ...(isDefence
@@ -964,7 +964,7 @@ export function NoCaseSubmission({ activeCase }: Props) {
         </div>
         <h2 style={{
           fontSize: 26, color: T.text, fontWeight: 300,
-          fontFamily: "'Cormorant Garamond', serif", marginBottom: 6,
+          fontFamily: "'Times New Roman', Times, serif", marginBottom: 6,
         }}>
           {headingLabel}
         </h2>

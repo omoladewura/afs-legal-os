@@ -558,7 +558,7 @@ function AlertCard({
             {/* Severity + category badges */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4, flexWrap: 'wrap' }}>
               <span style={{
-                fontSize: 8, fontFamily: 'Inter, sans-serif',
+                fontSize: 8, fontFamily: "'Times New Roman', Times, serif",
                 letterSpacing: '.1em', textTransform: 'uppercase',
                 fontWeight: 700, color: s.col,
                 background: `${s.col}15`, border: `1px solid ${s.col}40`,
@@ -568,7 +568,7 @@ function AlertCard({
               </span>
               {alert.source === 'ai' && (
                 <span style={{
-                  fontSize: 8, fontFamily: 'Inter, sans-serif',
+                  fontSize: 8, fontFamily: "'Times New Roman', Times, serif",
                   letterSpacing: '.08em', textTransform: 'uppercase',
                   color: '#8060c0', background: '#0e0818',
                   border: '1px solid #3a1878', padding: '2px 6px', borderRadius: 3,
@@ -577,7 +577,7 @@ function AlertCard({
                 </span>
               )}
               <span style={{
-                fontSize: 8, fontFamily: 'Inter, sans-serif',
+                fontSize: 8, fontFamily: "'Times New Roman', Times, serif",
                 letterSpacing: '.06em', textTransform: 'uppercase',
                 color: '#5a5a72', padding: '2px 6px',
               }}>
@@ -587,7 +587,7 @@ function AlertCard({
             {/* Title */}
             <p style={{
               fontSize: 13, color: s.col,
-              fontFamily: "'Cormorant Garamond', serif",
+              fontFamily: "'Times New Roman', Times, serif",
               fontWeight: 600, lineHeight: 1.3, margin: 0,
             }}>
               {alert.title}
@@ -625,7 +625,7 @@ function AlertCard({
               style={{
                 background: 'transparent', border: 'none',
                 color: s.col, cursor: 'pointer',
-                fontSize: 10, fontFamily: 'Inter, sans-serif',
+                fontSize: 10, fontFamily: "'Times New Roman', Times, serif",
                 letterSpacing: '.06em', padding: 0,
                 display: 'flex', alignItems: 'center', gap: 4,
               }}
@@ -679,7 +679,7 @@ function AlertSummaryRow({
           background: filter === 'ALL' ? '#1e1e30' : 'transparent',
           border: `1px solid ${filter === 'ALL' ? '#3a3a5a' : '#2a2a3a'}`,
           borderRadius: 5, color: filter === 'ALL' ? '#a0a0c0' : '#5a5a72',
-          padding: '5px 12px', fontSize: 11, fontFamily: 'Inter, sans-serif',
+          padding: '5px 12px', fontSize: 11, fontFamily: "'Times New Roman', Times, serif",
           cursor: 'pointer', letterSpacing: '.04em',
         }}
       >
@@ -694,7 +694,7 @@ function AlertSummaryRow({
             border: `1px solid ${filter === sev ? SEV[sev].bdr : '#2a2a3a'}`,
             borderRadius: 5,
             color: filter === sev ? SEV[sev].col : '#5a5a72',
-            padding: '5px 12px', fontSize: 11, fontFamily: 'Inter, sans-serif',
+            padding: '5px 12px', fontSize: 11, fontFamily: "'Times New Roman', Times, serif",
             cursor: 'pointer', letterSpacing: '.04em',
           }}
         >
@@ -716,8 +716,8 @@ interface AlertsEngineProps {
 export function AlertsEngine({ activeCase }: AlertsEngineProps) {
   const role      = activeCase.counsel_role as CounselRole | undefined;
   const roleColor = role ? COUNSEL_ROLE_COLORS[role].col : '#888888';
-  const roleBg    = role ? COUNSEL_ROLE_COLORS[role].bg  : '#0a0a14';
-  const roleBdr   = role ? COUNSEL_ROLE_COLORS[role].bdr : '#1e1e2e';
+  const roleBg    = role ? COUNSEL_ROLE_COLORS[role].bg  : '#ffffff';
+  const roleBdr   = role ? COUNSEL_ROLE_COLORS[role].bdr : '#cccccc';
   const roleLabel = role ? COUNSEL_ROLE_LABELS[role]     : 'Role Not Set';
 
   const [entries,   setEntries]   = useState<DocketEntry[]>([]);
@@ -806,11 +806,11 @@ export function AlertsEngine({ activeCase }: AlertsEngineProps) {
       {/* ── Header ──────────────────────────────────────────────────────────── */}
       <div style={{ marginBottom: 24 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-          <span style={{ fontSize: 9, color: '#5a5a72', fontFamily: 'Inter, sans-serif', letterSpacing: '.18em', textTransform: 'uppercase' }}>
+          <span style={{ fontSize: 9, color: '#5a5a72', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.18em', textTransform: 'uppercase' }}>
             Phase 7 · Automation
           </span>
           <span style={{
-            fontSize: 9, fontFamily: 'Inter, sans-serif', letterSpacing: '.07em',
+            fontSize: 9, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.07em',
             textTransform: 'uppercase', fontWeight: 700,
             background: roleBg, border: `1px solid ${roleBdr}`,
             color: roleColor, padding: '2px 7px', borderRadius: 3,
@@ -821,7 +821,7 @@ export function AlertsEngine({ activeCase }: AlertsEngineProps) {
 
         <h2 style={{
           fontSize: 20, color: roleColor,
-          fontFamily: "'Cormorant Garamond', serif",
+          fontFamily: "'Times New Roman', Times, serif",
           fontWeight: 600, letterSpacing: '.02em', marginBottom: 4,
         }}>
           Role-Specific Alerts
@@ -838,7 +838,7 @@ export function AlertsEngine({ activeCase }: AlertsEngineProps) {
 
       {/* ── Loading ──────────────────────────────────────────────────────────── */}
       {loading && (
-        <div style={{ color: '#5a5a72', fontFamily: 'Inter, sans-serif', fontSize: 12, padding: '24px 0' }}>
+        <div style={{ color: '#5a5a72', fontFamily: "'Times New Roman', Times, serif", fontSize: 12, padding: '24px 0' }}>
           Loading matter state…
         </div>
       )}
@@ -863,7 +863,7 @@ export function AlertsEngine({ activeCase }: AlertsEngineProps) {
             }}>
               <span style={{ fontSize: 18, color: '#40a860' }}>✓</span>
               <div>
-                <p style={{ fontSize: 13, color: '#40a860', fontFamily: "'Cormorant Garamond', serif", margin: 0, fontWeight: 600 }}>
+                <p style={{ fontSize: 13, color: '#40a860', fontFamily: "'Times New Roman', Times, serif", margin: 0, fontWeight: 600 }}>
                   No active alerts
                 </p>
                 <p style={{ fontSize: 11, color: '#406050', fontFamily: "'Times New Roman', Times, serif", margin: '3px 0 0' }}>
@@ -898,7 +898,7 @@ export function AlertsEngine({ activeCase }: AlertsEngineProps) {
               <div>
                 <p style={{
                   fontSize: 10, color: '#8060c0',
-                  fontFamily: 'Inter, sans-serif',
+                  fontFamily: "'Times New Roman', Times, serif",
                   letterSpacing: '.12em', textTransform: 'uppercase',
                   fontWeight: 700, margin: '0 0 3px',
                 }}>
@@ -920,7 +920,7 @@ export function AlertsEngine({ activeCase }: AlertsEngineProps) {
                   border: '1px solid #4a2888',
                   borderRadius: 5, color: aiLoading ? '#4a3860' : '#9060d0',
                   padding: '8px 14px', fontSize: 11,
-                  fontFamily: 'Inter, sans-serif',
+                  fontFamily: "'Times New Roman', Times, serif",
                   cursor: aiLoading ? 'not-allowed' : 'pointer',
                   fontWeight: 600, letterSpacing: '.04em',
                   flexShrink: 0,
@@ -968,7 +968,7 @@ export function AlertsEngine({ activeCase }: AlertsEngineProps) {
                 style={{
                   background: 'transparent', border: 'none',
                   color: '#3a3a52', cursor: 'pointer',
-                  fontSize: 10, fontFamily: 'Inter, sans-serif',
+                  fontSize: 10, fontFamily: "'Times New Roman', Times, serif",
                   letterSpacing: '.08em', padding: 0,
                   display: 'flex', alignItems: 'center', gap: 5,
                 }}
@@ -979,7 +979,7 @@ export function AlertsEngine({ activeCase }: AlertsEngineProps) {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10, opacity: 0.4 }}>
                   {dismissedAlerts.map(alert => (
                     <div key={alert.id} style={{
-                      background: '#07070f', border: '1px solid #1a1a2a',
+                      background: '#ffffff', border: '1px solid #1a1a2a',
                       borderRadius: 5, padding: '8px 12px',
                     }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'space-between' }}>
@@ -996,7 +996,7 @@ export function AlertsEngine({ activeCase }: AlertsEngineProps) {
                           style={{
                             background: 'transparent', border: 'none',
                             color: '#2a2a3a', cursor: 'pointer',
-                            fontSize: 10, fontFamily: 'Inter, sans-serif',
+                            fontSize: 10, fontFamily: "'Times New Roman', Times, serif",
                             letterSpacing: '.06em', padding: '0 4px',
                           }}
                         >
@@ -1012,12 +1012,12 @@ export function AlertsEngine({ activeCase }: AlertsEngineProps) {
 
           {/* ── Role alert legend ─────────────────────────────────────────────── */}
           <div style={{
-            background: '#07070f', border: '1px solid #1e1e2e',
+            background: '#ffffff', border: '1px solid #cccccc',
             borderRadius: 7, padding: '14px 18px',
           }}>
             <p style={{
               fontSize: 9, color: '#3a3a52',
-              fontFamily: 'Inter, sans-serif',
+              fontFamily: "'Times New Roman', Times, serif",
               letterSpacing: '.12em', textTransform: 'uppercase',
               fontWeight: 700, marginBottom: 10,
             }}>

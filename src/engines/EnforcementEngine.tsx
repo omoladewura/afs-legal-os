@@ -121,10 +121,10 @@ function ResultBlock({
   return (
     <div style={{ marginTop: 18, background: '#08080e', border: `1px solid ${accent}30`, borderRadius: 8, padding: '18px 20px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <span style={{ fontSize: 10, color: accent, fontFamily: 'Inter, sans-serif', letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 700 }}>
+        <span style={{ fontSize: 10, color: accent, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 700 }}>
           {title}
         </span>
-        <button onClick={onClear} style={{ background: 'transparent', border: 'none', color: T.mute, fontSize: 11, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+        <button onClick={onClear} style={{ background: 'transparent', border: 'none', color: T.mute, fontSize: 11, cursor: 'pointer', fontFamily: "'Times New Roman', Times, serif" }}>
           clear ×
         </button>
       </div>
@@ -149,11 +149,11 @@ function SubTabBar({
           onClick={() => onSelect(t.id)}
           style={{
             background:   active === t.id ? `${accent}18` : 'transparent',
-            border:       `1px solid ${active === t.id ? accent : '#1e1e2e'}`,
+            border:       `1px solid ${active === t.id ? accent : '#cccccc'}`,
             color:        active === t.id ? accent : T.mute,
             borderRadius: 5, padding: '6px 14px',
             fontSize: 12, cursor: 'pointer',
-            fontFamily: 'Inter, sans-serif', letterSpacing: '.04em',
+            fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.04em',
             transition: 'all .15s',
           }}
         >
@@ -166,7 +166,7 @@ function SubTabBar({
 
 function Label({ text }: { text: string }) {
   return (
-    <label style={{ display: 'block', fontSize: 11, color: T.mute, fontFamily: 'Inter, sans-serif', letterSpacing: '.08em', textTransform: 'uppercase', marginBottom: 6 }}>
+    <label style={{ display: 'block', fontSize: 11, color: T.mute, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.08em', textTransform: 'uppercase', marginBottom: 6 }}>
       {text}
     </label>
   );
@@ -185,7 +185,7 @@ function Textarea({
       placeholder={placeholder}
       style={{
         width: '100%', background: '#08080e', color: T.text,
-        border: '1px solid #1e1e2e', borderRadius: 6,
+        border: '1px solid #cccccc', borderRadius: 6,
         padding: '10px 14px', fontSize: 13,
         fontFamily: "'Times New Roman', Times, serif",
         resize: 'vertical', boxSizing: 'border-box',
@@ -207,7 +207,7 @@ function Input({
       placeholder={placeholder}
       style={{
         width: '100%', background: '#08080e', color: T.text,
-        border: '1px solid #1e1e2e', borderRadius: 6,
+        border: '1px solid #cccccc', borderRadius: 6,
         padding: '9px 14px', fontSize: 13,
         fontFamily: "'Times New Roman', Times, serif",
         boxSizing: 'border-box',
@@ -218,7 +218,7 @@ function Input({
 
 function SectionHead({ text, accent }: { text: string; accent: string }) {
   return (
-    <div style={{ fontSize: 11, color: accent, fontFamily: 'Inter, sans-serif', letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 16, paddingBottom: 8, borderBottom: `1px solid ${accent}20` }}>
+    <div style={{ fontSize: 11, color: accent, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 16, paddingBottom: 8, borderBottom: `1px solid ${accent}20` }}>
       {text}
     </div>
   );
@@ -507,7 +507,7 @@ Conclude with a priority ranking of the grounds.`;
   const renderJudgmentSummary = (roleLabel: string) => (
     <div>
       <SectionHead text={`Judgment Summary — ${roleLabel}`} accent={accent} />
-      <p style={{ fontSize: 13, color: T.mute, fontFamily: 'Inter, sans-serif', marginBottom: 20 }}>
+      <p style={{ fontSize: 13, color: T.mute, fontFamily: "'Times New Roman', Times, serif", marginBottom: 20 }}>
         Record the judgment details. This anchors all enforcement or resistance actions in this engine.
       </p>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
@@ -536,7 +536,7 @@ Conclude with a priority ranking of the grounds.`;
       <Btn label="Save Judgment Summary" onClick={saveJudgmentSummary} accent={accent} />
       {judgmentDate && (
         <div style={{ marginTop: 16, padding: '14px 18px', background: `${accent}10`, border: `1px solid ${accent}30`, borderRadius: 8 }}>
-          <div style={{ fontSize: 11, color: accent, fontFamily: 'Inter, sans-serif', letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 8 }}>Judgment on Record</div>
+          <div style={{ fontSize: 11, color: accent, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 8 }}>Judgment on Record</div>
           <div style={{ fontSize: 13, color: T.text, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.7 }}>
             <strong>Date:</strong> {judgmentDate}<br />
             <strong>Court:</strong> {judgmentCourt || activeCase.court}<br />
@@ -561,11 +561,11 @@ Conclude with a priority ranking of the grounds.`;
         return (
           <div>
             <SectionHead text="Enforcement Mechanism Selector" accent={accent} />
-            <p style={{ fontSize: 13, color: T.mute, fontFamily: 'Inter, sans-serif', marginBottom: 20 }}>
+            <p style={{ fontSize: 13, color: T.mute, fontFamily: "'Times New Roman', Times, serif", marginBottom: 20 }}>
               AI analyses the judgment and advises on the most effective enforcement mechanism under Nigerian law.
             </p>
             {!judgmentDate && (
-              <div style={{ padding: '12px 16px', background: '#1a1a28', border: '1px solid #2e2e48', borderRadius: 6, marginBottom: 16, fontSize: 13, color: T.mute, fontFamily: 'Inter, sans-serif' }}>
+              <div style={{ padding: '12px 16px', background: '#f5f5f3', border: '1px solid #2e2e48', borderRadius: 6, marginBottom: 16, fontSize: 13, color: T.mute, fontFamily: "'Times New Roman', Times, serif" }}>
                 ⚠ Record the judgment details in the Judgment Summary tab first.
               </div>
             )}
@@ -595,11 +595,11 @@ Conclude with a priority ranking of the grounds.`;
         return (
           <div>
             <SectionHead text="Writ of Fieri Facias (FIFA)" accent={accent} />
-            <p style={{ fontSize: 13, color: T.mute, fontFamily: 'Inter, sans-serif', marginBottom: 20 }}>
+            <p style={{ fontSize: 13, color: T.mute, fontFamily: "'Times New Roman', Times, serif", marginBottom: 20 }}>
               Draft a Writ of FIFA directing the Sheriff to seize and sell the judgment debtor's moveable goods in satisfaction of the judgment.
             </p>
             {!judgmentDate && (
-              <div style={{ padding: '12px 16px', background: '#1a1a28', border: '1px solid #2e2e48', borderRadius: 6, marginBottom: 16, fontSize: 13, color: T.mute, fontFamily: 'Inter, sans-serif' }}>
+              <div style={{ padding: '12px 16px', background: '#f5f5f3', border: '1px solid #2e2e48', borderRadius: 6, marginBottom: 16, fontSize: 13, color: T.mute, fontFamily: "'Times New Roman', Times, serif" }}>
                 ⚠ Record the judgment details in the Judgment Summary tab first.
               </div>
             )}
@@ -629,11 +629,11 @@ Conclude with a priority ranking of the grounds.`;
         return (
           <div>
             <SectionHead text="Garnishee Proceedings" accent={accent} />
-            <p style={{ fontSize: 13, color: T.mute, fontFamily: 'Inter, sans-serif', marginBottom: 20 }}>
+            <p style={{ fontSize: 13, color: T.mute, fontFamily: "'Times New Roman', Times, serif", marginBottom: 20 }}>
               Draft a Motion ex parte for a Garnishee Order Nisi and supporting affidavit. Used where a third party (bank or debtor) holds funds owed to the judgment debtor.
             </p>
             {!judgmentDate && (
-              <div style={{ padding: '12px 16px', background: '#1a1a28', border: '1px solid #2e2e48', borderRadius: 6, marginBottom: 16, fontSize: 13, color: T.mute, fontFamily: 'Inter, sans-serif' }}>
+              <div style={{ padding: '12px 16px', background: '#f5f5f3', border: '1px solid #2e2e48', borderRadius: 6, marginBottom: 16, fontSize: 13, color: T.mute, fontFamily: "'Times New Roman', Times, serif" }}>
                 ⚠ Record the judgment details in the Judgment Summary tab first.
               </div>
             )}
@@ -663,12 +663,12 @@ Conclude with a priority ranking of the grounds.`;
         return (
           <div>
             <SectionHead text="Recovery Tracker" accent={accent} />
-            <p style={{ fontSize: 13, color: T.mute, fontFamily: 'Inter, sans-serif', marginBottom: 20 }}>
+            <p style={{ fontSize: 13, color: T.mute, fontFamily: "'Times New Roman', Times, serif", marginBottom: 20 }}>
               Log each enforcement step taken and record amounts recovered. Track outstanding balance.
             </p>
             {/* Add row form */}
-            <div style={{ background: '#0c0c18', border: '1px solid #1e1e2e', borderRadius: 8, padding: '16px 18px', marginBottom: 20 }}>
-              <div style={{ fontSize: 11, color: accent, fontFamily: 'Inter, sans-serif', letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 14 }}>Add Recovery Step</div>
+            <div style={{ background: '#0c0c18', border: '1px solid #cccccc', borderRadius: 8, padding: '16px 18px', marginBottom: 20 }}>
+              <div style={{ fontSize: 11, color: accent, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 14 }}>Add Recovery Step</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 1fr', gap: 12, marginBottom: 12 }}>
                 <div>
                   <Label text="Date" />
@@ -697,7 +697,7 @@ Conclude with a priority ranking of the grounds.`;
                 return sum + (isNaN(n) ? 0 : n);
               }, 0);
               return (
-                <div style={{ padding: '12px 16px', background: `${accent}10`, border: `1px solid ${accent}30`, borderRadius: 6, marginBottom: 16, fontSize: 13, color: T.text, fontFamily: 'Inter, sans-serif' }}>
+                <div style={{ padding: '12px 16px', background: `${accent}10`, border: `1px solid ${accent}30`, borderRadius: 6, marginBottom: 16, fontSize: 13, color: T.text, fontFamily: "'Times New Roman', Times, serif" }}>
                   <strong>Total Recovered:</strong> ₦{totalRecovered.toLocaleString()} &nbsp;|&nbsp;
                   <strong>Judgment Amount:</strong> {amountAwarded}
                 </div>
@@ -706,12 +706,12 @@ Conclude with a priority ranking of the grounds.`;
 
             {/* Table */}
             {recoverySteps.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '32px 0', color: T.mute, fontSize: 13, fontFamily: 'Inter, sans-serif' }}>
+              <div style={{ textAlign: 'center', padding: '32px 0', color: T.mute, fontSize: 13, fontFamily: "'Times New Roman', Times, serif" }}>
                 No recovery steps recorded yet.
               </div>
             ) : (
               <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, fontFamily: 'Inter, sans-serif' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, fontFamily: "'Times New Roman', Times, serif" }}>
                   <thead>
                     <tr style={{ borderBottom: `1px solid ${accent}30` }}>
                       {['Date', 'Action', 'Amount', 'Notes', ''].map(h => (
@@ -756,11 +756,11 @@ Conclude with a priority ranking of the grounds.`;
         return (
           <div>
             <SectionHead text="Stay of Execution" accent={accent} />
-            <p style={{ fontSize: 13, color: T.mute, fontFamily: 'Inter, sans-serif', marginBottom: 20 }}>
+            <p style={{ fontSize: 13, color: T.mute, fontFamily: "'Times New Roman', Times, serif", marginBottom: 20 }}>
               Draft a Motion for Stay of Execution pending the determination of appeal. The court will consider the balance of hardship, whether the appeal would be rendered nugatory, and special circumstances.
             </p>
             {!judgmentDate && (
-              <div style={{ padding: '12px 16px', background: '#1a1a28', border: '1px solid #2e2e48', borderRadius: 6, marginBottom: 16, fontSize: 13, color: T.mute, fontFamily: 'Inter, sans-serif' }}>
+              <div style={{ padding: '12px 16px', background: '#f5f5f3', border: '1px solid #2e2e48', borderRadius: 6, marginBottom: 16, fontSize: 13, color: T.mute, fontFamily: "'Times New Roman', Times, serif" }}>
                 ⚠ Record the judgment details in the Judgment Summary tab first.
               </div>
             )}
@@ -790,12 +790,12 @@ Conclude with a priority ranking of the grounds.`;
         return (
           <div>
             <SectionHead text="Compliance Tracker" accent={accent} />
-            <p style={{ fontSize: 13, color: T.mute, fontFamily: 'Inter, sans-serif', marginBottom: 20 }}>
+            <p style={{ fontSize: 13, color: T.mute, fontFamily: "'Times New Roman', Times, serif", marginBottom: 20 }}>
               Track judgment obligations — payment instalments, orders to deliver up property, injunction compliance, and any other court-ordered steps.
             </p>
             {/* Add obligation form */}
-            <div style={{ background: '#0c0c18', border: '1px solid #1e1e2e', borderRadius: 8, padding: '16px 18px', marginBottom: 20 }}>
-              <div style={{ fontSize: 11, color: accent, fontFamily: 'Inter, sans-serif', letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 14 }}>Add Obligation</div>
+            <div style={{ background: '#0c0c18', border: '1px solid #cccccc', borderRadius: 8, padding: '16px 18px', marginBottom: 20 }}>
+              <div style={{ fontSize: 11, color: accent, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 14 }}>Add Obligation</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 12, marginBottom: 12 }}>
                 <div>
                   <Label text="Due Date" />
@@ -810,12 +810,12 @@ Conclude with a priority ranking of the grounds.`;
             </div>
 
             {complianceSteps.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '32px 0', color: T.mute, fontSize: 13, fontFamily: 'Inter, sans-serif' }}>
+              <div style={{ textAlign: 'center', padding: '32px 0', color: T.mute, fontSize: 13, fontFamily: "'Times New Roman', Times, serif" }}>
                 No obligations recorded yet.
               </div>
             ) : (
               <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, fontFamily: 'Inter, sans-serif' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, fontFamily: "'Times New Roman', Times, serif" }}>
                   <thead>
                     <tr style={{ borderBottom: `1px solid ${accent}30` }}>
                       {['Due Date', 'Obligation', 'Status', ''].map(h => (
@@ -832,11 +832,11 @@ Conclude with a priority ranking of the grounds.`;
                           <button
                             onClick={() => toggleCompliance(s.id)}
                             style={{
-                              background: s.done ? '#1a3a1a' : '#1a1a28',
+                              background: s.done ? '#1a3a1a' : '#cccccc',
                               border: `1px solid ${s.done ? '#40a860' : '#2e2e48'}`,
                               color: s.done ? '#40a860' : T.mute,
                               borderRadius: 4, padding: '4px 10px', fontSize: 11,
-                              cursor: 'pointer', fontFamily: 'Inter, sans-serif',
+                              cursor: 'pointer', fontFamily: "'Times New Roman', Times, serif",
                             }}
                           >
                             {s.done ? '✓ Done' : '○ Pending'}
@@ -858,7 +858,7 @@ Conclude with a priority ranking of the grounds.`;
         return (
           <div>
             <SectionHead text="Appeal Grounds" accent={accent} />
-            <p style={{ fontSize: 13, color: T.mute, fontFamily: 'Inter, sans-serif', marginBottom: 20 }}>
+            <p style={{ fontSize: 13, color: T.mute, fontFamily: "'Times New Roman', Times, serif", marginBottom: 20 }}>
               Identify and develop grounds of appeal from the adverse judgment. AI analyses the judgment and suggests the strongest grounds available to the defendant.
             </p>
             <div style={{ marginBottom: 20 }}>
@@ -880,7 +880,7 @@ Conclude with a priority ranking of the grounds.`;
                 onClear={() => { setAppealGroundsResult(''); persist({ appealGroundsResult: '' }); }}
               />
             )}
-            <div style={{ marginTop: 20, padding: '12px 16px', background: '#0c0c18', border: '1px solid #1e1e2e', borderRadius: 6, fontSize: 13, color: T.mute, fontFamily: 'Inter, sans-serif' }}>
+            <div style={{ marginTop: 20, padding: '12px 16px', background: '#0c0c18', border: '1px solid #cccccc', borderRadius: 6, fontSize: 13, color: T.mute, fontFamily: "'Times New Roman', Times, serif" }}>
               To file the Notice of Appeal and manage the full appeal workflow, navigate to the <strong style={{ color: accent }}>Appeal Engine</strong> tab.
             </div>
           </div>
@@ -906,7 +906,7 @@ Conclude with a priority ranking of the grounds.`;
             Enforcement Engine
           </h2>
           <span style={{
-            fontSize: 10, fontFamily: 'Inter, sans-serif', letterSpacing: '.12em',
+            fontSize: 10, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em',
             textTransform: 'uppercase', fontWeight: 700,
             color: accent, background: `${accent}18`,
             border: `1px solid ${accent}40`, borderRadius: 4, padding: '3px 10px',
@@ -914,7 +914,7 @@ Conclude with a priority ranking of the grounds.`;
             {isClaim ? 'Judgment Creditor' : 'Judgment Debtor'} — Civil
           </span>
         </div>
-        <p style={{ margin: 0, fontSize: 13, color: T.mute, fontFamily: 'Inter, sans-serif', lineHeight: 1.6 }}>
+        <p style={{ margin: 0, fontSize: 13, color: T.mute, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.6 }}>
           {isClaim
             ? 'Execute judgment: select enforcement mechanism, draft writs, track recovery progress.'
             : 'Resist enforcement: seek stay of execution, manage compliance obligations, develop appeal grounds.'}

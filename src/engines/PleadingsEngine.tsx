@@ -126,17 +126,17 @@ function ResultBlock({
   return (
     <div style={{ marginTop: 18, background: '#08080e', border: `1px solid ${accent}30`, borderRadius: 8, padding: '18px 20px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <span style={{ fontSize: 10, color: accent, fontFamily: 'Inter, sans-serif', letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 700 }}>
+        <span style={{ fontSize: 10, color: accent, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 700 }}>
           {title}
         </span>
         <div style={{ display: 'flex', gap: 10 }}>
           <button
             onClick={() => navigator.clipboard?.writeText(content)}
-            style={{ background: 'transparent', border: `1px solid ${accent}30`, color: accent, fontSize: 11, cursor: 'pointer', fontFamily: 'Inter, sans-serif', borderRadius: 4, padding: '3px 10px' }}
+            style={{ background: 'transparent', border: `1px solid ${accent}30`, color: accent, fontSize: 11, cursor: 'pointer', fontFamily: "'Times New Roman', Times, serif", borderRadius: 4, padding: '3px 10px' }}
           >
             copy
           </button>
-          <button onClick={onClear} style={{ background: 'transparent', border: 'none', color: T.mute, fontSize: 11, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+          <button onClick={onClear} style={{ background: 'transparent', border: 'none', color: T.mute, fontSize: 11, cursor: 'pointer', fontFamily: "'Times New Roman', Times, serif" }}>
             clear ×
           </button>
         </div>
@@ -162,11 +162,11 @@ function SubTabBar({
           onClick={() => onSelect(t.id)}
           style={{
             background:   active === t.id ? `${accent}18` : 'transparent',
-            border:       `1px solid ${active === t.id ? accent : '#1e1e2e'}`,
+            border:       `1px solid ${active === t.id ? accent : '#cccccc'}`,
             color:        active === t.id ? accent : T.mute,
             borderRadius: 5, padding: '6px 14px',
             fontSize: 12, cursor: 'pointer',
-            fontFamily: 'Inter, sans-serif', letterSpacing: '.04em',
+            fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.04em',
             transition: 'all .15s',
           }}
         >
@@ -179,7 +179,7 @@ function SubTabBar({
 
 function Label({ text }: { text: string }) {
   return (
-    <label style={{ display: 'block', fontSize: 11, color: T.mute, fontFamily: 'Inter, sans-serif', letterSpacing: '.08em', textTransform: 'uppercase', marginBottom: 6 }}>
+    <label style={{ display: 'block', fontSize: 11, color: T.mute, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.08em', textTransform: 'uppercase', marginBottom: 6 }}>
       {text}
     </label>
   );
@@ -197,7 +197,7 @@ function Textarea({
       rows={rows}
       placeholder={placeholder}
       style={{
-        width: '100%', background: '#08080e', border: '1px solid #1e1e2e',
+        width: '100%', background: '#08080e', border: '1px solid #cccccc',
         borderRadius: 6, padding: '10px 14px', color: T.fg,
         fontSize: 13, fontFamily: "'Times New Roman', Times, serif",
         resize: 'vertical', boxSizing: 'border-box', outline: 'none',
@@ -218,7 +218,7 @@ function Input({
       onChange={e => onChange(e.target.value)}
       placeholder={placeholder}
       style={{
-        width: '100%', background: '#08080e', border: '1px solid #1e1e2e',
+        width: '100%', background: '#08080e', border: '1px solid #cccccc',
         borderRadius: 6, padding: '8px 12px', color: T.fg,
         fontSize: 13, fontFamily: "'Times New Roman', Times, serif",
         boxSizing: 'border-box', outline: 'none',
@@ -229,7 +229,7 @@ function Input({
 
 function SectionTitle({ text, accent }: { text: string; accent: string }) {
   return (
-    <div style={{ fontSize: 11, color: accent, fontFamily: 'Inter, sans-serif', letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 14, borderBottom: `1px solid ${accent}20`, paddingBottom: 8 }}>
+    <div style={{ fontSize: 11, color: accent, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 14, borderBottom: `1px solid ${accent}20`, paddingBottom: 8 }}>
       {text}
     </div>
   );
@@ -242,7 +242,7 @@ function StatusBadge({ status }: { status: string }) {
   };
   const col = map[status] ?? '#606070';
   return (
-    <span style={{ fontSize: 9, color: col, border: `1px solid ${col}40`, borderRadius: 3, padding: '1px 6px', fontFamily: 'Inter, sans-serif', letterSpacing: '.06em', textTransform: 'uppercase', fontWeight: 700 }}>
+    <span style={{ fontSize: 9, color: col, border: `1px solid ${col}40`, borderRadius: 3, padding: '1px 6px', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.06em', textTransform: 'uppercase', fontWeight: 700 }}>
       {status}
     </span>
   );
@@ -285,16 +285,16 @@ function PleadingTracker({
       {items.length > 0 && (
         <div style={{ marginBottom: 20 }}>
           {items.map(item => (
-            <div key={item.id} style={{ background: '#0a0a14', border: '1px solid #1e1e2e', borderRadius: 8, padding: '14px 16px', marginBottom: 10, display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+            <div key={item.id} style={{ background: '#ffffff', border: '1px solid #cccccc', borderRadius: 8, padding: '14px 16px', marginBottom: 10, display: 'flex', alignItems: 'flex-start', gap: 14 }}>
               <div style={{ flex: 1 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
                   <span style={{ fontSize: 13, color: T.text, fontFamily: "'Times New Roman', Times, serif", fontWeight: 600 }}>{item.type}</span>
-                  <span style={{ fontSize: 10, color: item.side === 'ours' ? accent : '#888', fontFamily: 'Inter, sans-serif', letterSpacing: '.04em' }}>
+                  <span style={{ fontSize: 10, color: item.side === 'ours' ? accent : '#888', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.04em' }}>
                     {item.side === 'ours' ? '(our filing)' : '(opposing)'}
                   </span>
                   <StatusBadge status={item.status} />
                   {item.filedDate && (
-                    <span style={{ fontSize: 10, color: T.mute, fontFamily: 'Inter, sans-serif' }}>{item.filedDate}</span>
+                    <span style={{ fontSize: 10, color: T.mute, fontFamily: "'Times New Roman', Times, serif" }}>{item.filedDate}</span>
                   )}
                 </div>
                 {item.notes && (
@@ -305,11 +305,11 @@ function PleadingTracker({
                 <select
                   value={item.status}
                   onChange={e => updateStatus(item.id, e.target.value)}
-                  style={{ background: '#08080e', border: '1px solid #1e1e2e', borderRadius: 4, padding: '4px 8px', color: T.mute, fontSize: 11, fontFamily: 'Inter, sans-serif', cursor: 'pointer' }}
+                  style={{ background: '#08080e', border: '1px solid #cccccc', borderRadius: 4, padding: '4px 8px', color: T.mute, fontSize: 11, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer' }}
                 >
                   {['Filed','Received','Overdue','Pending','Settled'].map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
-                <button onClick={() => remove(item.id)} style={{ background: 'transparent', border: '1px solid #2a0808', color: '#804040', fontSize: 11, borderRadius: 4, padding: '4px 8px', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+                <button onClick={() => remove(item.id)} style={{ background: 'transparent', border: '1px solid #2a0808', color: '#804040', fontSize: 11, borderRadius: 4, padding: '4px 8px', cursor: 'pointer', fontFamily: "'Times New Roman', Times, serif" }}>
                   ×
                 </button>
               </div>
@@ -335,7 +335,7 @@ function PleadingTracker({
             <select
               value={newSide}
               onChange={e => setNewSide(e.target.value as 'ours' | 'theirs')}
-              style={{ background: '#08080e', border: '1px solid #1e1e2e', borderRadius: 6, padding: '8px 12px', color: T.fg, fontSize: 13, fontFamily: "'Times New Roman', Times, serif", outline: 'none', cursor: 'pointer', width: '100%' }}
+              style={{ background: '#08080e', border: '1px solid #cccccc', borderRadius: 6, padding: '8px 12px', color: T.fg, fontSize: 13, fontFamily: "'Times New Roman', Times, serif", outline: 'none', cursor: 'pointer', width: '100%' }}
             >
               <option value="ours">Our Side</option>
               <option value="theirs">Opposing Side</option>
@@ -346,7 +346,7 @@ function PleadingTracker({
             <select
               value={newStatus}
               onChange={e => setNewStatus(e.target.value)}
-              style={{ background: '#08080e', border: '1px solid #1e1e2e', borderRadius: 6, padding: '8px 12px', color: T.fg, fontSize: 13, fontFamily: "'Times New Roman', Times, serif", outline: 'none', cursor: 'pointer', width: '100%' }}
+              style={{ background: '#08080e', border: '1px solid #cccccc', borderRadius: 6, padding: '8px 12px', color: T.fg, fontSize: 13, fontFamily: "'Times New Roman', Times, serif", outline: 'none', cursor: 'pointer', width: '100%' }}
             >
               {['Filed','Received','Overdue','Pending','Settled'].map(s => <option key={s} value={s}>{s}</option>)}
             </select>
@@ -479,23 +479,23 @@ Apply Nigerian High Court (Civil Procedure) Rules. Be specific and practical.`;
 
       {/* Status indicators */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 24 }}>
-        <div style={{ background: '#0a0a14', border: `1px solid ${defaultAvailable ? '#c05050' : '#1e1e2e'}`, borderRadius: 8, padding: '16px 18px' }}>
-          <div style={{ fontSize: 9, color: T.mute, fontFamily: 'Inter, sans-serif', letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 8 }}>Default Judgment</div>
+        <div style={{ background: '#ffffff', border: `1px solid ${defaultAvailable ? '#c05050' : '#cccccc'}`, borderRadius: 8, padding: '16px 18px' }}>
+          <div style={{ fontSize: 9, color: T.mute, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 8 }}>Default Judgment</div>
           <div style={{ fontSize: 18, color: defaultAvailable ? '#c05050' : defaultRisk ? '#c09030' : '#40a860', fontFamily: "'Times New Roman', Times, serif", fontWeight: 600 }}>
             {defaultAvailable ? '⚠ Available' : defaultRisk ? '◎ Approaching' : sodFiled ? '✓ SoD Filed' : '— Monitoring'}
           </div>
           {daysSinceService !== null && (
-            <div style={{ fontSize: 11, color: T.mute, fontFamily: 'Inter, sans-serif', marginTop: 6 }}>{daysSinceService} days since service</div>
+            <div style={{ fontSize: 11, color: T.mute, fontFamily: "'Times New Roman', Times, serif", marginTop: 6 }}>{daysSinceService} days since service</div>
           )}
         </div>
 
-        <div style={{ background: '#0a0a14', border: '1px solid #1e1e2e', borderRadius: 8, padding: '16px 18px' }}>
-          <div style={{ fontSize: 9, color: T.mute, fontFamily: 'Inter, sans-serif', letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 8 }}>SoD Status</div>
+        <div style={{ background: '#ffffff', border: '1px solid #cccccc', borderRadius: 8, padding: '16px 18px' }}>
+          <div style={{ fontSize: 9, color: T.mute, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 8 }}>SoD Status</div>
           <div style={{ fontSize: 18, color: sodFiled ? '#40a860' : '#c05050', fontFamily: "'Times New Roman', Times, serif", fontWeight: 600 }}>
             {sodFiled ? '✓ Filed' : '✗ Not Filed'}
           </div>
           {sodFiled && sodReceivedDate && (
-            <div style={{ fontSize: 11, color: T.mute, fontFamily: 'Inter, sans-serif', marginTop: 6 }}>Received {sodReceivedDate}</div>
+            <div style={{ fontSize: 11, color: T.mute, fontFamily: "'Times New Roman', Times, serif", marginTop: 6 }}>Received {sodReceivedDate}</div>
           )}
         </div>
       </div>
@@ -641,8 +641,8 @@ Apply the relevant Nigerian High Court Civil Procedure Rules for default judgmen
 
       {/* Readiness card */}
       <div style={{
-        background: defaultAvailable ? '#1a0808' : '#0a0a14',
-        border: `1px solid ${defaultAvailable ? '#c05050' : '#1e1e2e'}`,
+        background: defaultAvailable ? '#1a0808' : '#ffffff',
+        border: `1px solid ${defaultAvailable ? '#c05050' : '#cccccc'}`,
         borderRadius: 10, padding: '20px 22px', marginBottom: 24,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
@@ -660,7 +660,7 @@ Apply the relevant Nigerian High Court Civil Procedure Rules for default judgmen
                 : 'Monitor Service Date'}
             </div>
             {days !== null && (
-              <div style={{ fontSize: 12, color: T.mute, fontFamily: 'Inter, sans-serif', marginTop: 4 }}>
+              <div style={{ fontSize: 12, color: T.mute, fontFamily: "'Times New Roman', Times, serif", marginTop: 4 }}>
                 {days} day{days !== 1 ? 's' : ''} since service
                 {!sodFiled && days < 30 ? ` — default available in ${30 - days} day${30 - days !== 1 ? 's' : ''}` : ''}
               </div>
@@ -668,7 +668,7 @@ Apply the relevant Nigerian High Court Civil Procedure Rules for default judgmen
           </div>
         </div>
         {defaultAvailable && (
-          <p style={{ fontSize: 12, color: '#c05050', fontFamily: 'Inter, sans-serif', margin: 0, lineHeight: 1.5 }}>
+          <p style={{ fontSize: 12, color: '#c05050', fontFamily: "'Times New Roman', Times, serif", margin: 0, lineHeight: 1.5 }}>
             The defendant has not filed a Statement of Defence within 30 days of service. You may apply for judgment in default of defence under the applicable High Court Rules.
           </p>
         )}
@@ -701,7 +701,7 @@ Apply the relevant Nigerian High Court Civil Procedure Rules for default judgmen
 
       <Btn label="Draft Default Judgment Motion" onClick={draftMotion} loading={loading} accent={accent} off={!serviceDate || sodFiled} />
       {!defaultAvailable && !sodFiled && serviceDate && (
-        <p style={{ fontSize: 12, color: T.mute, fontFamily: 'Inter, sans-serif', marginTop: 10 }}>
+        <p style={{ fontSize: 12, color: T.mute, fontFamily: "'Times New Roman', Times, serif", marginTop: 10 }}>
           Default judgment motion will be available after 30 days from service date.
         </p>
       )}
@@ -913,17 +913,17 @@ function ReplyMonitor({ data, onSave, accent }: { data: SavedData; onSave: (d: P
       </p>
 
       {/* Status card */}
-      <div style={{ background: '#0a0a14', border: `1px solid ${replyReceived ? '#40a860' : '#c0903050'}`, borderRadius: 8, padding: '16px 18px', marginBottom: 20 }}>
+      <div style={{ background: '#ffffff', border: `1px solid ${replyReceived ? '#40a860' : '#c0903050'}`, borderRadius: 8, padding: '16px 18px', marginBottom: 20 }}>
         <div style={{ fontSize: 14, color: replyReceived ? '#40a860' : '#c09030', fontFamily: "'Times New Roman', Times, serif", fontWeight: 600, marginBottom: 6 }}>
           {replyReceived ? '✓ Reply Received' : '— Awaiting Claimant Reply'}
         </div>
         {daysAwaiting !== null && !replyReceived && (
-          <div style={{ fontSize: 12, color: T.mute, fontFamily: 'Inter, sans-serif' }}>
+          <div style={{ fontSize: 12, color: T.mute, fontFamily: "'Times New Roman', Times, serif" }}>
             {daysAwaiting} days since SoD filed
           </div>
         )}
         {replyReceived && replyDate && (
-          <div style={{ fontSize: 12, color: T.mute, fontFamily: 'Inter, sans-serif' }}>Received on {replyDate}</div>
+          <div style={{ fontSize: 12, color: T.mute, fontFamily: "'Times New Roman', Times, serif" }}>Received on {replyDate}</div>
         )}
       </div>
 
@@ -1025,7 +1025,7 @@ export function PleadingsEngine({ activeCase }: Props) {
 
   if (!loaded) {
     return (
-      <div style={{ padding: 40, color: T.mute, fontFamily: 'Inter, sans-serif', fontSize: 13 }}>
+      <div style={{ padding: 40, color: T.mute, fontFamily: "'Times New Roman', Times, serif", fontSize: 13 }}>
         Loading Pleadings Engine…
       </div>
     );
@@ -1034,8 +1034,8 @@ export function PleadingsEngine({ activeCase }: Props) {
   // Validate role
   if (activeCase.counsel_role !== 'claimant_side' && activeCase.counsel_role !== 'defendant_side') {
     return (
-      <div style={{ padding: 32, background: '#08080e', border: '1px solid #1e1e2e', borderRadius: 8 }}>
-        <p style={{ fontSize: 13, color: T.mute, fontFamily: 'Inter, sans-serif' }}>
+      <div style={{ padding: 32, background: '#08080e', border: '1px solid #cccccc', borderRadius: 8 }}>
+        <p style={{ fontSize: 13, color: T.mute, fontFamily: "'Times New Roman', Times, serif" }}>
           The Pleadings Engine is only available on civil matters. This matter is on the criminal track.
         </p>
       </div>
@@ -1051,19 +1051,19 @@ export function PleadingsEngine({ activeCase }: Props) {
       <div style={{ marginBottom: 24 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
           <span style={{ fontSize: 18, color: accent }}>📜</span>
-          <h3 style={{ fontSize: 18, color: T.text, fontFamily: "'Cormorant Garamond', serif", fontWeight: 300, margin: 0 }}>
+          <h3 style={{ fontSize: 18, color: T.text, fontFamily: "'Times New Roman', Times, serif", fontWeight: 300, margin: 0 }}>
             Pleadings Engine
           </h3>
           <span style={{
             fontSize: 9, padding: '3px 8px', borderRadius: 3,
-            fontFamily: 'Inter, sans-serif', fontWeight: 700,
+            fontFamily: "'Times New Roman', Times, serif", fontWeight: 700,
             letterSpacing: '.08em', textTransform: 'uppercase',
             background: `${accent}15`, border: `1px solid ${accent}30`, color: accent,
           }}>
             {isClaim ? 'Claimant Side' : 'Defendant Side'}
           </span>
         </div>
-        <p style={{ fontSize: 13, color: T.mute, fontFamily: 'Inter, sans-serif', margin: 0 }}>
+        <p style={{ fontSize: 13, color: T.mute, fontFamily: "'Times New Roman', Times, serif", margin: 0 }}>
           {isClaim
             ? 'Draft pleadings, monitor the defendant\'s response, and track default judgment opportunities.'
             : 'Draft your defence, build counterclaims, identify preliminary objection grounds, and track pleadings.'}

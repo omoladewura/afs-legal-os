@@ -54,7 +54,7 @@ const DIM  = '#4a3810';
 // ─────────────────────────────────────────────────────────────────────────────
 
 const inputStyle: React.CSSProperties = {
-  width: '100%', background: T.bg, border: '1px solid #1e1e2e',
+  width: '100%', background: T.bg, border: '1px solid #cccccc',
   borderRadius: 5, color: T.text, padding: '10px 13px', fontSize: 14,
   fontFamily: "'Times New Roman', Times, serif", outline: 'none', boxSizing: 'border-box',
 };
@@ -121,7 +121,7 @@ function CaseCard({ entry, index, removable, onUpdate, onRemove }: CaseCardProps
 
       <input ref={fileRef} type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={handleFile} style={{ display: 'none' }} />
       {entry.file ? (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: T.bg, border: '1px solid #1e1e2e', borderRadius: 4, padding: '7px 12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: T.bg, border: '1px solid #cccccc', borderRadius: 4, padding: '7px 12px' }}>
           <span style={{ fontSize: 13 }}>📎</span>
           <span style={{ flex: 1, fontSize: 11, color: T.dim, fontFamily: "'Times New Roman', Times, serif", overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.file.name}</span>
           <button onClick={() => onUpdate(entry.id, 'file', null)} style={{ background: 'transparent', border: 'none', color: '#804040', cursor: 'pointer', fontSize: 11, flexShrink: 0 }}>✕</button>
@@ -326,17 +326,17 @@ function CaseFinder() {
             <p style={{ fontSize: 9, color: T.mute, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 10 }}>Research Brief</p>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
               {[{ label: 'Area of Law', value: parsed.areaOfLaw }, { label: 'Court Level', value: parsed.courtLevel }].map(item => (
-                <div key={item.label} style={{ background: '#0a0a16', border: '1px solid #12122a', borderRadius: 5, padding: '10px 13px' }}>
+                <div key={item.label} style={{ background: '#ffffff', border: '1px solid #12122a', borderRadius: 5, padding: '10px 13px' }}>
                   <p style={{ fontSize: 8, color: T.mute, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 4 }}>{item.label}</p>
                   <p style={{ fontSize: 13, color: T.text, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.5 }}>{item.value || '—'}</p>
                 </div>
               ))}
             </div>
-            <div style={{ background: '#0a0a16', border: '1px solid #12122a', borderRadius: 5, padding: '10px 13px', marginBottom: 10 }}>
+            <div style={{ background: '#ffffff', border: '1px solid #12122a', borderRadius: 5, padding: '10px 13px', marginBottom: 10 }}>
               <p style={{ fontSize: 8, color: T.mute, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 4 }}>Proposition to establish</p>
               <p style={{ fontSize: 14, color: T.text, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.6, fontStyle: 'italic' }}>{parsed.proposition || '—'}</p>
             </div>
-            <div style={{ background: '#0a0a16', border: '1px solid #12122a', borderRadius: 5, padding: '10px 13px' }}>
+            <div style={{ background: '#ffffff', border: '1px solid #12122a', borderRadius: 5, padding: '10px 13px' }}>
               <p style={{ fontSize: 8, color: T.mute, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 4 }}>The case must hold that</p>
               <p style={{ fontSize: 13, color: T.dim, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.6 }}>{parsed.whatCaseMustDecide || '—'}</p>
             </div>
@@ -365,7 +365,7 @@ function CaseFinder() {
             {allSearches.map((q, i) => (
               <div
                 key={i}
-                style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#080810', border: `1px solid ${copiedIdx === i ? T.text + '44' : '#111120'}`, borderRadius: 6, padding: '12px 14px', marginBottom: 8, transition: 'border-color .15s' }}
+                style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#ffffff', border: `1px solid ${copiedIdx === i ? T.text + '44' : '#eeeeee'}`, borderRadius: 6, padding: '12px 14px', marginBottom: 8, transition: 'border-color .15s' }}
               >
                 <span style={{ fontSize: 10, color: i < parsed.searches.length ? T.text : '#5a7030', fontFamily: "'Times New Roman', Times, serif", fontWeight: 700, minWidth: 20, flexShrink: 0 }}>{i + 1}</span>
                 <p style={{ flex: 1, fontSize: 14, color: T.text, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.5, margin: 0, wordBreak: 'break-word' }}>{q}</p>
@@ -484,7 +484,7 @@ function Resolver() {
           { n: '02', label: 'Add your cases',      desc: 'Paste the ratio from LawPavilion, upload the PDF, or both. One entry per case.' },
           { n: '03', label: 'Get the paragraph',   desc: 'AI rewrites the paragraph with real Nigerian citations in court format.' },
         ].map(step => (
-          <div key={step.n} style={{ background: '#080810', border: '1px solid #111120', borderRadius: 7, padding: '14px 16px' }}>
+          <div key={step.n} style={{ background: '#ffffff', border: '1px solid #111120', borderRadius: 7, padding: '14px 16px' }}>
             <div style={{ fontSize: 9, color: DIM, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.14em', fontWeight: 700, marginBottom: 5 }}>STEP {step.n}</div>
             <div style={{ fontSize: 13, color: T.text, fontFamily: "'Times New Roman', Times, serif", fontWeight: 600, marginBottom: 5 }}>{step.label}</div>
             <div style={{ fontSize: 11, color: T.mute, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.6 }}>{step.desc}</div>
@@ -590,7 +590,7 @@ export function ResearchResolver({ onBack }: Props) {
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, marginBottom: 6 }}>
           <button
             onClick={onBack}
-            style={{ background: 'transparent', border: '1px solid #1e1e2e', color: T.mute, borderRadius: 5, padding: '7px 14px', fontSize: 11, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', marginTop: 6, flexShrink: 0, transition: 'border-color .15s, color .15s' }}
+            style={{ background: 'transparent', border: '1px solid #cccccc', color: T.mute, borderRadius: 5, padding: '7px 14px', fontSize: 11, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', marginTop: 6, flexShrink: 0, transition: 'border-color .15s, color .15s' }}
             onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = '#3a3a52'; (e.currentTarget as HTMLElement).style.color = T.text; }}
             onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = T.bdr; (e.currentTarget as HTMLElement).style.color = T.mute; }}
           >← Back</button>

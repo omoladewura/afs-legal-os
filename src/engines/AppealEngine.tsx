@@ -121,13 +121,13 @@ function copyText(text: string): void {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const iS: React.CSSProperties = {
-  width: '100%', background: '#07070f', border: '1px solid #1e1e2e',
+  width: '100%', background: '#ffffff', border: '1px solid #cccccc',
   borderRadius: 5, color: T.text, padding: '10px 13px', fontSize: 14,
-  fontFamily: "'Cormorant Garamond', serif", outline: 'none', boxSizing: 'border-box',
+  fontFamily: "'Times New Roman', Times, serif", outline: 'none', boxSizing: 'border-box',
 };
 
 const lbS: React.CSSProperties = {
-  fontSize: 9, color: '#5a5a72', fontFamily: 'Inter, sans-serif',
+  fontSize: 9, color: '#5a5a72', fontFamily: "'Times New Roman', Times, serif",
   letterSpacing: '.1em', textTransform: 'uppercase', fontWeight: 600,
   display: 'block', marginBottom: 5,
 };
@@ -138,7 +138,7 @@ const lbS: React.CSSProperties = {
 
 function StepIndicator({ current }: { current: number }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 0, marginBottom: 28, padding: '14px 18px', background: '#07070f', border: '1px solid #181828', borderRadius: 8, overflowX: 'auto' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 0, marginBottom: 28, padding: '14px 18px', background: '#ffffff', border: '1px solid #181828', borderRadius: 8, overflowX: 'auto' }}>
       {AIE_STEPS.map((s, i) => {
         const done   = current > s.id;
         const active = current === s.id;
@@ -148,13 +148,13 @@ function StepIndicator({ current }: { current: number }) {
               <div style={{
                 width: 26, height: 26, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11,
                 background: done ? '#1a1030' : active ? '#0e0818' : '#0d0d18',
-                border: `2px solid ${done ? '#4a2880' : active ? ACC : '#1a1a28'}`,
-                color: done ? ACCL : active ? ACC : '#2a2a3e',
-                fontFamily: 'Inter, sans-serif', fontWeight: 700, transition: 'all .3s', flexShrink: 0,
+                border: `2px solid ${done ? '#4a2880' : active ? ACC : '#cccccc'}`,
+                color: done ? ACCL : active ? ACC : '#cccccc',
+                fontFamily: "'Times New Roman', Times, serif", fontWeight: 700, transition: 'all .3s', flexShrink: 0,
               }}>
                 {done ? '✓' : s.id}
               </div>
-              <span style={{ fontSize: 8, color: done ? ACCL : active ? ACC : '#2a2a3e', fontFamily: 'Inter, sans-serif', letterSpacing: '.06em', textTransform: 'uppercase', textAlign: 'center', lineHeight: 1.25, maxWidth: 58 }}>
+              <span style={{ fontSize: 8, color: done ? ACCL : active ? ACC : '#cccccc', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.06em', textTransform: 'uppercase', textAlign: 'center', lineHeight: 1.25, maxWidth: 58 }}>
                 {s.label}
               </span>
             </div>
@@ -176,8 +176,8 @@ function Spinner({ label }: { label: string }) {
   return (
     <div style={{ textAlign: 'center', padding: '54px 24px' }}>
       <div style={{ width: 32, height: 32, border: `2px solid ${T.bdr}`, borderTop: `2px solid ${ACC}`, borderRadius: '50%', margin: '0 auto 18px', animation: 'spin .9s linear infinite' }} />
-      <p style={{ fontSize: 19, color: T.goldL, fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic' }}>{label}</p>
-      <p style={{ fontSize: 10, color: '#2a2a3e', fontFamily: 'Inter, sans-serif', letterSpacing: '.12em', marginTop: 10 }}>
+      <p style={{ fontSize: 19, color: '#111111', fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic' }}>{label}</p>
+      <p style={{ fontSize: 10, color: '#cccccc', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', marginTop: 10 }}>
         APPEAL INTELLIGENCE ENGINE · SPECTER-LIT STANDARD
       </p>
     </div>
@@ -192,7 +192,7 @@ function ErrBanner({ error }: { error: string }) {
   if (!error) return null;
   return (
     <div style={{ background: '#180808', border: '1px solid #401818', borderRadius: 5, padding: '10px 14px', marginBottom: 14 }}>
-      <p style={{ color: '#c07070', fontSize: 13, fontFamily: 'Inter, sans-serif', lineHeight: 1.5 }}>{error}</p>
+      <p style={{ color: '#c07070', fontSize: 13, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.5 }}>{error}</p>
     </div>
   );
 }
@@ -367,16 +367,16 @@ The specific steps to take right now — in priority order. Deadlines where know
     return (
       <div style={{ animation: 'fadeUp .3s ease' }}>
         <div style={{ marginBottom: 22 }}>
-          <p style={{ fontSize: 10, color: ACC, fontFamily: 'Inter, sans-serif', letterSpacing: '.16em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 4 }}>Step 1 of 5 · Court & Role</p>
-          <h2 style={{ fontSize: 22, color: T.goldL, fontFamily: "'Cormorant Garamond', serif", fontWeight: 300, marginBottom: 6 }}>Configure the Appeal</h2>
-          <p style={{ fontSize: 13, color: T.dim, fontFamily: 'Inter, sans-serif', lineHeight: 1.7 }}>
+          <p style={{ fontSize: 10, color: ACC, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.16em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 4 }}>Step 1 of 5 · Court & Role</p>
+          <h2 style={{ fontSize: 22, color: '#111111', fontFamily: "'Times New Roman', Times, serif", fontWeight: 300, marginBottom: 6 }}>Configure the Appeal</h2>
+          <p style={{ fontSize: 13, color: T.dim, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.7 }}>
             The Appeal Intelligence Engine is a separate reasoning framework from the Trial engine. Select the appellate court and your role — every output is calibrated for appellate procedure and Nigerian appellate practice.
           </p>
         </div>
 
-        <div style={{ background: '#0a0a14', border: `1px solid #281840`, borderLeft: `3px solid ${ACC}`, borderRadius: '0 8px 8px 0', padding: '14px 18px', marginBottom: 22, display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ background: '#ffffff', border: `1px solid #281840`, borderLeft: `3px solid ${ACC}`, borderRadius: '0 8px 8px 0', padding: '14px 18px', marginBottom: 22, display: 'flex', alignItems: 'center', gap: 12 }}>
           <span style={{ fontSize: 18, flexShrink: 0 }}>↑</span>
-          <p style={{ fontSize: 13, color: `${ACC}cc`, fontFamily: "'Cormorant Garamond', serif", lineHeight: 1.65 }}>
+          <p style={{ fontSize: 13, color: `${ACC}cc`, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.65 }}>
             Trial asks: <em>What happened and how do we prove it?</em> Appeal asks: <em>Did the lower court legally arrive at the correct decision?</em> Different question — different engine.
           </p>
         </div>
@@ -390,11 +390,11 @@ The specific steps to take right now — in priority order. Deadlines where know
               { id: 'Supreme Court',   icon: '★', sub: 'Final appellate court',  desc: 'Appeals from the Court of Appeal. 5 or 7 Justices. The final word on Nigerian law. Supreme Court Rules 2014.' },
             ].map(ct => (
               <button key={ct.id} onClick={() => setAppealCourt(ct.id)}
-                style={{ background: appealCourt === ct.id ? '#0e0818' : '#07070f', border: `1.5px solid ${appealCourt === ct.id ? ACC : '#1a1a2a'}`, borderRadius: 9, padding: '18px', cursor: 'pointer', textAlign: 'left', transition: 'all .18s' }}>
+                style={{ background: appealCourt === ct.id ? '#0e0818' : '#ffffff', border: `1.5px solid ${appealCourt === ct.id ? ACC : '#1a1a2a'}`, borderRadius: 9, padding: '18px', cursor: 'pointer', textAlign: 'left', transition: 'all .18s' }}>
                 <div style={{ fontSize: 20, marginBottom: 7 }}>{ct.icon}</div>
-                <div style={{ fontSize: 13, color: appealCourt === ct.id ? ACCL : '#6a6a88', fontFamily: 'Inter, sans-serif', fontWeight: 600, letterSpacing: '.04em', marginBottom: 3 }}>{ct.id}</div>
-                <div style={{ fontSize: 9, color: appealCourt === ct.id ? ACC + '99' : '#2a2a3e', fontFamily: 'Inter, sans-serif', letterSpacing: '.08em', textTransform: 'uppercase', marginBottom: 8 }}>{ct.sub}</div>
-                <p style={{ fontSize: 11, color: T.mute, fontFamily: 'Inter, sans-serif', lineHeight: 1.55 }}>{ct.desc}</p>
+                <div style={{ fontSize: 13, color: appealCourt === ct.id ? ACCL : '#6a6a88', fontFamily: "'Times New Roman', Times, serif", fontWeight: 600, letterSpacing: '.04em', marginBottom: 3 }}>{ct.id}</div>
+                <div style={{ fontSize: 9, color: appealCourt === ct.id ? ACC + '99' : '#cccccc', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.08em', textTransform: 'uppercase', marginBottom: 8 }}>{ct.sub}</div>
+                <p style={{ fontSize: 11, color: T.mute, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.55 }}>{ct.desc}</p>
               </button>
             ))}
           </div>
@@ -409,11 +409,11 @@ The specific steps to take right now — in priority order. Deadlines where know
               { id: 'Respondent', icon: '↓', sub: 'They are appealing', desc: 'We defend the judgment. We file the Respondent\'s Brief. We may also cross-appeal if we lost on some grounds. The lower court\'s decision is presumed correct.' },
             ].map(r => (
               <button key={r.id} onClick={() => setAppealRole(r.id)}
-                style={{ background: appealRole === r.id ? '#0e0818' : '#07070f', border: `1.5px solid ${appealRole === r.id ? ACC : '#1a1a2a'}`, borderRadius: 9, padding: '18px', cursor: 'pointer', textAlign: 'left', transition: 'all .18s' }}>
+                style={{ background: appealRole === r.id ? '#0e0818' : '#ffffff', border: `1.5px solid ${appealRole === r.id ? ACC : '#1a1a2a'}`, borderRadius: 9, padding: '18px', cursor: 'pointer', textAlign: 'left', transition: 'all .18s' }}>
                 <div style={{ fontSize: 20, marginBottom: 7 }}>{r.icon}</div>
-                <div style={{ fontSize: 13, color: appealRole === r.id ? ACCL : '#6a6a88', fontFamily: 'Inter, sans-serif', fontWeight: 600, letterSpacing: '.04em', marginBottom: 3 }}>{r.id}</div>
-                <div style={{ fontSize: 9, color: appealRole === r.id ? ACC + '99' : '#2a2a3e', fontFamily: 'Inter, sans-serif', letterSpacing: '.08em', textTransform: 'uppercase', marginBottom: 8 }}>{r.sub}</div>
-                <p style={{ fontSize: 11, color: T.mute, fontFamily: 'Inter, sans-serif', lineHeight: 1.55 }}>{r.desc}</p>
+                <div style={{ fontSize: 13, color: appealRole === r.id ? ACCL : '#6a6a88', fontFamily: "'Times New Roman', Times, serif", fontWeight: 600, letterSpacing: '.04em', marginBottom: 3 }}>{r.id}</div>
+                <div style={{ fontSize: 9, color: appealRole === r.id ? ACC + '99' : '#cccccc', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.08em', textTransform: 'uppercase', marginBottom: 8 }}>{r.sub}</div>
+                <p style={{ fontSize: 11, color: T.mute, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.55 }}>{r.desc}</p>
               </button>
             ))}
           </div>
@@ -430,7 +430,7 @@ The specific steps to take right now — in priority order. Deadlines where know
         <button
           onClick={() => { if (!canProceed) { setError('Select the appellate court and our role to continue.'); return; } setStage(2); setError(''); persist({ appealCourt, appealRole, lowerCourt, aStage: 2 }); }}
           disabled={!canProceed}
-          style={{ background: canProceed ? `linear-gradient(135deg,${ACC},#6030b0)` : '#101018', color: canProceed ? '#f0ecff' : '#2a2a38', border: 'none', borderRadius: 6, padding: '14px', fontSize: 17, fontFamily: "'Cormorant Garamond', serif", cursor: canProceed ? 'pointer' : 'not-allowed', width: '100%', fontWeight: 600, letterSpacing: '.04em' }}>
+          style={{ background: canProceed ? `linear-gradient(135deg,${ACC},#6030b0)` : '#101018', color: canProceed ? '#f0ecff' : '#2a2a38', border: 'none', borderRadius: 6, padding: '14px', fontSize: 17, fontFamily: "'Times New Roman', Times, serif", cursor: canProceed ? 'pointer' : 'not-allowed', width: '100%', fontWeight: 600, letterSpacing: '.04em' }}>
           Enter Lower Court Record →
         </button>
       </div>
@@ -446,9 +446,9 @@ The specific steps to take right now — in priority order. Deadlines where know
     return (
       <div style={{ animation: 'fadeUp .3s ease' }}>
         <div style={{ marginBottom: 20 }}>
-          <p style={{ fontSize: 10, color: ACC, fontFamily: 'Inter, sans-serif', letterSpacing: '.16em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 4 }}>Step 2 of 5 · Lower Court Record</p>
-          <h2 style={{ fontSize: 22, color: T.goldL, fontFamily: "'Cormorant Garamond', serif", fontWeight: 300, marginBottom: 6 }}>Enter the Lower Court Record</h2>
-          <p style={{ fontSize: 13, color: T.dim, fontFamily: 'Inter, sans-serif', lineHeight: 1.7 }}>
+          <p style={{ fontSize: 10, color: ACC, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.16em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 4 }}>Step 2 of 5 · Lower Court Record</p>
+          <h2 style={{ fontSize: 22, color: '#111111', fontFamily: "'Times New Roman', Times, serif", fontWeight: 300, marginBottom: 6 }}>Enter the Lower Court Record</h2>
+          <p style={{ fontSize: 13, color: T.dim, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.7 }}>
             Summarise the judgment or ruling being appealed — what the court decided, the reasoning, the orders made, and the errors you identify.
           </p>
         </div>
@@ -456,16 +456,16 @@ The specific steps to take right now — in priority order. Deadlines where know
         {/* Context strip */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 18, paddingBottom: 14, borderBottom: '1px solid #131320' }}>
           {[appealCourt, appealRole].map(tag => (
-            <span key={tag} style={{ background: '#0e0818', border: `1px solid ${ACC}44`, borderRadius: 3, padding: '2px 9px', fontSize: 9, color: ACC, fontFamily: 'Inter, sans-serif', letterSpacing: '.1em', textTransform: 'uppercase', fontWeight: 600 }}>{tag}</span>
+            <span key={tag} style={{ background: '#0e0818', border: `1px solid ${ACC}44`, borderRadius: 3, padding: '2px 9px', fontSize: 9, color: ACC, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.1em', textTransform: 'uppercase', fontWeight: 600 }}>{tag}</span>
           ))}
-          {lowerCourt && <span style={{ fontSize: 11, color: T.mute, fontFamily: 'Inter, sans-serif' }}>from {lowerCourt}</span>}
-          <span style={{ fontSize: 11, color: T.dim, fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic' }}>{activeCase.caseName}</span>
+          {lowerCourt && <span style={{ fontSize: 11, color: T.mute, fontFamily: "'Times New Roman', Times, serif" }}>from {lowerCourt}</span>}
+          <span style={{ fontSize: 11, color: T.dim, fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic' }}>{activeCase.caseName}</span>
         </div>
 
         {/* Judgment Summary */}
         <div style={{ background: '#0d0d18', border: `1px solid #281840`, borderLeft: `3px solid ${ACC}`, borderRadius: '0 8px 8px 0', padding: '20px 22px', marginBottom: 14 }}>
           <label style={lbS}>Judgment / Ruling Summary <span style={{ color: '#b06060' }}>*</span></label>
-          <p style={{ fontSize: 11, color: T.mute, fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic', marginBottom: 10, lineHeight: 1.65 }}>
+          <p style={{ fontSize: 11, color: T.mute, fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic', marginBottom: 10, lineHeight: 1.65 }}>
             What did the lower court decide? Include the issues before it, the decisions on each issue, the orders made, the reasoning given, the date of judgment, and what you believe the court got wrong.
           </p>
           <textarea
@@ -474,17 +474,17 @@ The specific steps to take right now — in priority order. Deadlines where know
             style={{ ...iS, resize: 'vertical', lineHeight: 1.85, minHeight: 280, fontSize: 15 }}
           />
           <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
-            <span style={{ fontSize: 10, color: judgmentSummary.length < 80 ? '#804040' : T.mute, fontFamily: 'Inter, sans-serif' }}>
+            <span style={{ fontSize: 10, color: judgmentSummary.length < 80 ? '#804040' : T.mute, fontFamily: "'Times New Roman', Times, serif" }}>
               {judgmentSummary.length} characters{judgmentSummary.length < 80 ? ' · minimum 80' : ''}
             </span>
-            <span style={{ fontSize: 10, color: T.mute, fontFamily: 'Inter, sans-serif', letterSpacing: '.04em' }}>More detail = sharper grounds</span>
+            <span style={{ fontSize: 10, color: T.mute, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.04em' }}>More detail = sharper grounds</span>
           </div>
         </div>
 
         {/* What Was Argued Below */}
         <div style={{ background: '#0d0d18', border: '1px solid #181828', borderRadius: 8, padding: '20px 22px', marginBottom: 14 }}>
           <label style={lbS}>What Was Argued Below</label>
-          <p style={{ fontSize: 11, color: T.mute, fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic', marginBottom: 10, lineHeight: 1.65 }}>
+          <p style={{ fontSize: 11, color: T.mute, fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic', marginBottom: 10, lineHeight: 1.65 }}>
             Essential for cross-level tracking. What arguments, issues, objections, and points were raised at the lower court?
           </p>
           <textarea
@@ -496,9 +496,9 @@ The specific steps to take right now — in priority order. Deadlines where know
 
         <ErrBanner error={error} />
         <div style={{ display: 'flex', gap: 10 }}>
-          <button onClick={() => goBack(1)} style={{ background: 'transparent', border: '1px solid #1e1e2e', color: T.mute, borderRadius: 5, padding: '12px 20px', fontSize: 13, fontFamily: 'Inter, sans-serif', cursor: 'pointer', letterSpacing: '.04em' }}>← Reconfigure</button>
+          <button onClick={() => goBack(1)} style={{ background: 'transparent', border: '1px solid #cccccc', color: T.mute, borderRadius: 5, padding: '12px 20px', fontSize: 13, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', letterSpacing: '.04em' }}>← Reconfigure</button>
           <button onClick={runExtraction} disabled={!canExtract}
-            style={{ flex: 1, background: canExtract ? `linear-gradient(135deg,${ACC},#6030b0)` : '#101018', color: canExtract ? '#f0ecff' : '#2a2a38', border: 'none', borderRadius: 6, padding: '13px', fontSize: 17, fontFamily: "'Cormorant Garamond', serif", cursor: canExtract ? 'pointer' : 'not-allowed', fontWeight: 600, letterSpacing: '.04em', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+            style={{ flex: 1, background: canExtract ? `linear-gradient(135deg,${ACC},#6030b0)` : '#101018', color: canExtract ? '#f0ecff' : '#2a2a38', border: 'none', borderRadius: 6, padding: '13px', fontSize: 17, fontFamily: "'Times New Roman', Times, serif", cursor: canExtract ? 'pointer' : 'not-allowed', fontWeight: 600, letterSpacing: '.04em', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
             {loading
               ? <><span style={{ width: 14, height: 14, border: `2px solid #2a1a50`, borderTop: `2px solid ${ACCL}`, borderRadius: '50%', display: 'inline-block', animation: 'spin .8s linear infinite' }} />Extracting Appellate Intelligence…</>
               : 'Extract Appellate Intelligence →'}
@@ -529,18 +529,18 @@ The specific steps to take right now — in priority order. Deadlines where know
     return (
       <div style={{ animation: 'fadeUp .3s ease' }}>
         <div style={{ marginBottom: 18 }}>
-          <p style={{ fontSize: 10, color: ACCL, fontFamily: 'Inter, sans-serif', letterSpacing: '.16em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 4 }}>Steps 3–4 of 5 · Extraction + Cross-Level Complete</p>
-          <h2 style={{ fontSize: 22, color: T.goldL, fontFamily: "'Cormorant Garamond', serif", fontWeight: 300, marginBottom: 4 }}>Appellate Intelligence Extracted</h2>
-          <p style={{ fontSize: 13, color: T.dim, fontFamily: 'Inter, sans-serif', lineHeight: 1.6 }}>Review the extracted grounds, cross-level tracking, and procedural risks. When ready, generate the full Package.</p>
+          <p style={{ fontSize: 10, color: ACCL, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.16em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 4 }}>Steps 3–4 of 5 · Extraction + Cross-Level Complete</p>
+          <h2 style={{ fontSize: 22, color: '#111111', fontFamily: "'Times New Roman', Times, serif", fontWeight: 300, marginBottom: 4 }}>Appellate Intelligence Extracted</h2>
+          <p style={{ fontSize: 13, color: T.dim, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.6 }}>Review the extracted grounds, cross-level tracking, and procedural risks. When ready, generate the full Package.</p>
         </div>
 
         {/* What Was Decided */}
         {(extraction.what_was_decided?.length > 0) && (
           <div style={{ background: '#0d0d18', border: '1px solid #181828', borderRadius: 8, padding: '16px 18px', marginBottom: 12 }}>
-            <p style={{ fontSize: 9, color: T.mute, fontFamily: 'Inter, sans-serif', letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 10 }}>What the Lower Court Decided</p>
+            <p style={{ fontSize: 9, color: T.mute, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 10 }}>What the Lower Court Decided</p>
             <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
               {extraction.what_was_decided.map((d, i) => (
-                <li key={i} style={{ fontSize: 14, color: T.sub, fontFamily: "'Cormorant Garamond', serif", lineHeight: 1.7, marginBottom: 6, paddingLeft: 16, position: 'relative' }}>
+                <li key={i} style={{ fontSize: 14, color: T.sub, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.7, marginBottom: 6, paddingLeft: 16, position: 'relative' }}>
                   <span style={{ position: 'absolute', left: 0, color: T.mute, fontSize: 9, top: 3 }}>◦</span>{d}
                 </li>
               ))}
@@ -551,15 +551,15 @@ The specific steps to take right now — in priority order. Deadlines where know
         {/* Grounds */}
         {(extraction.grounds_identified?.length > 0) && (
           <div style={{ background: '#0d0d18', border: `1px solid #281840`, borderLeft: `3px solid ${ACC}`, borderRadius: '0 8px 8px 0', padding: '18px 20px', marginBottom: 12 }}>
-            <p style={{ fontSize: 9, color: ACC, fontFamily: 'Inter, sans-serif', letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 14 }}>Grounds of Appeal Identified</p>
+            <p style={{ fontSize: 9, color: ACC, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 14 }}>Grounds of Appeal Identified</p>
             {extraction.grounds_identified.map((g, i) => {
               const sc = STR_C[g.strength] ?? STR_C.ARGUABLE;
               return (
                 <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 14, paddingBottom: 14, borderBottom: i < extraction.grounds_identified.length - 1 ? '1px solid #131320' : 'none' }}>
-                  <span style={{ background: sc.bg, border: `1px solid ${sc.bdr}`, color: sc.col, fontSize: 8, padding: '3px 7px', borderRadius: 2, fontFamily: 'Inter, sans-serif', letterSpacing: '.06em', fontWeight: 600, flexShrink: 0, marginTop: 3, whiteSpace: 'nowrap' }}>{g.strength}</span>
+                  <span style={{ background: sc.bg, border: `1px solid ${sc.bdr}`, color: sc.col, fontSize: 8, padding: '3px 7px', borderRadius: 2, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.06em', fontWeight: 600, flexShrink: 0, marginTop: 3, whiteSpace: 'nowrap' }}>{g.strength}</span>
                   <div style={{ flex: 1 }}>
-                    <p style={{ fontSize: 14, color: T.text, fontFamily: "'Cormorant Garamond', serif", lineHeight: 1.65, marginBottom: 3 }}>{g.ground}</p>
-                    {g.basis && <p style={{ fontSize: 11, color: T.mute, fontFamily: 'Inter, sans-serif', lineHeight: 1.5, fontStyle: 'italic' }}>{g.basis}</p>}
+                    <p style={{ fontSize: 14, color: T.text, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.65, marginBottom: 3 }}>{g.ground}</p>
+                    {g.basis && <p style={{ fontSize: 11, color: T.mute, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.5, fontStyle: 'italic' }}>{g.basis}</p>}
                   </div>
                 </div>
               );
@@ -570,10 +570,10 @@ The specific steps to take right now — in priority order. Deadlines where know
         {/* Issues for Determination */}
         {(extraction.issues_for_determination?.length > 0) && (
           <div style={{ background: '#0e0818', border: `1px solid #281840`, borderRadius: 8, padding: '16px 18px', marginBottom: 12 }}>
-            <p style={{ fontSize: 9, color: ACC, fontFamily: 'Inter, sans-serif', letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 10 }}>Issues for Determination</p>
+            <p style={{ fontSize: 9, color: ACC, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 10 }}>Issues for Determination</p>
             <ol style={{ margin: 0, padding: '0 0 0 22px', listStyleType: 'decimal' }}>
               {extraction.issues_for_determination.map((issue, i) => (
-                <li key={i} style={{ fontSize: 14, color: T.sub, fontFamily: "'Cormorant Garamond', serif", lineHeight: 1.75, marginBottom: 6 }}>{issue}</li>
+                <li key={i} style={{ fontSize: 14, color: T.sub, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.75, marginBottom: 6 }}>{issue}</li>
               ))}
             </ol>
           </div>
@@ -583,10 +583,10 @@ The specific steps to take right now — in priority order. Deadlines where know
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
           {(extraction.preserved_points?.length > 0) && (
             <div style={{ background: '#071810', border: '1px solid #1a4028', borderRadius: 8, padding: '16px 18px' }}>
-              <p style={{ fontSize: 9, color: '#40b068', fontFamily: 'Inter, sans-serif', letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 10 }}>✓ Preserved for Appeal</p>
+              <p style={{ fontSize: 9, color: '#40b068', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 10 }}>✓ Preserved for Appeal</p>
               <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
                 {extraction.preserved_points.map((p, i) => (
-                  <li key={i} style={{ fontSize: 13, color: T.sub, fontFamily: "'Cormorant Garamond', serif", lineHeight: 1.7, marginBottom: 5, paddingLeft: 14, position: 'relative' }}>
+                  <li key={i} style={{ fontSize: 13, color: T.sub, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.7, marginBottom: 5, paddingLeft: 14, position: 'relative' }}>
                     <span style={{ position: 'absolute', left: 0, color: '#40b068', fontSize: 8, top: 4 }}>●</span>{p}
                   </li>
                 ))}
@@ -595,10 +595,10 @@ The specific steps to take right now — in priority order. Deadlines where know
           )}
           {(extraction.abandoned_points?.length > 0) && (
             <div style={{ background: '#180808', border: '1px solid #401818', borderRadius: 8, padding: '16px 18px' }}>
-              <p style={{ fontSize: 9, color: '#c05050', fontFamily: 'Inter, sans-serif', letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 10 }}>✗ Abandoned / Not Preserved</p>
+              <p style={{ fontSize: 9, color: '#c05050', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 10 }}>✗ Abandoned / Not Preserved</p>
               <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
                 {extraction.abandoned_points.map((p, i) => (
-                  <li key={i} style={{ fontSize: 13, color: T.sub, fontFamily: "'Cormorant Garamond', serif", lineHeight: 1.7, marginBottom: 5, paddingLeft: 14, position: 'relative' }}>
+                  <li key={i} style={{ fontSize: 13, color: T.sub, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.7, marginBottom: 5, paddingLeft: 14, position: 'relative' }}>
                     <span style={{ position: 'absolute', left: 0, color: '#c05050', fontSize: 8, top: 4 }}>●</span>{p}
                   </li>
                 ))}
@@ -610,10 +610,10 @@ The specific steps to take right now — in priority order. Deadlines where know
         {/* Record Inconsistencies */}
         {(extraction.record_inconsistencies?.length > 0) && (
           <div style={{ background: '#1a1400', border: '1px solid #3a3000', borderRadius: 8, padding: '16px 18px', marginBottom: 12 }}>
-            <p style={{ fontSize: 9, color: '#b08020', fontFamily: 'Inter, sans-serif', letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 10 }}>⚑ Record Inconsistencies</p>
+            <p style={{ fontSize: 9, color: '#b08020', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 10 }}>⚑ Record Inconsistencies</p>
             <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
               {extraction.record_inconsistencies.map((r, i) => (
-                <li key={i} style={{ fontSize: 13, color: T.sub, fontFamily: "'Cormorant Garamond', serif", lineHeight: 1.7, marginBottom: 5, paddingLeft: 16, position: 'relative' }}>
+                <li key={i} style={{ fontSize: 13, color: T.sub, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.7, marginBottom: 5, paddingLeft: 16, position: 'relative' }}>
                   <span style={{ position: 'absolute', left: 0, color: '#b08020', fontSize: 9, top: 2 }}>!</span>{r}
                 </li>
               ))}
@@ -624,26 +624,26 @@ The specific steps to take right now — in priority order. Deadlines where know
         {/* Limitation */}
         {extraction.limitation_analysis && (
           <div style={{ background: '#120a00', border: '1px solid #3a2800', borderRadius: 8, padding: '16px 18px', marginBottom: 12 }}>
-            <p style={{ fontSize: 9, color: '#c08030', fontFamily: 'Inter, sans-serif', letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 8 }}>⏱ Limitation & Filing Window</p>
-            <p style={{ fontSize: 14, color: T.sub, fontFamily: "'Cormorant Garamond', serif", lineHeight: 1.75 }}>{extraction.limitation_analysis}</p>
+            <p style={{ fontSize: 9, color: '#c08030', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 8 }}>⏱ Limitation & Filing Window</p>
+            <p style={{ fontSize: 14, color: T.sub, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.75 }}>{extraction.limitation_analysis}</p>
           </div>
         )}
 
         {/* Cross-Appeal */}
         {extraction.cross_appeal_potential && (
           <div style={{ background: '#0e0818', border: `1px solid #281840`, borderRadius: 8, padding: '16px 18px', marginBottom: 12 }}>
-            <p style={{ fontSize: 9, color: ACC, fontFamily: 'Inter, sans-serif', letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 8 }}>Cross-Appeal Analysis</p>
-            <p style={{ fontSize: 14, color: T.sub, fontFamily: "'Cormorant Garamond', serif", lineHeight: 1.75 }}>{extraction.cross_appeal_potential}</p>
+            <p style={{ fontSize: 9, color: ACC, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 8 }}>Cross-Appeal Analysis</p>
+            <p style={{ fontSize: 14, color: T.sub, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.75 }}>{extraction.cross_appeal_potential}</p>
           </div>
         )}
 
         {/* Preliminary Objection Risks */}
         {(extraction.preliminary_objection_risks?.length > 0) && (
           <div style={{ background: '#0d0d18', border: '1px solid #181828', borderRadius: 8, padding: '16px 18px', marginBottom: 12 }}>
-            <p style={{ fontSize: 9, color: '#c06040', fontFamily: 'Inter, sans-serif', letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 10 }}>Preliminary Objection Exposure</p>
+            <p style={{ fontSize: 9, color: '#c06040', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 10 }}>Preliminary Objection Exposure</p>
             <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
               {extraction.preliminary_objection_risks.map((p, i) => (
-                <li key={i} style={{ fontSize: 13, color: T.sub, fontFamily: "'Cormorant Garamond', serif", lineHeight: 1.7, marginBottom: 5, paddingLeft: 16, position: 'relative' }}>
+                <li key={i} style={{ fontSize: 13, color: T.sub, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.7, marginBottom: 5, paddingLeft: 16, position: 'relative' }}>
                   <span style={{ position: 'absolute', left: 0, color: '#c06040', fontSize: 9, top: 2 }}>⚠</span>{p}
                 </li>
               ))}
@@ -654,14 +654,14 @@ The specific steps to take right now — in priority order. Deadlines where know
         {/* Procedural Risks */}
         {(extraction.procedural_risks?.length > 0) && (
           <div style={{ background: '#0d0d18', border: '1px solid #181828', borderRadius: 8, padding: '16px 20px', marginBottom: 14 }}>
-            <p style={{ fontSize: 9, color: '#c05050', fontFamily: 'Inter, sans-serif', letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 12 }}>Procedural Risks</p>
+            <p style={{ fontSize: 9, color: '#c05050', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 12 }}>Procedural Risks</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {extraction.procedural_risks.map((r, i) => {
                 const rc = SEV_C[r.severity] ?? SEV_C.MEDIUM;
                 return (
                   <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-                    <span style={{ background: rc.bg, border: `1px solid ${rc.bdr}`, color: rc.col, fontSize: 8, padding: '2px 6px', borderRadius: 2, fontFamily: 'Inter, sans-serif', letterSpacing: '.06em', fontWeight: 600, flexShrink: 0, marginTop: 2 }}>{r.severity}</span>
-                    <span style={{ fontSize: 13, color: T.sub, fontFamily: "'Cormorant Garamond', serif", lineHeight: 1.65 }}>{r.risk}</span>
+                    <span style={{ background: rc.bg, border: `1px solid ${rc.bdr}`, color: rc.col, fontSize: 8, padding: '2px 6px', borderRadius: 2, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.06em', fontWeight: 600, flexShrink: 0, marginTop: 2 }}>{r.severity}</span>
+                    <span style={{ fontSize: 13, color: T.sub, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.65 }}>{r.risk}</span>
                   </div>
                 );
               })}
@@ -671,9 +671,9 @@ The specific steps to take right now — in priority order. Deadlines where know
 
         <ErrBanner error={error} />
         <div style={{ display: 'flex', gap: 10 }}>
-          <button onClick={() => goBack(2)} style={{ background: 'transparent', border: '1px solid #1e1e2e', color: T.mute, borderRadius: 5, padding: '12px 20px', fontSize: 13, fontFamily: 'Inter, sans-serif', cursor: 'pointer', letterSpacing: '.04em' }}>← Edit Record</button>
+          <button onClick={() => goBack(2)} style={{ background: 'transparent', border: '1px solid #cccccc', color: T.mute, borderRadius: 5, padding: '12px 20px', fontSize: 13, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', letterSpacing: '.04em' }}>← Edit Record</button>
           <button onClick={generatePackage} disabled={loading}
-            style={{ flex: 1, background: loading ? '#101018' : `linear-gradient(135deg,${ACC},#6030b0)`, color: loading ? '#2a2a38' : '#f0ecff', border: 'none', borderRadius: 6, padding: '13px', fontSize: 17, fontFamily: "'Cormorant Garamond', serif", cursor: loading ? 'not-allowed' : 'pointer', fontWeight: 600, letterSpacing: '.04em', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+            style={{ flex: 1, background: loading ? '#101018' : `linear-gradient(135deg,${ACC},#6030b0)`, color: loading ? '#2a2a38' : '#f0ecff', border: 'none', borderRadius: 6, padding: '13px', fontSize: 17, fontFamily: "'Times New Roman', Times, serif", cursor: loading ? 'not-allowed' : 'pointer', fontWeight: 600, letterSpacing: '.04em', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
             {loading
               ? <><span style={{ width: 14, height: 14, border: `2px solid #2a1a50`, borderTop: `2px solid ${ACCL}`, borderRadius: '50%', display: 'inline-block', animation: 'spin .8s linear infinite' }} />Generating Appellate Package…</>
               : 'Generate Appellate Intelligence Package →'}
@@ -693,29 +693,29 @@ The specific steps to take right now — in priority order. Deadlines where know
       <div style={{ animation: 'fadeUp .3s ease' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, marginBottom: 20, flexWrap: 'wrap' }}>
           <div style={{ flex: 1 }}>
-            <p style={{ fontSize: 10, color: ACCL, fontFamily: 'Inter, sans-serif', letterSpacing: '.16em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 4 }}>Step 5 of 5 · Complete · Saved to Case</p>
-            <h2 style={{ fontSize: 22, color: T.goldL, fontFamily: "'Cormorant Garamond', serif", fontWeight: 300, marginBottom: 4 }}>Appellate Intelligence Package</h2>
+            <p style={{ fontSize: 10, color: ACCL, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.16em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 4 }}>Step 5 of 5 · Complete · Saved to Case</p>
+            <h2 style={{ fontSize: 22, color: '#111111', fontFamily: "'Times New Roman', Times, serif", fontWeight: 300, marginBottom: 4 }}>Appellate Intelligence Package</h2>
           </div>
           <div style={{ display: 'flex', gap: 8, flexShrink: 0, flexWrap: 'wrap' }}>
             <button onClick={() => { copyText(intPkg); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
-              style={{ background: 'transparent', border: '1px solid #2a2208', color: copied ? '#40b068' : T.mute, borderRadius: 4, padding: '7px 14px', fontSize: 11, fontFamily: 'Inter, sans-serif', cursor: 'pointer', letterSpacing: '.04em', transition: 'color .2s' }}>
+              style={{ background: 'transparent', border: '1px solid #2a2208', color: copied ? '#40b068' : T.mute, borderRadius: 4, padding: '7px 14px', fontSize: 11, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', letterSpacing: '.04em', transition: 'color .2s' }}>
               {copied ? '✓ Copied' : 'Copy All'}
             </button>
-            <button onClick={() => goBack(3)} style={{ background: 'transparent', border: '1px solid #1e1e2e', color: T.mute, borderRadius: 4, padding: '7px 14px', fontSize: 11, fontFamily: 'Inter, sans-serif', cursor: 'pointer' }}>← Extraction</button>
-            <button onClick={resetPipeline} style={{ background: 'transparent', border: '1px solid #3a1818', color: '#804040', borderRadius: 4, padding: '7px 14px', fontSize: 11, fontFamily: 'Inter, sans-serif', cursor: 'pointer', letterSpacing: '.04em' }}>↺ Reset</button>
+            <button onClick={() => goBack(3)} style={{ background: 'transparent', border: '1px solid #cccccc', color: T.mute, borderRadius: 4, padding: '7px 14px', fontSize: 11, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer' }}>← Extraction</button>
+            <button onClick={resetPipeline} style={{ background: 'transparent', border: '1px solid #3a1818', color: '#804040', borderRadius: 4, padding: '7px 14px', fontSize: 11, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', letterSpacing: '.04em' }}>↺ Reset</button>
           </div>
         </div>
 
         {intPkg && (
-          <div style={{ background: '#0a0a14', border: `1px solid ${ACC}33`, borderRadius: 10, padding: '26px 28px', marginBottom: 14 }}>
+          <div style={{ background: '#ffffff', border: `1px solid ${ACC}33`, borderRadius: 10, padding: '26px 28px', marginBottom: 14 }}>
             {/* Package header strip */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18, paddingBottom: 14, borderBottom: '1px solid #131320', flexWrap: 'wrap' }}>
               {[appealCourt, appealRole].map(tag => (
-                <span key={tag} style={{ background: '#0e0818', border: `1px solid ${ACC}44`, borderRadius: 3, padding: '2px 9px', fontSize: 9, color: ACC, fontFamily: 'Inter, sans-serif', letterSpacing: '.1em', textTransform: 'uppercase', fontWeight: 600 }}>{tag}</span>
+                <span key={tag} style={{ background: '#0e0818', border: `1px solid ${ACC}44`, borderRadius: 3, padding: '2px 9px', fontSize: 9, color: ACC, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.1em', textTransform: 'uppercase', fontWeight: 600 }}>{tag}</span>
               ))}
-              {lowerCourt && <span style={{ fontSize: 10, color: T.mute, fontFamily: 'Inter, sans-serif' }}>from {lowerCourt}</span>}
-              <span style={{ fontSize: 12, color: T.dim, fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic', flex: 1, minWidth: 0 }}>{activeCase.caseName}</span>
-              <span style={{ fontSize: 10, color: '#2a2a3e', fontFamily: 'Inter, sans-serif', flexShrink: 0 }}>
+              {lowerCourt && <span style={{ fontSize: 10, color: T.mute, fontFamily: "'Times New Roman', Times, serif" }}>from {lowerCourt}</span>}
+              <span style={{ fontSize: 12, color: T.dim, fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic', flex: 1, minWidth: 0 }}>{activeCase.caseName}</span>
+              <span style={{ fontSize: 10, color: '#cccccc', fontFamily: "'Times New Roman', Times, serif", flexShrink: 0 }}>
                 {new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
               </span>
             </div>
@@ -724,7 +724,7 @@ The specific steps to take right now — in priority order. Deadlines where know
         )}
 
         <ErrBanner error={error} />
-        <p style={{ fontSize: 11, color: '#1e1e2a', textAlign: 'center', fontFamily: 'Inter, sans-serif', lineHeight: 1.8, marginTop: 16 }}>
+        <p style={{ fontSize: 11, color: '#1e1e2a', textAlign: 'center', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.8, marginTop: 16 }}>
           Appeal Intelligence Engine · Package saved to case · All analysis is advisory — the lawyer decides.
         </p>
       </div>
@@ -740,16 +740,16 @@ The specific steps to take right now — in priority order. Deadlines where know
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 22, flexWrap: 'wrap' }}>
         <div style={{ flex: 1 }}>
-          <p style={{ fontSize: 9, color: T.mute, letterSpacing: '.18em', textTransform: 'uppercase', fontFamily: 'Inter, sans-serif', marginBottom: 5 }}>
+          <p style={{ fontSize: 9, color: T.mute, letterSpacing: '.18em', textTransform: 'uppercase', fontFamily: "'Times New Roman', Times, serif", marginBottom: 5 }}>
             AFS Advocates · Appeal Intelligence Engine · Step 5
           </p>
-          <h1 style={{ fontSize: 26, color: T.goldL, fontWeight: 300, fontFamily: "'Cormorant Garamond', serif", letterSpacing: '.02em' }}>
+          <h1 style={{ fontSize: 26, color: '#111111', fontWeight: 300, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.02em' }}>
             Appeal Intelligence Engine
           </h1>
         </div>
         {(stage > 1 || judgmentSummary.trim()) && (
           <button onClick={resetPipeline}
-            style={{ background: 'transparent', border: '1px solid #2a1a40', color: '#6a3090', borderRadius: 4, padding: '6px 13px', fontSize: 10, fontFamily: 'Inter, sans-serif', cursor: 'pointer', letterSpacing: '.06em', flexShrink: 0 }}>
+            style={{ background: 'transparent', border: '1px solid #2a1a40', color: '#6a3090', borderRadius: 4, padding: '6px 13px', fontSize: 10, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', letterSpacing: '.06em', flexShrink: 0 }}>
             ↺ Reset Pipeline
           </button>
         )}

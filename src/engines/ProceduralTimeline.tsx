@@ -109,19 +109,19 @@ function StageCard({
     ? '#071a0e'
     : stage.state === 'current'
       ? `${accent}22`
-      : '#07070f';
+      : '#ffffff';
 
   const cardBg = stage.state === 'current'
     ? roleBg
     : stage.state === 'completed'
       ? '#07090a'
-      : '#07070f';
+      : '#ffffff';
 
   const cardBdr = stage.state === 'current'
     ? roleBdr
     : stage.state === 'completed'
       ? '#0e1a14'
-      : '#111120';
+      : '#eeeeee';
 
   const labelColor = stage.state === 'completed'
     ? '#2e6a48'
@@ -133,7 +133,7 @@ function StageCard({
     ? T.sub
     : stage.state === 'completed'
       ? '#304040'
-      : '#1e1e2e';
+      : '#cccccc';
 
   return (
     <div style={{ display: 'flex', gap: 0, position: 'relative' }}>
@@ -167,7 +167,7 @@ function StageCard({
             width: 1,
             background: stage.state === 'completed'
               ? 'linear-gradient(180deg,#1a3028,#111120)'
-              : '#111120',
+              : '#eeeeee',
             marginTop: 4,
             minHeight: 24,
           }} />
@@ -193,7 +193,7 @@ function StageCard({
           }}
           onMouseEnter={e => {
             if (stage.state !== 'current') {
-              (e.currentTarget as HTMLDivElement).style.borderColor = '#1e1e2e';
+              (e.currentTarget as HTMLDivElement).style.borderColor = '#cccccc';
             }
           }}
           onMouseLeave={e => {
@@ -207,7 +207,7 @@ function StageCard({
             <span style={{
               fontSize: stage.state === 'current' ? 15 : 13,
               color: labelColor,
-              fontFamily: "'Cormorant Garamond', serif",
+              fontFamily: "'Times New Roman', Times, serif",
               fontWeight: stage.state === 'current' ? 600 : 400,
               flex: 1,
               lineHeight: 1.25,
@@ -219,7 +219,7 @@ function StageCard({
             {stage.state === 'current' && (
               <span style={{
                 fontSize: 8, color: accent,
-                fontFamily: 'Inter, sans-serif',
+                fontFamily: "'Times New Roman', Times, serif",
                 fontWeight: 700, letterSpacing: '.1em',
                 textTransform: 'uppercase',
                 background: `${accent}18`,
@@ -232,7 +232,7 @@ function StageCard({
             {stage.state === 'completed' && (
               <span style={{
                 fontSize: 8, color: '#2e6a48',
-                fontFamily: 'Inter, sans-serif',
+                fontFamily: "'Times New Roman', Times, serif",
                 fontWeight: 600, letterSpacing: '.08em',
                 textTransform: 'uppercase',
                 background: '#071a0e',
@@ -246,7 +246,7 @@ function StageCard({
             {/* Expand chevron */}
             <span style={{
               fontSize: 9, color: descColor,
-              fontFamily: 'Inter, sans-serif',
+              fontFamily: "'Times New Roman', Times, serif",
               transition: 'transform .15s',
               transform: expanded ? 'rotate(180deg)' : 'none',
             }}>▾</span>
@@ -256,7 +256,7 @@ function StageCard({
           {(!expanded || stage.state !== 'current') && (
             <p style={{
               fontSize: 11, color: descColor,
-              fontFamily: 'Inter, sans-serif',
+              fontFamily: "'Times New Roman', Times, serif",
               lineHeight: 1.6, marginTop: 5,
               display: expanded ? 'none' : 'block',
             }}>
@@ -270,7 +270,7 @@ function StageCard({
               {/* Full description */}
               <p style={{
                 fontSize: 12, color: stage.state === 'current' ? T.sub : descColor,
-                fontFamily: "'Cormorant Garamond', serif",
+                fontFamily: "'Times New Roman', Times, serif",
                 lineHeight: 1.75, fontStyle: 'italic', marginBottom: 10,
               }}>
                 {stage.desc}
@@ -281,7 +281,7 @@ function StageCard({
                 <div style={{ marginBottom: 10 }}>
                   <p style={{
                     fontSize: 8, color: T.mute,
-                    fontFamily: 'Inter, sans-serif',
+                    fontFamily: "'Times New Roman', Times, serif",
                     letterSpacing: '.1em', textTransform: 'uppercase',
                     fontWeight: 600, marginBottom: 6,
                   }}>
@@ -291,19 +291,19 @@ function StageCard({
                     {stage.matchedEntries.slice(0, 4).map(entry => (
                       <div key={entry.id} style={{
                         display: 'flex', alignItems: 'center', gap: 8,
-                        background: '#080810', border: '1px solid #0d0d1c',
+                        background: '#ffffff', border: '1px solid #0d0d1c',
                         borderRadius: 5, padding: '6px 10px',
                       }}>
-                        <span style={{ fontSize: 9, color: '#3a3a5a', fontFamily: 'Inter, sans-serif', flexShrink: 0 }}>
+                        <span style={{ fontSize: 9, color: '#3a3a5a', fontFamily: "'Times New Roman', Times, serif", flexShrink: 0 }}>
                           {fmtDate(entry.dateFiled)}
                         </span>
-                        <span style={{ fontSize: 12, color: T.dim, fontFamily: "'Cormorant Garamond', serif", flex: 1 }}>
+                        <span style={{ fontSize: 12, color: T.dim, fontFamily: "'Times New Roman', Times, serif", flex: 1 }}>
                           {entry.docTitle}
                         </span>
                         {entry.status && (
                           <span style={{
                             fontSize: 8, color: '#3a3a5a',
-                            fontFamily: 'Inter, sans-serif',
+                            fontFamily: "'Times New Roman', Times, serif",
                             border: '1px solid #1a1a2e',
                             padding: '1px 5px', borderRadius: 2,
                           }}>
@@ -313,7 +313,7 @@ function StageCard({
                       </div>
                     ))}
                     {stage.matchedEntries.length > 4 && (
-                      <p style={{ fontSize: 10, color: T.mute, fontFamily: 'Inter, sans-serif', paddingLeft: 4 }}>
+                      <p style={{ fontSize: 10, color: T.mute, fontFamily: "'Times New Roman', Times, serif", paddingLeft: 4 }}>
                         +{stage.matchedEntries.length - 4} more entries
                       </p>
                     )}
@@ -333,7 +333,7 @@ function StageCard({
                     borderRadius: 5,
                     padding: '5px 12px',
                     fontSize: 10,
-                    fontFamily: 'Inter, sans-serif',
+                    fontFamily: "'Times New Roman', Times, serif",
                     cursor: isSetting ? 'not-allowed' : 'pointer',
                     letterSpacing: '.04em',
                     opacity: isSetting ? 0.5 : 1,
@@ -368,8 +368,8 @@ export function ProceduralTimeline({ activeCase }: ProceduralTimelineProps) {
   const posConfig   = counselRole ? ROLE_POSITION_CONFIG[counselRole] : null;
   const accent      = posConfig?.accentColor ?? '#888888';
   const roleColors  = counselRole ? COUNSEL_ROLE_COLORS[counselRole] : null;
-  const roleBg      = roleColors?.bg  ?? '#0a0a14';
-  const roleBdr     = roleColors?.bdr ?? '#1e1e2e';
+  const roleBg      = roleColors?.bg  ?? '#f5f5f3';
+  const roleBdr     = roleColors?.bdr ?? '#cccccc';
 
   // ── Load data ────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -424,7 +424,7 @@ export function ProceduralTimeline({ activeCase }: ProceduralTimelineProps) {
   if (loading) {
     return (
       <div style={{ padding: '48px 24px', textAlign: 'center' }}>
-        <div style={{ fontSize: 10, color: T.mute, fontFamily: 'Inter, sans-serif', letterSpacing: '.2em', textTransform: 'uppercase' }}>
+        <div style={{ fontSize: 10, color: T.mute, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.2em', textTransform: 'uppercase' }}>
           Loading timeline…
         </div>
       </div>
@@ -442,22 +442,22 @@ export function ProceduralTimeline({ activeCase }: ProceduralTimelineProps) {
       <div style={{ marginBottom: 20 }}>
         <p style={{
           fontSize: 9, color: T.mute,
-          fontFamily: 'Inter, sans-serif',
+          fontFamily: "'Times New Roman', Times, serif",
           letterSpacing: '.2em', textTransform: 'uppercase',
           fontWeight: 600, marginBottom: 3,
         }}>
           {matterTrackLabel ? `${matterTrackLabel} · ` : ''}Procedural Timeline
         </p>
         <h3 style={{
-          fontSize: 20, color: T.goldL,
-          fontFamily: "'Cormorant Garamond', serif",
+          fontSize: 20, color: '#111111',
+          fontFamily: "'Times New Roman', Times, serif",
           fontWeight: 300, fontStyle: 'italic', marginBottom: 4,
         }}>
           {posConfig?.positionLabel ?? 'Procedural Stages'}
         </h3>
         <p style={{
           fontSize: 12, color: T.dim,
-          fontFamily: "'Cormorant Garamond', serif",
+          fontFamily: "'Times New Roman', Times, serif",
           fontStyle: 'italic',
         }}>
           {posConfig?.positionDesc}
@@ -472,12 +472,12 @@ export function ProceduralTimeline({ activeCase }: ProceduralTimelineProps) {
             onClick={() => setView(v)}
             style={{
               background: view === v ? `${accent}18` : 'transparent',
-              border: `1px solid ${view === v ? accent + '50' : '#1e1e2e'}`,
+              border: `1px solid ${view === v ? accent : '#cccccc'}`,
               color: view === v ? accent : T.mute,
               borderRadius: 5,
               padding: '6px 14px',
               fontSize: 10,
-              fontFamily: 'Inter, sans-serif',
+              fontFamily: "'Times New Roman', Times, serif",
               cursor: 'pointer',
               letterSpacing: '.04em',
               fontWeight: view === v ? 600 : 400,
@@ -496,7 +496,7 @@ export function ProceduralTimeline({ activeCase }: ProceduralTimelineProps) {
           {/* ── Progress bar ──────────────────────────────────────────────────── */}
           {totalCount > 0 && (
             <div style={{
-              background: '#080810',
+              background: '#ffffff',
               border: '1px solid #111120',
               borderRadius: 8,
               padding: '14px 18px',
@@ -506,7 +506,7 @@ export function ProceduralTimeline({ activeCase }: ProceduralTimelineProps) {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                   <span style={{
                     fontSize: 9, color: T.mute,
-                    fontFamily: 'Inter, sans-serif',
+                    fontFamily: "'Times New Roman', Times, serif",
                     letterSpacing: '.12em', textTransform: 'uppercase',
                     fontWeight: 600,
                   }}>
@@ -515,10 +515,10 @@ export function ProceduralTimeline({ activeCase }: ProceduralTimelineProps) {
                   {nextActionResult.source === 'inferred' && (
                     <span style={{
                       fontSize: 8, color: '#5a4a20',
-                      fontFamily: 'Inter, sans-serif',
+                      fontFamily: "'Times New Roman', Times, serif",
                       letterSpacing: '.08em',
                       border: '1px solid #2a2208',
-                      background: '#0e0c04',
+                      background: '#f0f0e8',
                       padding: '1px 7px', borderRadius: 3,
                     }}>
                       ⚡ Auto-detected from docket
@@ -527,7 +527,7 @@ export function ProceduralTimeline({ activeCase }: ProceduralTimelineProps) {
                   {nextActionResult.source === 'explicit' && (
                     <span style={{
                       fontSize: 8, color: '#2e5a38',
-                      fontFamily: 'Inter, sans-serif',
+                      fontFamily: "'Times New Roman', Times, serif",
                       letterSpacing: '.08em',
                       border: '1px solid #1a3820',
                       background: '#071008',
@@ -539,7 +539,7 @@ export function ProceduralTimeline({ activeCase }: ProceduralTimelineProps) {
                 </div>
                 <span style={{
                   fontSize: 11, color: accent,
-                  fontFamily: "'Cormorant Garamond', serif",
+                  fontFamily: "'Times New Roman', Times, serif",
                   fontWeight: 600,
                 }}>
                   {completedCount} / {totalCount}
@@ -548,7 +548,7 @@ export function ProceduralTimeline({ activeCase }: ProceduralTimelineProps) {
 
               {/* Progress track */}
               <div style={{
-                height: 4, background: '#111120', borderRadius: 2, overflow: 'hidden',
+                height: 4, background: '#eeeeee', borderRadius: 2, overflow: 'hidden',
               }}>
                 <div style={{
                   height: '100%',
@@ -563,19 +563,19 @@ export function ProceduralTimeline({ activeCase }: ProceduralTimelineProps) {
               <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                   <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#2e6a48', border: '1px solid #1a4028', display: 'inline-block' }} />
-                  <span style={{ fontSize: 9, color: '#2e6a48', fontFamily: 'Inter, sans-serif' }}>{completedCount} completed</span>
+                  <span style={{ fontSize: 9, color: '#2e6a48', fontFamily: "'Times New Roman', Times, serif" }}>{completedCount} completed</span>
                 </div>
                 {currentStageId && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                     <span style={{ width: 8, height: 8, borderRadius: '50%', background: `${accent}22`, border: `1px solid ${accent}`, display: 'inline-block', boxShadow: `0 0 6px ${accent}44` }} />
-                    <span style={{ fontSize: 9, color: accent, fontFamily: 'Inter, sans-serif' }}>
+                    <span style={{ fontSize: 9, color: accent, fontFamily: "'Times New Roman', Times, serif" }}>
                       {nextActionResult.currentStageLabel}
                     </span>
                   </div>
                 )}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#07070f', border: '1px solid #252535', display: 'inline-block' }} />
-                  <span style={{ fontSize: 9, color: '#252535', fontFamily: 'Inter, sans-serif' }}>
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#ffffff', border: '1px solid #252535', display: 'inline-block' }} />
+                  <span style={{ fontSize: 9, color: '#252535', fontFamily: "'Times New Roman', Times, serif" }}>
                     {totalCount - completedCount - (currentStageId ? 1 : 0)} upcoming
                   </span>
                 </div>
@@ -597,7 +597,7 @@ export function ProceduralTimeline({ activeCase }: ProceduralTimelineProps) {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
                   <span style={{
                     fontSize: 8, color: accent,
-                    fontFamily: 'Inter, sans-serif',
+                    fontFamily: "'Times New Roman', Times, serif",
                     letterSpacing: '.14em', textTransform: 'uppercase',
                     fontWeight: 700,
                   }}>
@@ -606,7 +606,7 @@ export function ProceduralTimeline({ activeCase }: ProceduralTimelineProps) {
                   {nextActionResult.nextStageLabel && (
                     <span style={{
                       fontSize: 8, color: T.mute,
-                      fontFamily: 'Inter, sans-serif',
+                      fontFamily: "'Times New Roman', Times, serif",
                       letterSpacing: '.06em',
                     }}>
                       → {nextActionResult.nextStageLabel}
@@ -615,7 +615,7 @@ export function ProceduralTimeline({ activeCase }: ProceduralTimelineProps) {
                 </div>
                 <p style={{
                   fontSize: 13, color: T.sub,
-                  fontFamily: "'Cormorant Garamond', serif",
+                  fontFamily: "'Times New Roman', Times, serif",
                   lineHeight: 1.6,
                 }}>
                   {nextActionResult.action}
@@ -635,7 +635,7 @@ export function ProceduralTimeline({ activeCase }: ProceduralTimelineProps) {
                     </span>
                     <span style={{
                       fontSize: 11, color: nextActionResult.urgency.level === 'HIGH' ? '#c05050' : '#b07030',
-                      fontFamily: 'Inter, sans-serif', lineHeight: 1.4,
+                      fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.4,
                     }}>
                       {nextActionResult.urgency.note}
                     </span>
@@ -651,7 +651,7 @@ export function ProceduralTimeline({ activeCase }: ProceduralTimelineProps) {
                     borderRadius: 5, padding: '6px 10px',
                   }}>
                     <span style={{ fontSize: 10, color: '#c05050' }}>⚠</span>
-                    <span style={{ fontSize: 11, color: '#c05050', fontFamily: 'Inter, sans-serif' }}>
+                    <span style={{ fontSize: 11, color: '#c05050', fontFamily: "'Times New Roman', Times, serif" }}>
                       {nextActionResult.overdueCount} overdue deadline{nextActionResult.overdueCount > 1 ? 's' : ''} — check Deadlines.
                     </span>
                   </div>
@@ -668,7 +668,7 @@ export function ProceduralTimeline({ activeCase }: ProceduralTimelineProps) {
               borderRadius: 10,
             }}>
               <div style={{ fontSize: 36, opacity: .06, marginBottom: 12 }}>⟳</div>
-              <p style={{ fontSize: 18, color: T.dim, fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic' }}>
+              <p style={{ fontSize: 18, color: T.dim, fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic' }}>
                 No procedural stages defined for this role.
               </p>
             </div>
@@ -699,7 +699,7 @@ export function ProceduralTimeline({ activeCase }: ProceduralTimelineProps) {
             return (
               <div style={{
                 marginTop: 24,
-                background: '#080810',
+                background: '#ffffff',
                 border: '1px solid #111120',
                 borderRadius: 10,
                 padding: '16px 20px',
@@ -707,11 +707,11 @@ export function ProceduralTimeline({ activeCase }: ProceduralTimelineProps) {
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
                     <span style={{ fontSize: 11, color: T.mute }}>⏱</span>
-                    <span style={{ fontSize: 9, color: T.mute, fontFamily: 'Inter, sans-serif', letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 700 }}>
+                    <span style={{ fontSize: 9, color: T.mute, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 700 }}>
                       Upcoming Deadlines
                     </span>
                   </div>
-                  <span style={{ fontSize: 9, color: '#2a2a3e', fontFamily: 'Inter, sans-serif', letterSpacing: '.08em' }}>
+                  <span style={{ fontSize: 9, color: '#cccccc', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.08em' }}>
                     {deadlines.filter(d => d.status !== 'Dismissed').length} active
                   </span>
                 </div>
@@ -722,17 +722,17 @@ export function ProceduralTimeline({ activeCase }: ProceduralTimelineProps) {
                     const urgent  = diff >= 0 && diff <= 7;
                     const col     = overdue ? '#c05050' : urgent ? '#b07030' : T.mute;
                     return (
-                      <div key={dl.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', background: '#0a0a12', border: `1px solid ${overdue ? '#2a1010' : '#111120'}`, borderRadius: 6 }}>
+                      <div key={dl.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', background: '#ffffff', border: `1px solid ${overdue ? '#fdeaea' : '#eeeeee'}`, borderRadius: 6 }}>
                         <div style={{ width: 6, height: 6, borderRadius: '50%', background: col, flexShrink: 0 }} />
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 13, color: T.dim, fontFamily: "'Cormorant Garamond', serif", fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{dl.label}</div>
-                          <div style={{ fontSize: 9, color: T.mute, fontFamily: 'Inter, sans-serif' }}>{dl.type}</div>
+                          <div style={{ fontSize: 13, color: T.dim, fontFamily: "'Times New Roman', Times, serif", fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{dl.label}</div>
+                          <div style={{ fontSize: 9, color: T.mute, fontFamily: "'Times New Roman', Times, serif" }}>{dl.type}</div>
                         </div>
                         <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                          <div style={{ fontSize: 11, color: col, fontFamily: 'Inter, sans-serif', fontWeight: 600 }}>
+                          <div style={{ fontSize: 11, color: col, fontFamily: "'Times New Roman', Times, serif", fontWeight: 600 }}>
                             {overdue ? `${Math.abs(diff)}d ago` : diff === 0 ? 'Today' : `${diff}d`}
                           </div>
-                          <div style={{ fontSize: 9, color: '#252535', fontFamily: 'Inter, sans-serif' }}>
+                          <div style={{ fontSize: 9, color: '#252535', fontFamily: "'Times New Roman', Times, serif" }}>
                             {new Date(dl.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
                           </div>
                         </div>
@@ -747,7 +747,7 @@ export function ProceduralTimeline({ activeCase }: ProceduralTimelineProps) {
           {/* ── Footer note ───────────────────────────────────────────────────── */}
           <p style={{
             textAlign: 'center', fontSize: 10,
-            color: '#1e1e2e', fontFamily: 'Inter, sans-serif',
+            color: '#888888', fontFamily: "'Times New Roman', Times, serif",
             marginTop: 20, letterSpacing: '.08em',
           }}>
             {totalCount} procedural stages · {

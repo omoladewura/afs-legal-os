@@ -135,10 +135,10 @@ function ResultBlock({
   return (
     <div style={{ marginTop: 18, background: '#08080e', border: `1px solid ${accent}30`, borderRadius: 8, padding: '18px 20px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <span style={{ fontSize: 10, color: accent, fontFamily: 'Inter, sans-serif', letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 700 }}>
+        <span style={{ fontSize: 10, color: accent, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 700 }}>
           {title}
         </span>
-        <button onClick={onClear} style={{ background: 'transparent', border: 'none', color: T.mute, fontSize: 11, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+        <button onClick={onClear} style={{ background: 'transparent', border: 'none', color: T.mute, fontSize: 11, cursor: 'pointer', fontFamily: "'Times New Roman', Times, serif" }}>
           clear ×
         </button>
       </div>
@@ -163,11 +163,11 @@ function SubTabBar({
           onClick={() => onSelect(t.id)}
           style={{
             background:   active === t.id ? `${accent}18` : 'transparent',
-            border:       `1px solid ${active === t.id ? accent : '#1e1e2e'}`,
+            border:       `1px solid ${active === t.id ? accent : '#cccccc'}`,
             color:        active === t.id ? accent : T.mute,
             borderRadius: 5, padding: '6px 14px',
             fontSize: 12, cursor: 'pointer',
-            fontFamily: 'Inter, sans-serif', letterSpacing: '.04em',
+            fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.04em',
             transition: 'all .15s',
           }}
         >
@@ -180,7 +180,7 @@ function SubTabBar({
 
 function Label({ text }: { text: string }) {
   return (
-    <label style={{ display: 'block', fontSize: 11, color: T.mute, fontFamily: 'Inter, sans-serif', letterSpacing: '.08em', textTransform: 'uppercase', marginBottom: 6 }}>
+    <label style={{ display: 'block', fontSize: 11, color: T.mute, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.08em', textTransform: 'uppercase', marginBottom: 6 }}>
       {text}
     </label>
   );
@@ -198,7 +198,7 @@ function Textarea({
       rows={rows}
       placeholder={placeholder}
       style={{
-        width: '100%', background: '#08080e', border: '1px solid #1e1e2e',
+        width: '100%', background: '#08080e', border: '1px solid #cccccc',
         borderRadius: 6, padding: '10px 14px', color: T.fg,
         fontSize: 13, fontFamily: "'Times New Roman', Times, serif",
         resize: 'vertical', boxSizing: 'border-box', outline: 'none',
@@ -219,7 +219,7 @@ function Input({
       onChange={e => onChange(e.target.value)}
       placeholder={placeholder}
       style={{
-        width: '100%', background: '#08080e', border: '1px solid #1e1e2e',
+        width: '100%', background: '#08080e', border: '1px solid #cccccc',
         borderRadius: 6, padding: '8px 12px', color: T.fg,
         fontSize: 13, fontFamily: "'Times New Roman', Times, serif",
         boxSizing: 'border-box', outline: 'none',
@@ -238,7 +238,7 @@ function Select({
       value={value}
       onChange={e => onChange(e.target.value)}
       style={{
-        background: '#08080e', border: '1px solid #1e1e2e',
+        background: '#08080e', border: '1px solid #cccccc',
         borderRadius: 6, padding: '8px 12px', color: T.fg,
         fontSize: 13, fontFamily: "'Times New Roman', Times, serif",
         outline: 'none', cursor: 'pointer',
@@ -251,7 +251,7 @@ function Select({
 
 function SectionTitle({ text, accent }: { text: string; accent: string }) {
   return (
-    <div style={{ fontSize: 11, color: accent, fontFamily: 'Inter, sans-serif', letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 14, borderBottom: `1px solid ${accent}20`, paddingBottom: 8 }}>
+    <div style={{ fontSize: 11, color: accent, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 14, borderBottom: `1px solid ${accent}20`, paddingBottom: 8 }}>
       {text}
     </div>
   );
@@ -260,7 +260,7 @@ function SectionTitle({ text, accent }: { text: string; accent: string }) {
 function WeightBadge({ weight }: { weight: 'HIGH' | 'MEDIUM' | 'LOW' }) {
   const col = weight === 'HIGH' ? '#c05050' : weight === 'MEDIUM' ? '#c09030' : '#40a860';
   return (
-    <span style={{ fontSize: 9, color: col, border: `1px solid ${col}40`, borderRadius: 3, padding: '1px 5px', fontFamily: 'Inter, sans-serif', letterSpacing: '.06em', textTransform: 'uppercase', fontWeight: 700 }}>
+    <span style={{ fontSize: 9, color: col, border: `1px solid ${col}40`, borderRadius: 3, padding: '1px 5px', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.06em', textTransform: 'uppercase', fontWeight: 700 }}>
       {weight}
     </span>
   );
@@ -293,7 +293,7 @@ function ConvictionCountsPanel({
   return (
     <div>
       {counts.map(c => (
-        <div key={c.id} style={{ background: '#0a0a14', border: `1px solid #1e1e2e`, borderRadius: 8, padding: '16px 18px', marginBottom: 12 }}>
+        <div key={c.id} style={{ background: '#ffffff', border: `1px solid #1e1e2e`, borderRadius: 8, padding: '16px 18px', marginBottom: 12 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
             <div style={{ display: 'flex', gap: 10, alignItems: 'center', flex: 1 }}>
               <input
@@ -327,7 +327,7 @@ function ConvictionCountsPanel({
       ))}
       <button
         onClick={addCount}
-        style={{ background: 'transparent', border: `1px dashed ${accent}40`, borderRadius: 6, padding: '8px 20px', color: accent, fontSize: 12, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}
+        style={{ background: 'transparent', border: `1px dashed ${accent}40`, borderRadius: 6, padding: '8px 20px', color: accent, fontSize: 12, cursor: 'pointer', fontFamily: "'Times New Roman', Times, serif" }}
       >
         + Add Count
       </button>
@@ -356,7 +356,7 @@ function ProsConvictionRecord({
   return (
     <div>
       <SectionTitle text="Conviction Record — Prosecution" accent={accent} />
-      <p style={{ fontSize: 13, color: T.mute, marginBottom: 20, fontFamily: 'Inter, sans-serif' }}>
+      <p style={{ fontSize: 13, color: T.mute, marginBottom: 20, fontFamily: "'Times New Roman', Times, serif" }}>
         Record the court's findings per count and the sentence imposed. This record anchors all downstream prosecution sentencing work.
       </p>
 
@@ -405,7 +405,7 @@ function ProsConvictionRecord({
 
       {counts.filter(c => c.finding === 'Convicted').length > 0 && (
         <div style={{ background: `${accent}10`, border: `1px solid ${accent}30`, borderRadius: 8, padding: '14px 18px' }}>
-          <div style={{ fontSize: 11, color: accent, fontFamily: 'Inter, sans-serif', letterSpacing: '.1em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 8 }}>
+          <div style={{ fontSize: 11, color: accent, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.1em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 8 }}>
             Conviction Summary
           </div>
           {counts.filter(c => c.finding === 'Convicted').map(c => (
@@ -477,12 +477,12 @@ Provide a structured analysis of all relevant aggravating factors for sentencing
   return (
     <div>
       <SectionTitle text="Aggravating Factors — Prosecution" accent={accent} />
-      <p style={{ fontSize: 13, color: T.mute, marginBottom: 20, fontFamily: 'Inter, sans-serif' }}>
+      <p style={{ fontSize: 13, color: T.mute, marginBottom: 20, fontFamily: "'Times New Roman', Times, serif" }}>
         Build the aggravating factors register. Each factor strengthens the prosecution's sentencing address and supports a higher sentence. Add factors manually or use AI to analyse the trial record.
       </p>
 
       {factors.map(f => (
-        <div key={f.id} style={{ background: '#0a0a14', border: '1px solid #1e1e2e', borderRadius: 8, padding: '14px 16px', marginBottom: 10 }}>
+        <div key={f.id} style={{ background: '#ffffff', border: '1px solid #cccccc', borderRadius: 8, padding: '14px 16px', marginBottom: 10 }}>
           <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginBottom: 10 }}>
             <div style={{ flex: 1 }}>
               <Label text="Category" />
@@ -510,7 +510,7 @@ Provide a structured analysis of all relevant aggravating factors for sentencing
       <div style={{ display: 'flex', gap: 10, marginBottom: 24 }}>
         <button
           onClick={addFactor}
-          style={{ background: 'transparent', border: `1px dashed ${accent}40`, borderRadius: 6, padding: '8px 20px', color: accent, fontSize: 12, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}
+          style={{ background: 'transparent', border: `1px dashed ${accent}40`, borderRadius: 6, padding: '8px 20px', color: accent, fontSize: 12, cursor: 'pointer', fontFamily: "'Times New Roman', Times, serif" }}
         >
           + Add Factor
         </button>
@@ -520,7 +520,7 @@ Provide a structured analysis of all relevant aggravating factors for sentencing
         <div style={{ marginBottom: 16 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
             <WeightBadge weight="HIGH" />
-            <span style={{ fontSize: 12, color: T.mute, fontFamily: 'Inter, sans-serif' }}>{factors.filter(f => f.weight === 'HIGH').length} HIGH · {factors.filter(f => f.weight === 'MEDIUM').length} MEDIUM · {factors.filter(f => f.weight === 'LOW').length} LOW</span>
+            <span style={{ fontSize: 12, color: T.mute, fontFamily: "'Times New Roman', Times, serif" }}>{factors.filter(f => f.weight === 'HIGH').length} HIGH · {factors.filter(f => f.weight === 'MEDIUM').length} MEDIUM · {factors.filter(f => f.weight === 'LOW').length} LOW</span>
           </div>
         </div>
       )}
@@ -593,7 +593,7 @@ The address should be persuasive, evidence-based, and grounded in Nigerian law.`
   return (
     <div>
       <SectionTitle text="Prosecution Sentencing Address" accent={accent} />
-      <p style={{ fontSize: 13, color: T.mute, marginBottom: 20, fontFamily: 'Inter, sans-serif' }}>
+      <p style={{ fontSize: 13, color: T.mute, marginBottom: 20, fontFamily: "'Times New Roman', Times, serif" }}>
         Draft the prosecution's address to the court on sentence. The AI will draw on all registered aggravating factors and the conviction record.
       </p>
 
@@ -670,7 +670,7 @@ Advise prosecution on:
   return (
     <div>
       <SectionTitle text="Prosecution Appeal Assessment" accent={accent} />
-      <p style={{ fontSize: 13, color: T.mute, marginBottom: 20, fontFamily: 'Inter, sans-serif' }}>
+      <p style={{ fontSize: 13, color: T.mute, marginBottom: 20, fontFamily: "'Times New Roman', Times, serif" }}>
         Assess whether to appeal an acquittal or challenge an inadequate sentence. The AI will review the trial outcome and advise on grounds and prospects.
       </p>
 
@@ -719,7 +719,7 @@ function DefConvictionRecord({
   return (
     <div>
       <SectionTitle text="Conviction Record — Defence" accent={accent} />
-      <p style={{ fontSize: 13, color: T.mute, marginBottom: 20, fontFamily: 'Inter, sans-serif' }}>
+      <p style={{ fontSize: 13, color: T.mute, marginBottom: 20, fontFamily: "'Times New Roman', Times, serif" }}>
         Record the court's findings per count. On conviction, the allocutus and mitigation tabs activate. Appeal deadline counting begins from the date of conviction/sentence.
       </p>
 
@@ -749,7 +749,7 @@ function DefConvictionRecord({
 
       {convicted.length > 0 && (
         <div style={{ background: '#180808', border: '1px solid #401818', borderRadius: 8, padding: '14px 18px', marginBottom: 16 }}>
-          <div style={{ fontSize: 11, color: '#c05050', fontFamily: 'Inter, sans-serif', letterSpacing: '.1em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 10 }}>
+          <div style={{ fontSize: 11, color: '#c05050', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.1em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 10 }}>
             ⚠ Conviction Confirmed — Immediate Actions Required
           </div>
           <div style={{ fontSize: 13, color: T.fg, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.7 }}>
@@ -759,7 +759,7 @@ function DefConvictionRecord({
               </div>
             ))}
           </div>
-          <div style={{ marginTop: 12, fontSize: 12, color: '#c09030', fontFamily: 'Inter, sans-serif' }}>
+          <div style={{ marginTop: 12, fontSize: 12, color: '#c09030', fontFamily: "'Times New Roman', Times, serif" }}>
             → Prepare allocutus immediately. → Calculate ACJA appeal deadline. → Consider bail pending appeal.
           </div>
         </div>
@@ -835,7 +835,7 @@ The allocutus must be court-ready and deliverable as-is by defence counsel.`,
   return (
     <div>
       <SectionTitle text="Allocutus Drafter — Defence" accent={accent} />
-      <p style={{ fontSize: 13, color: T.mute, marginBottom: 20, fontFamily: 'Inter, sans-serif' }}>
+      <p style={{ fontSize: 13, color: T.mute, marginBottom: 20, fontFamily: "'Times New Roman', Times, serif" }}>
         An allocutus is the defence counsel's formal plea to the court on behalf of the accused after conviction. Build the mitigating factors register and draft the allocutus.
       </p>
 
@@ -852,7 +852,7 @@ The allocutus must be court-ready and deliverable as-is by defence counsel.`,
       <SectionTitle text="Mitigating Factors" accent={accent} />
 
       {factors.map(f => (
-        <div key={f.id} style={{ background: '#0a0a14', border: '1px solid #1e1e2e', borderRadius: 8, padding: '14px 16px', marginBottom: 10 }}>
+        <div key={f.id} style={{ background: '#ffffff', border: '1px solid #cccccc', borderRadius: 8, padding: '14px 16px', marginBottom: 10 }}>
           <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginBottom: 10 }}>
             <div style={{ flex: 1 }}>
               <Label text="Category" />
@@ -880,7 +880,7 @@ The allocutus must be court-ready and deliverable as-is by defence counsel.`,
       <div style={{ display: 'flex', gap: 10, marginBottom: 24 }}>
         <button
           onClick={addFactor}
-          style={{ background: 'transparent', border: `1px dashed ${accent}40`, borderRadius: 6, padding: '8px 20px', color: accent, fontSize: 12, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}
+          style={{ background: 'transparent', border: `1px dashed ${accent}40`, borderRadius: 6, padding: '8px 20px', color: accent, fontSize: 12, cursor: 'pointer', fontFamily: "'Times New Roman', Times, serif" }}
         >
           + Add Mitigating Factor
         </button>
@@ -945,7 +945,7 @@ This document is a standalone formal court submission, not just an allocutus.`,
   return (
     <div>
       <SectionTitle text="Mitigation Address — Defence" accent={accent} />
-      <p style={{ fontSize: 13, color: T.mute, marginBottom: 20, fontFamily: 'Inter, sans-serif' }}>
+      <p style={{ fontSize: 13, color: T.mute, marginBottom: 20, fontFamily: "'Times New Roman', Times, serif" }}>
         Draft the full written mitigation address applying the Ogundipe factors and Nigerian sentencing authorities. This is a standalone court submission distinct from the oral allocutus.
       </p>
 
@@ -1047,19 +1047,19 @@ Advise the defence on:
   return (
     <div>
       <SectionTitle text="Appeal Deadline & Bail Pending Appeal" accent={accent} />
-      <p style={{ fontSize: 13, color: T.mute, marginBottom: 20, fontFamily: 'Inter, sans-serif' }}>
+      <p style={{ fontSize: 13, color: T.mute, marginBottom: 20, fontFamily: "'Times New Roman', Times, serif" }}>
         The appeal deadline runs from the date of conviction or sentence. Track it here, save it to the Deadline Engine, and assess bail pending appeal under ACJA 2015.
       </p>
 
       {sentDate && (
         <div style={{ background: '#081808', border: '1px solid #204020', borderRadius: 8, padding: '14px 18px', marginBottom: 16 }}>
-          <div style={{ fontSize: 11, color: '#40a860', fontFamily: 'Inter, sans-serif', letterSpacing: '.1em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 6 }}>
+          <div style={{ fontSize: 11, color: '#40a860', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.1em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 6 }}>
             Auto-Calculated Deadline
           </div>
           <div style={{ fontSize: 22, color: '#40a860', fontFamily: "'Times New Roman', Times, serif", fontWeight: 700 }}>
             {autoDeadline}
           </div>
-          <div style={{ fontSize: 12, color: T.mute, fontFamily: 'Inter, sans-serif', marginTop: 4 }}>
+          <div style={{ fontSize: 12, color: T.mute, fontFamily: "'Times New Roman', Times, serif", marginTop: 4 }}>
             30 days from sentence date ({sentDate})
           </div>
         </div>
@@ -1113,8 +1113,8 @@ Advise the defence on:
         />
       )}
 
-      <div style={{ marginTop: 24, background: '#0a0a14', border: '1px solid #1e1e2e', borderRadius: 8, padding: '16px 18px' }}>
-        <div style={{ fontSize: 11, color: accent, fontFamily: 'Inter, sans-serif', letterSpacing: '.1em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 10 }}>
+      <div style={{ marginTop: 24, background: '#ffffff', border: '1px solid #cccccc', borderRadius: 8, padding: '16px 18px' }}>
+        <div style={{ fontSize: 11, color: accent, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.1em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 10 }}>
           Immediate Post-Conviction Checklist
         </div>
         {[
@@ -1186,7 +1186,7 @@ export function SentencingEngine({ activeCase }: Props) {
 
   if (!hydrated) {
     return (
-      <div style={{ padding: 40, color: T.mute, fontFamily: 'Inter, sans-serif', fontSize: 13 }}>
+      <div style={{ padding: 40, color: T.mute, fontFamily: "'Times New Roman', Times, serif", fontSize: 13 }}>
         Loading sentencing data…
       </div>
     );
@@ -1195,7 +1195,7 @@ export function SentencingEngine({ activeCase }: Props) {
   // Warn if not criminal track
   if (activeCase.matter_track && activeCase.matter_track !== 'criminal') {
     return (
-      <div style={{ padding: 40, color: T.mute, fontFamily: 'Inter, sans-serif', fontSize: 13 }}>
+      <div style={{ padding: 40, color: T.mute, fontFamily: "'Times New Roman', Times, serif", fontSize: 13 }}>
         The Sentencing Engine is only available on criminal matters.
       </div>
     );
@@ -1208,11 +1208,11 @@ export function SentencingEngine({ activeCase }: Props) {
       {/* Header */}
       <div style={{ marginBottom: 28 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-          <span style={{ fontSize: 11, color: accent, fontFamily: 'Inter, sans-serif', letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 700 }}>
+          <span style={{ fontSize: 11, color: accent, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 700 }}>
             {isPros ? 'Prosecution' : 'Defence'} · Sentencing Engine
           </span>
           {convicted.length > 0 && (
-            <span style={{ fontSize: 10, color: '#c05050', border: '1px solid #401818', borderRadius: 3, padding: '2px 8px', fontFamily: 'Inter, sans-serif', letterSpacing: '.06em', textTransform: 'uppercase', fontWeight: 700 }}>
+            <span style={{ fontSize: 10, color: '#c05050', border: '1px solid #401818', borderRadius: 3, padding: '2px 8px', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.06em', textTransform: 'uppercase', fontWeight: 700 }}>
               {convicted.length} Count{convicted.length !== 1 ? 's' : ''} Convicted
             </span>
           )}
@@ -1220,7 +1220,7 @@ export function SentencingEngine({ activeCase }: Props) {
         <div style={{ fontSize: 22, color: T.fg, fontFamily: "'Times New Roman', Times, serif", fontWeight: 700, marginBottom: 6 }}>
           {isPros ? 'Sentencing Submissions' : 'Allocutus & Mitigation'}
         </div>
-        <div style={{ fontSize: 13, color: T.mute, fontFamily: 'Inter, sans-serif' }}>
+        <div style={{ fontSize: 13, color: T.mute, fontFamily: "'Times New Roman', Times, serif" }}>
           {isPros
             ? 'Build aggravating factors, draft the prosecution sentencing address, and assess appeal options.'
             : 'Draft the allocutus, build mitigation submissions, and track the ACJA appeal deadline.'}

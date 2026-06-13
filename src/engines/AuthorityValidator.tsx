@@ -85,7 +85,7 @@ function AVESection({ title, children }: { title: string; children: React.ReactN
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
         <div style={{ width: 3, height: 16, background: ACC, borderRadius: 2, flexShrink: 0 }} />
         <p style={{
-          fontSize: 10, color: ACC, fontFamily: 'Inter, sans-serif',
+          fontSize: 10, color: ACC, fontFamily: "'Times New Roman', Times, serif",
           letterSpacing: '.16em', textTransform: 'uppercase', fontWeight: 700, margin: 0,
         }}>
           {title}
@@ -108,7 +108,7 @@ function AVEBtn({
   const base: React.CSSProperties = {
     borderRadius:  5,
     cursor:        disabled ? 'not-allowed' : 'pointer',
-    fontFamily:    'Inter, sans-serif',
+    fontFamily:    "'Times New Roman', Times, serif",
     letterSpacing: '.06em',
     textTransform: 'uppercase',
     fontWeight:    700,
@@ -141,13 +141,13 @@ function AVEAIBlock({ loading, result, error }: { loading: boolean; result: stri
       {loading && (
         <div style={{ textAlign: 'center', padding: '20px 0' }}>
           <Spinner size={14} color={ACC} />
-          <p style={{ fontSize: 12, color: DIM, fontFamily: 'Inter, sans-serif', marginTop: 10 }}>
+          <p style={{ fontSize: 12, color: DIM, fontFamily: "'Times New Roman', Times, serif", marginTop: 10 }}>
             Validating authority…
           </p>
         </div>
       )}
       {error && !loading && (
-        <p style={{ fontSize: 13, color: '#c05050', fontFamily: 'Inter, sans-serif', lineHeight: 1.6 }}>
+        <p style={{ fontSize: 13, color: '#c05050', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.6 }}>
           {error}
         </p>
       )}
@@ -157,27 +157,27 @@ function AVEAIBlock({ loading, result, error }: { loading: boolean; result: stri
 }
 
 const inpBase: React.CSSProperties = {
-  width: '100%', background: T.bg, border: '1px solid #1e1e2e',
+  width: '100%', background: T.bg, border: '1px solid #cccccc',
   borderRadius: 5, color: T.text, padding: '10px 12px',
-  fontSize: 14, fontFamily: "'Cormorant Garamond', serif",
+  fontSize: 14, fontFamily: "'Times New Roman', Times, serif",
   outline: 'none', boxSizing: 'border-box',
 };
 
 const taBase: React.CSSProperties = {
-  width: '100%', background: T.bg, border: '1px solid #1e1e2e',
+  width: '100%', background: T.bg, border: '1px solid #cccccc',
   borderRadius: 5, color: T.text, padding: '10px 12px',
-  fontSize: 14, fontFamily: "'Cormorant Garamond', serif",
+  fontSize: 14, fontFamily: "'Times New Roman', Times, serif",
   outline: 'none', resize: 'vertical', lineHeight: 1.75, boxSizing: 'border-box',
 };
 
 const selBase: React.CSSProperties = {
-  width: '100%', background: T.bg, border: '1px solid #1e1e2e',
+  width: '100%', background: T.bg, border: '1px solid #cccccc',
   borderRadius: 5, color: T.text, padding: '10px 12px',
-  fontSize: 14, fontFamily: "'Cormorant Garamond', serif", outline: 'none',
+  fontSize: 14, fontFamily: "'Times New Roman', Times, serif", outline: 'none',
 };
 
 const lbl: React.CSSProperties = {
-  fontSize: 10, color: ACC, fontFamily: 'Inter, sans-serif',
+  fontSize: 10, color: ACC, fontFamily: "'Times New Roman', Times, serif",
   letterSpacing: '.1em', textTransform: 'uppercase',
   fontWeight: 600, display: 'block', marginBottom: 5,
 };
@@ -395,10 +395,10 @@ How to deploy this authority most effectively in argument.`;
                 onClick={() => setFilter(f.id)}
                 style={{
                   fontSize: 10, padding: '4px 12px', borderRadius: 3,
-                  border: `1px solid ${filter === f.id ? ACC : '#1e1e2e'}`,
+                  border: `1px solid ${filter === f.id ? ACC : '#cccccc'}`,
                   background: filter === f.id ? '#08080e' : 'transparent',
                   color: filter === f.id ? LIGHT : T.mute,
-                  cursor: 'pointer', fontFamily: 'Inter, sans-serif',
+                  cursor: 'pointer', fontFamily: "'Times New Roman', Times, serif",
                   fontWeight: 600, letterSpacing: '.06em', textTransform: 'uppercase',
                 }}
               >
@@ -408,7 +408,7 @@ How to deploy this authority most effectively in argument.`;
           </div>
 
           {filtered.length === 0 && (
-            <p style={{ fontSize: 13, color: T.mute, fontFamily: 'Inter, sans-serif' }}>
+            <p style={{ fontSize: 13, color: T.mute, fontFamily: "'Times New Roman', Times, serif" }}>
               No authorities match this filter.
             </p>
           )}
@@ -418,7 +418,7 @@ How to deploy this authority most effectively in argument.`;
               key={auth.id}
               style={{
                 background:   '#06080e',
-                border:       `1px solid ${auth.validated ? ACC + '44' : '#111120'}`,
+                border:       `1px solid ${auth.validated ? ACC + '44' : '#eeeeee'}`,
                 borderRadius:  6,
                 padding:      '14px 18px',
                 marginBottom:  10,
@@ -428,12 +428,12 @@ How to deploy this authority most effectively in argument.`;
               <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10, marginBottom: 6 }}>
                 <div style={{ flex: 1 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
-                    <span style={{ fontSize: 15, color: '#d8d4cc', fontFamily: "'Cormorant Garamond', serif", fontWeight: 600 }}>
+                    <span style={{ fontSize: 15, color: '#d8d4cc', fontFamily: "'Times New Roman', Times, serif", fontWeight: 600 }}>
                       {auth.caseName}
                     </span>
                     {auth.validated && (
                       <span style={{
-                        fontSize: 8, color: LIGHT, fontFamily: 'Inter, sans-serif',
+                        fontSize: 8, color: LIGHT, fontFamily: "'Times New Roman', Times, serif",
                         border: `1px solid ${ACC}55`, padding: '1px 6px',
                         borderRadius: 2, letterSpacing: '.08em',
                       }}>
@@ -443,26 +443,26 @@ How to deploy this authority most effectively in argument.`;
                   </div>
                   <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                     {auth.citation && (
-                      <span style={{ fontSize: 11, color: T.mute, fontFamily: 'Inter, sans-serif' }}>
+                      <span style={{ fontSize: 11, color: T.mute, fontFamily: "'Times New Roman', Times, serif" }}>
                         {auth.citation}
                       </span>
                     )}
                     {auth.court && (
                       <span style={{
-                        fontSize: 11, color: DIM, fontFamily: 'Inter, sans-serif',
-                        border: '1px solid #1e1e2e', padding: '1px 7px', borderRadius: 2,
+                        fontSize: 11, color: DIM, fontFamily: "'Times New Roman', Times, serif",
+                        border: '1px solid #cccccc', padding: '1px 7px', borderRadius: 2,
                       }}>
                         {auth.court}
                       </span>
                     )}
                     {auth.year && (
-                      <span style={{ fontSize: 11, color: '#303050', fontFamily: 'Inter, sans-serif' }}>
+                      <span style={{ fontSize: 11, color: '#303050', fontFamily: "'Times New Roman', Times, serif" }}>
                         {auth.year}
                       </span>
                     )}
                   </div>
                   {auth.bindingFor && (
-                    <p style={{ fontSize: 12, color: T.mute, fontFamily: 'Inter, sans-serif', marginTop: 4 }}>
+                    <p style={{ fontSize: 12, color: T.mute, fontFamily: "'Times New Roman', Times, serif", marginTop: 4 }}>
                       Issue: {auth.bindingFor}
                     </p>
                   )}
@@ -498,7 +498,7 @@ How to deploy this authority most effectively in argument.`;
               {auth.principle && (
                 <p style={{
                   fontSize: 14, color: '#a8aec8',
-                  fontFamily: "'Cormorant Garamond', serif",
+                  fontFamily: "'Times New Roman', Times, serif",
                   fontStyle: 'italic', lineHeight: 1.75, marginTop: 6,
                 }}>
                   {auth.principle}
@@ -515,13 +515,13 @@ How to deploy this authority most effectively in argument.`;
                 <details style={{ background: '#070710', border: '1px solid #131322', borderRadius: 5, marginTop: 10 }}>
                   <summary style={{
                     padding: '8px 14px', fontSize: 9, color: T.mute,
-                    fontFamily: 'Inter, sans-serif', letterSpacing: '.1em',
+                    fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.1em',
                     textTransform: 'uppercase', cursor: 'pointer',
                     userSelect: 'none', listStyle: 'none',
                     display: 'flex', justifyContent: 'space-between',
                   }}>
                     View Validation Result
-                    <span style={{ fontSize: 9, color: '#2a2a3e' }}>▸</span>
+                    <span style={{ fontSize: 9, color: '#cccccc' }}>▸</span>
                   </summary>
                   <div style={{ padding: '0 16px 14px', borderTop: '1px solid #131322' }}>
                     <Md text={auth.validation} />
@@ -534,7 +534,7 @@ How to deploy this authority most effectively in argument.`;
       )}
 
       {auths.length === 0 && (
-        <p style={{ fontSize: 13, color: T.mute, fontFamily: 'Inter, sans-serif' }}>
+        <p style={{ fontSize: 13, color: T.mute, fontFamily: "'Times New Roman', Times, serif" }}>
           No authorities in the library yet. Add cases above.
         </p>
       )}
@@ -600,7 +600,7 @@ What additional authorities should be sourced to strengthen this position?`;
   return (
     <div style={{ maxWidth: 780 }}>
       <AVESection title="Conflicting Authority Resolver">
-        <p style={{ fontSize: 13, color: T.mute, fontFamily: 'Inter, sans-serif', lineHeight: 1.7, marginBottom: 16 }}>
+        <p style={{ fontSize: 13, color: T.mute, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.7, marginBottom: 16 }}>
           List all authorities on a legal issue — including those that might conflict.
           The engine maps the hierarchy, identifies conflicts, and builds a deployment strategy.
         </p>
@@ -723,14 +723,14 @@ Flag: this is AI-generated research guidance only. All authorities must be indep
         padding:      '12px 16px',
         marginBottom:  18,
       }}>
-        <p style={{ fontSize: 12, color: '#c07070', fontFamily: 'Inter, sans-serif', lineHeight: 1.65, margin: 0 }}>
+        <p style={{ fontSize: 12, color: '#c07070', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.65, margin: 0 }}>
           ⚠ Research guidance only. All authorities generated here must be independently verified
           on LawPavilion, NigeriaLII, or official law reports before reliance in any court filing.
         </p>
       </div>
 
       <AVESection title="Quick Authority Research">
-        <p style={{ fontSize: 13, color: T.mute, fontFamily: 'Inter, sans-serif', lineHeight: 1.7, marginBottom: 16 }}>
+        <p style={{ fontSize: 13, color: T.mute, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.7, marginBottom: 16 }}>
           Ask any Nigerian law research question. The engine maps leading authorities,
           statutory provisions, and where to verify them.
         </p>
@@ -795,13 +795,13 @@ export function AuthorityValidator({ activeCase }: Props) {
         <span style={{ fontSize: 24, opacity: .7 }}>§</span>
         <div>
           <p style={{
-            fontSize: 9, color: ACC, fontFamily: 'Inter, sans-serif',
+            fontSize: 9, color: ACC, fontFamily: "'Times New Roman', Times, serif",
             letterSpacing: '.18em', textTransform: 'uppercase',
             fontWeight: 700, marginBottom: 3,
           }}>
             Authority Validation Engine · {activeCase.caseName}
           </p>
-          <p style={{ fontSize: 13, color: T.mute, fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic', margin: 0 }}>
+          <p style={{ fontSize: 13, color: T.mute, fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic', margin: 0 }}>
             No hallucinated case law. No overruled authority. No obiter passed off as ratio.
           </p>
         </div>
@@ -815,12 +815,12 @@ export function AuthorityValidator({ activeCase }: Props) {
             onClick={() => setSub(t.id)}
             style={{
               background:    sub === t.id ? '#060810' : 'transparent',
-              border:        `1px solid ${sub === t.id ? ACC : '#1e1e2e'}`,
+              border:        `1px solid ${sub === t.id ? ACC : '#cccccc'}`,
               color:         sub === t.id ? LIGHT : T.mute,
               borderRadius:  5,
               padding:       '8px 14px',
               fontSize:      11,
-              fontFamily:    'Inter, sans-serif',
+              fontFamily:    "'Times New Roman', Times, serif",
               cursor:        'pointer',
               letterSpacing: '.06em',
               textTransform: 'uppercase',

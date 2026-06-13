@@ -322,7 +322,7 @@ export function AICopilot({ activeCase }: Props) {
     cursor:       'pointer',
     lineHeight:   1.4,
     transition:   'border-color .2s, background .2s',
-    fontFamily:   "'Cormorant Garamond', serif",
+    fontFamily:   "'Times New Roman', Times, serif",
   };
 
   const msgRowS = (role: 'user' | 'assistant'): React.CSSProperties => ({
@@ -390,7 +390,7 @@ export function AICopilot({ activeCase }: Props) {
     borderRadius: 8,
     color:        T.fg,
     fontSize:     14,
-    fontFamily:   "'Cormorant Garamond', serif",
+    fontFamily:   "'Times New Roman', Times, serif",
     padding:      '11px 14px',
     resize:       'none',
     outline:      'none',
@@ -418,7 +418,7 @@ export function AICopilot({ activeCase }: Props) {
     cursor:       canSend ? 'pointer' : 'not-allowed',
     transition:   'all .2s',
     letterSpacing:'.04em',
-    fontFamily:   "'Cormorant Garamond', serif",
+    fontFamily:   "'Times New Roman', Times, serif",
   };
 
   const clearBtnS: React.CSSProperties = {
@@ -432,7 +432,7 @@ export function AICopilot({ activeCase }: Props) {
     cursor:       msgs.length > 0 ? 'pointer' : 'not-allowed',
     opacity:      msgs.length > 0 ? 1 : 0.4,
     transition:   'all .2s',
-    fontFamily:   "'Cormorant Garamond', serif",
+    fontFamily:   "'Times New Roman', Times, serif",
   };
 
   const hintS: React.CSSProperties = {
@@ -452,7 +452,7 @@ export function AICopilot({ activeCase }: Props) {
            counselRole === 'defence'        ? '🛡' : '✦'}
         </div>
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 17, fontWeight: 700, color: T.fg, marginBottom: 4, fontFamily: "'Cormorant Garamond', serif" }}>
+          <div style={{ fontSize: 17, fontWeight: 700, color: T.fg, marginBottom: 4, fontFamily: "'Times New Roman', Times, serif" }}>
             {heading}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -511,7 +511,7 @@ export function AICopilot({ activeCase }: Props) {
                  counselRole === 'prosecution'    ? '⚖' :
                  counselRole === 'defence'        ? '🛡' : '✦'}
               </div>
-              <div style={{ fontSize: 15, color: T.fg, fontWeight: 600, marginBottom: 6, fontFamily: "'Cormorant Garamond', serif" }}>
+              <div style={{ fontSize: 15, color: T.fg, fontWeight: 600, marginBottom: 6, fontFamily: "'Times New Roman', Times, serif" }}>
                 {heading}
               </div>
               <div style={{ fontSize: 13, color: T.mute, maxWidth: 440 }}>

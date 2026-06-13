@@ -70,7 +70,7 @@ interface MatrimonialSaved {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const iS: React.CSSProperties = {
-  width: '100%', background: '#070710', border: '1px solid #1a1a28',
+  width: '100%', background: '#070710', border: '1px solid #cccccc',
   borderRadius: 5, color: '#e0dcd0', padding: '11px 14px', fontSize: 15,
   fontFamily: "'Times New Roman', Times, serif", outline: 'none', boxSizing: 'border-box',
 };
@@ -81,7 +81,7 @@ const labelS: React.CSSProperties = {
   display: 'block', marginBottom: 6,
 };
 const cardS: React.CSSProperties = {
-  background: '#080810', border: '1px solid #14141e',
+  background: '#ffffff', border: '1px solid #14141e',
   borderRadius: 8, padding: '20px 22px', marginBottom: 16,
 };
 const hS: React.CSSProperties = {
@@ -133,7 +133,7 @@ function ResultBlock({ title, content, onClear }: { title: string; content: stri
           {title}
         </span>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button onClick={copy} style={{ background: T.card, border: '1px solid #1a1a28', color: copied ? '#60b040' : '#808090', borderRadius: 4, padding: '4px 12px', fontSize: 10, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', letterSpacing: '.04em' }}>
+          <button onClick={copy} style={{ background: T.card, border: '1px solid #cccccc', color: copied ? '#60b040' : '#666666', borderRadius: 4, padding: '4px 12px', fontSize: 10, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', letterSpacing: '.04em' }}>
             {copied ? '✓ Copied' : 'Copy'}
           </button>
           <button onClick={onClear} style={{ background: 'none', border: '1px solid #2a1818', color: '#604040', borderRadius: 4, padding: '4px 12px', fontSize: 10, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer' }}>
@@ -746,7 +746,7 @@ export function MatrimonialEngine({ activeCase }: Props) {
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>
               {DEFENCE_OPTIONS.map(d => (
                 <button key={d} onClick={() => toggleDefence(d)} style={{
-                  background:   defences.includes(d) ? '#141424' : '#080810',
+                  background:   defences.includes(d) ? '#eeeeee' : '#080810',
                   border:       defences.includes(d) ? '1px solid #3a3060' : '1px solid #141420',
                   color:        defences.includes(d) ? T.gold : '#505060',
                   borderRadius: 4, padding: '6px 12px', fontSize: 12,
@@ -790,7 +790,7 @@ export function MatrimonialEngine({ activeCase }: Props) {
       {/* Header */}
       <div style={{ marginBottom: 22 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 8 }}>
-          <span style={{ fontSize: 11, color: T.gold, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.16em', textTransform: 'uppercase', fontWeight: 600, border: '1px solid #3a2208', padding: '3px 10px', borderRadius: 2 }}>
+          <span style={{ fontSize: 11, color: '#444444', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.16em', textTransform: 'uppercase', fontWeight: 600, border: '1px solid #3a2208', padding: '3px 10px', borderRadius: 2 }}>
             Matrimonial Causes
           </span>
           <span style={{ fontSize: 11, color: T.mute, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.08em', textTransform: 'uppercase' }}>
@@ -812,7 +812,7 @@ export function MatrimonialEngine({ activeCase }: Props) {
             key={st.id}
             onClick={() => { setSubTab(st.id); clearError(); }}
             style={{
-              background:    subTab === st.id ? '#0e0e1e' : 'transparent',
+              background:    subTab === st.id ? '#e8e8e8' : 'transparent',
               border:        subTab === st.id ? '1px solid #2a2a3e' : '1px solid transparent',
               color:         subTab === st.id ? T.gold : '#505060',
               borderRadius:  5, padding: '7px 14px', fontSize: 12,

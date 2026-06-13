@@ -126,9 +126,9 @@ function BSSection({ title, children }: { title: string; children: React.ReactNo
 }
 
 const inputBase: React.CSSProperties = {
-  width: '100%', background: T.bg, border: '1px solid #1e1e2e',
+  width: '100%', background: T.bg, border: '1px solid #cccccc',
   borderRadius: 5, color: T.text, padding: '10px 13px', fontSize: 14,
-  fontFamily: "'Cormorant Garamond',serif", outline: 'none', boxSizing: 'border-box',
+  fontFamily: "'Times New Roman', Times, serif", outline: 'none', boxSizing: 'border-box',
 };
 
 function BSInput({
@@ -165,12 +165,12 @@ function BSBtn({
   const base: React.CSSProperties = {
     border: 'none', borderRadius: 5,
     cursor: disabled ? 'not-allowed' : 'pointer',
-    fontFamily: "'Cormorant Garamond',serif", fontWeight: 600,
+    fontFamily: "'Times New Roman', Times, serif", fontWeight: 600,
     letterSpacing: '.04em', transition: 'opacity .15s', opacity: disabled ? 0.4 : 1,
   };
   const vars: Record<string, React.CSSProperties> = {
     primary: { background: 'linear-gradient(135deg,#c4a030,#a07820)', color: '#05050c', padding: small ? '7px 18px' : '12px 24px', fontSize: small ? 13 : 15 },
-    ghost:   { background: '#0d0d1c', border: '1px solid #1e1e2e', color: T.mute, padding: small ? '6px 14px' : '10px 20px', fontSize: small ? 12 : 14 },
+    ghost:   { background: '#0d0d1c', border: '1px solid #cccccc', color: T.mute, padding: small ? '6px 14px' : '10px 20px', fontSize: small ? 12 : 14 },
     danger:  { background: '#1a0808', border: '1px solid #3a1010', color: '#c05050', padding: small ? '6px 14px' : '10px 20px', fontSize: small ? 12 : 14 },
   };
   return (
@@ -194,7 +194,7 @@ function BSAIBlock({ loading, result, error }: { loading: boolean; result: strin
   );
   if (!result) return null;
   return (
-    <div style={{ background: '#070710', border: '1px solid #141424', borderRadius: 6, padding: '16px 20px', marginTop: 14, whiteSpace: 'pre-wrap', lineHeight: 1.85, fontFamily: "'Cormorant Garamond',serif", fontSize: 15, color: '#cac6ba' }}>
+    <div style={{ background: '#070710', border: '1px solid #141424', borderRadius: 6, padding: '16px 20px', marginTop: 14, whiteSpace: 'pre-wrap', lineHeight: 1.85, fontFamily: "'Times New Roman', Times, serif", fontSize: 15, color: '#cac6ba' }}>
       {result}
     </div>
   );
@@ -373,10 +373,10 @@ Be precise. Every observation must be actionable.`;
             <div key={w.id} onClick={() => { setSelected(w.id); setForm(w); ai.setResult(''); }}
               style={{
                 background: selected === w.id ? '#0d0d1c' : '#070710',
-                border: `1px solid ${selected === w.id ? T.gold : '#111120'}`,
+                border: `1px solid ${selected === w.id ? T.gold : '#eeeeee'}`,
                 borderRadius: 5, padding: '9px 12px', marginBottom: 6, cursor: 'pointer',
               }}>
-              <div style={{ fontSize: 13, color: T.text, fontFamily: "'Cormorant Garamond',serif", fontWeight: 500 }}>{w.name || 'Unnamed Witness'}</div>
+              <div style={{ fontSize: 13, color: T.text, fontFamily: "'Times New Roman', Times, serif", fontWeight: 500 }}>{w.name || 'Unnamed Witness'}</div>
               <div style={{ fontSize: 10, color: T.mute, fontFamily: 'Inter,sans-serif', marginTop: 2 }}>{w.side === 'ours' ? 'Our witness' : 'Opposing'} · {w.status}</div>
             </div>
           ))}
@@ -393,7 +393,7 @@ Be precise. Every observation must be actionable.`;
               <div>
                 <label style={{ fontSize: 10, color: '#5a5a72', fontFamily: 'Inter,sans-serif', letterSpacing: '.1em', textTransform: 'uppercase', fontWeight: 600, display: 'block', marginBottom: 5 }}>Side</label>
                 <select value={form.side} onChange={e => updateW(form.id, 'side', e.target.value as 'ours' | 'opposing')}
-                  style={{ width: '100%', background: T.bg, border: '1px solid #1e1e2e', borderRadius: 5, color: T.text, padding: '10px 12px', fontSize: 14, fontFamily: "'Cormorant Garamond',serif", outline: 'none' }}>
+                  style={{ width: '100%', background: T.bg, border: '1px solid #cccccc', borderRadius: 5, color: T.text, padding: '10px 12px', fontSize: 14, fontFamily: "'Times New Roman', Times, serif", outline: 'none' }}>
                   <option value="ours">Our Witness</option>
                   <option value="opposing">Opposing Witness</option>
                 </select>
@@ -401,7 +401,7 @@ Be precise. Every observation must be actionable.`;
               <div>
                 <label style={{ fontSize: 10, color: '#5a5a72', fontFamily: 'Inter,sans-serif', letterSpacing: '.1em', textTransform: 'uppercase', fontWeight: 600, display: 'block', marginBottom: 5 }}>Status</label>
                 <select value={form.status} onChange={e => updateW(form.id, 'status', e.target.value)}
-                  style={{ width: '100%', background: T.bg, border: '1px solid #1e1e2e', borderRadius: 5, color: T.text, padding: '10px 12px', fontSize: 14, fontFamily: "'Cormorant Garamond',serif", outline: 'none' }}>
+                  style={{ width: '100%', background: T.bg, border: '1px solid #cccccc', borderRadius: 5, color: T.text, padding: '10px 12px', fontSize: 14, fontFamily: "'Times New Roman', Times, serif", outline: 'none' }}>
                   {STATUS_OPTS.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
@@ -491,8 +491,8 @@ Be direct and tactical.`;
           {profiles.length === 0 && <p style={{ fontSize: 13, color: T.mute, fontFamily: 'Inter,sans-serif' }}>No profiles yet.</p>}
           {profiles.map(p => (
             <div key={p.id} onClick={() => { setSelected(p.id); setForm(p); ai.setResult(''); }}
-              style={{ background: selected === p.id ? '#0d0d1c' : '#070710', border: `1px solid ${selected === p.id ? T.gold : '#111120'}`, borderRadius: 5, padding: '9px 12px', marginBottom: 6, cursor: 'pointer' }}>
-              <div style={{ fontSize: 13, color: T.text, fontFamily: "'Cormorant Garamond',serif" }}>{p.name || 'Unnamed Counsel'}</div>
+              style={{ background: selected === p.id ? '#0d0d1c' : '#070710', border: `1px solid ${selected === p.id ? T.gold : '#eeeeee'}`, borderRadius: 5, padding: '9px 12px', marginBottom: 6, cursor: 'pointer' }}>
+              <div style={{ fontSize: 13, color: T.text, fontFamily: "'Times New Roman', Times, serif" }}>{p.name || 'Unnamed Counsel'}</div>
               <div style={{ fontSize: 10, color: T.mute, fontFamily: 'Inter,sans-serif', marginTop: 2 }}>{p.chambers || 'Chambers not specified'}</div>
             </div>
           ))}
@@ -684,7 +684,7 @@ Be ruthlessly honest about litigation risk.`;
           <div>
             <label style={{ fontSize: 10, color: '#5a5a72', fontFamily: 'Inter,sans-serif', letterSpacing: '.1em', textTransform: 'uppercase', fontWeight: 600, display: 'block', marginBottom: 5 }}>Side</label>
             <select value={offerSide} onChange={e => setOfferSide(e.target.value as 'ours' | 'theirs')}
-              style={{ width: '100%', background: T.bg, border: '1px solid #1e1e2e', borderRadius: 5, color: T.text, padding: '10px 10px', fontSize: 13, fontFamily: "'Cormorant Garamond',serif", outline: 'none' }}>
+              style={{ width: '100%', background: T.bg, border: '1px solid #cccccc', borderRadius: 5, color: T.text, padding: '10px 10px', fontSize: 13, fontFamily: "'Times New Roman', Times, serif", outline: 'none' }}>
               <option value="ours">Ours</option>
               <option value="theirs">Theirs</option>
             </select>
@@ -702,12 +702,12 @@ Be ruthlessly honest about litigation risk.`;
                 {o.amount && <span style={{ fontSize: 12, color: T.mute, fontFamily: 'Inter,sans-serif' }}>{o.amount}</span>}
                 <span style={{ fontSize: 10, fontFamily: 'Inter,sans-serif', color: '#303040' }}>{new Date(o.date).toLocaleDateString('en-GB')}</span>
               </div>
-              <div style={{ fontSize: 14, color: T.text, fontFamily: "'Cormorant Garamond',serif" }}>{o.description}</div>
+              <div style={{ fontSize: 14, color: T.text, fontFamily: "'Times New Roman', Times, serif" }}>{o.description}</div>
             </div>
             <div style={{ display: 'flex', gap: 4, flexShrink: 0, flexWrap: 'wrap' }}>
               {(['Live', 'Accepted', 'Rejected', 'Lapsed'] as const).map(s => (
                 <button key={s} onClick={() => updateOfferStatus(o.id, s)}
-                  style={{ fontSize: 9, padding: '3px 7px', borderRadius: 3, border: `1px solid ${o.status === s ? STATUS_COLOURS[s] : '#1e1e2e'}`, background: o.status === s ? STATUS_COLOURS[s] + '22' : 'transparent', color: o.status === s ? STATUS_COLOURS[s] : '#404050', cursor: 'pointer', fontFamily: 'Inter,sans-serif', fontWeight: 600 }}>
+                  style={{ fontSize: 9, padding: '3px 7px', borderRadius: 3, border: `1px solid ${o.status === s ? STATUS_COLOURS[s] : '#cccccc'}`, background: o.status === s ? STATUS_COLOURS[s] + '22' : 'transparent', color: o.status === s ? STATUS_COLOURS[s] : '#404050', cursor: 'pointer', fontFamily: 'Inter,sans-serif', fontWeight: 600 }}>
                   {s}
                 </button>
               ))}
@@ -780,7 +780,7 @@ function BSComms({ caseId }: { caseId: string }) {
           <div>
             <label style={{ fontSize: 10, color: '#5a5a72', fontFamily: 'Inter,sans-serif', letterSpacing: '.1em', textTransform: 'uppercase', fontWeight: 600, display: 'block', marginBottom: 5 }}>Type</label>
             <select value={type} onChange={e => setType(e.target.value)}
-              style={{ width: '100%', background: T.bg, border: '1px solid #1e1e2e', borderRadius: 5, color: T.text, padding: '10px 12px', fontSize: 14, fontFamily: "'Cormorant Garamond',serif", outline: 'none' }}>
+              style={{ width: '100%', background: T.bg, border: '1px solid #cccccc', borderRadius: 5, color: T.text, padding: '10px 12px', fontSize: 14, fontFamily: "'Times New Roman', Times, serif", outline: 'none' }}>
               {TYPES.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
@@ -796,28 +796,28 @@ function BSComms({ caseId }: { caseId: string }) {
         <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }}>
           {['All', 'Flagged', ...TYPES].map(f => (
             <button key={f} onClick={() => setFilter(f)}
-              style={{ fontSize: 10, padding: '4px 10px', borderRadius: 3, border: `1px solid ${filter === f ? T.gold : '#1e1e2e'}`, background: filter === f ? '#0d0d1c' : 'transparent', color: filter === f ? T.gold : '#404050', cursor: 'pointer', fontFamily: 'Inter,sans-serif', fontWeight: 600, letterSpacing: '.04em' }}>
+              style={{ fontSize: 10, padding: '4px 10px', borderRadius: 3, border: `1px solid ${filter === f ? T.gold : '#cccccc'}`, background: filter === f ? '#0d0d1c' : 'transparent', color: filter === f ? T.gold : '#404050', cursor: 'pointer', fontFamily: 'Inter,sans-serif', fontWeight: 600, letterSpacing: '.04em' }}>
               {f}
             </button>
           ))}
         </div>
         {filtered.length === 0 && <p style={{ fontSize: 13, color: T.mute, fontFamily: 'Inter,sans-serif' }}>No entries{filter !== 'All' ? ` matching "${filter}"` : ''} yet.</p>}
         {filtered.map(c => (
-          <div key={c.id} style={{ background: c.flagged ? '#0d0a00' : '#070710', border: `1px solid ${c.flagged ? '#3a2808' : '#111120'}`, borderRadius: 5, padding: '12px 16px', marginBottom: 8 }}>
+          <div key={c.id} style={{ background: c.flagged ? '#0d0a00' : '#070710', border: `1px solid ${c.flagged ? '#3a2808' : '#eeeeee'}`, borderRadius: 5, padding: '12px 16px', marginBottom: 8 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <span style={{ fontSize: 10, fontFamily: 'Inter,sans-serif', fontWeight: 600, letterSpacing: '.06em', color: T.gold, textTransform: 'uppercase' }}>{c.type}</span>
+                <span style={{ fontSize: 10, fontFamily: 'Inter,sans-serif', fontWeight: 600, letterSpacing: '.06em', color: '#444444', textTransform: 'uppercase' }}>{c.type}</span>
                 <span style={{ fontSize: 11, color: '#303040', fontFamily: 'Inter,sans-serif' }}>{new Date(c.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
-                {c.flagged && <span style={{ fontSize: 9, color: T.gold, fontFamily: 'Inter,sans-serif', fontWeight: 600, letterSpacing: '.08em' }}>★ FLAGGED</span>}
+                {c.flagged && <span style={{ fontSize: 9, color: '#444444', fontFamily: 'Inter,sans-serif', fontWeight: 600, letterSpacing: '.08em' }}>★ FLAGGED</span>}
               </div>
               <div style={{ display: 'flex', gap: 6 }}>
-                <button onClick={() => toggleFlag(c.id)} style={{ fontSize: 11, background: 'transparent', border: '1px solid #1e1e2e', color: T.mute, borderRadius: 3, padding: '3px 8px', cursor: 'pointer' }}>★</button>
+                <button onClick={() => toggleFlag(c.id)} style={{ fontSize: 11, background: 'transparent', border: '1px solid #cccccc', color: T.mute, borderRadius: 3, padding: '3px 8px', cursor: 'pointer' }}>★</button>
                 <button onClick={() => deleteComm(c.id)} style={{ fontSize: 11, background: 'transparent', border: '1px solid #2a1010', color: '#604040', borderRadius: 3, padding: '3px 8px', cursor: 'pointer' }}>✕</button>
               </div>
             </div>
-            <div style={{ fontSize: 15, color: T.text, fontFamily: "'Cormorant Garamond',serif", lineHeight: 1.75, marginBottom: c.instructions ? 8 : 0 }}>{c.summary}</div>
+            <div style={{ fontSize: 15, color: T.text, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.75, marginBottom: c.instructions ? 8 : 0 }}>{c.summary}</div>
             {c.instructions && (
-              <div style={{ fontSize: 13, color: '#9a8a6a', fontFamily: "'Cormorant Garamond',serif", fontStyle: 'italic', borderTop: '1px solid #151515', paddingTop: 7, marginTop: 7 }}>
+              <div style={{ fontSize: 13, color: '#9a8a6a', fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic', borderTop: '1px solid #151515', paddingTop: 7, marginTop: 7 }}>
                 <span style={{ fontSize: 10, fontFamily: 'Inter,sans-serif', fontWeight: 600, letterSpacing: '.06em', color: '#504030', textTransform: 'uppercase', fontStyle: 'normal', marginRight: 8 }}>Instructions</span>
                 {c.instructions}
               </div>
@@ -907,8 +907,8 @@ Be precise.`;
           {apps.length === 0 && <p style={{ fontSize: 13, color: T.mute, fontFamily: 'Inter,sans-serif' }}>No applications tracked yet.</p>}
           {apps.map(a => (
             <div key={a.id} onClick={() => { setSelected(a.id); setForm(a); ai.setResult(''); }}
-              style={{ background: selected === a.id ? '#0d0d1c' : '#070710', border: `1px solid ${selected === a.id ? T.gold : '#111120'}`, borderRadius: 5, padding: '9px 12px', marginBottom: 6, cursor: 'pointer' }}>
-              <div style={{ fontSize: 13, color: T.text, fontFamily: "'Cormorant Garamond',serif", fontWeight: 500, marginBottom: 3 }}>{a.title || 'Unnamed Application'}</div>
+              style={{ background: selected === a.id ? '#0d0d1c' : '#070710', border: `1px solid ${selected === a.id ? T.gold : '#eeeeee'}`, borderRadius: 5, padding: '9px 12px', marginBottom: 6, cursor: 'pointer' }}>
+              <div style={{ fontSize: 13, color: T.text, fontFamily: "'Times New Roman', Times, serif", fontWeight: 500, marginBottom: 3 }}>{a.title || 'Unnamed Application'}</div>
               <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                 <span style={{ fontSize: 9, fontFamily: 'Inter,sans-serif', fontWeight: 600, letterSpacing: '.05em', color: STATUS_COL[a.status] || T.mute, textTransform: 'uppercase' }}>{a.status}</span>
                 <span style={{ fontSize: 10, color: '#303040', fontFamily: 'Inter,sans-serif' }}>{a.mover === 'ours' ? 'We move' : 'Opp. moves'}</span>
@@ -929,7 +929,7 @@ Be precise.`;
               <div>
                 <label style={{ fontSize: 10, color: '#5a5a72', fontFamily: 'Inter,sans-serif', letterSpacing: '.1em', textTransform: 'uppercase', fontWeight: 600, display: 'block', marginBottom: 5 }}>Mover</label>
                 <select value={form.mover} onChange={e => updateA(form.id, 'mover', e.target.value)}
-                  style={{ width: '100%', background: T.bg, border: '1px solid #1e1e2e', borderRadius: 5, color: T.text, padding: '10px 10px', fontSize: 13, fontFamily: "'Cormorant Garamond',serif", outline: 'none' }}>
+                  style={{ width: '100%', background: T.bg, border: '1px solid #cccccc', borderRadius: 5, color: T.text, padding: '10px 10px', fontSize: 13, fontFamily: "'Times New Roman', Times, serif", outline: 'none' }}>
                   <option value="ours">We Move</option>
                   <option value="opposing">Opp. Moves</option>
                 </select>
@@ -937,14 +937,14 @@ Be precise.`;
               <div>
                 <label style={{ fontSize: 10, color: '#5a5a72', fontFamily: 'Inter,sans-serif', letterSpacing: '.1em', textTransform: 'uppercase', fontWeight: 600, display: 'block', marginBottom: 5 }}>Status</label>
                 <select value={form.status} onChange={e => updateA(form.id, 'status', e.target.value)}
-                  style={{ width: '100%', background: T.bg, border: '1px solid #1e1e2e', borderRadius: 5, color: T.text, padding: '10px 10px', fontSize: 13, fontFamily: "'Cormorant Garamond',serif", outline: 'none' }}>
+                  style={{ width: '100%', background: T.bg, border: '1px solid #cccccc', borderRadius: 5, color: T.text, padding: '10px 10px', fontSize: 13, fontFamily: "'Times New Roman', Times, serif", outline: 'none' }}>
                   {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
               <div>
                 <label style={{ fontSize: 10, color: '#5a5a72', fontFamily: 'Inter,sans-serif', letterSpacing: '.1em', textTransform: 'uppercase', fontWeight: 600, display: 'block', marginBottom: 5 }}>Type</label>
                 <select value={form.type} onChange={e => updateA(form.id, 'type', e.target.value)}
-                  style={{ width: '100%', background: T.bg, border: '1px solid #1e1e2e', borderRadius: 5, color: T.text, padding: '10px 10px', fontSize: 13, fontFamily: "'Cormorant Garamond',serif", outline: 'none' }}>
+                  style={{ width: '100%', background: T.bg, border: '1px solid #cccccc', borderRadius: 5, color: T.text, padding: '10px 10px', fontSize: 13, fontFamily: "'Times New Roman', Times, serif", outline: 'none' }}>
                   {APP_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
               </div>
@@ -1005,7 +1005,7 @@ export function BlindSpots({ activeCase }: Props) {
         {SUB_TABS.map(t => (
           <button key={t.id} onClick={() => setSub(t.id)} style={{
             background: sub === t.id ? '#0d0d1c' : 'transparent',
-            border: `1px solid ${sub === t.id ? T.gold : '#1e1e2e'}`,
+            border: `1px solid ${sub === t.id ? T.gold : '#cccccc'}`,
             color: sub === t.id ? T.gold : T.mute,
             borderRadius: 5, padding: '7px 13px', fontSize: 11,
             fontFamily: 'Inter,sans-serif', cursor: 'pointer',

@@ -328,7 +328,7 @@ export function CommandConsole({ activeCase, setDashTab }: Props) {
               margin:        0,
               fontSize:      22,
               color:         T.goldL,
-              fontFamily:    "'Cormorant Garamond', serif",
+              fontFamily:    "'Times New Roman', Times, serif",
               fontWeight:    400,
               letterSpacing: '.04em',
             }}>
@@ -337,7 +337,7 @@ export function CommandConsole({ activeCase, setDashTab }: Props) {
             <span style={{
               fontSize:      9,
               color:         '#252530',
-              fontFamily:    'Inter, sans-serif',
+              fontFamily:    "'Times New Roman', Times, serif",
               letterSpacing: '.18em',
               textTransform: 'uppercase',
               border:        '1px solid #1a1a28',
@@ -351,7 +351,7 @@ export function CommandConsole({ activeCase, setDashTab }: Props) {
             margin:     '4px 0 0 23px',
             fontSize:   12,
             color:      T.dim,
-            fontFamily: 'Inter, sans-serif',
+            fontFamily: "'Times New Roman', Times, serif",
           }}>
             Issue any litigation command. The system routes it to the correct engine with full
             case awareness.
@@ -367,7 +367,7 @@ export function CommandConsole({ activeCase, setDashTab }: Props) {
             borderRadius:  4,
             padding:       '5px 12px',
             fontSize:      10,
-            fontFamily:    'Inter, sans-serif',
+            fontFamily:    "'Times New Roman', Times, serif",
             cursor:        'pointer',
             letterSpacing: '.06em',
             transition:    'border-color .15s',
@@ -395,7 +395,7 @@ export function CommandConsole({ activeCase, setDashTab }: Props) {
         <span style={{
           fontSize:      10,
           color:         T.dim,
-          fontFamily:    'Inter, sans-serif',
+          fontFamily:    "'Times New Roman', Times, serif",
           letterSpacing: '.12em',
           textTransform: 'uppercase',
           flexShrink:    0,
@@ -412,12 +412,12 @@ export function CommandConsole({ activeCase, setDashTab }: Props) {
                 onClick={() => switchPosture(p)}
                 style={{
                   background:    active ? pc.bg      : 'transparent',
-                  border:        `1px solid ${active ? pc.light : '#1e1e2e'}`,
+                  border:        `1px solid ${active ? pc.light : '#cccccc'}`,
                   color:         active ? pc.light   : '#505060',
                   borderRadius:  4,
                   padding:       '4px 14px',
                   fontSize:      10,
-                  fontFamily:    'Inter, sans-serif',
+                  fontFamily:    "'Times New Roman', Times, serif",
                   cursor:        'pointer',
                   letterSpacing: '.06em',
                   textTransform: 'uppercase',
@@ -434,7 +434,7 @@ export function CommandConsole({ activeCase, setDashTab }: Props) {
           marginLeft: 'auto',
           fontSize:   10,
           color:      currentPostureColors.light,
-          fontFamily: 'Inter, sans-serif',
+          fontFamily: "'Times New Roman', Times, serif",
           fontStyle:  'italic',
           opacity:    0.7,
         }}>
@@ -453,7 +453,7 @@ export function CommandConsole({ activeCase, setDashTab }: Props) {
             borderRadius:  4,
             padding:       '5px 14px',
             fontSize:      10,
-            fontFamily:    'Inter, sans-serif',
+            fontFamily:    "'Times New Roman', Times, serif",
             cursor:        'pointer',
             letterSpacing: '.08em',
             display:       'flex',
@@ -486,13 +486,13 @@ export function CommandConsole({ activeCase, setDashTab }: Props) {
                   setTimeout(() => inputRef.current?.focus(), 50);
                 }}
                 style={{
-                  background:    '#0a0a18',
+                  background:    '#ffffff',
                   border:        '1px solid #1e1e30',
                   color:         T.mute,
                   borderRadius:  4,
                   padding:       '5px 11px',
                   fontSize:      10,
-                  fontFamily:    'Inter, sans-serif',
+                  fontFamily:    "'Times New Roman', Times, serif",
                   cursor:        'pointer',
                   letterSpacing: '.04em',
                   transition:    'border-color .12s, color .12s',
@@ -531,7 +531,7 @@ export function CommandConsole({ activeCase, setDashTab }: Props) {
             <p style={{
               fontSize:   13,
               color:      '#303040',
-              fontFamily: "'Cormorant Garamond', serif",
+              fontFamily: "'Times New Roman', Times, serif",
               fontStyle:  'italic',
               lineHeight: 1.85,
             }}>
@@ -578,7 +578,7 @@ export function CommandConsole({ activeCase, setDashTab }: Props) {
                 <span style={{
                   fontSize:   10,
                   color:      '#505070',
-                  fontFamily: 'Inter, sans-serif',
+                  fontFamily: "'Times New Roman', Times, serif",
                   fontStyle:  'italic',
                 }}>
                   {entry.content}
@@ -589,7 +589,7 @@ export function CommandConsole({ activeCase, setDashTab }: Props) {
             {/* Assistant response */}
             {entry.role === 'assistant' && (
               <div style={{
-                background:   '#07070f',
+                background:   '#ffffff',
                 border:       '1px solid #141424',
                 borderRadius: 5,
                 padding:      '14px 16px',
@@ -605,7 +605,7 @@ export function CommandConsole({ activeCase, setDashTab }: Props) {
                   <span style={{
                     fontSize:      9,
                     color:         entry.routeColor ?? '#606080',
-                    fontFamily:    'Inter, sans-serif',
+                    fontFamily:    "'Times New Roman', Times, serif",
                     letterSpacing: '.12em',
                     textTransform: 'uppercase',
                     border:        `1px solid ${(entry.routeColor ?? '#303050') + '55'}`,
@@ -625,7 +625,7 @@ export function CommandConsole({ activeCase, setDashTab }: Props) {
                         borderRadius:  3,
                         padding:       '2px 8px',
                         fontSize:      9,
-                        fontFamily:    'Inter, sans-serif',
+                        fontFamily:    "'Times New Roman', Times, serif",
                         cursor:        'pointer',
                         letterSpacing: '.06em',
                         transition:    'border-color .15s, color .15s',
@@ -646,7 +646,7 @@ export function CommandConsole({ activeCase, setDashTab }: Props) {
                   <span style={{
                     marginLeft: 'auto',
                     fontSize:   9,
-                    color:      '#1e1e2e',
+                    color:      '#cccccc',
                     fontFamily: 'monospace',
                   }}>
                     {new Date(entry.ts).toLocaleTimeString('en-GB', {
@@ -659,7 +659,7 @@ export function CommandConsole({ activeCase, setDashTab }: Props) {
                 {/* AI response content */}
                 <div style={{
                   fontSize:   13,
-                  fontFamily: 'Inter, sans-serif',
+                  fontFamily: "'Times New Roman', Times, serif",
                   lineHeight: 1.75,
                   wordBreak:  'break-word',
                 }}>
@@ -775,7 +775,7 @@ export function CommandConsole({ activeCase, setDashTab }: Props) {
       <p style={{
         fontSize:      10,
         color:         '#202030',
-        fontFamily:    'Inter, sans-serif',
+        fontFamily:    "'Times New Roman', Times, serif",
         marginTop:     6,
         letterSpacing: '.04em',
       }}>

@@ -169,7 +169,7 @@ function PCESection({ title, children }: { title: string; children: React.ReactN
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
         <div style={{ width: 3, height: 16, background: ACC, borderRadius: 2, flexShrink: 0 }} />
         <p style={{
-          fontSize: 10, color: ACC, fontFamily: 'Inter, sans-serif',
+          fontSize: 10, color: ACC, fontFamily: "'Times New Roman', Times, serif",
           letterSpacing: '.16em', textTransform: 'uppercase', fontWeight: 700, margin: 0,
         }}>
           {title}
@@ -192,7 +192,7 @@ function PCEBtn({
   const base: React.CSSProperties = {
     borderRadius:  5,
     cursor:        disabled ? 'not-allowed' : 'pointer',
-    fontFamily:    'Inter, sans-serif',
+    fontFamily:    "'Times New Roman', Times, serif",
     letterSpacing: '.06em',
     textTransform: 'uppercase',
     fontWeight:    700,
@@ -226,13 +226,13 @@ function PCEAIBlock({ loading, result, error }: { loading: boolean; result: stri
       {loading && (
         <div style={{ textAlign: 'center', padding: '20px 0' }}>
           <Spinner size={14} color={ACC} />
-          <p style={{ fontSize: 12, color: DIM, fontFamily: 'Inter, sans-serif', marginTop: 10 }}>
+          <p style={{ fontSize: 12, color: DIM, fontFamily: "'Times New Roman', Times, serif", marginTop: 10 }}>
             Running compliance audit…
           </p>
         </div>
       )}
       {error && !loading && (
-        <p style={{ fontSize: 13, color: '#c05050', fontFamily: 'Inter, sans-serif', lineHeight: 1.6 }}>
+        <p style={{ fontSize: 13, color: '#c05050', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.6 }}>
           {error}
         </p>
       )}
@@ -242,28 +242,28 @@ function PCEAIBlock({ loading, result, error }: { loading: boolean; result: stri
 }
 
 const taBase: React.CSSProperties = {
-  width: '100%', background: T.bg, border: '1px solid #1e1e2e',
+  width: '100%', background: T.bg, border: '1px solid #cccccc',
   borderRadius: 5, color: T.text, padding: '12px 14px',
-  fontSize: 14, fontFamily: "'Cormorant Garamond', serif",
+  fontSize: 14, fontFamily: "'Times New Roman', Times, serif",
   outline: 'none', resize: 'vertical', lineHeight: 1.8,
   boxSizing: 'border-box',
 };
 
 const selBase: React.CSSProperties = {
-  width: '100%', background: T.bg, border: '1px solid #1e1e2e',
+  width: '100%', background: T.bg, border: '1px solid #cccccc',
   borderRadius: 5, color: T.text, padding: '10px 12px',
-  fontSize: 14, fontFamily: "'Cormorant Garamond', serif", outline: 'none',
+  fontSize: 14, fontFamily: "'Times New Roman', Times, serif", outline: 'none',
 };
 
 const inpBase: React.CSSProperties = {
-  width: '100%', background: T.bg, border: '1px solid #1e1e2e',
+  width: '100%', background: T.bg, border: '1px solid #cccccc',
   borderRadius: 5, color: T.text, padding: '10px 12px',
-  fontSize: 14, fontFamily: "'Cormorant Garamond', serif",
+  fontSize: 14, fontFamily: "'Times New Roman', Times, serif",
   outline: 'none', boxSizing: 'border-box',
 };
 
 const lbl: React.CSSProperties = {
-  fontSize: 10, color: ACC, fontFamily: 'Inter, sans-serif',
+  fontSize: 10, color: ACC, fontFamily: "'Times New Roman', Times, serif",
   letterSpacing: '.1em', textTransform: 'uppercase',
   fontWeight: 600, display: 'block', marginBottom: 6,
 };
@@ -345,7 +345,7 @@ Be precise. Cite Nigerian statutes and Rules of Court. Do not generalise.`;
   return (
     <div>
       <PCESection title="Compliance Audit — Case Facts">
-        <p style={{ fontSize: 13, color: T.mute, fontFamily: 'Inter, sans-serif', lineHeight: 1.7, marginBottom: 16 }}>
+        <p style={{ fontSize: 13, color: T.mute, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.7, marginBottom: 16 }}>
           Describe the procedural history of this matter. The AI audits every compliance area for defects and risks.
         </p>
 
@@ -378,7 +378,7 @@ Be precise. Cite Nigerian statutes and Rules of Court. Do not generalise.`;
       </PCESection>
 
       <PCESection title="Select Audit Areas">
-        <p style={{ fontSize: 12, color: T.mute, fontFamily: 'Inter, sans-serif', marginBottom: 14 }}>
+        <p style={{ fontSize: 12, color: T.mute, fontFamily: "'Times New Roman', Times, serif", marginBottom: 14 }}>
           Select specific areas to audit, or leave all unselected to run a full audit across all areas.
         </p>
 
@@ -391,7 +391,7 @@ Be precise. Cite Nigerian statutes and Rules of Court. Do not generalise.`;
                 onClick={() => toggleCheck(t.id)}
                 style={{
                   background:  sel ? '#120c08' : '#080810',
-                  border:      `1px solid ${sel ? ACC : '#1e1e2e'}`,
+                  border:      `1px solid ${sel ? ACC : '#cccccc'}`,
                   borderRadius: 6,
                   padding:     '11px 14px',
                   cursor:      'pointer',
@@ -408,11 +408,11 @@ Be precise. Cite Nigerian statutes and Rules of Court. Do not generalise.`;
                   }}>
                     {sel && <span style={{ fontSize: 9, color: '#fff', fontWeight: 700 }}>✓</span>}
                   </div>
-                  <span style={{ fontSize: 11, color: sel ? LIGHT : T.text, fontFamily: 'Inter, sans-serif', fontWeight: 600 }}>
+                  <span style={{ fontSize: 11, color: sel ? LIGHT : T.text, fontFamily: "'Times New Roman', Times, serif", fontWeight: 600 }}>
                     {t.label}
                   </span>
                 </div>
-                <p style={{ fontSize: 11, color: T.mute, fontFamily: 'Inter, sans-serif', lineHeight: 1.55, paddingLeft: 22, margin: 0 }}>
+                <p style={{ fontSize: 11, color: T.mute, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.55, paddingLeft: 22, margin: 0 }}>
                   {t.desc}
                 </p>
               </div>
@@ -432,7 +432,7 @@ Be precise. Cite Nigerian statutes and Rules of Court. Do not generalise.`;
               Clear Selection
             </PCEBtn>
           )}
-          <span style={{ fontSize: 11, color: T.mute, fontFamily: 'Inter, sans-serif' }}>
+          <span style={{ fontSize: 11, color: T.mute, fontFamily: "'Times New Roman', Times, serif" }}>
             {checks.length === 0
               ? 'All areas selected'
               : `${checks.length} area${checks.length > 1 ? 's' : ''} selected`}
@@ -515,7 +515,7 @@ Cite specific Nigerian statutes: Limitation Law of Lagos/Rivers/applicable state
   return (
     <div style={{ maxWidth: 760 }}>
       <PCESection title="Limitation Period Analysis">
-        <p style={{ fontSize: 13, color: T.mute, fontFamily: 'Inter, sans-serif', lineHeight: 1.7, marginBottom: 16 }}>
+        <p style={{ fontSize: 13, color: T.mute, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.7, marginBottom: 16 }}>
           Enter the cause of action and trigger date. The engine maps every applicable limitation period,
           pre-action notice requirement, and extension provision under Nigerian law.
         </p>
@@ -634,7 +634,7 @@ Be specific. Reference Evidence Act 2011 sections and applicable court rules.`;
   return (
     <div style={{ maxWidth: 780 }}>
       <PCESection title="Affidavit Defect Checker">
-        <p style={{ fontSize: 13, color: T.mute, fontFamily: 'Inter, sans-serif', lineHeight: 1.7, marginBottom: 16 }}>
+        <p style={{ fontSize: 13, color: T.mute, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.7, marginBottom: 16 }}>
           Paste the affidavit text. The engine checks for every defect that opposing counsel could exploit —
           formal, structural, hearsay, exhibit, and argumentative paragraph issues.
         </p>
@@ -721,7 +721,7 @@ Cite applicable Rules of Court (High Court Civil Procedure Rules, Sheriffs and C
   return (
     <div style={{ maxWidth: 760 }}>
       <PCESection title="Service of Process Validator">
-        <p style={{ fontSize: 13, color: T.mute, fontFamily: 'Inter, sans-serif', lineHeight: 1.7, marginBottom: 16 }}>
+        <p style={{ fontSize: 13, color: T.mute, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.7, marginBottom: 16 }}>
           Describe how service was effected — or how you intend to effect service. The engine checks validity,
           proof requirements, and any defects that could be exploited.
         </p>
@@ -798,13 +798,13 @@ export function ComplianceEngine({ activeCase }: Props) {
         <span style={{ fontSize: 24, opacity: .7 }}>⚙</span>
         <div>
           <p style={{
-            fontSize: 9, color: ACC, fontFamily: 'Inter, sans-serif',
+            fontSize: 9, color: ACC, fontFamily: "'Times New Roman', Times, serif",
             letterSpacing: '.18em', textTransform: 'uppercase',
             fontWeight: 700, marginBottom: 3,
           }}>
             Procedural Compliance Engine · {activeCase.caseName}
           </p>
-          <p style={{ fontSize: 13, color: T.mute, fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic', margin: 0 }}>
+          <p style={{ fontSize: 13, color: T.mute, fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic', margin: 0 }}>
             Procedural defects lose cases before the first witness is called. Audit everything.
           </p>
         </div>
@@ -818,12 +818,12 @@ export function ComplianceEngine({ activeCase }: Props) {
             onClick={() => setSub(t.id)}
             style={{
               background:    sub === t.id ? '#120a06' : 'transparent',
-              border:        `1px solid ${sub === t.id ? ACC : '#1e1e2e'}`,
+              border:        `1px solid ${sub === t.id ? ACC : '#cccccc'}`,
               color:         sub === t.id ? LIGHT : T.mute,
               borderRadius:  5,
               padding:       '8px 14px',
               fontSize:      11,
-              fontFamily:    'Inter, sans-serif',
+              fontFamily:    "'Times New Roman', Times, serif",
               cursor:        'pointer',
               letterSpacing: '.06em',
               textTransform: 'uppercase',

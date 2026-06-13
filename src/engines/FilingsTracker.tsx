@@ -20,14 +20,14 @@ import { uid } from '@/utils';
 // ─────────────────────────────────────────────────────────────────────────────
 
 const iS: React.CSSProperties = {
-  width: '100%', background: '#07070f', border: '1px solid #1e1e2e',
+  width: '100%', background: '#ffffff', border: '1px solid #cccccc',
   borderRadius: 5, color: '#e0dcd0', padding: '9px 12px',
-  fontSize: 14, fontFamily: "'Cormorant Garamond', serif",
+  fontSize: 14, fontFamily: "'Times New Roman', Times, serif",
   outline: 'none', boxSizing: 'border-box',
 };
 
 const lbS: React.CSSProperties = {
-  fontSize: 9, color: '#5a5a72', fontFamily: 'Inter, sans-serif',
+  fontSize: 9, color: '#5a5a72', fontFamily: "'Times New Roman', Times, serif",
   letterSpacing: '.1em', textTransform: 'uppercase',
   fontWeight: 600, display: 'block', marginBottom: 5,
 };
@@ -63,7 +63,7 @@ function formatDate(dateStr: string, opts?: Intl.DateTimeFormatOptions): string 
 function StatusBadge({ status }: { status: string }) {
   const sc = STATUS_C[status as keyof typeof STATUS_C] ?? STATUS_C['Filed'];
   return (
-    <span style={{ background: sc.bg, border: `1px solid ${sc.bdr}`, color: sc.col, fontSize: 9, padding: '2px 8px', borderRadius: 3, fontFamily: 'Inter, sans-serif', letterSpacing: '.06em', fontWeight: 600, display: 'inline-block', whiteSpace: 'nowrap' }}>
+    <span style={{ background: sc.bg, border: `1px solid ${sc.bdr}`, color: sc.col, fontSize: 9, padding: '2px 8px', borderRadius: 3, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.06em', fontWeight: 600, display: 'inline-block', whiteSpace: 'nowrap' }}>
       {status || 'Filed'}
     </span>
   );
@@ -135,26 +135,26 @@ export function DeadlineEngine({
       {/* Header row */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18, flexWrap: 'wrap' }}>
         <div style={{ flex: 1 }}>
-          <p style={{ fontSize: 9, color: T.mute, fontFamily: 'Inter, sans-serif', letterSpacing: '.2em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 3 }}>Deadline Engine</p>
-          <h3 style={{ fontSize: 20, color: T.goldL, fontFamily: "'Cormorant Garamond', serif", fontWeight: 300, fontStyle: 'italic' }}>Limitation &amp; Deadline Tracker</h3>
+          <p style={{ fontSize: 9, color: T.mute, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.2em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 3 }}>Deadline Engine</p>
+          <h3 style={{ fontSize: 20, color: '#111111', fontFamily: "'Times New Roman', Times, serif", fontWeight: 300, fontStyle: 'italic' }}>Limitation &amp; Deadline Tracker</h3>
         </div>
         <button
           onClick={onAITrack} disabled={limitL}
-          style={{ background: 'transparent', border: `1px solid ${limitL ? '#1e1e2e' : '#2a2208'}`, color: limitL ? T.mute : T.gold, borderRadius: 5, padding: '7px 13px', fontSize: 10, fontFamily: 'Inter, sans-serif', cursor: limitL ? 'not-allowed' : 'pointer', letterSpacing: '.04em', display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+          style={{ background: 'transparent', border: `1px solid ${limitL ? '#cccccc' : '#cccccc'}`, color: limitL ? T.mute : T.gold, borderRadius: 5, padding: '7px 13px', fontSize: 10, fontFamily: "'Times New Roman', Times, serif", cursor: limitL ? 'not-allowed' : 'pointer', letterSpacing: '.04em', display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
           {limitL
             ? <><span style={{ width: 8, height: 8, border: '1.5px solid #1e1e2e', borderTop: `1.5px solid ${T.gold}`, borderRadius: '50%', display: 'inline-block', animation: 'spin .8s linear infinite' }} /> Analysing...</>
             : '✦ AI Limitation Tracker'}
         </button>
         <button
           onClick={() => setFormOpen(o => !o)}
-          style={{ background: formOpen ? '#0a0a14' : 'transparent', border: `1px solid ${formOpen ? T.gold : '#1e1e2e'}`, color: formOpen ? T.gold : T.mute, borderRadius: 5, padding: '7px 13px', fontSize: 10, fontFamily: 'Inter, sans-serif', cursor: 'pointer', letterSpacing: '.04em', flexShrink: 0 }}>
+          style={{ background: formOpen ? '#ffffff' : 'transparent', border: `1px solid ${formOpen ? T.gold : '#cccccc'}`, color: formOpen ? T.gold : T.mute, borderRadius: 5, padding: '7px 13px', fontSize: 10, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', letterSpacing: '.04em', flexShrink: 0 }}>
           {formOpen ? '✕ Cancel' : '+ Add Deadline'}
         </button>
       </div>
 
       {/* Error */}
       {limitErr && (
-        <div style={{ background: '#1a0810', border: '1px solid #4a1830', borderRadius: 6, padding: '11px 16px', color: '#c07070', fontSize: 13, fontFamily: 'Inter, sans-serif', lineHeight: 1.5, marginBottom: 14 }}>
+        <div style={{ background: '#1a0810', border: '1px solid #4a1830', borderRadius: 6, padding: '11px 16px', color: '#c07070', fontSize: 13, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.5, marginBottom: 14 }}>
           {limitErr}
         </div>
       )}
@@ -165,18 +165,18 @@ export function DeadlineEngine({
           {overdue > 0 && (
             <div style={{ background: '#1a0808', border: '1px solid #4a1818', borderRadius: 5, padding: '6px 13px', display: 'flex', alignItems: 'center', gap: 6 }}>
               <span style={{ fontSize: 13, color: '#c05050' }}>⚠</span>
-              <span style={{ fontSize: 9, color: '#c05050', fontFamily: 'Inter, sans-serif', fontWeight: 600, letterSpacing: '.08em', textTransform: 'uppercase' }}>{overdue} Overdue</span>
+              <span style={{ fontSize: 9, color: '#c05050', fontFamily: "'Times New Roman', Times, serif", fontWeight: 600, letterSpacing: '.08em', textTransform: 'uppercase' }}>{overdue} Overdue</span>
             </div>
           )}
           {urgent > 0 && (
             <div style={{ background: '#1a0e08', border: '1px solid #4a2010', borderRadius: 5, padding: '6px 13px', display: 'flex', alignItems: 'center', gap: 6 }}>
               <span style={{ fontSize: 13, color: '#d06040' }}>⏱</span>
-              <span style={{ fontSize: 9, color: '#d06040', fontFamily: 'Inter, sans-serif', fontWeight: 600, letterSpacing: '.08em', textTransform: 'uppercase' }}>{urgent} This Week</span>
+              <span style={{ fontSize: 9, color: '#d06040', fontFamily: "'Times New Roman', Times, serif", fontWeight: 600, letterSpacing: '.08em', textTransform: 'uppercase' }}>{urgent} This Week</span>
             </div>
           )}
           {upcoming > 0 && (
             <div style={{ background: '#1a1400', border: '1px solid #3a2e00', borderRadius: 5, padding: '6px 13px', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ fontSize: 9, color: '#c09030', fontFamily: 'Inter, sans-serif', fontWeight: 600, letterSpacing: '.08em', textTransform: 'uppercase' }}>{upcoming} This Month</span>
+              <span style={{ fontSize: 9, color: '#c09030', fontFamily: "'Times New Roman', Times, serif", fontWeight: 600, letterSpacing: '.08em', textTransform: 'uppercase' }}>{upcoming} This Month</span>
             </div>
           )}
         </div>
@@ -185,7 +185,7 @@ export function DeadlineEngine({
       {/* Add form */}
       {formOpen && (
         <div style={{ background: '#0d0d1c', border: `1px solid ${T.gold}`, borderRadius: 10, padding: '20px 22px', marginBottom: 18, animation: 'fadeUp .22s ease' }}>
-          <p style={{ fontSize: 9, color: T.gold, fontFamily: 'Inter, sans-serif', letterSpacing: '.16em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 16 }}>New Deadline</p>
+          <p style={{ fontSize: 9, color: '#444444', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.16em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 16 }}>New Deadline</p>
           <div style={{ marginBottom: 12 }}>
             <label style={lbS}>Title <span style={{ color: '#b06060' }}>*</span></label>
             <input value={dlTitle} onChange={e => setDlTitle(e.target.value)} placeholder="e.g. Limitation Period - Breach of Contract" style={iS} />
@@ -213,10 +213,10 @@ export function DeadlineEngine({
           <div style={{ display: 'flex', gap: 10 }}>
             <button
               onClick={submit} disabled={!dlTitle.trim() || !dlDate}
-              style={{ flex: 1, background: dlTitle.trim() && dlDate ? 'linear-gradient(135deg,#c4a030,#a07820)' : '#101018', color: dlTitle.trim() && dlDate ? '#05050c' : '#2a2a38', border: dlTitle.trim() && dlDate ? 'none' : '1px solid #181828', borderRadius: 5, padding: '10px', fontSize: 15, fontFamily: "'Cormorant Garamond', serif", cursor: dlTitle.trim() && dlDate ? 'pointer' : 'not-allowed', fontWeight: 600 }}>
+              style={{ flex: 1, background: dlTitle.trim() && dlDate ? 'linear-gradient(135deg,#c4a030,#a07820)' : '#101018', color: dlTitle.trim() && dlDate ? '#05050c' : '#2a2a38', border: dlTitle.trim() && dlDate ? 'none' : '1px solid #181828', borderRadius: 5, padding: '10px', fontSize: 15, fontFamily: "'Times New Roman', Times, serif", cursor: dlTitle.trim() && dlDate ? 'pointer' : 'not-allowed', fontWeight: 600 }}>
               Track Deadline →
             </button>
-            <button onClick={() => setFormOpen(false)} style={{ background: 'transparent', border: '1px solid #1e1e2e', color: T.mute, borderRadius: 5, padding: '10px 16px', fontSize: 12, fontFamily: 'Inter, sans-serif', cursor: 'pointer' }}>Cancel</button>
+            <button onClick={() => setFormOpen(false)} style={{ background: 'transparent', border: '1px solid #cccccc', color: T.mute, borderRadius: 5, padding: '10px 16px', fontSize: 12, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer' }}>Cancel</button>
           </div>
         </div>
       )}
@@ -225,13 +225,13 @@ export function DeadlineEngine({
       {active.length === 0 && !formOpen && (
         <div style={{ textAlign: 'center', padding: '52px 24px', background: '#080808', border: '1px solid #111120', borderRadius: 10 }}>
           <div style={{ fontSize: 36, opacity: .06, marginBottom: 12 }}>⏱</div>
-          <p style={{ fontSize: 18, color: T.dim, fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic', marginBottom: 8 }}>No deadlines tracked.</p>
-          <p style={{ fontSize: 12, color: T.mute, fontFamily: 'Inter, sans-serif', lineHeight: 1.7, maxWidth: 440, margin: '0 auto 18px' }}>
+          <p style={{ fontSize: 18, color: T.dim, fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic', marginBottom: 8 }}>No deadlines tracked.</p>
+          <p style={{ fontSize: 12, color: T.mute, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.7, maxWidth: 440, margin: '0 auto 18px' }}>
             Track limitation periods, filing deadlines, compliance dates, and appeal windows. Missing a limitation period is irreversible.
           </p>
           <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
-            <button onClick={onAITrack} disabled={limitL} style={{ background: 'transparent', border: `1px solid ${T.gold}`, color: T.gold, borderRadius: 5, padding: '8px 20px', fontSize: 13, fontFamily: "'Cormorant Garamond', serif", cursor: limitL ? 'not-allowed' : 'pointer', letterSpacing: '.04em' }}>✦ AI Limitation Tracker</button>
-            <button onClick={() => setFormOpen(true)} style={{ background: 'transparent', border: '1px solid #1e1e2e', color: T.mute, borderRadius: 5, padding: '8px 18px', fontSize: 12, fontFamily: 'Inter, sans-serif', cursor: 'pointer', letterSpacing: '.04em' }}>+ Add Manually</button>
+            <button onClick={onAITrack} disabled={limitL} style={{ background: 'transparent', border: `1px solid ${T.gold}`, color: '#444444', borderRadius: 5, padding: '8px 20px', fontSize: 13, fontFamily: "'Times New Roman', Times, serif", cursor: limitL ? 'not-allowed' : 'pointer', letterSpacing: '.04em' }}>✦ AI Limitation Tracker</button>
+            <button onClick={() => setFormOpen(true)} style={{ background: 'transparent', border: '1px solid #cccccc', color: T.mute, borderRadius: 5, padding: '8px 18px', fontSize: 12, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', letterSpacing: '.04em' }}>+ Add Manually</button>
           </div>
         </div>
       )}
@@ -248,27 +248,27 @@ export function DeadlineEngine({
                   <span style={{ fontSize: 16, flexShrink: 0, marginTop: 2, opacity: .8 }}>{TYPE_ICONS[dl.type] ?? '◎'}</span>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap', marginBottom: 4 }}>
-                      <span style={{ fontSize: 8, color: uc.col, fontFamily: 'Inter, sans-serif', fontWeight: 600, letterSpacing: '.1em', textTransform: 'uppercase', border: `1px solid ${uc.bdr}44`, padding: '1px 7px', borderRadius: 2 }}>{dl.type}</span>
-                      {dl.status === 'Done' && <span style={{ fontSize: 8, color: '#40b068', fontFamily: 'Inter, sans-serif', fontWeight: 600, letterSpacing: '.1em', textTransform: 'uppercase', border: '1px solid #1a4028', background: '#081810', padding: '1px 7px', borderRadius: 2 }}>✓ COMPLETED</span>}
+                      <span style={{ fontSize: 8, color: uc.col, fontFamily: "'Times New Roman', Times, serif", fontWeight: 600, letterSpacing: '.1em', textTransform: 'uppercase', border: `1px solid ${uc.bdr}44`, padding: '1px 7px', borderRadius: 2 }}>{dl.type}</span>
+                      {dl.status === 'Done' && <span style={{ fontSize: 8, color: '#40b068', fontFamily: "'Times New Roman', Times, serif", fontWeight: 600, letterSpacing: '.1em', textTransform: 'uppercase', border: '1px solid #1a4028', background: '#081810', padding: '1px 7px', borderRadius: 2 }}>✓ COMPLETED</span>}
                     </div>
-                    <p style={{ fontSize: 16, color: uc.col, fontFamily: "'Cormorant Garamond', serif", fontWeight: 600, marginBottom: 5, lineHeight: 1.25 }}>{dl.label}</p>
+                    <p style={{ fontSize: 16, color: uc.col, fontFamily: "'Times New Roman', Times, serif", fontWeight: 600, marginBottom: 5, lineHeight: 1.25 }}>{dl.label}</p>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: 10, color: `${uc.col}bb`, fontFamily: 'Inter, sans-serif' }}>
+                      <span style={{ fontSize: 10, color: `${uc.col}bb`, fontFamily: "'Times New Roman', Times, serif" }}>
                         {formatDate(dl.date, { day: 'numeric', month: 'long', year: 'numeric' })}
                       </span>
-                      <span style={{ fontSize: 10, color: uc.col, fontFamily: 'Inter, sans-serif', fontWeight: 700, border: `1px solid ${uc.bdr}`, padding: '2px 9px', borderRadius: 3, animation: uc.pulse ? 'glow 1.5s ease infinite' : 'none' }}>
+                      <span style={{ fontSize: 10, color: uc.col, fontFamily: "'Times New Roman', Times, serif", fontWeight: 700, border: `1px solid ${uc.bdr}`, padding: '2px 9px', borderRadius: 3, animation: uc.pulse ? 'glow 1.5s ease infinite' : 'none' }}>
                         {days < 0 ? `OVERDUE · ${Math.abs(days)} days` : days === 0 ? 'DUE TODAY' : `${uc.tag} remaining`}
                       </span>
                     </div>
                     {dl.notes && (
-                      <p style={{ fontSize: 12, color: `${uc.col}88`, fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic', lineHeight: 1.75, marginTop: 7, borderTop: `1px solid ${uc.bdr}44`, paddingTop: 7 }}>{dl.notes}</p>
+                      <p style={{ fontSize: 12, color: `${uc.col}88`, fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic', lineHeight: 1.75, marginTop: 7, borderTop: `1px solid ${uc.bdr}44`, paddingTop: 7 }}>{dl.notes}</p>
                     )}
                   </div>
                   <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 5, alignItems: 'flex-end' }}>
                     {dl.status !== 'Done' && (
-                      <button onClick={() => onUpdateStatus(dl.id, 'Done')} style={{ background: '#081810', border: '1px solid #1a4028', color: '#40a868', borderRadius: 3, padding: '4px 10px', fontSize: 9, cursor: 'pointer', fontFamily: 'Inter, sans-serif', letterSpacing: '.06em', whiteSpace: 'nowrap' }}>✓ Done</button>
+                      <button onClick={() => onUpdateStatus(dl.id, 'Done')} style={{ background: '#081810', border: '1px solid #1a4028', color: '#40a868', borderRadius: 3, padding: '4px 10px', fontSize: 9, cursor: 'pointer', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.06em', whiteSpace: 'nowrap' }}>✓ Done</button>
                     )}
-                    <button onClick={() => onUpdateStatus(dl.id, 'Dismissed')} style={{ background: 'transparent', border: '1px solid #1e1e2e', color: '#3a3a52', borderRadius: 3, padding: '4px 10px', fontSize: 9, cursor: 'pointer', fontFamily: 'Inter, sans-serif', letterSpacing: '.06em' }}>Dismiss</button>
+                    <button onClick={() => onUpdateStatus(dl.id, 'Dismissed')} style={{ background: 'transparent', border: '1px solid #cccccc', color: '#3a3a52', borderRadius: 3, padding: '4px 10px', fontSize: 9, cursor: 'pointer', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.06em' }}>Dismiss</button>
                     <button
                       onClick={() => onDelete(dl.id)}
                       style={{ background: 'transparent', border: 'none', color: '#2a1a1a', cursor: 'pointer', fontSize: 12, padding: '2px 4px', lineHeight: 1, transition: 'color .15s' }}
@@ -287,13 +287,13 @@ export function DeadlineEngine({
       {/* Dismissed accordion */}
       {dismissed.length > 0 && (
         <details style={{ marginTop: 14, background: '#080808', border: '1px solid #111120', borderRadius: 8 }}>
-          <summary style={{ padding: '10px 16px', fontSize: 9, color: '#2a2a3e', fontFamily: 'Inter, sans-serif', letterSpacing: '.12em', textTransform: 'uppercase', listStyle: 'none', cursor: 'pointer', userSelect: 'none', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <summary style={{ padding: '10px 16px', fontSize: 9, color: '#cccccc', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', listStyle: 'none', cursor: 'pointer', userSelect: 'none', display: 'flex', alignItems: 'center', gap: 6 }}>
             <span style={{ marginLeft: 'auto', opacity: .5 }}>{dismissed.length} dismissed ▸</span>
           </summary>
           <div style={{ padding: '10px 16px 14px', borderTop: '1px solid #111120', display: 'flex', flexDirection: 'column', gap: 5 }}>
             {dismissed.map(dl => (
               <div key={dl.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '5px 0' }}>
-                <span style={{ fontSize: 12, color: '#2a2a3a', fontFamily: "'Cormorant Garamond', serif", flex: 1, textDecoration: 'line-through' }}>{dl.label} — {dl.date}</span>
+                <span style={{ fontSize: 12, color: '#2a2a3a', fontFamily: "'Times New Roman', Times, serif", flex: 1, textDecoration: 'line-through' }}>{dl.label} — {dl.date}</span>
                 <button
                   onClick={() => onDelete(dl.id)}
                   style={{ background: 'transparent', border: 'none', color: '#3a1a1a', cursor: 'pointer', fontSize: 11, padding: '0 4px', transition: 'color .15s' }}
@@ -373,20 +373,20 @@ export function HearingCalendar({ entries, deadlines }: HearingCalendarProps) {
 
   return (
     <div style={{ animation: 'fadeUp .3s ease' }}>
-      <p style={{ fontSize: 9, color: T.mute, fontFamily: 'Inter, sans-serif', letterSpacing: '.2em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 3 }}>Hearing Calendar</p>
-      <h3 style={{ fontSize: 20, color: T.goldL, fontFamily: "'Cormorant Garamond', serif", fontWeight: 300, fontStyle: 'italic', marginBottom: 18 }}>Hearing &amp; Deadline Calendar</h3>
+      <p style={{ fontSize: 9, color: T.mute, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.2em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 3 }}>Hearing Calendar</p>
+      <h3 style={{ fontSize: 20, color: '#111111', fontFamily: "'Times New Roman', Times, serif", fontWeight: 300, fontStyle: 'italic', marginBottom: 18 }}>Hearing &amp; Deadline Calendar</h3>
 
       {/* Calendar grid */}
       <div style={{ background: '#080808', border: '1px solid #111120', borderRadius: 10, padding: '20px 22px', marginBottom: 14 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-          <button onClick={prevMonth} style={{ background: 'transparent', border: '1px solid #1e1e2e', color: T.mute, borderRadius: 4, padding: '5px 14px', fontSize: 11, fontFamily: 'Inter, sans-serif', cursor: 'pointer' }}>←</button>
-          <span style={{ fontSize: 18, color: T.goldL, fontFamily: "'Cormorant Garamond', serif", fontWeight: 400, letterSpacing: '.04em' }}>{MONTHS[month]} {year}</span>
-          <button onClick={nextMonth} style={{ background: 'transparent', border: '1px solid #1e1e2e', color: T.mute, borderRadius: 4, padding: '5px 14px', fontSize: 11, fontFamily: 'Inter, sans-serif', cursor: 'pointer' }}>→</button>
+          <button onClick={prevMonth} style={{ background: 'transparent', border: '1px solid #cccccc', color: T.mute, borderRadius: 4, padding: '5px 14px', fontSize: 11, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer' }}>←</button>
+          <span style={{ fontSize: 18, color: '#111111', fontFamily: "'Times New Roman', Times, serif", fontWeight: 400, letterSpacing: '.04em' }}>{MONTHS[month]} {year}</span>
+          <button onClick={nextMonth} style={{ background: 'transparent', border: '1px solid #cccccc', color: T.mute, borderRadius: 4, padding: '5px 14px', fontSize: 11, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer' }}>→</button>
         </div>
 
         {/* Day headers */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 2, marginBottom: 2 }}>
-          {DAYS.map(d => <div key={d} style={{ textAlign: 'center', fontSize: 8, color: T.mute, fontFamily: 'Inter, sans-serif', letterSpacing: '.08em', textTransform: 'uppercase', padding: '4px 0', fontWeight: 600 }}>{d}</div>)}
+          {DAYS.map(d => <div key={d} style={{ textAlign: 'center', fontSize: 8, color: T.mute, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.08em', textTransform: 'uppercase', padding: '4px 0', fontWeight: 600 }}>{d}</div>)}
         </div>
 
         {/* Day cells */}
@@ -403,8 +403,8 @@ export function HearingCalendar({ entries, deadlines }: HearingCalendarProps) {
               <div
                 key={cell.dateStr}
                 onClick={() => hasEv && setSelected(isSel ? null : cell.dateStr)}
-                style={{ textAlign: 'center', borderRadius: 5, padding: '5px 2px', cursor: hasEv ? 'pointer' : 'default', background: isSel ? '#1a1408' : isToday ? '#0e0c04' : 'transparent', border: `1px solid ${isSel ? T.gold : isToday ? '#2a2208' : hasEv ? '#1a1a28' : 'transparent'}`, transition: 'all .15s', minHeight: 34 }}>
-                <div style={{ fontSize: 11, color: isToday ? T.gold : isPast ? '#252535' : T.dim, fontFamily: 'Inter, sans-serif', fontWeight: isToday ? 600 : 400, marginBottom: 2 }}>{cell.day}</div>
+                style={{ textAlign: 'center', borderRadius: 5, padding: '5px 2px', cursor: hasEv ? 'pointer' : 'default', background: isSel ? '#f5f5ef' : isToday ? '#f0f0e8' : 'transparent', border: `1px solid ${isSel ? T.gold : isToday ? '#cccccc' : hasEv ? '#cccccc' : 'transparent'}`, transition: 'all .15s', minHeight: 34 }}>
+                <div style={{ fontSize: 11, color: isToday ? T.gold : isPast ? '#252535' : T.dim, fontFamily: "'Times New Roman', Times, serif", fontWeight: isToday ? 600 : 400, marginBottom: 2 }}>{cell.day}</div>
                 <div style={{ display: 'flex', justifyContent: 'center', gap: 2 }}>
                   {hasH && <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#5090d0', display: 'inline-block' }} />}
                   {hasD && <span style={{ width: 5, height: 5, borderRadius: 2, background: '#c05050', display: 'inline-block' }} />}
@@ -418,28 +418,28 @@ export function HearingCalendar({ entries, deadlines }: HearingCalendarProps) {
         <div style={{ display: 'flex', gap: 14, marginTop: 12, paddingTop: 10, borderTop: '1px solid #111120' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
             <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#5090d0', display: 'inline-block' }} />
-            <span style={{ fontSize: 9, color: T.mute, fontFamily: 'Inter, sans-serif' }}>Hearing date</span>
+            <span style={{ fontSize: 9, color: T.mute, fontFamily: "'Times New Roman', Times, serif" }}>Hearing date</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
             <span style={{ width: 8, height: 8, borderRadius: 2, background: '#c05050', display: 'inline-block' }} />
-            <span style={{ fontSize: 9, color: T.mute, fontFamily: 'Inter, sans-serif' }}>Deadline</span>
+            <span style={{ fontSize: 9, color: T.mute, fontFamily: "'Times New Roman', Times, serif" }}>Deadline</span>
           </div>
-          <button onClick={() => { const d = new Date(); d.setDate(1); setViewDate(d); }} style={{ marginLeft: 'auto', background: 'transparent', border: 'none', color: T.mute, fontSize: 9, fontFamily: 'Inter, sans-serif', cursor: 'pointer', textDecoration: 'underline' }}>Today</button>
+          <button onClick={() => { const d = new Date(); d.setDate(1); setViewDate(d); }} style={{ marginLeft: 'auto', background: 'transparent', border: 'none', color: T.mute, fontSize: 9, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', textDecoration: 'underline' }}>Today</button>
         </div>
       </div>
 
       {/* Selected date detail */}
       {selectedDate && eventMap[selectedDate] && (
         <div style={{ background: '#0d0d18', border: `1px solid ${T.gold}`, borderRadius: 8, padding: '16px 20px', marginBottom: 14, animation: 'fadeUp .2s ease' }}>
-          <p style={{ fontSize: 9, color: T.gold, fontFamily: 'Inter, sans-serif', letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 12 }}>
+          <p style={{ fontSize: 9, color: '#444444', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 12 }}>
             {new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
           </p>
           {eventMap[selectedDate].map((ev, i) => (
             <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '8px 0', borderTop: i > 0 ? '1px solid #131322' : 'none' }}>
               <span style={{ fontSize: 14, flexShrink: 0, marginTop: 1 }}>{ev.type === 'hearing' ? '⚖' : '⏱'}</span>
               <div>
-                <p style={{ fontSize: 14, color: T.text, fontFamily: "'Cormorant Garamond', serif", fontWeight: 600, marginBottom: 3, lineHeight: 1.25 }}>{ev.label}</p>
-                <span style={{ fontSize: 8, color: ev.type === 'hearing' ? '#5090d0' : '#c05050', fontFamily: 'Inter, sans-serif', letterSpacing: '.08em', textTransform: 'uppercase', fontWeight: 600, border: `1px solid ${ev.type === 'hearing' ? '#1a3060' : '#4a1818'}`, background: ev.type === 'hearing' ? '#081428' : '#1a0808', padding: '1px 6px', borderRadius: 2 }}>
+                <p style={{ fontSize: 14, color: T.text, fontFamily: "'Times New Roman', Times, serif", fontWeight: 600, marginBottom: 3, lineHeight: 1.25 }}>{ev.label}</p>
+                <span style={{ fontSize: 8, color: ev.type === 'hearing' ? '#5090d0' : '#c05050', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.08em', textTransform: 'uppercase', fontWeight: 600, border: `1px solid ${ev.type === 'hearing' ? '#1a3060' : '#4a1818'}`, background: ev.type === 'hearing' ? '#081428' : '#1a0808', padding: '1px 6px', borderRadius: 2 }}>
                   {ev.type === 'hearing' ? ev.status : ev.dlType ?? 'Deadline'}
                 </span>
               </div>
@@ -451,7 +451,7 @@ export function HearingCalendar({ entries, deadlines }: HearingCalendarProps) {
       {/* Upcoming list */}
       {upcomingDates.length > 0 ? (
         <div>
-          <p style={{ fontSize: 9, color: T.mute, fontFamily: 'Inter, sans-serif', letterSpacing: '.16em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 10 }}>Upcoming Dates</p>
+          <p style={{ fontSize: 9, color: T.mute, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.16em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 10 }}>Upcoming Dates</p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
             {upcomingDates.map(([dateStr, evs]) => {
               const d    = new Date(dateStr + 'T12:00:00');
@@ -462,14 +462,14 @@ export function HearingCalendar({ entries, deadlines }: HearingCalendarProps) {
                   key={dateStr}
                   onClick={() => { const nd = new Date(dateStr + 'T12:00:00'); nd.setDate(1); setViewDate(nd); setSelected(dateStr); }}
                   style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#080808', border: '1px solid #111120', borderRadius: 6, padding: '10px 14px', cursor: 'pointer', transition: 'border-color .15s' }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor = '#1e1e2e'; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = '#111120'; }}>
+                  onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor = '#cccccc'; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = '#eeeeee'; }}>
                   <div style={{ flexShrink: 0, minWidth: 68 }}>
-                    <div style={{ fontSize: 13, color: urgCol, fontFamily: "'Cormorant Garamond', serif", fontWeight: 600, lineHeight: 1 }}>{d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</div>
-                    <div style={{ fontSize: 8, color: T.mute, fontFamily: 'Inter, sans-serif', letterSpacing: '.06em' }}>{diff === 0 ? 'Today' : diff === 1 ? 'Tomorrow' : `${diff}d away`}</div>
+                    <div style={{ fontSize: 13, color: urgCol, fontFamily: "'Times New Roman', Times, serif", fontWeight: 600, lineHeight: 1 }}>{d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</div>
+                    <div style={{ fontSize: 8, color: T.mute, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.06em' }}>{diff === 0 ? 'Today' : diff === 1 ? 'Tomorrow' : `${diff}d away`}</div>
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    {evs.map((ev, i) => <p key={i} style={{ fontSize: 13, color: T.dim, fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ev.label}</p>)}
+                    {evs.map((ev, i) => <p key={i} style={{ fontSize: 13, color: T.dim, fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ev.label}</p>)}
                   </div>
                   <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
                     {evs.some(e => e.type === 'hearing')  && <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#5090d0', display: 'inline-block' }} />}
@@ -482,8 +482,8 @@ export function HearingCalendar({ entries, deadlines }: HearingCalendarProps) {
         </div>
       ) : (
         <div style={{ textAlign: 'center', padding: '32px 24px', background: '#080808', border: '1px solid #111120', borderRadius: 8 }}>
-          <p style={{ fontSize: 15, color: T.dim, fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic' }}>No upcoming hearings or deadlines.</p>
-          <p style={{ fontSize: 11, color: T.mute, fontFamily: 'Inter, sans-serif', lineHeight: 1.7, marginTop: 6 }}>Add entries with Next Adjourned Dates in the Docket tab, or track deadlines in the Deadline Engine.</p>
+          <p style={{ fontSize: 15, color: T.dim, fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic' }}>No upcoming hearings or deadlines.</p>
+          <p style={{ fontSize: 11, color: T.mute, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.7, marginTop: 6 }}>Add entries with Next Adjourned Dates in the Docket tab, or track deadlines in the Deadline Engine.</p>
         </div>
       )}
     </div>
@@ -528,19 +528,19 @@ export function FilingsTracker({ activeCase }: FilingsTrackerProps) {
     { label: 'Concluded',   val: entries.filter(e => ['Decided','Complied With','Settled','Withdrawn','Struck Out'].includes(e.status)).length,                 col: '#40a868' },
   ];
 
-  const filterIS: React.CSSProperties = { background: '#07070f', border: '1px solid #1e1e2e', borderRadius: 5, color: '#e0dcd0', padding: '8px 12px', fontSize: 12, fontFamily: "'Cormorant Garamond', serif", outline: 'none' };
+  const filterIS: React.CSSProperties = { background: '#ffffff', border: '1px solid #cccccc', borderRadius: 5, color: '#e0dcd0', padding: '8px 12px', fontSize: 12, fontFamily: "'Times New Roman', Times, serif", outline: 'none' };
 
   return (
     <div style={{ animation: 'fadeUp .3s ease' }}>
-      <p style={{ fontSize: 9, color: T.mute, fontFamily: 'Inter, sans-serif', letterSpacing: '.2em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 3 }}>Filings Tracker</p>
-      <h3 style={{ fontSize: 20, color: T.goldL, fontFamily: "'Cormorant Garamond', serif", fontWeight: 300, fontStyle: 'italic', marginBottom: 16 }}>Filings Registry</h3>
+      <p style={{ fontSize: 9, color: T.mute, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.2em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 3 }}>Filings Tracker</p>
+      <h3 style={{ fontSize: 20, color: '#111111', fontFamily: "'Times New Roman', Times, serif", fontWeight: 300, fontStyle: 'italic', marginBottom: 16 }}>Filings Registry</h3>
 
       {/* Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8, marginBottom: 16 }}>
         {stats.map((s, i) => (
           <div key={i} style={{ background: '#080808', border: '1px solid #111120', borderRadius: 7, padding: '10px 12px' }}>
-            <div style={{ fontSize: 22, color: s.col, fontFamily: "'Cormorant Garamond', serif", fontWeight: 300, lineHeight: 1 }}>{s.val}</div>
-            <div style={{ fontSize: 8, color: T.mute, fontFamily: 'Inter, sans-serif', letterSpacing: '.1em', textTransform: 'uppercase', marginTop: 3 }}>{s.label}</div>
+            <div style={{ fontSize: 22, color: s.col, fontFamily: "'Times New Roman', Times, serif", fontWeight: 300, lineHeight: 1 }}>{s.val}</div>
+            <div style={{ fontSize: 8, color: T.mute, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.1em', textTransform: 'uppercase', marginTop: 3 }}>{s.label}</div>
           </div>
         ))}
       </div>
@@ -548,7 +548,7 @@ export function FilingsTracker({ activeCase }: FilingsTrackerProps) {
       {/* Filters */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
         <div style={{ position: 'relative', flex: 2, minWidth: 150 }}>
-          <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: T.mute, fontSize: 13, pointerEvents: 'none', fontFamily: "'Cormorant Garamond', serif" }}>⌕</span>
+          <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: T.mute, fontSize: 13, pointerEvents: 'none', fontFamily: "'Times New Roman', Times, serif" }}>⌕</span>
           <input value={searchQ} onChange={e => setSearchQ(e.target.value)} placeholder="Search filings…" style={{ ...filterIS, paddingLeft: 30, width: '100%', boxSizing: 'border-box' }} />
         </div>
         <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} style={{ ...filterIS, flex: 1, minWidth: 110, appearance: 'none', WebkitAppearance: 'none', cursor: 'pointer' } as React.CSSProperties}>
@@ -560,14 +560,14 @@ export function FilingsTracker({ activeCase }: FilingsTrackerProps) {
           {CASE_DOC_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
         </select>
         {(filterStatus || filterType || searchQ) && (
-          <button onClick={() => { setFilterStatus(''); setFilterType(''); setSearchQ(''); }} style={{ background: 'transparent', border: '1px solid #1e1e2e', color: T.mute, borderRadius: 5, padding: '6px 11px', fontSize: 10, fontFamily: 'Inter, sans-serif', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>✕ Clear</button>
+          <button onClick={() => { setFilterStatus(''); setFilterType(''); setSearchQ(''); }} style={{ background: 'transparent', border: '1px solid #cccccc', color: T.mute, borderRadius: 5, padding: '6px 11px', fontSize: 10, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>✕ Clear</button>
         )}
       </div>
 
       {/* Table */}
       {filtered.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '48px 24px', background: '#080808', border: '1px solid #111120', borderRadius: 10 }}>
-          <p style={{ fontSize: 17, color: T.dim, fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic' }}>
+          <p style={{ fontSize: 17, color: T.dim, fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic' }}>
             {entries.length === 0 ? 'No filings recorded yet. Add entries via the Docket tab.' : 'No filings match this filter.'}
           </p>
         </div>
@@ -576,7 +576,7 @@ export function FilingsTracker({ activeCase }: FilingsTrackerProps) {
           {/* Header row */}
           <div style={{ display: 'grid', gridTemplateColumns: '88px 1fr 90px 90px 100px', gap: 0, background: '#050508', padding: '9px 14px', borderBottom: '1px solid #111120' }}>
             {['Date Filed', 'Document / Filing', 'Filed By', 'Status', 'Next Date'].map(h => (
-              <span key={h} style={{ fontSize: 8, color: T.mute, fontFamily: 'Inter, sans-serif', letterSpacing: '.1em', textTransform: 'uppercase', fontWeight: 600 }}>{h}</span>
+              <span key={h} style={{ fontSize: 8, color: T.mute, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.1em', textTransform: 'uppercase', fontWeight: 600 }}>{h}</span>
             ))}
           </div>
 
@@ -588,29 +588,29 @@ export function FilingsTracker({ activeCase }: FilingsTrackerProps) {
               <div
                 key={entry.id}
                 style={{ display: 'grid', gridTemplateColumns: '88px 1fr 90px 90px 100px', gap: 0, padding: '11px 14px', borderBottom: i < filtered.length - 1 ? '1px solid #0d0d14' : 'none', transition: 'background .15s' }}
-                onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.background = '#0a0a12'; }}
+                onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.background = '#ffffff'; }}
                 onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = 'transparent'; }}>
                 <div style={{ paddingRight: 8 }}>
-                  <div style={{ fontSize: 11, color: T.dim, fontFamily: 'Inter, sans-serif', lineHeight: 1.2 }}>{formatDate(entry.dateFiled, { day: 'numeric', month: 'short' })}</div>
-                  <div style={{ fontSize: 9, color: '#1e1e2e', fontFamily: 'Inter, sans-serif' }}>{new Date(entry.dateFiled + 'T12:00:00').getFullYear()}</div>
+                  <div style={{ fontSize: 11, color: T.dim, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.2 }}>{formatDate(entry.dateFiled, { day: 'numeric', month: 'short' })}</div>
+                  <div style={{ fontSize: 9, color: '#888888', fontFamily: "'Times New Roman', Times, serif" }}>{new Date(entry.dateFiled + 'T12:00:00').getFullYear()}</div>
                 </div>
                 <div style={{ paddingRight: 8, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, color: '#e0dcd0', fontFamily: "'Cormorant Garamond', serif", fontWeight: 600, marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.docTitle}</div>
+                  <div style={{ fontSize: 13, color: '#e0dcd0', fontFamily: "'Times New Roman', Times, serif", fontWeight: 600, marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.docTitle}</div>
                   <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
-                    {entry.docType && <span style={{ fontSize: 8, color: '#3a3a52', fontFamily: 'Inter, sans-serif', border: '1px solid #1a1a2a', padding: '1px 6px', borderRadius: 2 }}>{entry.docType}</span>}
-                    {entry.attachment && <span style={{ fontSize: 8, color: '#2a3a4a', fontFamily: 'Inter, sans-serif' }}>📎</span>}
+                    {entry.docType && <span style={{ fontSize: 8, color: '#3a3a52', fontFamily: "'Times New Roman', Times, serif", border: '1px solid #1a1a2a', padding: '1px 6px', borderRadius: 2 }}>{entry.docType}</span>}
+                    {entry.attachment && <span style={{ fontSize: 8, color: '#2a3a4a', fontFamily: "'Times New Roman', Times, serif" }}>📎</span>}
                   </div>
                 </div>
                 <div style={{ paddingRight: 8 }}>
-                  <span style={{ fontSize: 11, color: T.mute, fontFamily: 'Inter, sans-serif', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>{entry.filedBy || '—'}</span>
+                  <span style={{ fontSize: 11, color: T.mute, fontFamily: "'Times New Roman', Times, serif", overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>{entry.filedBy || '—'}</span>
                 </div>
                 <div style={{ paddingRight: 8 }}>
                   <StatusBadge status={entry.status || 'Filed'} />
                 </div>
                 <div>
                   {nextDate
-                    ? <span style={{ fontSize: 10, color: isPast ? '#3a3a52' : '#b07030', fontFamily: 'Inter, sans-serif', fontWeight: isPast ? 400 : 600 }}>{nextDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
-                    : <span style={{ color: '#1e1e2e', fontSize: 11, fontFamily: 'Inter, sans-serif' }}>—</span>}
+                    ? <span style={{ fontSize: 10, color: isPast ? '#3a3a52' : '#b07030', fontFamily: "'Times New Roman', Times, serif", fontWeight: isPast ? 400 : 600 }}>{nextDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                    : <span style={{ color: '#888888', fontSize: 11, fontFamily: "'Times New Roman', Times, serif" }}>—</span>}
                 </div>
               </div>
             );
@@ -621,13 +621,13 @@ export function FilingsTracker({ activeCase }: FilingsTrackerProps) {
       {/* Compressed summary */}
       {activeCase.compressed_summary && (
         <details style={{ marginTop: 14, background: '#080808', border: '1px solid #111120', borderRadius: 8 }}>
-          <summary style={{ padding: '10px 16px', fontSize: 9, color: '#2a2a3e', fontFamily: 'Inter, sans-serif', letterSpacing: '.12em', textTransform: 'uppercase', listStyle: 'none', cursor: 'pointer', userSelect: 'none', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <summary style={{ padding: '10px 16px', fontSize: 9, color: '#cccccc', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', listStyle: 'none', cursor: 'pointer', userSelect: 'none', display: 'flex', alignItems: 'center', gap: 6 }}>
             <span style={{ width: 5, height: 5, background: T.gold, borderRadius: '50%', animation: 'glow 2.5s ease infinite', display: 'inline-block', flexShrink: 0 }} />
             Compressed Filing History
-            <span style={{ marginLeft: 'auto', fontSize: 9, color: '#1e1e2e' }}>▸</span>
+            <span style={{ marginLeft: 'auto', fontSize: 9, color: '#888888' }}>▸</span>
           </summary>
           <div style={{ padding: '0 16px 14px', borderTop: '1px solid #111120' }}>
-            <pre style={{ fontSize: 12, color: T.dim, fontFamily: "'Cormorant Garamond', serif", lineHeight: 1.9, whiteSpace: 'pre-wrap', margin: '12px 0 0', wordBreak: 'break-word' }}>{activeCase.compressed_summary}</pre>
+            <pre style={{ fontSize: 12, color: T.dim, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.9, whiteSpace: 'pre-wrap', margin: '12px 0 0', wordBreak: 'break-word' }}>{activeCase.compressed_summary}</pre>
           </div>
         </details>
       )}
@@ -649,8 +649,8 @@ export function CaseTimeline({ activeCase }: CaseTimelineProps) {
   if (entries.length === 0) return (
     <div style={{ textAlign: 'center', padding: '68px 24px', animation: 'fadeUp .3s ease' }}>
       <div style={{ fontSize: 40, opacity: .07, marginBottom: 16 }}>⏳</div>
-      <p style={{ fontSize: 22, color: T.goldL, fontFamily: "'Cormorant Garamond', serif", fontWeight: 300, fontStyle: 'italic', marginBottom: 8 }}>Timeline is empty.</p>
-      <p style={{ fontSize: 13, color: T.dim, fontFamily: 'Inter, sans-serif', lineHeight: 1.7 }}>Add entries to the Docket to build the case timeline.</p>
+      <p style={{ fontSize: 22, color: '#111111', fontFamily: "'Times New Roman', Times, serif", fontWeight: 300, fontStyle: 'italic', marginBottom: 8 }}>Timeline is empty.</p>
+      <p style={{ fontSize: 13, color: T.dim, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.7 }}>Add entries to the Docket to build the case timeline.</p>
     </div>
   );
 
@@ -672,32 +672,32 @@ export function CaseTimeline({ activeCase }: CaseTimelineProps) {
 
   return (
     <div style={{ animation: 'fadeUp .3s ease' }}>
-      <p style={{ fontSize: 9, color: T.mute, fontFamily: 'Inter, sans-serif', letterSpacing: '.2em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 3 }}>Case Timeline</p>
-      <h3 style={{ fontSize: 20, color: T.goldL, fontFamily: "'Cormorant Garamond', serif", fontWeight: 300, fontStyle: 'italic', marginBottom: 3 }}>{activeCase.caseName}</h3>
-      <p style={{ fontSize: 13, color: T.dim, fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic', marginBottom: 22 }}>
-        {claimantStr}<span style={{ color: '#2a2a3e', margin: '0 8px' }}>v.</span>{defendantStr}
+      <p style={{ fontSize: 9, color: T.mute, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.2em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 3 }}>Case Timeline</p>
+      <h3 style={{ fontSize: 20, color: '#111111', fontFamily: "'Times New Roman', Times, serif", fontWeight: 300, fontStyle: 'italic', marginBottom: 3 }}>{activeCase.caseName}</h3>
+      <p style={{ fontSize: 13, color: T.dim, fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic', marginBottom: 22 }}>
+        {claimantStr}<span style={{ color: '#cccccc', margin: '0 8px' }}>v.</span>{defendantStr}
       </p>
 
       {/* Case commencement marker */}
       {activeCase.dateCommenced && (
         <div style={{ display: 'flex', gap: 0, marginBottom: 14, alignItems: 'center' }}>
           <div style={{ width: 90, flexShrink: 0, textAlign: 'right', paddingRight: 18 }}>
-            <span style={{ fontSize: 9, color: '#3a3a52', fontFamily: 'Inter, sans-serif' }}>
+            <span style={{ fontSize: 9, color: '#3a3a52', fontFamily: "'Times New Roman', Times, serif" }}>
               {formatDate(activeCase.dateCommenced, { day: 'numeric', month: 'short', year: 'numeric' })}
             </span>
           </div>
-          <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#2a2a3e', border: '2px solid #07070f', flexShrink: 0 }} />
+          <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#cccccc', border: '2px solid #07070f', flexShrink: 0 }} />
           <div style={{ flex: 1, marginLeft: 12 }}>
-            <span style={{ fontSize: 11, color: '#3a3a52', fontFamily: 'Inter, sans-serif', letterSpacing: '.06em', textTransform: 'uppercase', fontWeight: 600 }}>Case Commenced</span>
+            <span style={{ fontSize: 11, color: '#3a3a52', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.06em', textTransform: 'uppercase', fontWeight: 600 }}>Case Commenced</span>
           </div>
         </div>
       )}
 
       {/* Compressed summary block */}
       {activeCase.compressed_summary && (
-        <div style={{ marginLeft: 100, marginBottom: 22, background: '#0a0a14', border: '1px solid #1a1a2e', borderLeft: '3px solid #2a2860', borderRadius: '0 8px 8px 0', padding: '12px 16px' }}>
-          <p style={{ fontSize: 9, color: '#4a4a68', fontFamily: 'Inter, sans-serif', letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 6 }}>Earlier History — Compressed</p>
-          <pre style={{ fontSize: 12, color: '#4a4a68', fontFamily: "'Cormorant Garamond', serif", lineHeight: 1.85, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{activeCase.compressed_summary}</pre>
+        <div style={{ marginLeft: 100, marginBottom: 22, background: '#ffffff', border: '1px solid #1a1a2e', borderLeft: '3px solid #2a2860', borderRadius: '0 8px 8px 0', padding: '12px 16px' }}>
+          <p style={{ fontSize: 9, color: '#4a4a68', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 6 }}>Earlier History — Compressed</p>
+          <pre style={{ fontSize: 12, color: '#4a4a68', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.85, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{activeCase.compressed_summary}</pre>
         </div>
       )}
 
@@ -710,7 +710,7 @@ export function CaseTimeline({ activeCase }: CaseTimelineProps) {
             {/* Month label */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, position: 'relative' }}>
               <div style={{ width: 90, flexShrink: 0, textAlign: 'right', paddingRight: 18, zIndex: 1 }}>
-                <span style={{ fontSize: 9, color: T.gold, fontFamily: 'Inter, sans-serif', letterSpacing: '.1em', textTransform: 'uppercase', fontWeight: 600, background: '#0a0a14', padding: '3px 7px', borderRadius: 3, border: '1px solid #2a2208', whiteSpace: 'nowrap' }}>
+                <span style={{ fontSize: 9, color: '#444444', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.1em', textTransform: 'uppercase', fontWeight: 600, background: '#ffffff', padding: '3px 7px', borderRadius: 3, border: '1px solid #2a2208', whiteSpace: 'nowrap' }}>
                   {group.label}
                 </span>
               </div>
@@ -724,7 +724,7 @@ export function CaseTimeline({ activeCase }: CaseTimelineProps) {
                 <div key={entry.id} style={{ display: 'flex', gap: 0, marginBottom: 10, position: 'relative' }}>
                   {/* Date label */}
                   <div style={{ width: 90, flexShrink: 0, textAlign: 'right', paddingRight: 18, paddingTop: 13, zIndex: 1 }}>
-                    <div style={{ fontSize: 10, color: T.dim, fontFamily: 'Inter, sans-serif', lineHeight: 1.2 }}>
+                    <div style={{ fontSize: 10, color: T.dim, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.2 }}>
                       {d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
                     </div>
                   </div>
@@ -740,21 +740,21 @@ export function CaseTimeline({ activeCase }: CaseTimelineProps) {
                     onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor = '#262634'; }}
                     onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = '#181828'; }}>
                     <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, flexWrap: 'wrap', marginBottom: 5 }}>
-                      <span style={{ fontSize: 15, color: '#e0dcd0', fontFamily: "'Cormorant Garamond', serif", fontWeight: 600, flex: 1, lineHeight: 1.25 }}>{entry.docTitle}</span>
+                      <span style={{ fontSize: 15, color: '#e0dcd0', fontFamily: "'Times New Roman', Times, serif", fontWeight: 600, flex: 1, lineHeight: 1.25 }}>{entry.docTitle}</span>
                       <StatusBadge status={entry.status || 'Filed'} />
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
-                      {entry.docType && <span style={{ fontSize: 9, color: '#3a3a52', fontFamily: 'Inter, sans-serif', border: '1px solid #1a1a2a', padding: '1px 6px', borderRadius: 2 }}>{entry.docType}</span>}
-                      {entry.filedBy && <span style={{ fontSize: 9, color: T.mute, fontFamily: 'Inter, sans-serif' }}>by {entry.filedBy}</span>}
+                      {entry.docType && <span style={{ fontSize: 9, color: '#3a3a52', fontFamily: "'Times New Roman', Times, serif", border: '1px solid #1a1a2a', padding: '1px 6px', borderRadius: 2 }}>{entry.docType}</span>}
+                      {entry.filedBy && <span style={{ fontSize: 9, color: T.mute, fontFamily: "'Times New Roman', Times, serif" }}>by {entry.filedBy}</span>}
                       {entry.nextAdjournedDate && (
-                        <span style={{ fontSize: 9, color: '#7a5028', fontFamily: 'Inter, sans-serif', border: '1px solid #2a1e08', padding: '1px 7px', borderRadius: 2 }}>
+                        <span style={{ fontSize: 9, color: '#7a5028', fontFamily: "'Times New Roman', Times, serif", border: '1px solid #2a1e08', padding: '1px 7px', borderRadius: 2 }}>
                           ⏱ {formatDate(entry.nextAdjournedDate, { day: 'numeric', month: 'short', year: 'numeric' })}
                         </span>
                       )}
-                      {entry.attachment && <span style={{ fontSize: 9, color: '#2a3a4a', fontFamily: 'Inter, sans-serif' }}>📎 {entry.attachment.name}</span>}
+                      {entry.attachment && <span style={{ fontSize: 9, color: '#2a3a4a', fontFamily: "'Times New Roman', Times, serif" }}>📎 {entry.attachment.name}</span>}
                     </div>
                     {entry.notes && (
-                      <p style={{ fontSize: 12, color: T.mute, fontFamily: "'Cormorant Garamond', serif", lineHeight: 1.8, borderTop: '1px solid #131322', paddingTop: 7, marginTop: 8, fontStyle: 'italic' }}>
+                      <p style={{ fontSize: 12, color: T.mute, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.8, borderTop: '1px solid #131322', paddingTop: 7, marginTop: 8, fontStyle: 'italic' }}>
                         {entry.notes}
                       </p>
                     )}
@@ -766,7 +766,7 @@ export function CaseTimeline({ activeCase }: CaseTimelineProps) {
         ))}
       </div>
 
-      <p style={{ textAlign: 'center', fontSize: 10, color: '#1e1e2e', fontFamily: 'Inter, sans-serif', marginTop: 20, letterSpacing: '.1em' }}>
+      <p style={{ textAlign: 'center', fontSize: 10, color: '#888888', fontFamily: "'Times New Roman', Times, serif", marginTop: 20, letterSpacing: '.1em' }}>
         {entries.length} {entries.length === 1 ? 'entry' : 'entries'} on the record
         {activeCase.dateCommenced ? ` · Commenced ${formatDate(activeCase.dateCommenced, { day: 'numeric', month: 'long', year: 'numeric' })}` : ''}
       </p>

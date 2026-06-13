@@ -83,7 +83,7 @@ interface Props {
 // ── Shared local styles ───────────────────────────────────────────────────────
 
 const iS: React.CSSProperties = {
-  width: '100%', background: '#07070f', border: '1px solid #1e1e2e',
+  width: '100%', background: '#ffffff', border: '1px solid #cccccc',
   borderRadius: 5, color: T.text, padding: '10px 13px', fontSize: 14,
   fontFamily: "'Times New Roman', Times, serif", outline: 'none', boxSizing: 'border-box',
 };
@@ -319,7 +319,7 @@ Rules:
       <div style={{
         display: 'flex', alignItems: 'center', gap: 0,
         marginBottom: 28, padding: '14px 18px',
-        background: '#07070f', border: '1px solid #181828',
+        background: '#ffffff', border: '1px solid #181828',
         borderRadius: 8, overflowX: 'auto',
       }}>
         {TIE_STEPS.map((s, i) => {
@@ -371,7 +371,7 @@ Rules:
           borderTop: `2px solid ${T.text}`, borderRadius: '50%',
           margin: '0 auto 18px', animation: 'spin .9s linear infinite',
         }} />
-        <p style={{ fontSize: 19, color: T.goldL, fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic' }}>
+        <p style={{ fontSize: 19, color: '#111111', fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic' }}>
           {label}
         </p>
       </div>
@@ -388,7 +388,7 @@ Rules:
           <p style={{ fontSize: 10, color: T.text, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.16em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 4 }}>
             Step 1 of 5 · Raw Facts
           </p>
-          <h2 style={{ fontSize: 22, color: T.goldL, fontFamily: "'Times New Roman', Times, serif", fontWeight: 300, marginBottom: 6 }}>
+          <h2 style={{ fontSize: 22, color: '#111111', fontFamily: "'Times New Roman', Times, serif", fontWeight: 300, marginBottom: 6 }}>
             Enter the Complete Case Narrative
           </h2>
           <p style={{ fontSize: 13, color: T.dim, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.7 }}>
@@ -469,7 +469,7 @@ Rules:
           <p style={{ fontSize: 10, color: '#40a868', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.16em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 4 }}>
             Step 2 of 5 · Extraction Complete
           </p>
-          <h2 style={{ fontSize: 22, color: T.goldL, fontFamily: "'Times New Roman', Times, serif", fontWeight: 300, marginBottom: 4 }}>
+          <h2 style={{ fontSize: 22, color: '#111111', fontFamily: "'Times New Roman', Times, serif", fontWeight: 300, marginBottom: 4 }}>
             Intelligence Extracted
           </h2>
           <p style={{ fontSize: 13, color: T.dim, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.6 }}>
@@ -576,7 +576,7 @@ Rules:
 
         <ErrorBlock message={error} />
         <div style={{ display: 'flex', gap: 10 }}>
-          <button onClick={() => goBack(1)} style={{ background: 'transparent', border: '1px solid #1e1e2e', color: T.mute, borderRadius: 5, padding: '12px 20px', fontSize: 13, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', letterSpacing: '.04em' }}>
+          <button onClick={() => goBack(1)} style={{ background: 'transparent', border: '1px solid #cccccc', color: T.mute, borderRadius: 5, padding: '12px 20px', fontSize: 13, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', letterSpacing: '.04em' }}>
             ← Edit Facts
           </button>
           <button
@@ -603,7 +603,7 @@ Rules:
           <p style={{ fontSize: 10, color: T.text, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.16em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 4 }}>
             Step 3 of 5 · Dynamic Follow-Up
           </p>
-          <h2 style={{ fontSize: 22, color: T.goldL, fontFamily: "'Times New Roman', Times, serif", fontWeight: 300, marginBottom: 6 }}>Targeted Questions</h2>
+          <h2 style={{ fontSize: 22, color: '#111111', fontFamily: "'Times New Roman', Times, serif", fontWeight: 300, marginBottom: 6 }}>Targeted Questions</h2>
           <p style={{ fontSize: 13, color: T.dim, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.6 }}>
             Answer these questions to fill the critical intelligence gaps. Answer at least {Math.min(3, followUpQs.length)} to proceed.
           </p>
@@ -646,7 +646,7 @@ Rules:
 
         <ErrorBlock message={error} />
         <div style={{ display: 'flex', gap: 10 }}>
-          <button onClick={() => goBack(2)} style={{ background: 'transparent', border: '1px solid #1e1e2e', color: T.mute, borderRadius: 5, padding: '12px 20px', fontSize: 13, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer' }}>
+          <button onClick={() => goBack(2)} style={{ background: 'transparent', border: '1px solid #cccccc', color: T.mute, borderRadius: 5, padding: '12px 20px', fontSize: 13, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer' }}>
             ← Back
           </button>
           <button
@@ -671,7 +671,7 @@ Rules:
           <p style={{ fontSize: 10, color: T.text, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.16em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 4 }}>
             Step 4 of 5 · Evidence Map
           </p>
-          <h2 style={{ fontSize: 22, color: T.goldL, fontFamily: "'Times New Roman', Times, serif", fontWeight: 300, marginBottom: 4 }}>Evidence Requirements</h2>
+          <h2 style={{ fontSize: 22, color: '#111111', fontFamily: "'Times New Roman', Times, serif", fontWeight: 300, marginBottom: 4 }}>Evidence Requirements</h2>
           <p style={{ fontSize: 13, color: T.dim, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.6 }}>
             Required, available, and missing evidence — mapped to each fact and legal issue.
           </p>
@@ -728,7 +728,7 @@ Rules:
 
         <ErrorBlock message={error} />
         <div style={{ display: 'flex', gap: 10 }}>
-          <button onClick={() => goBack(3)} style={{ background: 'transparent', border: '1px solid #1e1e2e', color: T.mute, borderRadius: 5, padding: '12px 20px', fontSize: 13, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer' }}>
+          <button onClick={() => goBack(3)} style={{ background: 'transparent', border: '1px solid #cccccc', color: T.mute, borderRadius: 5, padding: '12px 20px', fontSize: 13, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer' }}>
             ← Back
           </button>
           <button
@@ -748,7 +748,7 @@ Rules:
     if (loading) return (
       <div style={{ textAlign: 'center', padding: '68px 24px' }}>
         <div style={{ width: 38, height: 38, border: `3px solid ${T.bdr}`, borderTop: `3px solid ${T.text}`, borderRadius: '50%', margin: '0 auto 20px', animation: 'spin .9s linear infinite' }} />
-        <p style={{ fontSize: 22, color: T.goldL, fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic', marginBottom: 10 }}>Assembling Intelligence Package…</p>
+        <p style={{ fontSize: 22, color: '#111111', fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic', marginBottom: 10 }}>Assembling Intelligence Package…</p>
         <p style={{ fontSize: 11, color: T.mute, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em' }}>TRIAL INTELLIGENCE ENGINE · AFS ADVOCATES</p>
       </div>
     );
@@ -759,7 +759,7 @@ Rules:
             <p style={{ fontSize: 10, color: '#40a868', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.16em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 4 }}>
               Step 5 of 5 · Complete · Saved to Case
             </p>
-            <h2 style={{ fontSize: 22, color: T.goldL, fontFamily: "'Times New Roman', Times, serif", fontWeight: 300, marginBottom: 4 }}>Intelligence Package</h2>
+            <h2 style={{ fontSize: 22, color: '#111111', fontFamily: "'Times New Roman', Times, serif", fontWeight: 300, marginBottom: 4 }}>Intelligence Package</h2>
           </div>
           <div style={{ display: 'flex', gap: 8, flexShrink: 0, flexWrap: 'wrap' }}>
             <button
@@ -767,7 +767,7 @@ Rules:
               style={{ background: 'transparent', border: '1px solid #2a2208', color: copied ? '#40b068' : T.mute, borderRadius: 4, padding: '7px 14px', fontSize: 11, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', letterSpacing: '.04em', transition: 'color .2s' }}>
               {copied ? '✓ Copied' : 'Copy All'}
             </button>
-            <button onClick={() => goBack(4)} style={{ background: 'transparent', border: '1px solid #1e1e2e', color: T.mute, borderRadius: 4, padding: '7px 14px', fontSize: 11, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer' }}>
+            <button onClick={() => goBack(4)} style={{ background: 'transparent', border: '1px solid #cccccc', color: T.mute, borderRadius: 4, padding: '7px 14px', fontSize: 11, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer' }}>
               ← Evidence Map
             </button>
             <button
@@ -809,7 +809,7 @@ Rules:
           <p style={{ fontSize: 9, color: T.mute, letterSpacing: '.18em', textTransform: 'uppercase', fontFamily: "'Times New Roman', Times, serif", marginBottom: 5 }}>
             AFS Advocates · Trial Intelligence Engine · Step 4
           </p>
-          <h1 style={{ fontSize: 26, color: T.goldL, fontWeight: 300, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.02em' }}>
+          <h1 style={{ fontSize: 26, color: '#111111', fontWeight: 300, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.02em' }}>
             Intelligence Engine
           </h1>
         </div>

@@ -317,7 +317,7 @@ ${context}`;
   // ── Input styles ────────────────────────────────────────────────────────────
 
   const iS: React.CSSProperties = {
-    width: '100%', background: '#07070f', border: '1px solid #1e1e2e',
+    width: '100%', background: '#ffffff', border: '1px solid #cccccc',
     borderRadius: 5, color: '#e0dcd0', padding: '10px 13px',
     fontSize: 14, fontFamily: "'Times New Roman', Times, serif",
     outline: 'none', boxSizing: 'border-box',
@@ -347,7 +347,7 @@ ${context}`;
               </span>
             )}
           </div>
-          <h2 style={{ fontSize: 24, color: T.goldL, fontFamily: "'Times New Roman', Times, serif", fontWeight: 300, letterSpacing: '.02em', marginBottom: 5, lineHeight: 1.2 }}>
+          <h2 style={{ fontSize: 24, color: '#111111', fontFamily: "'Times New Roman', Times, serif", fontWeight: 300, letterSpacing: '.02em', marginBottom: 5, lineHeight: 1.2 }}>
             Brief Me Before Court
           </h2>
           <p style={{ fontSize: 13, color: T.dim, fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic', lineHeight: 1.65 }}>
@@ -469,7 +469,7 @@ ${context}`;
               <p style={{ fontSize: 9, color: T.text, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.2em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 5 }}>
                 Pre-Hearing Briefing · Ready
               </p>
-              <h3 style={{ fontSize: 20, color: T.goldL, fontFamily: "'Times New Roman', Times, serif", fontWeight: 300, marginBottom: 4 }}>
+              <h3 style={{ fontSize: 20, color: '#111111', fontFamily: "'Times New Roman', Times, serif", fontWeight: 300, marginBottom: 4 }}>
                 {activeCase.caseName}
               </h3>
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -542,9 +542,9 @@ ${context}`;
 
       {/* ── Empty state ── */}
       {!briefing && !loading && (
-        <div style={{ textAlign: 'center', padding: '60px 24px', background: '#07070e', border: '1px dashed #141428', borderRadius: 10 }}>
+        <div style={{ textAlign: 'center', padding: '60px 24px', background: '#fafaf8', border: '1px dashed #cccccc', borderRadius: 4 }}>
           <div style={{ fontSize: 48, opacity: .06, marginBottom: 16 }}>🎯</div>
-          <p style={{ fontSize: 22, color: T.goldL, fontFamily: "'Times New Roman', Times, serif", fontWeight: 300, fontStyle: 'italic', marginBottom: 8 }}>
+          <p style={{ fontSize: 22, color: '#111111', fontFamily: "'Times New Roman', Times, serif", fontWeight: 300, fontStyle: 'italic', marginBottom: 8 }}>
             No briefing generated yet
           </p>
           <p style={{ fontSize: 12, color: T.mute, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.85, maxWidth: 440, margin: '0 auto' }}>
