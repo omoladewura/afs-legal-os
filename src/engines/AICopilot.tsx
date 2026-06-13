@@ -556,7 +556,7 @@ export function AICopilot({ activeCase }: Props) {
                 </button>
               )}
               {m.role === 'assistant'
-                ? <Md>{m.text}</Md>
+                ? <Md text={m.text ?? ''} />
                 : <div style={{ whiteSpace: 'pre-wrap' }}>{m.text}</div>
               }
             </div>

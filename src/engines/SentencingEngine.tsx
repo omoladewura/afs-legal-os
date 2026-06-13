@@ -142,7 +142,7 @@ function ResultBlock({
           clear ×
         </button>
       </div>
-      <Md content={content} />
+      <Md text={content} />
     </div>
   );
 }

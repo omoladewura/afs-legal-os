@@ -630,7 +630,7 @@ export function ApplicationsEngine({ activeCase }: Props) {
                   </div>
 
                   <div style={{ background: '#06060f', border: '1px solid #1a1a2e', borderRadius: 8, padding: '20px 22px', lineHeight: 1.85, fontSize: 13 }}>
-                    <Md>{generated}</Md>
+                    <Md text={generated} />
                   </div>
 
                   <MandatoryNotice />
@@ -714,7 +714,7 @@ export function ApplicationsEngine({ activeCase }: Props) {
               )}
 
               <div style={{ background: '#06060f', border: '1px solid #1a1a2e', borderRadius: 8, padding: '20px 22px', lineHeight: 1.85, fontSize: 13 }}>
-                <Md>{selectedRecord.documents}</Md>
+                <Md text={selectedRecord.documents} />
               </div>
 
               <MandatoryNotice />

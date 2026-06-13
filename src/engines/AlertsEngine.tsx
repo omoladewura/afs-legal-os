@@ -872,8 +872,9 @@ export function AlertsEngine({ activeCase }: AlertsEngineProps) {
   const [deadlines, setDeadlines] = useState<Deadline[]>([]);
   const [loading,   setLoading]   = useState(true);
 
-  const [staticAlerts, setStaticAlerts] = useState<Alert[]>([]);
-  const [aiAlerts,     setAIAlerts]     = useState<Alert[]>([]);
+  const [staticAlerts,   setStaticAlerts]   = useState<Alert[]>([]);
+  const [computedAlerts, setComputedAlerts] = useState<Alert[]>([]);
+  const [aiAlerts,       setAIAlerts]       = useState<Alert[]>([]);
   const [dismissed,    setDismissed]    = useState<Set<string>>(new Set());
   const [aiLoading,    setAILoading]    = useState(false);
   const [aiError,      setAIError]      = useState('');

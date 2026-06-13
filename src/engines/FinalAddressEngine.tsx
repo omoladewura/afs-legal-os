@@ -461,7 +461,7 @@ The reply must not introduce new facts or re-argue the evidence. It is confined 
               clear ×
             </button>
           </div>
-          <Md content={replyDraft} />
+          <Md text={replyDraft} />
         </div>
       )}
     </div>
@@ -610,7 +610,7 @@ export function FinalAddressEngine({ activeCase }: Props) {
 
   // Load
   useEffect(() => {
-    loadBlindSpot(activeCase.id, STORAGE_KEY).then((d: SavedData | null) => {
+    loadBlindSpot(activeCase.id, STORAGE_KEY, null).then((d: SavedData | null) => {
       if (!d) return;
       if (d.prosContext)    setProsContext(d.prosContext);
       if (d.prosAddress)    setProsAddress(d.prosAddress);

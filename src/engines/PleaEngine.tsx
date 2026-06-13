@@ -128,7 +128,7 @@ function ResultBlock({ title, content, onClear, accent = '#c09030' }: {
           clear ×
         </button>
       </div>
-      <Md content={content} />
+      <Md text={content} />
     </div>
   );
 }
@@ -844,7 +844,7 @@ export function PleaEngine({ activeCase }: Props) {
 
   // Load
   useEffect(() => {
-    loadBlindSpot(activeCase.id, STORAGE_KEY).then((d: SavedData | null) => {
+    loadBlindSpot(activeCase.id, STORAGE_KEY, null).then((d: SavedData | null) => {
       if (!d) return;
       if (d.countPleas)            setCountPleas(d.countPleas);
       if (d.routingAnalysis)       setRoutingAnalysis(d.routingAnalysis);

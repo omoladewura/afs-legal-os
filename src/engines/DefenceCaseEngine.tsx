@@ -145,7 +145,7 @@ function ResultBlock({ title, content, onClear, accent = '#40a860' }: {
           clear ×
         </button>
       </div>
-      <Md content={content} />
+      <Md text={content} />
     </div>
   );
 }
@@ -901,7 +901,7 @@ export function DefenceCaseEngine({ activeCase }: Props) {
 
   // Load
   useEffect(() => {
-    loadBlindSpot(activeCase.id, STORAGE_KEY).then((d: SavedData | null) => {
+    loadBlindSpot(activeCase.id, STORAGE_KEY, null).then((d: SavedData | null) => {
       if (!d) return;
       if (d.election)                setElection(d.election);
       if (d.electionDate)            setElectionDate(d.electionDate);

@@ -24,7 +24,7 @@ import { buildRoleLibraryOpts } from '@/utils/roleLibrary';
 import { Md, Spinner } from '@/components/common/ui';
 import { useAppStore } from '@/state/appStore';
 import { loadBlindSpot, loadEvidenceMeta } from '@/storage/helpers';
-import type { Case, DashTabId, EvidenceItem, IntelligenceData } from '@/types';
+import type { Case, DashTabId, EvidenceItem } from '@/types';
 import { buildRoleSystemPrompt } from '@/utils/rolePrompt';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -82,7 +82,7 @@ function writeLS(key: string, val: unknown): void {
 // ── Case context builder (mirrors buildCaseContext from original) ──────────────
 
 function buildCtx(c: Case): string {
-  const intel = (c.intelligence_data || {}) as IntelligenceData;
+  const intel = c.intelligence_data || {};
   const parts: string[] = [];
   if (c.caseName)      parts.push('Case: ' + c.caseName);
   if (c.court)         parts.push('Court: ' + c.court);
@@ -204,7 +204,7 @@ function NavBtn({ label, tab, setDashTab }: { label: string; tab: DashTabId; set
 export function WarRoom({ activeCase }: Props) {
   const { setDashTab } = useAppStore();
   const caseId = activeCase.id;
-  const intel  = (activeCase.intelligence_data || {}) as IntelligenceData;
+  const intel  = activeCase.intelligence_data || {};
   const appeal = activeCase.appeal_data || {};
 
   // ── Cross-module data loaded from IndexedDB ───────────────────────────────
@@ -313,8 +313,7 @@ export function WarRoom({ activeCase }: Props) {
         onGenerate={() => aiGenerate(
           'theory',
           roleSystem,
-          `Produce a Case Theory Map for this matter. Structure your analysis as:\n(1) Primary cause of action / defence theory\n(2) Core legal proposition\n(3) Each legal issue — strength (STRONG/MODERATE/WEAK/UNCERTAIN) and reasoning\n(4) Evidence that anchors the theory\n(5) The single most vulnerable point in the theory\n(6) Strategic recommendation\n\nBe specific and role-specific — advice must reflect the counsel role on this matter.\n\n${ctx}`,
-          `CASE CONTEXT:\n${ctx}\n\nIntelligence Package:\n${JSON.stringify(intel, null, 2)}\n\nBuild the Case Theory Map.`,
+          `Produce a Case Theory Map for this matter. Structure your analysis as:\n(1) Primary cause of action / defence theory\n(2) Core legal proposition\n(3) Each legal issue — strength (STRONG/MODERATE/WEAK/UNCERTAIN) and reasoning\n(4) Evidence that anchors the theory\n(5) The single most vulnerable point in the theory\n(6) Strategic recommendation\n\nBe specific and role-specific — advice must reflect the counsel role on this matter.\n\nCASE CONTEXT:\n${ctx}\n\nIntelligence Package:\n${JSON.stringify(intel, null, 2)}\n\nBuild the Case Theory Map.`,
           setCaseTheory,
           `afs_wr_theory_${caseId}`,
         )}

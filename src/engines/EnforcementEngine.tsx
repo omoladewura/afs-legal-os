@@ -128,7 +128,7 @@ function ResultBlock({
           clear ×
         </button>
       </div>
-      <Md content={content} />
+      <Md text={content} />
     </div>
   );
 }
@@ -278,34 +278,33 @@ export function EnforcementEngine({ activeCase }: Props) {
   // ── Compliance row form ────────────────────────────────────────────────────
   const [newObligation, setNewObligation] = useState<Omit<ComplianceStep, 'id'>>({ date: '', obligation: '', done: false });
 
-  const { ask: generate, loading, error } = useAI(activeCase);
+  const { generate, loading, error } = useAI();
 
   // ── Load saved data ────────────────────────────────────────────────────────
   useEffect(() => {
-    loadBlindSpot<SavedData>(activeCase.id, MODULE, {}).then(saved => {
-      if (saved.judgmentDate)         setJudgmentDate(saved.judgmentDate);
-      if (saved.judgmentCourt)        setJudgmentCourt(saved.judgmentCourt);
-      if (saved.reliefsGranted)       setReliefsGranted(saved.reliefsGranted);
-      if (saved.amountAwarded)        setAmountAwarded(saved.amountAwarded);
-      if (saved.selectedMechanism)    setSelectedMechanism(saved.selectedMechanism);
-      if (saved.enforcementContext)   setEnforcementContext(saved.enforcementContext);
-      if (saved.enforcementResult)    setEnforcementResult(saved.enforcementResult);
-      if (saved.writContext)          setWritContext(saved.writContext);
-      if (saved.writDraft)            setWritDraft(saved.writDraft);
-      if (saved.garnisheeContext)     setGarnisheeContext(saved.garnisheeContext);
-      if (saved.garnisheeDraft)       setGarnisheeDraft(saved.garnisheeDraft);
-      if (saved.recoverySteps)        setRecoverySteps(saved.recoverySteps);
-      if (saved.stayContext)          setStayContext(saved.stayContext);
-      if (saved.stayDraft)            setStayDraft(saved.stayDraft);
-      if (saved.complianceSteps)      setComplianceSteps(saved.complianceSteps);
-      if (saved.appealGroundsContext) setAppealGroundsContext(saved.appealGroundsContext);
-      if (saved.appealGroundsResult)  setAppealGroundsResult(saved.appealGroundsResult);
-    });
+    const saved = loadBlindSpot<SavedData>(activeCase.id, MODULE, {});
+    if (saved.judgmentDate)         setJudgmentDate(saved.judgmentDate);
+    if (saved.judgmentCourt)        setJudgmentCourt(saved.judgmentCourt);
+    if (saved.reliefsGranted)       setReliefsGranted(saved.reliefsGranted);
+    if (saved.amountAwarded)        setAmountAwarded(saved.amountAwarded);
+    if (saved.selectedMechanism)    setSelectedMechanism(saved.selectedMechanism);
+    if (saved.enforcementContext)   setEnforcementContext(saved.enforcementContext);
+    if (saved.enforcementResult)    setEnforcementResult(saved.enforcementResult);
+    if (saved.writContext)          setWritContext(saved.writContext);
+    if (saved.writDraft)            setWritDraft(saved.writDraft);
+    if (saved.garnisheeContext)     setGarnisheeContext(saved.garnisheeContext);
+    if (saved.garnisheeDraft)       setGarnisheeDraft(saved.garnisheeDraft);
+    if (saved.recoverySteps)        setRecoverySteps(saved.recoverySteps);
+    if (saved.stayContext)          setStayContext(saved.stayContext);
+    if (saved.stayDraft)            setStayDraft(saved.stayDraft);
+    if (saved.complianceSteps)      setComplianceSteps(saved.complianceSteps);
+    if (saved.appealGroundsContext) setAppealGroundsContext(saved.appealGroundsContext);
+    if (saved.appealGroundsResult)  setAppealGroundsResult(saved.appealGroundsResult);
   }, [activeCase.id]);
 
   // ── Save helper ────────────────────────────────────────────────────────────
-  const persist = useCallback(async (patch: Partial<SavedData>) => {
-    const existing = await loadBlindSpot<SavedData>(activeCase.id, MODULE, {});
+  const persist = useCallback((patch: Partial<SavedData>) => {
+    const existing = loadBlindSpot<SavedData>(activeCase.id, MODULE, {});
     saveBlindSpot(activeCase.id, MODULE, { ...existing, ...patch, lastUpdated: new Date().toISOString() });
   }, [activeCase.id]);
 
@@ -316,7 +315,7 @@ export function EnforcementEngine({ activeCase }: Props) {
   const handleEnforcementSelector = useCallback(async () => {
     const prompt = `Acting as claimant's counsel on this civil matter, advise on the most appropriate enforcement mechanism.
 
-Matter: ${activeCase.caseName}
+Matter: ${activeCase.title}
 Court: ${judgmentCourt || activeCase.court}
 Judgment Date: ${judgmentDate}
 Reliefs Granted: ${reliefsGranted}
@@ -338,7 +337,7 @@ For each recommended mechanism:
 
 Conclude with your primary recommendation and the first step to take.`;
 
-    const result = await generate({ userMsg: prompt });
+    const result = await generate(prompt);
     if (result) {
       setEnforcementResult(result);
       persist({ enforcementContext, enforcementResult: result });
@@ -348,7 +347,7 @@ Conclude with your primary recommendation and the first step to take.`;
   const handleWritDrafter = useCallback(async () => {
     const prompt = `Acting as claimant's counsel on this civil matter, draft a Writ of Fieri Facias (FIFA).
 
-Matter: ${activeCase.caseName}
+Matter: ${activeCase.title}
 Court: ${judgmentCourt || activeCase.court}
 Judgment Date: ${judgmentDate}
 Amount Awarded: ${amountAwarded}
@@ -366,7 +365,7 @@ Draft a complete Writ of Fieri Facias in the standard Nigerian court form. The d
 
 Use standard Nigerian High Court practice for the writ. Insert [BRACKETS] for any information that must be completed from the actual court record.`;
 
-    const result = await generate({ userMsg: prompt });
+    const result = await generate(prompt);
     if (result) {
       setWritDraft(result);
       persist({ writContext, writDraft: result });
@@ -376,7 +375,7 @@ Use standard Nigerian High Court practice for the writ. Insert [BRACKETS] for an
   const handleGarnisheeDrafter = useCallback(async () => {
     const prompt = `Acting as claimant's counsel on this civil matter, draft a Garnishee Order Nisi and supporting affidavit.
 
-Matter: ${activeCase.caseName}
+Matter: ${activeCase.title}
 Court: ${judgmentCourt || activeCase.court}
 Judgment Date: ${judgmentDate}
 Amount Awarded: ${amountAwarded}
@@ -395,7 +394,7 @@ The motion and affidavit should:
 
 Insert [BRACKETS] for information to be completed from the actual record.`;
 
-    const result = await generate({ userMsg: prompt });
+    const result = await generate(prompt);
     if (result) {
       setGarnisheeDraft(result);
       persist({ garnisheeContext, garnisheeDraft: result });
@@ -405,7 +404,7 @@ Insert [BRACKETS] for information to be completed from the actual record.`;
   const handleStayDrafter = useCallback(async () => {
     const prompt = `Acting as defendant's counsel on this civil matter, draft a Motion for Stay of Execution pending appeal.
 
-Matter: ${activeCase.caseName}
+Matter: ${activeCase.title}
 Court: ${judgmentCourt || activeCase.court}
 Judgment Date: ${judgmentDate}
 Reliefs Against Client: ${reliefsGranted}
@@ -421,7 +420,7 @@ Draft a complete Motion for Stay of Execution and supporting affidavit. The draf
 
 Insert [BRACKETS] for information to be completed from the court record.`;
 
-    const result = await generate({ userMsg: prompt });
+    const result = await generate(prompt);
     if (result) {
       setStayDraft(result);
       persist({ stayContext, stayDraft: result });
@@ -431,7 +430,7 @@ Insert [BRACKETS] for information to be completed from the court record.`;
   const handleAppealGrounds = useCallback(async () => {
     const prompt = `Acting as defendant's counsel on this civil matter, identify and develop grounds of appeal from the judgment.
 
-Matter: ${activeCase.caseName}
+Matter: ${activeCase.title}
 Court: ${judgmentCourt || activeCase.court}
 Judgment Date: ${judgmentDate}
 Decision Against Client: ${reliefsGranted}
@@ -450,7 +449,7 @@ For each ground:
 
 Conclude with a priority ranking of the grounds.`;
 
-    const result = await generate({ userMsg: prompt });
+    const result = await generate(prompt);
     if (result) {
       setAppealGroundsResult(result);
       persist({ appealGroundsContext, appealGroundsResult: result });
