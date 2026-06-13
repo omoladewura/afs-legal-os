@@ -32,6 +32,7 @@ import {
   COUNSEL_ROLE_LABELS,
   COUNSEL_ROLE_COLORS,
   MATTER_TRACK_COLORS,
+  getOriginatingProcess,
 } from '@/types';
 
 // ── Lazy engine imports ───────────────────────────────────────────────────────
@@ -274,7 +275,10 @@ export function CaseDashboard() {
               letterSpacing: '.1em', textTransform: 'uppercase',
               background: '#f0f0ee', border: '1px solid #cccccc', color: '#444444',
             }}>
-              {MATTER_TRACK_LABELS[matterTrack]}
+              {activeCase.originating_process
+                ? getOriginatingProcess(activeCase.originating_process).label
+                : (MATTER_TRACK_LABELS[matterTrack] ?? matterTrack)
+              }
             </span>
           )}
           {/* Role badge — permanently visible */}
