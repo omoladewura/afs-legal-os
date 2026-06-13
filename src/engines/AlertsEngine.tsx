@@ -1,9 +1,19 @@
 /**
- * AFS Legal OS V2 — Alerts Engine (Phase 7: Automation)
+ * AFS Legal OS V2 — Alerts Engine (Phase 7: Automation + Phase E: Period Computation)
  *
  * Role-specific automated alert system. Reads matter state, deadlines, docket
  * entries, and stage data to surface precisely targeted alerts from the lawyer's
  * position — never generic notices, always role-specific intelligence.
+ *
+ * Phase E upgrade: pattern alerts are now supplemented (and where possible
+ * superseded) by COMPUTED alerts generated from real docket anchor dates.
+ * Computed alerts carry the governing statute, exact trigger date, computed
+ * deadline date, real countdown, and fatal flag.
+ *
+ * Alert sources:
+ *   'computed' → from period computer + real docket anchors (Phase E)
+ *   'static'   → pattern/keyword based (pre-Phase E, fallback when no anchor)
+ *   'ai'       → Claude-generated matter-specific intelligence
  *
  * Alert categories by role:
  *
@@ -15,24 +25,24 @@
  *   - Overdue deadlines
  *
  * CIVIL DEFENDANT SIDE
- *   - Appearance deadline: risk of default judgment
- *   - Defence filing deadline: SoD not yet filed
- *   - Appeal window: judgment delivered, appeal not filed
+ *   - Appearance deadline: risk of default judgment (COMPUTED from service anchor)
+ *   - Defence filing deadline: SoD not yet filed (COMPUTED from SoC service anchor)
+ *   - Appeal window: judgment delivered, appeal not filed (COMPUTED from judgment anchor)
  *   - Default judgment exposure
  *   - Overdue deadlines
  *
  * CRIMINAL PROSECUTION
- *   - ACJA 90-day compliance countdown
+ *   - ACJA 90-day compliance countdown (COMPUTED from arraignment anchor)
  *   - Witness schedule gaps
  *   - Exhibit not tendered (count at risk)
  *   - No-case submission received — response required
  *   - Overdue prosecution steps
  *
  * CRIMINAL DEFENCE
- *   - ACJA remand period countdown
+ *   - ACJA remand period countdown (COMPUTED from remand anchor)
+ *   - Appeal deadline countdown from conviction/sentence (COMPUTED from conviction anchor)
  *   - No-case threshold alert (after prosecution witnesses)
  *   - Bail renewal approaching
- *   - Appeal deadline countdown from conviction/sentence
  *   - Charge defect flags
  *   - Overdue defence steps
  *
@@ -42,7 +52,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import type { Case, Deadline, DocketEntry, CounselRole } from '@/types';
+import type { Case, Deadline, DocketEntry, CounselRole, MatterTrack } from '@/types';
 import {
   COUNSEL_ROLE_COLORS,
   COUNSEL_ROLE_LABELS,
@@ -52,6 +62,16 @@ import { callClaude } from '@/services/api';
 import { T } from '@/constants/tokens';
 import { STAGE_KEYWORDS } from '@/constants/roleWorkspace';
 import { uid } from '@/utils';
+
+// Phase E — period computation
+import { extractAnchors } from '@/utils/dateExtractor';
+import {
+  computePeriods,
+  formatPeriodDate,
+  formatDaysRemaining,
+  periodStatusConfig,
+  type ComputedPeriod,
+} from '@/utils/periodComputer';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES
@@ -80,7 +100,18 @@ export interface Alert {
   action?:    string;       // recommended immediate action
   dismissed?: boolean;
   createdAt:  string;
-  source:     'static' | 'ai';
+  source:     'static' | 'computed' | 'ai';
+
+  // Phase E — Period detail block (only on computed alerts)
+  period?: {
+    triggerDate:       string;
+    deadlineDate:      string;
+    daysRemaining:     number;
+    authority:         string;
+    fatal:             boolean;
+    confidence:        'high' | 'inferred';
+    triggerEntryTitle: string;
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -438,6 +469,79 @@ function generateStaticAlerts(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// COMPUTED ALERT GENERATOR — Phase E period-based alerts
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Converts ComputedPeriod[] into Alert[] with source: 'computed'.
+ * These replace pattern-based alerts for the same event wherever a real
+ * docket anchor was found. The period detail block is attached so the
+ * AlertCard can render the governing statute, trigger date, deadline, and
+ * countdown accurately.
+ */
+function generateComputedAlerts(periods: ComputedPeriod[]): Alert[] {
+  return periods.map(p => {
+    const cfg      = periodStatusConfig(p.status);
+    const severity = ((): AlertSeverity => {
+      switch (p.status) {
+        case 'overdue':  return 'CRITICAL';
+        case 'critical': return p.rule.fatal ? 'CRITICAL' : 'HIGH';
+        case 'urgent':   return 'HIGH';
+        case 'upcoming': return 'MEDIUM';
+        default:         return 'LOW';
+      }
+    })();
+
+    const category = ((): AlertCategory => {
+      const id = p.rule.id;
+      if (id.includes('appeal'))      return 'appeal';
+      if (id.includes('appearance'))  return 'deadline';
+      if (id.includes('arraignment')) return 'compliance';
+      if (id.includes('remand'))      return 'remand';
+      if (id.includes('conviction'))  return 'appeal';
+      if (id.includes('sod') || id.includes('soc')) return 'deadline';
+      if (id.includes('judgment') || id.includes('ruling')) return 'deadline';
+      return 'procedural';
+    })();
+
+    const countdown = formatDaysRemaining(p.daysRemaining);
+    const deadline  = formatPeriodDate(p.deadlineDate);
+    const trigger   = formatPeriodDate(p.triggerDate);
+
+    const body = [
+      `Trigger: ${p.triggerEntryTitle} (${trigger}).`,
+      `Deadline: ${deadline} — ${countdown}.`,
+      p.rule.notes ?? '',
+    ].filter(Boolean).join(' ');
+
+    const action = p.rule.fatal
+      ? `FATAL deadline. ${p.rule.label}. Authority: ${p.rule.authority}.`
+      : `${p.rule.label}. Authority: ${p.rule.authority}.`;
+
+    return {
+      id:        uid(),
+      severity,
+      category,
+      title:     `${p.rule.fatal ? '[FATAL] ' : ''}${p.rule.label} — ${countdown}`,
+      body,
+      action,
+      dismissed: false,
+      createdAt: new Date().toISOString(),
+      source:    'computed' as const,
+      period: {
+        triggerDate:       p.triggerDate,
+        deadlineDate:      p.deadlineDate,
+        daysRemaining:     p.daysRemaining,
+        authority:         p.rule.authority,
+        fatal:             p.rule.fatal,
+        confidence:        p.confidence,
+        triggerEntryTitle: p.triggerEntryTitle,
+      },
+    };
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // AI ALERT GENERATOR — calls Claude for matter-specific intelligence alerts
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -566,6 +670,16 @@ function AlertCard({
               }}>
                 {alert.severity}
               </span>
+              {alert.source === 'computed' && (
+                <span style={{
+                  fontSize: 8, fontFamily: "'Times New Roman', Times, serif",
+                  letterSpacing: '.08em', textTransform: 'uppercase',
+                  color: '#2a7a5a', background: '#071810',
+                  border: '1px solid #1a4028', padding: '2px 6px', borderRadius: 3,
+                }}>
+                  ⏱ COMPUTED
+                </span>
+              )}
               {alert.source === 'ai' && (
                 <span style={{
                   fontSize: 8, fontFamily: "'Times New Roman', Times, serif",
@@ -617,9 +731,43 @@ function AlertCard({
           {alert.body}
         </p>
 
+        {/* Period Detail block — computed alerts only */}
+        {alert.source === 'computed' && alert.period && (
+          <div style={{
+            marginTop: 8,
+            padding: '8px 10px',
+            background: `${s.col}08`,
+            border: `1px solid ${s.col}20`,
+            borderRadius: 4,
+          }}>
+            <p style={{
+              fontSize: 9, color: s.col,
+              fontFamily: "'Times New Roman', Times, serif",
+              letterSpacing: '.10em', textTransform: 'uppercase',
+              fontWeight: 700, margin: '0 0 5px',
+            }}>
+              ⏱ Period Detail
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              {[
+                ['Trigger', `${alert.period.triggerEntryTitle} (${formatPeriodDate(alert.period.triggerDate)})`],
+                ['Deadline', formatPeriodDate(alert.period.deadlineDate)],
+                ['Authority', alert.period.authority],
+                ['Fatal', alert.period.fatal ? 'YES — missing this deadline is fatal to the right' : 'No — directory obligation'],
+                ['Anchor confidence', alert.period.confidence === 'high' ? 'High (exact title match)' : 'Inferred (keyword match — verify date)'],
+              ].map(([k, v]) => (
+                <div key={k as string} style={{ display: 'flex', gap: 6 }}>
+                  <span style={{ fontSize: 10, color: '#6a6a82', fontFamily: "'Times New Roman', Times, serif", minWidth: 120, flexShrink: 0 }}>{k}:</span>
+                  <span style={{ fontSize: 10, color: '#c0c0d8', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.4 }}>{v}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Action — toggle */}
         {alert.action && (
-          <div>
+          <div style={{ marginTop: alert.source === 'computed' ? 6 : 0 }}>
             <button
               onClick={() => setExpanded(e => !e)}
               style={{
@@ -749,9 +897,20 @@ export function AlertsEngine({ activeCase }: AlertsEngineProps) {
     return () => { live = false; };
   }, [activeCase.id]);
 
-  // ── Run static alerts when data is ready ─────────────────────────────────
+  // ── Run static + computed alerts when data is ready ─────────────────────
   useEffect(() => {
     if (loading) return;
+
+    // Computed alerts (Phase E) — real anchor dates from docket
+    const track = activeCase.matter_track;
+    const role  = activeCase.counsel_role as CounselRole | undefined;
+    if (track && role) {
+      const anchors = extractAnchors(entries);
+      const periods = computePeriods(track as MatterTrack, role, anchors);
+      setComputedAlerts(generateComputedAlerts(periods));
+    }
+
+    // Static (pattern) alerts — fallback for events without a computed period
     const sa = generateStaticAlerts(activeCase, entries, deadlines);
     setStaticAlerts(sa);
   }, [loading, activeCase, entries, deadlines]);
@@ -778,7 +937,9 @@ export function AlertsEngine({ activeCase }: AlertsEngineProps) {
   }, [role, aiLoading, activeCase, entries, deadlines]);
 
   // ── Combine and filter ────────────────────────────────────────────────────
-  const allAlerts: Alert[] = [...staticAlerts, ...aiAlerts];
+  // Computed alerts take precedence. Static alerts are shown only as fallback
+  // for event types that have no computed anchor.
+  const allAlerts: Alert[] = [...computedAlerts, ...staticAlerts, ...aiAlerts];
   const activeAlerts = allAlerts.filter(a => !dismissed.has(a.id));
   const dismissedAlerts = allAlerts.filter(a => dismissed.has(a.id));
 
