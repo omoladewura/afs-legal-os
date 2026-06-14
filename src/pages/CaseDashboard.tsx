@@ -7,13 +7,20 @@
  * - "Next Action" strip shows role-specific next step
  * - Quick Action bar shows role-specific action buttons
  * - Engine router unchanged — all engines still accessible
+ *
+ * Phase 5 (FREP & Matrimonial integration):
+ * - Tab set now driven by activeCase.originating_process via
+ *   getTabsForOriginatingProcess() rather than the role-based ROLE_TABS map.
+ * - FREP cases render TABS_FREP; Matrimonial → TABS_MATRIMONIAL;
+ *   criminal (no originating_process) → TABS_CRIMINAL; all others → TABS_WRIT.
+ * - ROLE_TABS is retained for quick-action bar and position config lookups;
+ *   it no longer controls which tabs are visible.
  */
 
 import { Suspense, lazy, useCallback, useState, useEffect } from 'react';
 import { useAppStore } from '@/state/appStore';
-import { DASH_TABS } from '@/constants/dashboard';
+import { getTabsForOriginatingProcess } from '@/constants/dashboard';
 import {
-  ROLE_TABS,
   ROLE_QUICK_ACTIONS,
   ROLE_POSITION_CONFIG,
 } from '@/constants/roleWorkspace';
@@ -176,20 +183,17 @@ export function CaseDashboard() {
     await saveCase({ ...activeCase, ...patch });
   }, [activeCase, updateActiveCase]);
 
-  // ── Role-aware tab filtering ──────────────────────────────────────────────
-  // If this is a V2 matter with counsel_role, filter tabs to role-relevant set.
-  // Legacy V1 matters (no counsel_role) show the full tab list.
+  // ── Tab set — driven by originating_process ───────────────────────────────
+  // Phase 5: replaced ROLE_TABS lookup with getTabsForOriginatingProcess().
+  // This is the single source of truth for which tabs a case sees.
+  // Legacy V1 matters (no originating_process, no matter_track) fall through
+  // to TABS_WRIT via the default branch in getTabsForOriginatingProcess().
 
+  const visibleTabs = getTabsForOriginatingProcess(activeCase.originating_process);
+
+  // ── Role / position config (still used for quick actions + accent colour) ──
   const counselRole  = activeCase.counsel_role;
   const matterTrack  = activeCase.matter_track;
-
-  const visibleTabIds: Set<DashTabId> = counselRole
-    ? new Set(ROLE_TABS[counselRole] as DashTabId[])
-    : new Set(DASH_TABS.map(t => t.id as DashTabId));
-
-  const visibleTabs = DASH_TABS.filter(t => visibleTabIds.has(t.id as DashTabId));
-
-  // ── Role position config ──────────────────────────────────────────────────
   const posConfig    = counselRole ? ROLE_POSITION_CONFIG[counselRole] : null;
   const quickActions = counselRole ? ROLE_QUICK_ACTIONS[counselRole] : null;
 
@@ -228,8 +232,6 @@ export function CaseDashboard() {
   })();
 
   // ── Role accent — light tints for white newspaper canvas ─────────────────
-  // We derive tinted backgrounds from the role colour rather than using the
-  // dark-theme bg values which were designed for a near-black canvas.
   const ROLE_ACCENT_LIGHT: Record<string, { col: string; bg: string; bdr: string }> = {
     claimant_side:  { col: '#1a4a8a', bg: '#edf3fb', bdr: '#b8cfe8' },
     defendant_side: { col: '#7a1a1a', bg: '#fbeaea', bdr: '#e0b8b8' },
@@ -435,7 +437,7 @@ export function CaseDashboard() {
         )}
       </div>
 
-      {/* ── Tab bar — role-filtered ──────────────────────────────────────────── */}
+      {/* ── Tab bar — originating-process-filtered ──────────────────────────── */}
       <div
         className="tab-scroll"
         style={{ margin: '18px 0 26px', gap: 2, paddingBottom: 0 }}
