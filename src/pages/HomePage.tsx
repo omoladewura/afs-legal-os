@@ -1,10 +1,9 @@
 import { useState } from 'react';
 import { useAppStore } from '@/state/appStore';
-import { T } from '@/constants/tokens';
 import { BillionsVoiceWidget } from '@/components/BillionsVoiceWidget';
 
 export function HomePage() {
-  const { setView, setDocketOpen } = useAppStore();
+  const { setView, setDocketOpen, setDocketFilter } = useAppStore();
   const [showBillions, setShowBillions] = useState(false);
 
   function handleLogout() {
@@ -79,8 +78,9 @@ export function HomePage() {
       {/* Entry cards */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 1, border: '1px solid #cccccc', borderRadius: 4, overflow: 'hidden' }}>
 
+        {/* Case Docket — all matters */}
         <button
-          onClick={() => setDocketOpen(true)}
+          onClick={() => { setDocketFilter('all'); setDocketOpen(true); }}
           style={cardStyle}
           onMouseEnter={e => (e.currentTarget.style.background = '#f5f5f3')}
           onMouseLeave={e => (e.currentTarget.style.background = '#ffffff')}
@@ -96,6 +96,43 @@ export function HomePage() {
 
         <div style={{ height: 1, background: '#cccccc' }} />
 
+        {/* FREP */}
+        <button
+          onClick={() => { setDocketFilter('frep'); setDocketOpen(true); }}
+          style={cardStyle}
+          onMouseEnter={e => (e.currentTarget.style.background = '#f5f5f3')}
+          onMouseLeave={e => (e.currentTarget.style.background = '#ffffff')}
+        >
+          <div style={iconCol}>🏛</div>
+          <div style={{ flex: 1 }}>
+            <p style={cardTag}>Fundamental Rights Enforcement</p>
+            <p style={cardTitle}>FREP</p>
+            <p style={cardDesc}>Originating applications enforcing fundamental rights. Applicant / Respondent case flow with tailored litigation engines.</p>
+          </div>
+          <div style={arrowCol}>→</div>
+        </button>
+
+        <div style={{ height: 1, background: '#cccccc' }} />
+
+        {/* Matrimonial */}
+        <button
+          onClick={() => { setDocketFilter('matrimonial'); setDocketOpen(true); }}
+          style={cardStyle}
+          onMouseEnter={e => (e.currentTarget.style.background = '#f5f5f3')}
+          onMouseLeave={e => (e.currentTarget.style.background = '#ffffff')}
+        >
+          <div style={iconCol}>⚭</div>
+          <div style={{ flex: 1 }}>
+            <p style={cardTag}>Family Law</p>
+            <p style={cardTitle}>Matrimonial</p>
+            <p style={cardDesc}>Divorce, custody, and ancillary relief matters. Petitioner / Respondent case flow with the matrimonial engine suite.</p>
+          </div>
+          <div style={arrowCol}>→</div>
+        </button>
+
+        <div style={{ height: 1, background: '#cccccc' }} />
+
+        {/* SAN Mode */}
         <button
           onClick={() => setView('san')}
           style={cardStyle}
@@ -113,6 +150,7 @@ export function HomePage() {
 
         <div style={{ height: 1, background: '#cccccc' }} />
 
+        {/* Billions Voice */}
         <button
           onClick={() => setShowBillions(true)}
           style={cardStyle}
