@@ -26,7 +26,6 @@ export const ROLE_TABS: Record<CounselRole, DashTabId[]> = {
     'alerts',
     'copilot',
     'pleadings',
-    'matrimonial',
     'motions',
     'applications',
     'enforcement',
@@ -54,7 +53,6 @@ export const ROLE_TABS: Record<CounselRole, DashTabId[]> = {
     'alerts',
     'copilot',
     'pleadings',
-    'matrimonial',
     'motions',
     'applications',
     'enforcement',
@@ -140,6 +138,42 @@ export const ROLE_TABS: Record<CounselRole, DashTabId[]> = {
     'console',
     'synthesis',
   ],
+  petitioner_side: [
+    'overview',
+    'intelligence',
+    'petition_answer',
+    'forms_documents',
+    'custody',
+    'maintenance',
+    'property',
+    'ancillary_applications',
+    'crossexam',
+    'evidence',
+    'builder',
+    'risk',
+    'decree_enforcement',
+    'appeal',
+    'research',
+    'copilot',
+  ],
+  respondent_side: [
+    'overview',
+    'intelligence',
+    'petition_answer',
+    'forms_documents',
+    'custody',
+    'maintenance',
+    'property',
+    'ancillary_applications',
+    'crossexam',
+    'evidence',
+    'builder',
+    'risk',
+    'decree_enforcement',
+    'appeal',
+    'research',
+    'copilot',
+  ],
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -182,6 +216,20 @@ export const ROLE_QUICK_ACTIONS: Record<CounselRole, QuickAction[]> = {
     { label: 'Prosecution Case',     icon: '⚔', tab: 'prosecution_case',   accent: '#40a860', hint: 'Track witnesses, no-case threshold, cross-exam prep' },
     { label: 'No-Case Submission',   icon: '✗',  tab: 'no_case',            accent: '#40a860', hint: 'Draft and file no-case submission' },
     { label: 'Bail Application',     icon: '🔓', tab: 'criminal',           accent: '#40a860', hint: 'Draft or track bail' },
+  ],
+  petitioner_side: [
+    { label: 'Draft Petition',       icon: '✍', tab: 'petition_answer',        accent: '#7060c0', hint: 'Petition Form 6 — dissolution, nullity, or judicial separation' },
+    { label: 'File Forms',           icon: '📋', tab: 'forms_documents',        accent: '#7060c0', hint: 'Form 3A, Form 6, verifying affidavit, ancillary forms' },
+    { label: 'Intelligence',         icon: '⚡', tab: 'intelligence',           accent: '#7060c0', hint: 'MCA case analysis — facts, bar, grounds' },
+    { label: 'Ancillary Relief',     icon: '⚖', tab: 'ancillary_applications', accent: '#7060c0', hint: 'Maintenance pendente lite, custody, property, injunctions' },
+    { label: 'Decree Tracker',       icon: '📅', tab: 'decree_enforcement',     accent: '#7060c0', hint: 'Nisi → Absolute timeline and enforcement' },
+  ],
+  respondent_side: [
+    { label: 'File Answer',          icon: '🛡', tab: 'petition_answer',        accent: '#c07030', hint: 'Answer to Petition Form 15 — oppose dissolution or cross-petition' },
+    { label: 'File Forms',           icon: '📋', tab: 'forms_documents',        accent: '#c07030', hint: 'Acknowledgement Form 11, Answer Form 15, Cross-Petition Form 15A' },
+    { label: 'Intelligence',         icon: '⚡', tab: 'intelligence',           accent: '#c07030', hint: 'MCA defence analysis — bars, condonation, cross-petition' },
+    { label: 'Ancillary Relief',     icon: '⚖', tab: 'ancillary_applications', accent: '#c07030', hint: 'Maintenance, custody, property — respondent applications' },
+    { label: 'Decree Tracker',       icon: '📅', tab: 'decree_enforcement',     accent: '#c07030', hint: 'Monitor nisi and absolute timeline' },
   ],
 };
 
@@ -245,6 +293,34 @@ export const ROLE_STAGES: Record<CounselRole, ProceduralStage[]> = {
     { id: 'sentencing',       label: 'Sentencing / Allocutus', icon: '◦', desc: 'Deliver allocutus. Address mitigating factors. Seek lenient sentence.' },
     { id: 'appeal',           label: 'Appeal',             icon: '◦', desc: 'Appeal against conviction and/or sentence. Bail pending appeal.' },
   ],
+  petitioner_side: [
+    { id: 'pre_filing',       label: 'Pre-Filing',             icon: '◦', desc: 'Client intake. Confirm grounds and facts under s.15(2) MCA. Check two-year bar under s.30 MCA. Obtain Form 3A reconciliation certificate (O.2 r.2 MCR).' },
+    { id: 'leave_application', label: 'Leave Application',     icon: '◦', desc: 'If marriage is less than 2 years old — apply ex-parte for leave under s.30 MCA, O.4 rr.1–2 MCR. Swear supporting affidavit. Obtain leave order before filing.' },
+    { id: 'petition_filed',   label: 'Petition Filed',         icon: '◦', desc: 'Draft and file Petition Form 6 (O.5 MCR) with verifying affidavit (O.5 r.10 MCR). Attach Form 3A. Specify relief type and s.15(2) dissolution fact(s) or nullity ground.' },
+    { id: 'service',          label: 'Service',                icon: '◦', desc: 'Serve Respondent with petition and Notice of Petition Form 8/8A. Serve co-respondent if adultery fact pleaded (s.32 MCA, O.9 rr.2–3 MCR). File proof of service.' },
+    { id: 'awaiting_answer',  label: 'Awaiting Answer',        icon: '◦', desc: 'Monitor Respondent's Acknowledgement of Service Form 11 (O.6 r.3 MCR). Check whether Answer Form 15 is filed within time. Consider undefended set-down if no answer.' },
+    { id: 'reply_rejoinder',  label: 'Reply / Rejoinder',      icon: '◦', desc: 'File Reply to Answer Form 17 (O.7 r.4(5) MCR) if required. Address any cross-petition. File Discretion Statement Form 30 in sealed envelope if discretion is required (O.11 rr.28–29 MCR).' },
+    { id: 'comp_conference',  label: 'Compulsory Conference',  icon: '◦', desc: 'Attend compulsory conference under O.11 MCR. ADR available for ancillary reliefs only — not for dissolution or nullity. Obtain financial disclosure at conference.' },
+    { id: 'set_down',         label: 'Set Down',               icon: '◦', desc: 'File Request to Set Down Form 31 (undefended) or Form 32 (defended) under O.11 r.39 MCR. Confirm all pleadings closed. Obtain hearing date.' },
+    { id: 'hearing',          label: 'Hearing',                icon: '◦', desc: 'Present petition. Call and examine petitioner and supporting witnesses. Tender exhibits. Address s.15(2) dissolution fact or nullity ground. Apply for ancillary reliefs.' },
+    { id: 'reconciliation',   label: 'Reconciliation Window',  icon: '◦', desc: 'Court may attempt reconciliation under s.10 MCA. Attendance required. Note: reconciliation is mandatory procedure, not a bar to dissolution if grounds persist.' },
+    { id: 'decree_nisi',      label: 'Decree Nisi',            icon: '◦', desc: 'Decree nisi granted on proof of dissolution fact. Record date. Advise on s.57/s.58 MCA pathway to absolute. Note appeal window against nisi — s.241(1)(f)(iv) CFRN.' },
+    { id: 'decree_absolute',  label: 'Decree Absolute',        icon: '◦', desc: 'Apply to make decree absolute under s.57 MCA (28 days if children order made) or s.58 MCA (3 months if no children order). File application. Serve Respondent. Attend perfection.' },
+    { id: 'post_decree',      label: 'Post-Decree',            icon: '◦', desc: 'Enforce ancillary relief orders — maintenance by attachment or Magistrate Court (s.2(1)(b) MCA), property transfer compliance, custody enforcement, contempt for non-compliance.' },
+    { id: 'appeal',           label: 'Appeal',                 icon: '◦', desc: 'Appeal against decree nisi as of right under s.241(1)(f)(iv) CFRN. No appeal against decree absolute — s.241(2) CFRN is an absolute bar. Court of Appeal matrimonial division procedure applies.' },
+  ],
+  respondent_side: [
+    { id: 'petition_received', label: 'Petition Received',     icon: '◦', desc: 'Receive Petition Form 6 and Notice Form 8/8A. Assess service regularity. File Acknowledgement of Service Form 11 (O.6 r.3 MCR). Advise on grounds for Answer and any cross-petition.' },
+    { id: 'answer_filed',      label: 'Answer Filed',          icon: '◦', desc: 'Draft and file Answer to Petition Form 15 (O.5 r.29 MCR). Oppose dissolution fact alleged. Raise any available bars — condonation (ss.26–27 MCA), connivance (s.28 MCA), unreasonable delay. Consider cross-petition Form 15A.' },
+    { id: 'reply_rejoinder',   label: 'Reply / Rejoinder',     icon: '◦', desc: 'Respond to Petitioner's Reply Form 17. File Rejoinder if required. Ensure cross-petition pleadings are complete. Check Discretion Statement filing if applicable.' },
+    { id: 'comp_conference',   label: 'Compulsory Conference', icon: '◦', desc: 'Attend compulsory conference under O.11 MCR. Obtain full financial disclosure. ADR available only for ancillary reliefs. Agree welfare arrangements for children where possible.' },
+    { id: 'ancillary_response', label: 'Ancillary Response',   icon: '◦', desc: 'File Respondent's position on maintenance (s.70 MCA), property (O.11 MCR), custody (s.71 MCA), and any injunctions. Challenge pendente lite applications if excessive.' },
+    { id: 'hearing',           label: 'Hearing',               icon: '◦', desc: 'Challenge Petitioner's evidence of dissolution fact. Cross-examine Petitioner and supporting witnesses. Call own witnesses on facts and ancillary reliefs. Present cross-petition if filed.' },
+    { id: 'decree_nisi',       label: 'Decree Nisi',           icon: '◦', desc: 'If decree nisi granted — assess grounds of appeal under s.241(1)(f)(iv) CFRN. File Notice of Appeal within time if instructed. Note effect of pending appeal on nisi becoming absolute.' },
+    { id: 'decree_absolute',   label: 'Decree Absolute',       icon: '◦', desc: 'Monitor Petitioner's application for absolute. Raise any objection — pending appeal, non-compliance with children order. Note: Respondent may also apply for absolute — s.58 MCA.' },
+    { id: 'compliance',        label: 'Compliance',            icon: '◦', desc: 'Comply with ancillary relief orders — maintenance payments, property transfer, custody arrangements. Monitor enforcement risk. Apply for variation under s.45 or s.70 MCA if circumstances change.' },
+    { id: 'appeal',            label: 'Appeal',                icon: '◦', desc: 'Appeal against decree nisi as of right under s.241(1)(f)(iv) CFRN. No appeal against decree absolute — s.241(2) CFRN is an absolute bar. Pursue Court of Appeal matrimonial division procedure.' },
+  ],
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -293,6 +369,22 @@ export const ROLE_POSITION_CONFIG: Record<CounselRole, RolePositionConfig> = {
     accentColor:     '#40a860',
     icon:            '🛡',
   },
+  petitioner_side: {
+    positionLabel:   "Petitioner's Position",
+    positionDesc:    'Advancing the petition — proving dissolution fact, obtaining decree, and securing ancillary reliefs under the MCA.',
+    nextActionLabel: 'Next Petitioner Action',
+    riskLabel:       'Petitioner Risk Flags',
+    accentColor:     '#7060c0',
+    icon:            '⚖',
+  },
+  respondent_side: {
+    positionLabel:   "Respondent's Position",
+    positionDesc:    'Resisting or managing the petition — filing Answer, raising bars, cross-petitioning, and protecting ancillary interests under the MCA.',
+    nextActionLabel: 'Next Respondent Action',
+    riskLabel:       'Respondent Risk Flags',
+    accentColor:     '#c07030',
+    icon:            '🛡',
+  },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -300,10 +392,12 @@ export const ROLE_POSITION_CONFIG: Record<CounselRole, RolePositionConfig> = {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const ROLE_DEFAULT_NEXT_ACTION: Record<CounselRole, string> = {
-  claimant_side:  'Draft and file originating process to commence the action.',
-  defendant_side: 'Enter appearance within time and assess the originating process.',
-  prosecution:    'Review investigation file and advise on charge readiness.',
-  defence:        'Review charge for defects and apply for bail if in custody.',
+  claimant_side:   'Draft and file originating process to commence the action.',
+  defendant_side:  'Enter appearance within time and assess the originating process.',
+  prosecution:     'Review investigation file and advise on charge readiness.',
+  defence:         'Review charge for defects and apply for bail if in custody.',
+  petitioner_side: 'Obtain Form 3A reconciliation certificate, confirm s.15(2) dissolution fact, check two-year bar under s.30 MCA, then draft and file Petition Form 6.',
+  respondent_side: 'File Acknowledgement of Service Form 11 within time, assess petition for defects and available bars, then advise on Answer and cross-petition.',
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -334,6 +428,26 @@ export const ROLE_RISK_FLAGS: Record<CounselRole, Array<{ label: string; severit
     { label: 'Monitor no-case threshold after each prosecution witness.',           severity: 'HIGH' },
     { label: 'Assess charge for defects — preliminary objection grounds.',          severity: 'MEDIUM' },
     { label: 'Appeal deadline runs from date of conviction — track immediately.',   severity: 'MEDIUM' },
+  ],
+  petitioner_side: [
+    { label: 'Two-year bar (s.30 MCA) — confirm marriage is at least 2 years old or leave obtained before filing.',  severity: 'HIGH' },
+    { label: 'Form 3A reconciliation certificate must accompany every petition (O.2 r.2 MCR) — do not file without it.', severity: 'HIGH' },
+    { label: 'Adultery fact selected — co-respondent must be joined (s.32 MCA, O.9 rr.2–3 MCR) before hearing.',    severity: 'HIGH' },
+    { label: 'Condonation risk — any post-knowledge cohabitation may bar the petition under ss.26–27 MCA.',          severity: 'HIGH' },
+    { label: 'Decree nisi to absolute deadline — track s.57 (28 days) or s.58 (3 months) path and do not miss it.', severity: 'MEDIUM' },
+    { label: 'Jurisdiction: petition must be filed in State High Court, not Federal High Court.',                      severity: 'MEDIUM' },
+    { label: 'Verify correct s.15(2) letter assignment — there are 8 facts, (a) through (h), not 6.',               severity: 'MEDIUM' },
+    { label: 'No appeal lies against decree absolute — s.241(2) CFRN. All appeal grounds must be raised against nisi.', severity: 'LOW' },
+  ],
+  respondent_side: [
+    { label: 'Acknowledgement of Service Form 11 deadline — file within time or risk undefended hearing.',           severity: 'HIGH' },
+    { label: 'Answer filing deadline — failure to file Form 15 in time may result in undefended set-down.',          severity: 'HIGH' },
+    { label: 'Condonation defence — assess carefully whether ss.26–27 MCA bars apply before pleading.',             severity: 'MEDIUM' },
+    { label: 'Connivance defence — assess s.28 MCA; note petitioner's own conduct.',                                 severity: 'MEDIUM' },
+    { label: 'Cross-petition opportunity — assess whether Respondent has independent grounds under s.15(2) MCA.',   severity: 'MEDIUM' },
+    { label: 'Nullity bars (ss.35–37 MCA) — check whether Respondent's own disability bars a voidable nullity petition.', severity: 'MEDIUM' },
+    { label: 'Appeal against nisi must be filed within time — no appeal lies against decree absolute (s.241(2) CFRN).', severity: 'LOW' },
+    { label: 'Monitor Petitioner's application for absolute — Respondent may object if appeal pending or children order unresolved.', severity: 'LOW' },
   ],
 };
 
@@ -391,6 +505,28 @@ export const ROLE_MODULES: Record<CounselRole, RoleModule[]> = {
     { id: 'criminal',         icon: '⚖',  label: 'Criminal Engine',  desc: 'Charge analysis, bail tracking, no-case' },
     { id: 'appeal',           icon: '↑',  label: 'Appeal Engine',    desc: 'Appeal against conviction or sentence' },
   ],
+  petitioner_side: [
+    { id: 'intelligence',          icon: '⚡', label: 'MCA Intelligence',    desc: 'Marriage facts, s.15(2) analysis, two-year bar, condonation risk' },
+    { id: 'petition_answer',       icon: '📜', label: 'Petition Engine',     desc: 'Draft Petition Form 6, verifying affidavit, nullity petition' },
+    { id: 'forms_documents',       icon: '📋', label: 'Forms Engine',        desc: 'All 14 MCR statutory forms generated to filing standard' },
+    { id: 'custody',               icon: '👧', label: 'Custody Engine',      desc: 'Children welfare, custody application, s.71 MCA orders' },
+    { id: 'maintenance',           icon: '💰', label: 'Maintenance Engine',  desc: 'Pendente lite (s.70 MCA), permanent maintenance, variation' },
+    { id: 'property',              icon: '🏠', label: 'Property Engine',     desc: 'Matrimonial property, financial disclosure, transfer orders' },
+    { id: 'crossexam',             icon: '⚔',  label: 'Cross-Exam',          desc: 'Cross of Respondent to establish s.15(2) dissolution fact' },
+    { id: 'decree_enforcement',    icon: '📅', label: 'Decree Tracker',      desc: 'Nisi → Absolute pathway, s.57/s.58 deadlines, enforcement' },
+    { id: 'appeal',                icon: '↑',  label: 'Appeal Engine',       desc: 'Appeal against nisi — s.241(1)(f)(iv) CFRN; hard bar on absolute' },
+  ],
+  respondent_side: [
+    { id: 'intelligence',          icon: '⚡', label: 'MCA Intelligence',    desc: 'Petition analysis, bar assessment, condonation and connivance' },
+    { id: 'petition_answer',       icon: '🛡', label: 'Answer Engine',       desc: 'Answer Form 15, Cross-Petition Form 15A, Acknowledgement Form 11' },
+    { id: 'forms_documents',       icon: '📋', label: 'Forms Engine',        desc: 'All 14 MCR statutory forms generated to filing standard' },
+    { id: 'custody',               icon: '👧', label: 'Custody Engine',      desc: 'Children welfare, custody response, s.71 MCA orders' },
+    { id: 'maintenance',           icon: '💰', label: 'Maintenance Engine',  desc: 'Respondent maintenance claims, s.70 MCA, variation' },
+    { id: 'property',              icon: '🏠', label: 'Property Engine',     desc: 'Matrimonial property response, disclosure, Respondent's share' },
+    { id: 'crossexam',             icon: '⚔',  label: 'Cross-Exam',          desc: 'Cross of Petitioner to challenge dissolution fact and corroboration' },
+    { id: 'decree_enforcement',    icon: '📅', label: 'Decree Tracker',      desc: 'Monitor nisi, absolute pathway, compliance obligations' },
+    { id: 'appeal',                icon: '↑',  label: 'Appeal Engine',       desc: 'Appeal against nisi — s.241(1)(f)(iv) CFRN; hard bar on absolute' },
+  ],
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -427,6 +563,22 @@ export const STAGE_KEYWORDS: Record<string, string[]> = {
   defence_case:     ['defence witness', 'dw1', 'dw2', 'defence opens', 'close of defence', 'defence case'],
   final_address:    ['final address', 'written address', 'defence address', 'prosecution address', 'reply on points'],
   sentencing:       ['sentencing', 'sentence', 'allocutus', 'mitigation', 'conviction'],
+
+  // Matrimonial stage IDs
+  pre_filing:          ['client intake', 'reconciliation certificate', 'form 3a', 'two-year bar', 'two year bar', 's.30', 'leave to present'],
+  leave_application:   ['leave application', 'ex-parte', 'ex parte', 'leave granted', 'leave to petition', 'o.4', 'motion ex-parte'],
+  petition_filed:      ['petition filed', 'form 6', 'petition for dissolution', 'filed petition', 'verifying affidavit', 'petition presented'],
+  awaiting_answer:     ['acknowledgement of service', 'form 11', 'awaiting answer', 'answer period', 'undefended', 'no answer filed'],
+  reply_rejoinder:     ['reply to answer', 'form 17', 'rejoinder', 'cross-petition', 'form 15a', 'discretion statement', 'form 30'],
+  comp_conference:     ['compulsory conference', 'conciliation conference', 'o.11 conference', 'financial disclosure', 'conference order'],
+  set_down:            ['set down', 'form 31', 'form 32', 'request to set down', 'hearing date fixed', 'fixed for hearing'],
+  reconciliation:      ['reconciliation', 's.10 mca', 'reconciliation attempt', 'reconciliation session'],
+  decree_nisi:         ['decree nisi', 'nisi granted', 'nisi pronounced', 'conditional decree'],
+  decree_absolute:     ['decree absolute', 'absolute granted', 'absolute pronounced', 'marriage dissolved', 'application for absolute'],
+  post_decree:         ['post-decree', 'maintenance arrears', 'enforcement of order', 'property transfer compliance', 'contempt', 'post decree'],
+  petition_received:   ['petition received', 'served with petition', 'process received matrimonial', 'form 8', 'notice of petition'],
+  answer_filed:        ['answer filed', 'form 15', 'answer to petition', 'respondent answer', 'cross-petition filed'],
+  ancillary_response:  ['ancillary response', 'respondent ancillary', 'maintenance response', 'custody response', 'property response'],
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -486,6 +638,34 @@ export const STAGE_NEXT_ACTIONS: Record<CounselRole, Record<string, string>> = {
     sentencing:       'File Notice of Appeal within time. Apply for bail pending appeal.',
     appeal:           'File Appellant\'s Brief. Apply for bail pending appeal if custody continues.',
   },
+  petitioner_side: {
+    pre_filing:        'Obtain Form 3A reconciliation certificate. Confirm s.15(2) dissolution fact. Check two-year bar under s.30 MCA.',
+    leave_application: 'After leave granted — draft and file Petition Form 6 with verifying affidavit and Form 3A attachment.',
+    petition_filed:    'Effect service on Respondent with petition and Notice Form 8/8A. Serve co-respondent if adultery fact pleaded.',
+    service:           'Monitor Acknowledgement of Service Form 11. Check whether Answer Form 15 is filed. Consider undefended set-down if no answer.',
+    awaiting_answer:   'If no answer filed — file Request to Set Down Form 31 for undefended hearing. If answer filed — prepare Reply Form 17.',
+    reply_rejoinder:   'File Discretion Statement Form 30 if required. Attend compulsory conference under O.11 MCR.',
+    comp_conference:   'Obtain full financial disclosure. File Request to Set Down Form 32 for defended hearing.',
+    set_down:          'Prepare for hearing. Finalise witnesses, exhibits, and opening address. Confirm Form 3A on record.',
+    hearing:           'Await decree nisi. Record date immediately. Calculate absolute deadline — s.57 (28 days) or s.58 (3 months).',
+    reconciliation:    'Continue with petition after reconciliation attempt. Confirm grounds subsist.',
+    decree_nisi:       'Calculate decree absolute deadline. Apply to make absolute under s.57 or s.58 MCA. Serve Respondent.',
+    decree_absolute:   'Enforce ancillary relief orders. Commence maintenance enforcement if arrears arise. Proceed to post-decree compliance.',
+    post_decree:       'Monitor compliance. Apply for attachment of earnings or Magistrate Court enforcement for maintenance arrears. File contempt if non-compliance persists.',
+    appeal:            'File Appellant\'s Brief within time. Note: no appeal lies against decree absolute under s.241(2) CFRN.',
+  },
+  respondent_side: {
+    petition_received:  'File Acknowledgement of Service Form 11 within time. Assess petition for defects. Advise on Answer and available bars.',
+    answer_filed:       'Prepare for compulsory conference. Assemble financial disclosure. Pursue cross-petition pleadings if filed.',
+    reply_rejoinder:    'Attend compulsory conference under O.11 MCR. Finalise ancillary position. Obtain financial disclosure.',
+    comp_conference:    'File ancillary response. Prepare for hearing. Finalise witness list for defended hearing.',
+    ancillary_response: 'Prepare for hearing. Cross-examine Petitioner witnesses. Present Answer and cross-petition evidence.',
+    hearing:            'Await decree nisi. Assess grounds of appeal. File Notice of Appeal within time if instructed.',
+    decree_nisi:        'If not appealing — monitor Petitioner\'s application for absolute. Identify any objection. Consider Respondent\'s own absolute application under s.58 MCA.',
+    decree_absolute:    'Comply with ancillary relief orders. Monitor maintenance obligations. Apply for variation under s.45 or s.70 MCA if circumstances change.',
+    compliance:         'Continue compliance. Flag any enforcement risk. Apply for variation promptly if financial circumstances change.',
+    appeal:             'File Appellant\'s Brief within time. Note: no appeal lies against decree absolute under s.241(2) CFRN.',
+  },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -494,6 +674,7 @@ export const STAGE_NEXT_ACTIONS: Record<CounselRole, Record<string, string>> = {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const STAGE_URGENCY: Partial<Record<string, { level: 'HIGH' | 'MEDIUM'; note: string }>> = {
+  // Civil / criminal urgency flags
   service_received: { level: 'HIGH',   note: 'Appearance deadline running — do not delay.' },
   appearance:       { level: 'HIGH',   note: 'Default judgment risk if pleadings not filed in time.' },
   arraignment:      { level: 'HIGH',   note: 'ACJA remand clock starts from arraignment date.' },
@@ -502,4 +683,11 @@ export const STAGE_URGENCY: Partial<Record<string, { level: 'HIGH' | 'MEDIUM'; n
   no_case:          { level: 'HIGH',   note: 'No-case submission is a primary defence right — file without delay.' },
   judgment:         { level: 'HIGH',   note: 'Appeal and enforcement deadlines begin from judgment date.' },
   sentencing:       { level: 'HIGH',   note: 'Appeal deadline runs from sentence — file Notice of Appeal immediately.' },
+  // Matrimonial urgency flags
+  leave_application: { level: 'HIGH',   note: 'Two-year bar applies — do not file petition until leave is obtained.' },
+  petition_filed:    { level: 'HIGH',   note: 'Service must be effected promptly. Co-respondent must be joined if adultery pleaded.' },
+  awaiting_answer:   { level: 'MEDIUM', note: 'Monitor Acknowledgement of Service Form 11 — undefended set-down available if no answer filed.' },
+  decree_nisi:       { level: 'HIGH',   note: 'Calculate absolute deadline now — s.57 (28 days) or s.58 (3 months). Do not let it lapse.' },
+  petition_received: { level: 'HIGH',   note: 'Acknowledgement of Service Form 11 deadline running — file within time.' },
+  answer_filed:      { level: 'HIGH',   note: 'Answer filing deadline — failure risks undefended hearing proceeding against Respondent.' },
 };
