@@ -20,6 +20,9 @@
 import { create } from 'zustand';
 import type { Case, AppView, DashTabId } from '@/types';
 
+// ── Docket filter type ─────────────────────────────────────────────────────
+export type DocketFilter = 'all' | 'frep' | 'matrimonial';
+
 interface AppState {
   // ── Auth ──────────────────────────────────────────────────────────────────
   isAuthenticated: boolean;
@@ -46,6 +49,10 @@ interface AppState {
   // ── Docket overlay ────────────────────────────────────────────────────────
   docketOpen:    boolean;
   setDocketOpen: (open: boolean) => void;
+
+  // ── Docket filter ─────────────────────────────────────────────────────────
+  docketFilter:    DocketFilter;
+  setDocketFilter: (f: DocketFilter) => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -79,4 +86,8 @@ export const useAppStore = create<AppState>((set) => ({
   // ── Docket overlay ────────────────────────────────────────────────────────
   docketOpen:    false,
   setDocketOpen: (open) => set({ docketOpen: open }),
+
+  // ── Docket filter ─────────────────────────────────────────────────────────
+  docketFilter:    'all',
+  setDocketFilter: (f) => set({ docketFilter: f }),
 }));
