@@ -1338,6 +1338,34 @@ export function PleadingsEngine({ activeCase }: Props) {
     );
   }
 
+  // ── Phase 6 guard — Writ of Summons only ──────────────────────────────────
+  // FREP and Matrimonial cases never reach this engine via their tab sets
+  // (Phase 4/5), but this is a safety net against direct navigation or future
+  // routing changes. Render a clear message rather than a broken engine.
+  if (activeCase.originating_process && activeCase.originating_process !== 'writ_of_summons') {
+    return (
+      <div style={{
+        padding: '32px 28px',
+        background: '#fafaf8',
+        border: '1px solid #cccccc',
+        borderRadius: 6,
+        fontFamily: "'Times New Roman', Times, serif",
+      }}>
+        <p style={{ fontSize: 11, color: '#888888', letterSpacing: '.14em', textTransform: 'uppercase', marginBottom: 8 }}>
+          Engine Unavailable
+        </p>
+        <p style={{ fontSize: 14, color: '#111111', fontWeight: 700, marginBottom: 6 }}>
+          Pleadings Engine — Writ of Summons only
+        </p>
+        <p style={{ fontSize: 13, color: '#555555', lineHeight: 1.65 }}>
+          The Pleadings Engine is only available for Writ of Summons matters.
+          This matter was commenced by <strong>{activeCase.originating_process.replace(/_/g, ' ')}</strong> and
+          uses a different procedural flow. Navigate using the tabs above.
+        </p>
+      </div>
+    );
+  }
+
   // Validate role
   if (activeCase.counsel_role !== 'claimant_side' && activeCase.counsel_role !== 'defendant_side') {
     return (
