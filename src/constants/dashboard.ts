@@ -58,6 +58,132 @@ export const DASH_TABS: DashTab[] = [
   { id: 'synthesis',    icon: '◎', label: 'Case Theory',  desc: 'Master Case Theory. Reads all engine outputs — Intelligence, Risk Analytics, CrossExam, WarRoom, Argument Builder — and finds the single coherent theory that reconciles them. Three modes: Civil Master Case Theory, Criminal Master Defence Theory, Appeal Master Theory. Always the last tab. Contradictions surfaced explicitly, never silently resolved.', step: null },
 ];
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Tab sets per originating process
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Helper — pull DashTab objects by id, preserving the given order. */
+function tabs(...ids: string[]): DashTab[] {
+  return ids.map(id => {
+    const t = DASH_TABS.find(t => t.id === id);
+    if (!t) throw new Error(`dashboard.ts: unknown tab id "${id}"`);
+    return t;
+  });
+}
+
+/**
+ * Writ of Summons (existing full civil set — unchanged).
+ * Used for: writ_of_summons, petition_election, originating_summons,
+ * and any other civil/special process not explicitly mapped below.
+ */
+export const TABS_WRIT: DashTab[] = tabs(
+  'overview',
+  'intelligence',
+  'pleadings',
+  'motions',
+  'crossexam',
+  'evidence',
+  'builder',
+  'appeal',
+  'risk',
+  'blindspots',
+  'enforcement',
+  'timeline',
+  'alerts',
+  'applications',
+  'research',
+  'warroom',
+  'copilot',
+);
+
+/**
+ * FREP — Fundamental Rights Enforcement Proceedings.
+ * Applicant / Respondent. No Pleadings. No criminal engines.
+ * No matrimonial engine.
+ */
+export const TABS_FREP: DashTab[] = tabs(
+  'overview',
+  'intelligence',
+  'motions',
+  'applications',
+  'crossexam',
+  'evidence',
+  'builder',
+  'final_address',
+  'risk',
+  'blindspots',
+  'research',
+  'copilot',
+);
+
+/**
+ * Matrimonial — Petition under the Matrimonial Causes Act.
+ * Petitioner / Respondent. No Pleadings. No criminal engines.
+ * Includes the dedicated MatrimonialEngine tab.
+ */
+export const TABS_MATRIMONIAL: DashTab[] = tabs(
+  'overview',
+  'intelligence',
+  'matrimonial',
+  'applications',
+  'motions',
+  'evidence',
+  'builder',
+  'risk',
+  'blindspots',
+  'research',
+  'copilot',
+);
+
+/**
+ * Criminal — all criminal matters (unchanged).
+ */
+export const TABS_CRIMINAL: DashTab[] = tabs(
+  'overview',
+  'intelligence',
+  'charge_arraignment',
+  'plea',
+  'prosecution_case',
+  'no_case',
+  'defence_case',
+  'crossexam',
+  'evidence',
+  'final_address',
+  'sentencing',
+  'appeal',
+  'applications',
+  'risk',
+  'blindspots',
+  'research',
+  'copilot',
+);
+
+/**
+ * Returns the correct tab set for a given originating_process value
+ * (or undefined for criminal matters).
+ *
+ * Falls back to TABS_WRIT for any civil/special process not explicitly
+ * mapped, so existing matters are never broken by adding new processes.
+ */
+export function getTabsForOriginatingProcess(
+  originating_process: string | undefined,
+): DashTab[] {
+  if (!originating_process) return TABS_CRIMINAL;
+
+  switch (originating_process) {
+    case 'frep':
+      return TABS_FREP;
+    case 'petition_matrimonial':
+      return TABS_MATRIMONIAL;
+    default:
+      return TABS_WRIT;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Supporting constants (unchanged)
+// ─────────────────────────────────────────────────────────────────────────────
+
 /** Case document types for the docket entry form */
 export const CASE_DOC_TYPES: string[] = [
   'Pleading', 'Application / Motion', 'Affidavit', 'Written Address',
