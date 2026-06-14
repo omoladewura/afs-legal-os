@@ -75,8 +75,10 @@ export function CaseDocket() {
   const [ncCustomA, setNcCustomA] = useState('');
   const [ncCustomB, setNcCustomB] = useState('');
 
-  // Counsel role
-  const [ncRole, setNcRole] = useState<CounselRole>('claimant_side');
+  // Counsel role — default to petitioner_side for matrimonial entry point
+  const [ncRole, setNcRole] = useState<CounselRole>(
+    filterPreset === 'petition_matrimonial' ? 'petitioner_side' : 'claimant_side'
+  );
 
   // Parties
   const [ncPartiesA, setNcPartiesA] = useState<Party[]>([{ id: cid(), name: '' }]);
@@ -109,7 +111,8 @@ export function CaseDocket() {
   // When originating process changes, update role to match side
   function handleOrigProcChange(proc: OriginatingProcess) {
     setNcOrigProc(proc);
-    setNcRole('claimant_side');
+    // Matrimonial petitions use petitioner_side, all others use claimant_side
+    setNcRole(proc === 'petition_matrimonial' ? 'petitioner_side' : 'claimant_side');
   }
 
   useEffect(() => { loadCases().then(setCases); }, []);
@@ -136,9 +139,11 @@ export function CaseDocket() {
     const now = new Date().toISOString();
 
     const legacyRole: Case['role'] =
-      ncRole === 'claimant_side'  ? 'Claimant'  :
-      ncRole === 'defendant_side' ? 'Defendant' :
-      ncRole === 'prosecution'    ? 'Prosecution' :
+      ncRole === 'claimant_side'   ? 'Claimant'  :
+      ncRole === 'defendant_side'  ? 'Defendant' :
+      ncRole === 'prosecution'     ? 'Prosecution' :
+      ncRole === 'petitioner_side' ? 'Petitioner' :
+      ncRole === 'respondent_side' ? 'Respondent' :
       'Defence';
 
     const nc: Case = {
@@ -168,7 +173,8 @@ export function CaseDocket() {
   function openCase(c: Case) {
     setActiveCase(c);
     setDocketOpen(false);
-    setView('engine');
+    // Matrimonial cases get their own first-class workspace
+    setView(c.originating_process === 'petition_matrimonial' ? 'matrimonial' : 'engine');
   }
 
   function addParty(list: Party[], setList: (l: Party[]) => void) {
@@ -212,10 +218,12 @@ export function CaseDocket() {
   // ── Styles ─────────────────────────────────────────────────────────────────
 
   const ROLE_LIGHT: Record<CounselRole, { bg: string; bdr: string; col: string }> = {
-    claimant_side:  { bg: '#edf3fb', bdr: '#b8cfe8', col: '#1a4a8a' },
-    defendant_side: { bg: '#fbeaea', bdr: '#e0b8b8', col: '#7a1a1a' },
-    prosecution:    { bg: '#fdf3e0', bdr: '#e0cfa0', col: '#7a4a00' },
-    defence:        { bg: '#e8f5ee', bdr: '#a8d0b8', col: '#1a5a30' },
+    claimant_side:   { bg: '#edf3fb', bdr: '#b8cfe8', col: '#1a4a8a' },
+    defendant_side:  { bg: '#fbeaea', bdr: '#e0b8b8', col: '#7a1a1a' },
+    prosecution:     { bg: '#fdf3e0', bdr: '#e0cfa0', col: '#7a4a00' },
+    defence:         { bg: '#e8f5ee', bdr: '#a8d0b8', col: '#1a5a30' },
+    petitioner_side: { bg: '#f5edfb', bdr: '#ccb8e8', col: '#4a1a7a' },
+    respondent_side: { bg: '#fbedf5', bdr: '#e8b8d4', col: '#7a1a4a' },
   };
 
   const overlayStyle: React.CSSProperties = {
@@ -473,10 +481,12 @@ export function CaseDocket() {
                 fontFamily: "'Times New Roman', Times, serif",
                 fontStyle: 'italic',
               }}>
-                {ncRole === 'claimant_side'  && `Acting for the ${origConfig.partyALabel.toLowerCase()} — advancing the claim, driving pleadings, trial, and enforcement.`}
-                {ncRole === 'defendant_side' && `Acting for the ${origConfig.partyBLabel.toLowerCase()} — resisting or managing the claim, filing defences and applications.`}
-                {ncRole === 'prosecution'    && 'Acting for the prosecution — building and presenting the case against the accused.'}
-                {ncRole === 'defence'        && 'Acting for the defence — protecting the accused, challenging prosecution evidence at every stage.'}
+                {ncRole === 'claimant_side'   && `Acting for the ${origConfig.partyALabel.toLowerCase()} — advancing the claim, driving pleadings, trial, and enforcement.`}
+                {ncRole === 'defendant_side'  && `Acting for the ${origConfig.partyBLabel.toLowerCase()} — resisting or managing the claim, filing defences and applications.`}
+                {ncRole === 'prosecution'     && 'Acting for the prosecution — building and presenting the case against the accused.'}
+                {ncRole === 'defence'         && 'Acting for the defence — protecting the accused, challenging prosecution evidence at every stage.'}
+                {ncRole === 'petitioner_side' && 'Acting for the Petitioner — presenting the petition, establishing the dissolution fact, and advancing ancillary relief under the MCA.'}
+                {ncRole === 'respondent_side' && 'Acting for the Respondent — answering the petition, raising available bars, and protecting the respondent\'s interests in ancillary proceedings.'}
               </div>
             </div>
 
@@ -569,9 +579,11 @@ export function CaseDocket() {
                 <span style={{ color: ROLE_LIGHT[ncRole].col, fontWeight: 700 }}>
                   {isCriminal
                     ? COUNSEL_ROLE_LABELS[ncRole]
-                    : ncRole === 'claimant_side'
-                      ? `For ${origConfig.partyALabel}`
-                      : `For ${origConfig.partyBLabel}`
+                    : (ncRole === 'petitioner_side' || ncRole === 'respondent_side')
+                      ? COUNSEL_ROLE_LABELS[ncRole]
+                      : ncRole === 'claimant_side'
+                        ? `For ${origConfig.partyALabel}`
+                        : `For ${origConfig.partyBLabel}`
                   }
                 </span>
                 {ncCourt && <span> · {ncCourt}</span>}
