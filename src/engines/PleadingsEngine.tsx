@@ -26,6 +26,7 @@ import { T } from '@/constants/tokens';
 import { useAI } from '@/hooks/useAI';
 import { useIntelligence } from '@/hooks/useIntelligence';
 import { buildRoleSystemPrompt } from '@/utils/rolePrompt';
+import { getPartyLabels } from '@/utils/getPartyLabels';
 import { loadBlindSpot, saveBlindSpot } from '@/storage/helpers';
 import { Md, ErrorBlock } from '@/components/common/ui';
 import { COUNSEL_ROLE_COLORS } from '@/types';
@@ -406,9 +407,11 @@ function OriginatingProcessDrafter({ data, onSave, accent, ai, systemCtx }: { da
   const selected = PROCESS_TYPES.find(p => p.id === processType);
 
   const run = useCallback(async () => {
-    const caseName = (window as any).__afsActiveCase?.caseName ?? '';
-    const court    = (window as any).__afsActiveCase?.court ?? 'High Court';
-    const prompt = `You are acting as Nigerian civil litigation counsel for the CLAIMANT side.
+    const aCase    = (window as any).__afsActiveCase;
+    const caseName = aCase?.caseName ?? '';
+    const court    = aCase?.court ?? 'High Court';
+    const { partyA, partyB } = getPartyLabels(aCase);
+    const prompt = `You are acting as Nigerian civil litigation counsel for the ${partyA} side.
 
 Matter: ${caseName}
 Court: ${court}
@@ -424,7 +427,7 @@ STRUCTURE FOR ${(selected?.label ?? processType).toUpperCase()}:
 ${processType === 'writ_of_summons' ? `
 1. Header: In the [Court] of [State] holden at [City]
    Suit No: [to be assigned] — YYYY
-2. Parties block: BETWEEN [CLAIMANT NAME] — Claimant AND [DEFENDANT NAME] — Defendant
+2. Parties block: BETWEEN [${partyA.toUpperCase()} NAME] — ${partyA} AND [${partyB.toUpperCase()} NAME] — ${partyB}
 3. WRIT OF SUMMONS preamble ordering the defendant to enter appearance
 4. ENDORSEMENT OF CLAIM: Numbered paragraphs stating:
    a. The claim(s) — specific reliefs
@@ -558,15 +561,17 @@ function WitnessStatementDrafter({ data, onSave, accent, ai, systemCtx }: { data
   const { ask, loading, error }         = ai;
 
   const run = useCallback(async () => {
-    const caseName    = (window as any).__afsActiveCase?.caseName ?? '';
-    const court       = (window as any).__afsActiveCase?.court ?? 'High Court';
-    const intPkg      = (window as any).__afsActiveCase?.intelligence_data?.intPkg ?? '';
+    const aCase       = (window as any).__afsActiveCase;
+    const caseName    = aCase?.caseName ?? '';
+    const court       = aCase?.court ?? 'High Court';
+    const intPkg      = aCase?.intelligence_data?.intPkg ?? '';
+    const { partyA, partyB } = getPartyLabels(aCase);
 
-    const prompt = `You are acting as Nigerian civil litigation counsel for the CLAIMANT side.
+    const prompt = `You are acting as Nigerian civil litigation counsel for the ${partyA} side.
 
 Matter: ${caseName}
 Court: ${court}
-Witness: ${witnessName} (${witnessRole || 'witness for the claimant'})
+Witness: ${witnessName} (${witnessRole || `witness for the ${partyA}`})
 
 Intelligence Package (facts established):
 ${intPkg ? intPkg.substring(0, 3000) : 'Not available — use the context below.'}
@@ -686,8 +691,10 @@ function SoCDrafter({ data, onSave, accent, ai, systemCtx }: { data: SavedData; 
   const { ask, loading, error } = ai;
 
   const run = useCallback(async () => {
-    const caseName = (window as any).__afsActiveCase?.caseName ?? '';
-    const prompt = `You are acting as Nigerian civil litigation counsel for the CLAIMANT side.
+    const aCase = (window as any).__afsActiveCase;
+    const caseName = aCase?.caseName ?? '';
+    const { partyA, partyB } = getPartyLabels(aCase);
+    const prompt = `You are acting as Nigerian civil litigation counsel for the ${partyA} side.
 
 Matter: ${caseName}
 
@@ -706,6 +713,7 @@ Nigerian pleading rules apply:
 - Damages must be particularised where possible
 - Use formal Nigerian court pleading language
 - Number every paragraph
+- Label the claimant side as "${partyA}" and respondent side as "${partyB}"
 
 Return the full draft Statement of Claim.`;
 
@@ -757,18 +765,20 @@ function SoDMonitor({ data, onSave, accent, ai, systemCtx }: { data: SavedData; 
   };
 
   const getAdvice = useCallback(async () => {
-    const prompt = `You are acting as Nigerian civil litigation counsel for the CLAIMANT side.
+    const aCase = (window as any).__afsActiveCase;
+    const { partyA, partyB } = getPartyLabels(aCase);
+    const prompt = `You are acting as Nigerian civil litigation counsel for the ${partyA} side.
 
 Service date: ${serviceDate || 'not recorded'}
 Days since service: ${daysSinceService ?? 'unknown'}
-Statement of Defence filed by defendant: ${sodFiled ? 'YES' : 'NO'}
+Statement of Defence filed by ${partyB}: ${sodFiled ? 'YES' : 'NO'}
 SoD received date: ${sodReceivedDate || 'N/A'}
 
 Advise on:
 1. Whether default judgment is available and the procedural basis (High Court Rules)
 2. The correct motion to file — judgment in default of appearance or default of defence
 3. The exact steps and documents required to obtain default judgment
-4. If SoD was filed — the claimant's next step (respond to any counterclaim, proceed to CMC)
+4. If SoD was filed — the ${partyA}'s next step (respond to any counterclaim, proceed to CMC)
 
 Apply Nigerian High Court (Civil Procedure) Rules. Be specific and practical.`;
 
@@ -858,8 +868,10 @@ function CounterclaimResponse({ data, onSave, accent, ai, systemCtx }: { data: S
   const { ask, loading, error } = ai;
 
   const run = useCallback(async () => {
-    const caseName = (window as any).__afsActiveCase?.caseName ?? '';
-    const prompt = `You are acting as Nigerian civil litigation counsel for the CLAIMANT side (who is now defendant to the counterclaim).
+    const aCase = (window as any).__afsActiveCase;
+    const caseName = aCase?.caseName ?? '';
+    const { partyA, partyB } = getPartyLabels(aCase);
+    const prompt = `You are acting as Nigerian civil litigation counsel for the ${partyA} side (who is now respondent to the counterclaim).
 
 Matter: ${caseName}
 
@@ -873,6 +885,7 @@ Draft a complete Defence to Counterclaim in Nigerian High Court format:
 4. Plead any set-off or abatement if applicable
 5. Wherefore clause — dismiss counterclaim with costs
 
+Label the ${partyA} side as "${partyA}" and the ${partyB} side as "${partyB}" throughout.
 Apply Nigerian pleading rules. Number every paragraph. Use formal court language.`;
 
     const result = await ask({ system: systemCtx, userMsg: prompt, maxTokens: 1500 });
@@ -917,15 +930,19 @@ function DefaultFlag({ data, onSave, accent, ai, systemCtx }: { data: SavedData;
   const defaultAvailable = !sodFiled && days !== null && days >= 30;
 
   const draftMotion = useCallback(async () => {
-    const prompt = `You are acting as Nigerian civil litigation counsel for the CLAIMANT.
+    const aCase = (window as any).__afsActiveCase;
+    const { partyA, partyB } = getPartyLabels(aCase);
+    const prompt = `You are acting as Nigerian civil litigation counsel for the ${partyA}.
 
 Court: ${court || 'High Court'}
 Service date: ${serviceDate}
 Days since service: ${days}
 Statement of Defence filed: ${sodFiled ? 'Yes' : 'No'}
+${partyA} label: ${partyA}
+${partyB} label: ${partyB}
 
 Draft a complete Motion for Judgment in Default of Defence. Include:
-1. Motion on Notice heading with parties and court
+1. Motion on Notice heading with parties and court (using "${partyA}" / "${partyB}" labels)
 2. Application paragraph citing the relevant High Court Rules provision
 3. Supporting affidavit structure (deponent, facts, exhibits required)
 4. List of proposed exhibits (proof of service, copy of SoC, etc.)
@@ -1026,8 +1043,10 @@ function SoDDrafter({ data, onSave, accent, ai, systemCtx }: { data: SavedData; 
   const { ask, loading, error } = ai;
 
   const run = useCallback(async () => {
-    const caseName = (window as any).__afsActiveCase?.caseName ?? '';
-    const prompt = `You are acting as Nigerian civil litigation counsel for the DEFENDANT side.
+    const aCase = (window as any).__afsActiveCase;
+    const caseName = aCase?.caseName ?? '';
+    const { partyA, partyB } = getPartyLabels(aCase);
+    const prompt = `You are acting as Nigerian civil litigation counsel for the ${partyB} side.
 
 Matter: ${caseName}
 
@@ -1035,13 +1054,14 @@ Defence context and instructions from counsel:
 ${context}
 
 Draft a complete Statement of Defence in Nigerian High Court format:
-1. Opening paragraph identifying the defendant and this defence
+1. Opening paragraph identifying the ${partyB} and this defence
 2. Traverse each paragraph of the Statement of Claim:
    - Para X is admitted / denied / not admitted
 3. Affirmative defences pleaded in numbered paragraphs (e.g. limitation, accord and satisfaction, estoppel, laches)
 4. Counterclaim section (if applicable — draft if facts warrant cross-relief)
 5. Wherefore clause — claim dismissal of the action with costs
 
+Label the ${partyA} side as "${partyA}" and the ${partyB} side as "${partyB}" throughout.
 Nigerian pleading rules apply:
 - Every allegation not admitted is deemed denied
 - Plead material facts constituting defences, not evidence
@@ -1087,8 +1107,10 @@ function CounterclaimBuilder({ data, onSave, accent, ai, systemCtx }: { data: Sa
   const { ask, loading, error } = ai;
 
   const run = useCallback(async () => {
-    const caseName = (window as any).__afsActiveCase?.caseName ?? '';
-    const prompt = `You are acting as Nigerian civil litigation counsel for the DEFENDANT.
+    const aCase = (window as any).__afsActiveCase;
+    const caseName = aCase?.caseName ?? '';
+    const { partyA, partyB } = getPartyLabels(aCase);
+    const prompt = `You are acting as Nigerian civil litigation counsel for the ${partyB}.
 
 Matter: ${caseName}
 
@@ -1100,8 +1122,9 @@ Draft a complete Counterclaim to be included within the Statement of Defence. St
 2. Material facts founding the counterclaim in numbered paragraphs
 3. Cause of action identified
 4. Reliefs claimed — numbered list with specific amounts/orders where possible
-5. Wherefore the defendant-counterclaimant claims (list of reliefs)
+5. Wherefore the ${partyB}-counterclaimant claims (list of reliefs)
 
+Label the ${partyA} side as "${partyA}" and the ${partyB} side as "${partyB}" throughout.
 Apply Nigerian pleading rules. This counterclaim forms part of the Statement of Defence.`;
 
     const result = await ask({ system: systemCtx, userMsg: prompt, maxTokens: 1500 });
@@ -1141,8 +1164,10 @@ function PreliminaryObjDrafter({ data, onSave, accent, ai, systemCtx }: { data: 
   const { ask, loading, error } = ai;
 
   const run = useCallback(async () => {
-    const caseName = (window as any).__afsActiveCase?.caseName ?? '';
-    const prompt = `You are acting as Nigerian civil litigation counsel for the DEFENDANT.
+    const aCase = (window as any).__afsActiveCase;
+    const caseName = aCase?.caseName ?? '';
+    const { partyA, partyB } = getPartyLabels(aCase);
+    const prompt = `You are acting as Nigerian civil litigation counsel for the ${partyB}.
 
 Matter: ${caseName}
 
@@ -1155,8 +1180,8 @@ Assess for these grounds (apply each to the facts):
 1. Jurisdiction — does the court lack jurisdiction over the subject matter or parties?
 2. Competence of originating process — is the process defective in form or substance?
 3. Limitation — has the limitation period expired under the Limitation Law?
-4. Locus standi — does the claimant have standing to bring this action?
-5. Non-disclosure of cause of action — does the SoC disclose a reasonable cause of action?
+4. Locus standi — does the ${partyA} have standing to bring this action?
+5. Non-disclosure of cause of action — does the originating process disclose a reasonable cause of action?
 6. Failure of pre-conditions — were statutory notices or pre-action requirements complied with?
 7. Improper parties — misjoinder or non-joinder of necessary parties
 
@@ -1165,6 +1190,7 @@ A. Notice of Preliminary Objection (formal notice)
 B. Points of Argument on each valid ground with supporting Nigerian authorities
 C. Relief sought — that the suit be struck out / dismissed with costs
 
+Label the ${partyA} side as "${partyA}" and the ${partyB} side as "${partyB}" throughout.
 Apply Nigerian High Court Rules and relevant authorities.`;
 
     const result = await ask({ system: systemCtx, userMsg: prompt, maxTokens: 2000 });

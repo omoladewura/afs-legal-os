@@ -32,6 +32,7 @@ import {
   isRagConfigured,
   type StatuteChunk,
 } from '@/services/statuteRag';
+import { getPartyLabels } from '@/utils/getPartyLabels';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ARGUMENT TYPES
@@ -209,13 +210,14 @@ export function ArgumentBuilder({ activeCase }: Props) {
   // ── Build prompt ──────────────────────────────────────────────────────────
   function buildPrompt(statuteSections: string): string {
     const c = activeCase;
+    const { partyA, partyB, partyAPlural, partyBPlural, ourSide } = getPartyLabels(activeCase);
     const lines: string[] = [];
     lines.push(`CASE: ${c.caseName}`);
     lines.push(`SUIT NO: ${c.suitNo || 'Not specified'}`);
     lines.push(`COURT: ${c.court || 'Not specified'}`);
-    lines.push(`ROLE: ${c.role || 'Claimant'} — we act for the ${c.role || 'Claimant'}`);
-    lines.push(`CLAIMANTS: ${c.claimants.map(p => p.name).filter(Boolean).join(', ') || 'Not specified'}`);
-    lines.push(`DEFENDANTS: ${c.defendants.map(p => p.name).filter(Boolean).join(', ') || 'Not specified'}`);
+    lines.push(`ROLE: ${ourSide} — we act for the ${ourSide}`);
+    lines.push(`${partyAPlural.toUpperCase()}: ${c.claimants.map(p => p.name).filter(Boolean).join(', ') || 'Not specified'}`);
+    lines.push(`${partyBPlural.toUpperCase()}: ${c.defendants.map(p => p.name).filter(Boolean).join(', ') || 'Not specified'}`);
 
     // ── Statute sections from RAG (injected first — highest authority) ──────
     if (statuteSections) {
@@ -308,7 +310,7 @@ What the case must decide: [one sentence — what the ratio or holding must say 
 - NEVER invent section text for a statute not provided in the verified sections below
 - Be direct, persuasive, and precise — write as a senior Nigerian advocate addressing the court directly
 - Document type guidance: ${typeObj?.hint || ''}
-- Role posture: we represent the ${activeCase.counsel_role || activeCase.role || 'Claimant'} on a ${activeCase.matter_track || 'civil'} matter — apply strategy, framing, and document structure appropriate to this role throughout
+- Role posture: we represent the ${getPartyLabels(activeCase).ourSide} on a ${activeCase.matter_track || 'civil'} matter — apply strategy, framing, and document structure appropriate to this role throughout
 
 VETTED CASE INTELLIGENCE:
 ${context}
@@ -416,7 +418,7 @@ Now produce the ${typeObj?.label || argType}:`;
         <div style={{ flex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5, flexWrap: 'wrap' }}>
             <span style={{ fontSize: 9, color: T.text, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.2em', textTransform: 'uppercase', fontWeight: 600 }}>Argument Builder · Step 10</span>
-            <RoleBadge role={activeCase.role || 'Claimant'} />
+            <RoleBadge role={getPartyLabels(activeCase).ourSide} />
             {isRagConfigured() && (
               <span style={{ fontSize: 8, color: '#40b060', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.1em', border: '1px solid #1a4028', background: T.card, padding: '1px 7px', borderRadius: 2, textTransform: 'uppercase' }}>
                 § Statute RAG Active

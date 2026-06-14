@@ -18,6 +18,7 @@ import { T } from '@/constants/tokens';
 import { callClaude } from '@/services/api';
 import { Spinner, ErrorBlock, RoleBadge, Md } from '@/components/common/ui';
 import { copyToClipboard } from '@/utils';
+import { getPartyLabels } from '@/utils/getPartyLabels';
 
 // ── Step definitions ───────────────────────────────────────────────────────────
 
@@ -111,17 +112,19 @@ export function IntelligenceEngine({ activeCase, onSave }: Props) {
   const [error,      setError]      = useState('');
   const [copied,     setCopied]     = useState(false);
 
+  const { partyA, partyB, partyAPlural, partyBPlural, ourSide } = getPartyLabels(activeCase);
+
   const role = activeCase.counsel_role
     ? `${activeCase.counsel_role} (${activeCase.matter_track || 'civil'} matter)`
-    : activeCase.role || 'Claimant';
+    : ourSide;
 
   const caseCtx = `Case: ${activeCase.caseName}
 Court: ${activeCase.court || 'Not specified'}
 Suit No: ${activeCase.suitNo || 'Not specified'}
 Track: ${activeCase.matter_track || 'civil'}
-Counsel Role: ${activeCase.counsel_role || activeCase.role || 'Claimant'}
-Claimants: ${activeCase.claimants.map(c => c.name).filter(Boolean).join(', ') || 'Not named'}
-Defendants: ${activeCase.defendants.map(d => d.name).filter(Boolean).join(', ') || 'Not named'}`;
+Counsel Role: ${activeCase.counsel_role || ourSide}
+${partyAPlural}: ${activeCase.claimants.map(c => c.name).filter(Boolean).join(', ') || 'Not named'}
+${partyBPlural}: ${activeCase.defendants.map(d => d.name).filter(Boolean).join(', ') || 'Not named'}`;
 
   function persist(updates: Partial<TIEData>) {
     const data: TIEData = {
@@ -283,8 +286,8 @@ Rules:
       .map(q => `Q: ${q.question}\nA: ${followUpAs[q.id] || '(Not answered)'}`)
       .join('\n\n');
     const claimsHead =
-      role === 'Claimant'  ? 'CLAIMS & RELIEF' :
-      role === 'Defendant' ? 'DEFENCE POSTURE & COUNTERCLAIMS' :
+      activeCase.counsel_role === 'claimant_side' ? `${partyA.toUpperCase()} CLAIMS & RELIEF` :
+      activeCase.counsel_role === 'defendant_side' ? `${partyB.toUpperCase()} DEFENCE POSTURE & COUNTERCLAIMS` :
       'CLAIMS, DEFENCES & STRATEGY';
     try {
       const pkg = await callClaude({

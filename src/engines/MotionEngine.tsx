@@ -30,6 +30,7 @@ import { loadBlindSpot, saveBlindSpot } from '@/storage/helpers';
 import { Md, ErrorBlock } from '@/components/common/ui';
 import { COUNSEL_ROLE_COLORS } from '@/types';
 import { buildRoleSystemPrompt } from '@/utils/rolePrompt';
+import { getPartyLabels } from '@/utils/getPartyLabels';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES
@@ -411,10 +412,12 @@ function DefaultJudgmentTab({ data, onSave, accent, ai, systemCtx }: { data: Sav
 
   const run = useCallback(async () => {
     const c = (window as any).__afsActiveCase;
-    const prompt = `You are acting as Nigerian civil litigation counsel for the CLAIMANT.
+    const { partyA, partyB } = getPartyLabels(c);
+    const prompt = `You are acting as Nigerian civil litigation counsel for the ${partyA}.
 
 Matter: ${c?.caseName ?? ''}
 Court: ${c?.court ?? ''}
+${partyA} label: ${partyA} | ${partyB} label: ${partyB}
 
 Facts and instructions for default judgment:
 ${context}
@@ -429,11 +432,11 @@ PART A — If applying in default of appearance:
 
 PART B — If applying in default of defence:
 - Motion on Notice with correct Order citations
-- Supporting affidavit verifying SoC was served, time elapsed, no SoD filed
-- Required exhibits (proof of service, copy of SoC, diary)
+- Supporting affidavit verifying originating process was served, time elapsed, no defence filed
+- Required exhibits (proof of service, copy of originating process, diary)
 - Relief sought: judgment in default of defence
 
-Apply the applicable High Court (Civil Procedure) Rules. Use formal Nigerian court drafting language. Number all paragraphs in affidavits. Include an exhibit list.`;
+Use "${partyA}" and "${partyB}" throughout. Apply the applicable High Court (Civil Procedure) Rules. Use formal Nigerian court drafting language. Number all paragraphs in affidavits. Include an exhibit list.`;
 
     const result = await ask({ system: systemCtx, userMsg: prompt, maxTokens: 2000 });
     if (result) {
@@ -488,15 +491,17 @@ function SummaryJudgmentTab({ data, onSave, accent, ai, systemCtx }: { data: Sav
 
   const run = useCallback(async () => {
     const c = (window as any).__afsActiveCase;
-    const prompt = `You are acting as Nigerian civil litigation counsel for the CLAIMANT.
+    const { partyA, partyB } = getPartyLabels(c);
+    const prompt = `You are acting as Nigerian civil litigation counsel for the ${partyA}.
 
 Matter: ${c?.caseName ?? ''}
 Court: ${c?.court ?? ''}
+${partyA} label: ${partyA} | ${partyB} label: ${partyB}
 
 Facts for summary judgment application:
 ${context}
 
-Draft a complete Application for Summary Judgment. The basis is that the defendant has no real defence to the claim (or a part of it). Include:
+Draft a complete Application for Summary Judgment. The basis is that the ${partyB} has no real defence to the claim (or a part of it). Include:
 
 1. Motion on Notice — citing the applicable Order for summary judgment (Ord 11 or equivalent)
 2. Summary of the claim and the reliefs sought
@@ -504,15 +509,15 @@ Draft a complete Application for Summary Judgment. The basis is that the defenda
 4. Supporting Affidavit structure:
    - Deponent's knowledge of the facts
    - Facts establishing the claim
-   - Statement that defendant has no real defence
-   - Exhibits required (contract, correspondence, invoices, SoC, SoD if filed)
+   - Statement that ${partyB} has no real defence
+   - Exhibits required (contract, correspondence, invoices, originating process, defence if filed)
 5. Written Address structure:
-   - Issue: whether the defendant has a real defence
+   - Issue: whether the ${partyB} has a real defence
    - Nigerian standard for summary judgment (cite key authorities)
    - Application to the facts
    - Conclusion and relief sought
 
-Use formal Nigerian court drafting language throughout.`;
+Use "${partyA}" and "${partyB}" throughout. Use formal Nigerian court drafting language throughout.`;
 
     const result = await ask({ system: systemCtx, userMsg: prompt, maxTokens: 2000 });
     if (result) {
@@ -555,11 +560,13 @@ function InjunctionTab({ data, onSave, accent, ai, systemCtx }: { data: SavedDat
 
   const run = useCallback(async () => {
     const c = (window as any).__afsActiveCase;
-    const prompt = `You are acting as Nigerian civil litigation counsel for the CLAIMANT.
+    const { partyA, partyB } = getPartyLabels(c);
+    const prompt = `You are acting as Nigerian civil litigation counsel for the ${partyA}.
 
 Matter: ${c?.caseName ?? ''}
 Court: ${c?.court ?? ''}
 Injunction type sought: ${injType}
+${partyA} label: ${partyA} | ${partyB} label: ${partyB}
 
 Facts and basis for the injunction:
 ${context}
@@ -578,7 +585,7 @@ Draft a complete Interlocutory Injunction Application. Include:
 4. Written Address — applying Nigerian authorities on the test for interlocutory injunctions
 5. Draft Order sought
 
-Use formal Nigerian court drafting language. Cite relevant Nigerian authorities.`;
+Use "${partyA}" and "${partyB}" throughout. Use formal Nigerian court drafting language. Cite relevant Nigerian authorities.`;
 
     const result = await ask({ system: systemCtx, userMsg: prompt, maxTokens: 2000 });
     if (result) {
@@ -645,10 +652,12 @@ function PrelimObjTab({ data, onSave, accent, ai, systemCtx }: { data: SavedData
 
   const run = useCallback(async () => {
     const c = (window as any).__afsActiveCase;
-    const prompt = `You are acting as Nigerian civil litigation counsel for the DEFENDANT.
+    const { partyA, partyB } = getPartyLabels(c);
+    const prompt = `You are acting as Nigerian civil litigation counsel for the ${partyB}.
 
 Matter: ${c?.caseName ?? ''}
 Court: ${c?.court ?? ''}
+${partyA} label: ${partyA} | ${partyB} label: ${partyB}
 
 Case details and suspected grounds for preliminary objection:
 ${context}
@@ -656,11 +665,11 @@ ${context}
 Conduct a full preliminary objection analysis. Assess each ground systematically:
 
 1. JURISDICTION — does this court have subject matter jurisdiction? Is the claim within the court's territorial and/or monetary jurisdiction?
-2. COMPETENCE — is the originating process properly constituted? Was the correct originating process used (Writ vs Originating Summons vs Originating Motion)?
+2. COMPETENCE — is the originating process properly constituted? Was the correct originating process used?
 3. LIMITATION — has the limitation period expired under the applicable Limitation Law / Act?
-4. LOCUS STANDI — does the claimant have the legal right to institute this action? Is there a legal nexus between the claimant and the reliefs claimed?
-5. NON-DISCLOSURE OF CAUSE OF ACTION — does the Statement of Claim disclose a reasonable cause of action in law?
-6. PRE-CONDITIONS — were all statutory notices / pre-action requirements complied with (e.g. s97 SCFTA notice, CTC Regulations, Police Act notice)?
+4. LOCUS STANDI — does the ${partyA} have the legal right to institute this action? Is there a legal nexus between the ${partyA} and the reliefs claimed?
+5. NON-DISCLOSURE OF CAUSE OF ACTION — does the originating process disclose a reasonable cause of action in law?
+6. PRE-CONDITIONS — were all statutory notices / pre-action requirements complied with?
 7. PARTIES — is there a misjoinder or non-joinder of necessary parties?
 
 For each valid ground found:
@@ -673,7 +682,7 @@ A. Notice of Preliminary Objection
 B. Points of Argument on each valid ground with supporting Nigerian authorities
 C. Reliefs sought (that the suit be struck out / dismissed with costs)
 
-Apply Nigerian High Court Rules and leading authorities on each ground.`;
+Use "${partyA}" and "${partyB}" throughout. Apply Nigerian High Court Rules and leading authorities on each ground.`;
 
     const result = await ask({ system: systemCtx, userMsg: prompt, maxTokens: 2200 });
     if (result) {
@@ -725,15 +734,17 @@ function StrikeOutTab({ data, onSave, accent, ai, systemCtx }: { data: SavedData
 
   const run = useCallback(async () => {
     const c = (window as any).__afsActiveCase;
-    const prompt = `You are acting as Nigerian civil litigation counsel for the DEFENDANT.
+    const { partyA, partyB } = getPartyLabels(c);
+    const prompt = `You are acting as Nigerian civil litigation counsel for the ${partyB}.
 
 Matter: ${c?.caseName ?? ''}
 Court: ${c?.court ?? ''}
+${partyA} label: ${partyA} | ${partyB} label: ${partyB}
 
 Basis for strike out application:
 ${context}
 
-Draft a complete Application to Strike Out the Claimant's Statement of Claim / suit. Assess and draft under whichever of these bases applies:
+Draft a complete Application to Strike Out the ${partyA}'s originating process / claim. Assess and draft under whichever of these bases applies:
 
 1. DISCLOSES NO REASONABLE CAUSE OF ACTION — the pleading is legally deficient on its face
 2. FRIVOLOUS OR VEXATIOUS — the claim is clearly bound to fail, an abuse of process
@@ -747,8 +758,9 @@ For the applicable ground(s):
   * The applicable standard for strike out in Nigeria
   * Application to the pleading in this case
   * Nigerian authorities supporting the application
-- Reliefs sought: that the suit / statement of claim be struck out with costs
+- Reliefs sought: that the suit / originating process be struck out with costs
 
+Use "${partyA}" and "${partyB}" throughout.
 Note: for "no reasonable cause of action" — the court looks only at the pleading; no affidavit evidence is admissible.`;
 
     const result = await ask({ system: systemCtx, userMsg: prompt, maxTokens: 1800 });
@@ -792,11 +804,13 @@ function StayApplicationTab({ data, onSave, accent, ai, systemCtx }: { data: Sav
 
   const run = useCallback(async () => {
     const c = (window as any).__afsActiveCase;
-    const prompt = `You are acting as Nigerian civil litigation counsel for the DEFENDANT.
+    const { partyA, partyB } = getPartyLabels(c);
+    const prompt = `You are acting as Nigerian civil litigation counsel for the ${partyB}.
 
 Matter: ${c?.caseName ?? ''}
 Court: ${c?.court ?? ''}
 Basis for stay: ${stayBasis}
+${partyA} label: ${partyA} | ${partyB} label: ${partyB}
 
 Facts and grounds for stay of proceedings:
 ${context}
@@ -812,7 +826,7 @@ Draft a complete Application for Stay of Proceedings. Include:
 4. Written Address applying Nigerian authorities on the court\'s power to stay proceedings
 5. Relief sought: stay of proceedings pending [basis] with costs in the cause
 
-Apply Nigerian procedural law throughout.`;
+Use "${partyA}" and "${partyB}" throughout. Apply Nigerian procedural law throughout.`;
 
     const result = await ask({ system: systemCtx, userMsg: prompt, maxTokens: 1800 });
     if (result) {
@@ -880,10 +894,12 @@ function SecurityCostsTab({ data, onSave, accent, ai, systemCtx }: { data: Saved
 
   const run = useCallback(async () => {
     const c = (window as any).__afsActiveCase;
-    const prompt = `You are acting as Nigerian civil litigation counsel for the DEFENDANT.
+    const { partyA, partyB } = getPartyLabels(c);
+    const prompt = `You are acting as Nigerian civil litigation counsel for the ${partyB}.
 
 Matter: ${c?.caseName ?? ''}
 Court: ${c?.court ?? ''}
+${partyA} label: ${partyA} | ${partyB} label: ${partyB}
 
 Facts supporting security for costs application:
 ${context}
@@ -892,15 +908,15 @@ Draft a complete Application for Security for Costs. Include:
 
 1. Motion on Notice citing the applicable Order / Rule
 2. Grounds establishing why security should be ordered:
-   - Claimant is ordinarily resident outside Nigeria, OR
-   - Claimant's financial position makes it unlikely costs could be recovered if defendant succeeds, OR
-   - Claimant is a nominal plaintiff with no real interest
+   - ${partyA} is ordinarily resident outside Nigeria, OR
+   - ${partyA}'s financial position makes it unlikely costs could be recovered if ${partyB} succeeds, OR
+   - ${partyA} is a nominal party with no real interest
 3. Proposed quantum of security (if known) and how it was calculated
-4. Supporting Affidavit with evidence of the claimant's inability to meet a costs order
+4. Supporting Affidavit with evidence of the ${partyA}'s inability to meet a costs order
 5. Written Address applying Nigerian authorities on security for costs
-6. Relief sought: order that claimant provide security in the sum of ₦[X] within [Y] days, failing which the suit be struck out
+6. Relief sought: order that ${partyA} provide security in the sum of ₦[X] within [Y] days, failing which the suit be struck out
 
-Apply Nigerian procedural law and relevant High Court Rules.`;
+Use "${partyA}" and "${partyB}" throughout. Apply Nigerian procedural law and relevant High Court Rules.`;
 
     const result = await ask({ system: systemCtx, userMsg: prompt, maxTokens: 1600 });
     if (result) {

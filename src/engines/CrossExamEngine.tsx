@@ -18,6 +18,7 @@ import { T } from '@/constants/tokens';
 import { callClaude } from '@/services/api';
 import { useIntelligence } from '@/hooks/useIntelligence';
 import { loadBlindSpot, saveBlindSpot, uid } from '@/storage/helpers';
+import { getPartyLabels } from '@/utils/getPartyLabels';
 
 // ── Design tokens (CX-specific) ───────────────────────────────────────────────
 
@@ -153,12 +154,13 @@ function CXAIBlock({ loading, result, error }: { loading: boolean; result: strin
 // ── Role-aware context helpers ────────────────────────────────────────────────
 
 function roleSystemPrompt(c: Case): string {
-  const track = c.matter_track || 'civil';
-  const role  = c.counsel_role  || c.role || 'claimant_side';
+  const track  = c.matter_track || 'civil';
+  const role   = c.counsel_role  || c.role || 'claimant_side';
+  const { partyA, partyB, ourSide, theirSide } = getPartyLabels(c);
 
   const MAP: Record<string, string> = {
-    claimant_side:  'You are a Nigerian civil litigation cross-examination specialist acting for the CLAIMANT. Your goal is to destroy opposing witnesses, extract admissions that advance the claimant\'s claim, and undermine evidence that resists it. Every strategy, question sequence, and impeachment weapon must advance the claimant\'s case.',
-    defendant_side: 'You are a Nigerian civil litigation cross-examination specialist acting for the DEFENDANT. Your goal is to neutralise the claimant\'s witnesses, expose weaknesses in the claimant\'s evidence, and extract concessions that support the defence and counterclaim. Every strategy must resist and limit the claim.',
+    claimant_side:  `You are a Nigerian civil litigation cross-examination specialist acting for the ${partyA}. Your goal is to destroy opposing witnesses, extract admissions that advance the ${partyA}'s claim, and undermine evidence that resists it. Every strategy, question sequence, and impeachment weapon must advance the ${partyA}'s case.`,
+    defendant_side: `You are a Nigerian civil litigation cross-examination specialist acting for the ${partyB}. Your goal is to neutralise the ${partyA}'s witnesses, expose weaknesses in the ${partyA}'s evidence, and extract concessions that support the defence and counterclaim. Every strategy must resist and limit the claim.`,
     prosecution:    'You are a Nigerian criminal litigation cross-examination specialist acting for the PROSECUTION. Your goal is to cross-examine defence witnesses to destroy their credibility, undermine alibis and exculpatory accounts, and reinforce the prosecution\'s case on each count. Apply ACJA 2015 and the Evidence Act 2011.',
     defence:        'You are a Nigerian criminal litigation cross-examination specialist acting for the DEFENCE. Your goal is to cross-examine prosecution witnesses to undermine the prosecution\'s case on every count, expose inconsistencies, challenge admissibility, and build the foundation for a no-case submission or acquittal. Apply ACJA 2015 and the Evidence Act 2011. Protect the accused at every turn.',
   };
@@ -170,10 +172,11 @@ function roleSystemPrompt(c: Case): string {
 function caseHeader(c: Case): string {
   const track = c.matter_track || 'civil';
   const role  = c.counsel_role  || c.role || 'claimant_side';
+  const { partyAPlural, partyBPlural } = getPartyLabels(c);
   return `CASE: ${c.caseName || ''} | COURT: ${c.court || 'Not specified'}
 MATTER TRACK: ${track.toUpperCase()} | COUNSEL ROLE: ${role.toUpperCase().replace(/_/g, ' ')}
-CLAIMANTS: ${(c.claimants || []).map(p => p.name).filter(Boolean).join(', ') || 'Not specified'}
-DEFENDANTS: ${(c.defendants || []).map(p => p.name).filter(Boolean).join(', ') || 'Not specified'}`;
+${partyAPlural.toUpperCase()}: ${(c.claimants || []).map(p => p.name).filter(Boolean).join(', ') || 'Not specified'}
+${partyBPlural.toUpperCase()}: ${(c.defendants || []).map(p => p.name).filter(Boolean).join(', ') || 'Not specified'}`;
 }
 
 // ── MODULE 1: WITNESS PROFILER ────────────────────────────────────────────────
