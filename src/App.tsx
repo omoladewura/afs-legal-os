@@ -26,6 +26,7 @@ import { ResearchResolver } from '@/engines/ResearchResolver';
 import { SettingsPanel } from '@/pages/SettingsPanel';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { FloatingEngines } from '@/components/FloatingEngines';
+import { MatrimonialDashboard } from '@/matrimonial/MatrimonialDashboard';
 import { T } from '@/constants/tokens';
 
 const SanMode = lazy(() => import('@/engines/SanMode').then(m => ({ default: m.SanMode })));
@@ -53,11 +54,12 @@ export function App() {
 
       <div id="root-inner">
         <ErrorBoundary name="App">
-          {view === 'gate'     && <PasswordGate />}
-          {view === 'home'     && <HomePage />}
-          {view === 'engine'   && <CaseDashboard />}
-          {view === 'resolver' && <ResearchResolver onBack={() => setView('home')} />}
-          {view === 'settings' && <SettingsPanel />}
+          {view === 'gate'        && <PasswordGate />}
+          {view === 'home'        && <HomePage />}
+          {view === 'engine'      && <CaseDashboard />}
+          {view === 'matrimonial' && <MatrimonialDashboard />}
+          {view === 'resolver'    && <ResearchResolver onBack={() => setView('home')} />}
+          {view === 'settings'    && <SettingsPanel />}
           {view === 'san'      && (
             <Suspense fallback={<p style={{ color: T.mute, fontFamily: "'Times New Roman', Times, serif", fontSize: 13, padding: 32 }}>Loading SAN Mode…</p>}>
               <div style={{ animation: 'fadeUp .3s ease' }}>
