@@ -20,6 +20,8 @@ import React, { useState, useCallback, useEffect } from 'react';
 import type { Case } from '@/types';
 import { T } from '@/constants/tokens';
 import { useAI } from '@/hooks/useAI';
+import { useIntelligence } from '@/hooks/useIntelligence';
+import { buildRoleSystemPrompt } from '@/utils/rolePrompt';
 import { loadBlindSpot, saveBlindSpot } from '@/storage/helpers';
 import { Md, ErrorBlock } from '@/components/common/ui';
 import { COUNSEL_ROLE_COLORS } from '@/types';
@@ -155,11 +157,13 @@ function ProsDrafterTab({ prosContext, setProsContext, prosAddress, setProsAddre
   accent: string; activeCase: Case;
 }) {
   const { call, loading, error } = useAI(activeCase);
+  const { fullContext } = useIntelligence(activeCase);
+  const systemCtx = buildRoleSystemPrompt(activeCase.matter_track, activeCase.counsel_role) + fullContext;
 
   const draft = useCallback(async () => {
     const intPkg = activeCase.intelligence_data?.intPkg ?? '';
     const r = await call({
-      system: `You are a Nigerian prosecution counsel drafting a final written address for filing in court at the close of a criminal trial. Apply ACJA 2015, Evidence Act 2011, and the criminal procedure of the relevant court. Your address must analyse the evidence, apply the law, and make specific submissions on each count. Use formal Nigerian court drafting.`,
+      system: `You are a Nigerian prosecution counsel drafting a final written address for filing in court at the close of a criminal trial. Apply ACJA 2015, Evidence Act 2011, and the criminal procedure of the relevant court. Your address must analyse the evidence, apply the law, and make specific submissions on each count. Use formal Nigerian court drafting.` + systemCtx,
       userMsg: `Draft a prosecution Final Written Address for: ${activeCase.caseName} at ${activeCase.court}.
 
 Case facts and Intelligence Package: ${intPkg ? intPkg.slice(0, 1000) : '[not available]'}
@@ -277,7 +281,7 @@ function DefDrafterTab({ defContext, setDefContext, defAddress, setDefAddress, a
   const draft = useCallback(async () => {
     const intPkg = activeCase.intelligence_data?.intPkg ?? '';
     const r = await call({
-      system: `You are a Nigerian criminal defence counsel drafting a final written address for filing in court at the close of a criminal trial. Apply ACJA 2015, Evidence Act 2011, and relevant criminal procedure. Your address must relentlessly identify prosecution failures, credibility breakdowns, and reasonable doubt on each count. Use formal Nigerian court drafting.`,
+      system: `You are a Nigerian criminal defence counsel drafting a final written address for filing in court at the close of a criminal trial. Apply ACJA 2015, Evidence Act 2011, and relevant criminal procedure. Your address must relentlessly identify prosecution failures, credibility breakdowns, and reasonable doubt on each count. Use formal Nigerian court drafting.` + systemCtx,
       userMsg: `Draft a defence Final Written Address for: ${activeCase.caseName} at ${activeCase.court}.
 
 Case facts and Intelligence Package: ${intPkg ? intPkg.slice(0, 1000) : '[not available]'}
@@ -395,7 +399,7 @@ function ReplyTab({ replyContext, setReplyContext, replyDraft, setReplyDraft, ac
     const r = await call({
       system: isPros
         ? `You are a Nigerian prosecution counsel drafting a reply on points of law to the defence final address. A reply is limited to new points of law raised by the defence — you cannot re-argue the entire case. Be precise and cite authority.`
-        : `You are a Nigerian criminal defence counsel drafting a reply on points of law to the prosecution final address. A reply is limited to new legal points raised by prosecution — do not re-argue. Be precise and cite authority.`,
+        : `You are a Nigerian criminal defence counsel drafting a reply on points of law to the prosecution final address. A reply is limited to new legal points raised by prosecution — do not re-argue. Be precise and cite authority.` + systemCtx,
       userMsg: `Draft a ${isPros ? 'prosecution' : 'defence'} Reply on Points of Law for: ${activeCase.caseName}.
 
 ${isPros ? 'Defence address highlights / new points of law raised' : 'Prosecution address highlights / new points of law raised'}:

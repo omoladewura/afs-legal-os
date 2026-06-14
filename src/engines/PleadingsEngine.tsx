@@ -24,6 +24,8 @@ import React, { useState, useCallback, useEffect } from 'react';
 import type { Case } from '@/types';
 import { T } from '@/constants/tokens';
 import { useAI } from '@/hooks/useAI';
+import { useIntelligence } from '@/hooks/useIntelligence';
+import { buildRoleSystemPrompt } from '@/utils/rolePrompt';
 import { loadBlindSpot, saveBlindSpot } from '@/storage/helpers';
 import { Md, ErrorBlock } from '@/components/common/ui';
 import { COUNSEL_ROLE_COLORS } from '@/types';
@@ -395,7 +397,7 @@ const PROCESS_TYPES = [
   { id: 'petition',            label: 'Petition',             desc: 'Divorce/matrimonial proceedings, winding-up of companies, election petitions before election petition tribunals.' },
 ];
 
-function OriginatingProcessDrafter({ data, onSave, accent, ai }: { data: SavedData; onSave: (d: Partial<SavedData>) => void; accent: string; ai: ReturnType<typeof useAI> }) {
+function OriginatingProcessDrafter({ data, onSave, accent, ai, systemCtx }: { data: SavedData; onSave: (d: Partial<SavedData>) => void; accent: string; ai: ReturnType<typeof useAI>; systemCtx: string }) {
   const [processType, setProcessType] = useState(data.origProcessType ?? '');
   const [context, setContext]         = useState(data.origProcessContext ?? '');
   const [draft, setDraft]             = useState(data.origProcessDraft ?? '');
@@ -474,7 +476,7 @@ Nigerian form requirements:
 
 Return the complete draft originating process only.`;
 
-    const result = await ask({ userMsg: prompt, maxTokens: 2500 });
+    const result = await ask({ system: systemCtx, userMsg: prompt, maxTokens: 2500 });
     if (result) {
       setDraft(result);
       onSave({ origProcessType: processType, origProcessContext: context, origProcessDraft: result });
@@ -548,7 +550,7 @@ Return the complete draft originating process only.`;
 // C.1 NEW — WITNESS STATEMENT ON OATH DRAFTER (Claimant)
 // ─────────────────────────────────────────────────────────────────────────────
 
-function WitnessStatementDrafter({ data, onSave, accent, ai }: { data: SavedData; onSave: (d: Partial<SavedData>) => void; accent: string; ai: ReturnType<typeof useAI> }) {
+function WitnessStatementDrafter({ data, onSave, accent, ai, systemCtx }: { data: SavedData; onSave: (d: Partial<SavedData>) => void; accent: string; ai: ReturnType<typeof useAI>; systemCtx: string }) {
   const [witnessName, setWitnessName]   = useState(data.witnessName ?? '');
   const [witnessRole, setWitnessRole]   = useState(data.witnessRole ?? '');
   const [context, setContext]           = useState(data.witnessContext ?? '');
@@ -613,7 +615,7 @@ Nigerian evidence rules:
 
 Return the complete witness statement draft only.`;
 
-    const result = await ask({ userMsg: prompt, maxTokens: 2500 });
+    const result = await ask({ system: systemCtx, userMsg: prompt, maxTokens: 2500 });
     if (result) {
       setDraft(result);
       onSave({ witnessName, witnessRole, witnessContext: context, witnessStatDraft: result });
@@ -678,7 +680,7 @@ Return the complete witness statement draft only.`;
 // CLAIMANT TABS
 // ─────────────────────────────────────────────────────────────────────────────
 
-function SoCDrafter({ data, onSave, accent, ai }: { data: SavedData; onSave: (d: Partial<SavedData>) => void; accent: string; ai: ReturnType<typeof useAI> }) {
+function SoCDrafter({ data, onSave, accent, ai, systemCtx }: { data: SavedData; onSave: (d: Partial<SavedData>) => void; accent: string; ai: ReturnType<typeof useAI>; systemCtx: string }) {
   const [context, setContext] = useState(data.socContext ?? '');
   const [draft, setDraft]     = useState(data.socDraft ?? '');
   const { ask, loading, error } = ai;
@@ -707,7 +709,7 @@ Nigerian pleading rules apply:
 
 Return the full draft Statement of Claim.`;
 
-    const result = await ask({ userMsg: prompt, maxTokens: 2000 });
+    const result = await ask({ system: systemCtx, userMsg: prompt, maxTokens: 2000 });
     if (result) {
       setDraft(result);
       onSave({ socContext: context, socDraft: result });
@@ -738,7 +740,7 @@ Return the full draft Statement of Claim.`;
   );
 }
 
-function SoDMonitor({ data, onSave, accent, ai }: { data: SavedData; onSave: (d: Partial<SavedData>) => void; accent: string; ai: ReturnType<typeof useAI> }) {
+function SoDMonitor({ data, onSave, accent, ai, systemCtx }: { data: SavedData; onSave: (d: Partial<SavedData>) => void; accent: string; ai: ReturnType<typeof useAI>; systemCtx: string }) {
   const [serviceDate, setServiceDate]       = useState(data.serviceDate ?? '');
   const [sodReceivedDate, setSodReceivedDate] = useState(data.sodReceivedDate ?? '');
   const [sodFiled, setSodFiled]             = useState(data.sodFiled ?? false);
@@ -770,7 +772,7 @@ Advise on:
 
 Apply Nigerian High Court (Civil Procedure) Rules. Be specific and practical.`;
 
-    const result = await ask({ userMsg: prompt, maxTokens: 1200 });
+    const result = await ask({ system: systemCtx, userMsg: prompt, maxTokens: 1200 });
     if (result) setAdvice(result);
   }, [serviceDate, sodFiled, sodReceivedDate, daysSinceService, ask]);
 
@@ -850,7 +852,7 @@ Apply Nigerian High Court (Civil Procedure) Rules. Be specific and practical.`;
   );
 }
 
-function CounterclaimResponse({ data, onSave, accent, ai }: { data: SavedData; onSave: (d: Partial<SavedData>) => void; accent: string; ai: ReturnType<typeof useAI> }) {
+function CounterclaimResponse({ data, onSave, accent, ai, systemCtx }: { data: SavedData; onSave: (d: Partial<SavedData>) => void; accent: string; ai: ReturnType<typeof useAI>; systemCtx: string }) {
   const [context, setContext] = useState(data.dtccContext ?? '');
   const [draft, setDraft]     = useState(data.dtccDraft ?? '');
   const { ask, loading, error } = ai;
@@ -873,7 +875,7 @@ Draft a complete Defence to Counterclaim in Nigerian High Court format:
 
 Apply Nigerian pleading rules. Number every paragraph. Use formal court language.`;
 
-    const result = await ask({ userMsg: prompt, maxTokens: 1500 });
+    const result = await ask({ system: systemCtx, userMsg: prompt, maxTokens: 1500 });
     if (result) {
       setDraft(result);
       onSave({ dtccContext: context, dtccDraft: result });
@@ -904,7 +906,7 @@ Apply Nigerian pleading rules. Number every paragraph. Use formal court language
   );
 }
 
-function DefaultFlag({ data, onSave, accent, ai }: { data: SavedData; onSave: (d: Partial<SavedData>) => void; accent: string; ai: ReturnType<typeof useAI> }) {
+function DefaultFlag({ data, onSave, accent, ai, systemCtx }: { data: SavedData; onSave: (d: Partial<SavedData>) => void; accent: string; ai: ReturnType<typeof useAI>; systemCtx: string }) {
   const [serviceDate, setServiceDate] = useState(data.serviceDate ?? '');
   const [sodFiled, setSodFiled]       = useState(data.sodFiled ?? false);
   const [court, setCourt]             = useState('');
@@ -932,7 +934,7 @@ Draft a complete Motion for Judgment in Default of Defence. Include:
 
 Apply the relevant Nigerian High Court Civil Procedure Rules for default judgment in default of defence.`;
 
-    const result = await ask({ userMsg: prompt, maxTokens: 1500 });
+    const result = await ask({ system: systemCtx, userMsg: prompt, maxTokens: 1500 });
     if (result) setDraft(result);
   }, [court, serviceDate, days, sodFiled, ask]);
 
@@ -1018,7 +1020,7 @@ Apply the relevant Nigerian High Court Civil Procedure Rules for default judgmen
 // DEFENDANT TABS
 // ─────────────────────────────────────────────────────────────────────────────
 
-function SoDDrafter({ data, onSave, accent, ai }: { data: SavedData; onSave: (d: Partial<SavedData>) => void; accent: string; ai: ReturnType<typeof useAI> }) {
+function SoDDrafter({ data, onSave, accent, ai, systemCtx }: { data: SavedData; onSave: (d: Partial<SavedData>) => void; accent: string; ai: ReturnType<typeof useAI>; systemCtx: string }) {
   const [context, setContext] = useState(data.sodContext ?? '');
   const [draft, setDraft]     = useState(data.sodDraft ?? '');
   const { ask, loading, error } = ai;
@@ -1048,7 +1050,7 @@ Nigerian pleading rules apply:
 
 Return the full draft Statement of Defence.`;
 
-    const result = await ask({ userMsg: prompt, maxTokens: 2000 });
+    const result = await ask({ system: systemCtx, userMsg: prompt, maxTokens: 2000 });
     if (result) {
       setDraft(result);
       onSave({ sodContext: context, sodDraft: result });
@@ -1079,7 +1081,7 @@ Return the full draft Statement of Defence.`;
   );
 }
 
-function CounterclaimBuilder({ data, onSave, accent, ai }: { data: SavedData; onSave: (d: Partial<SavedData>) => void; accent: string; ai: ReturnType<typeof useAI> }) {
+function CounterclaimBuilder({ data, onSave, accent, ai, systemCtx }: { data: SavedData; onSave: (d: Partial<SavedData>) => void; accent: string; ai: ReturnType<typeof useAI>; systemCtx: string }) {
   const [context, setContext] = useState(data.counterclaimContext ?? '');
   const [draft, setDraft]     = useState(data.counterclaimDraft ?? '');
   const { ask, loading, error } = ai;
@@ -1102,7 +1104,7 @@ Draft a complete Counterclaim to be included within the Statement of Defence. St
 
 Apply Nigerian pleading rules. This counterclaim forms part of the Statement of Defence.`;
 
-    const result = await ask({ userMsg: prompt, maxTokens: 1500 });
+    const result = await ask({ system: systemCtx, userMsg: prompt, maxTokens: 1500 });
     if (result) {
       setDraft(result);
       onSave({ counterclaimContext: context, counterclaimDraft: result });
@@ -1133,7 +1135,7 @@ Apply Nigerian pleading rules. This counterclaim forms part of the Statement of 
   );
 }
 
-function PreliminaryObjDrafter({ data, onSave, accent, ai }: { data: SavedData; onSave: (d: Partial<SavedData>) => void; accent: string; ai: ReturnType<typeof useAI> }) {
+function PreliminaryObjDrafter({ data, onSave, accent, ai, systemCtx }: { data: SavedData; onSave: (d: Partial<SavedData>) => void; accent: string; ai: ReturnType<typeof useAI>; systemCtx: string }) {
   const [context, setContext] = useState(data.objectionContext ?? '');
   const [draft, setDraft]     = useState(data.objectionDraft ?? '');
   const { ask, loading, error } = ai;
@@ -1165,7 +1167,7 @@ C. Relief sought — that the suit be struck out / dismissed with costs
 
 Apply Nigerian High Court Rules and relevant authorities.`;
 
-    const result = await ask({ userMsg: prompt, maxTokens: 2000 });
+    const result = await ask({ system: systemCtx, userMsg: prompt, maxTokens: 2000 });
     if (result) {
       setDraft(result);
       onSave({ objectionContext: context, objectionDraft: result });
@@ -1307,6 +1309,8 @@ export function PleadingsEngine({ activeCase }: Props) {
   const [data, setData]       = useState<SavedData>(DEFAULT_DATA);
   const [loaded, setLoaded]   = useState(false);
   const ai                    = useAI(activeCase);
+  const { fullContext } = useIntelligence(activeCase);
+  const systemCtx = buildRoleSystemPrompt(activeCase.matter_track, activeCase.counsel_role) + fullContext;
 
   // ── Load persisted data ────────────────────────────────────────────────────
   useEffect(() => {
@@ -1345,7 +1349,7 @@ export function PleadingsEngine({ activeCase }: Props) {
     );
   }
 
-  const sharedProps = { data, onSave, accent, ai };
+  const sharedProps = { data, onSave, accent, ai, systemCtx };
 
   return (
     <div style={{ animation: 'fadeUp .3s ease' }}>

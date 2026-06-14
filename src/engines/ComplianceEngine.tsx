@@ -19,6 +19,7 @@ import { T }               from '@/constants/tokens';
 import { callClaude }    from '@/services/api';
 import { loadBlindSpot, saveBlindSpot } from '@/storage/helpers';
 import { Md, Spinner }     from '@/components/common/ui';
+import { useIntelligence } from '@/hooks/useIntelligence';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DESIGN TOKENS
@@ -272,7 +273,7 @@ const lbl: React.CSSProperties = {
 // SUB-MODULE 1: Full Compliance Audit
 // ─────────────────────────────────────────────────────────────────────────────
 
-function PCEFullAudit({ caseId, activeCase }: { caseId: string; activeCase: Case }) {
+function PCEFullAudit({ caseId, activeCase, fullContext }: { caseId: string; activeCase: Case; fullContext: string }) {
   const [stage,  setStage]  = useState('');
   const [facts,  setFacts]  = useState('');
   const [checks, setChecks] = useState<string[]>([]);
@@ -333,7 +334,7 @@ Be precise. Cite Nigerian statutes and Rules of Court. Do not generalise.`;
 
     try {
       const text = await pceCall(
-        buildComplianceSystem(activeCase),
+        buildComplianceSystem(activeCase) + fullContext,
         prompt,
         2000,
         activeCase,
@@ -450,7 +451,7 @@ Be precise. Cite Nigerian statutes and Rules of Court. Do not generalise.`;
 // SUB-MODULE 2: Limitation Period Calculator
 // ─────────────────────────────────────────────────────────────────────────────
 
-function PCELimitationCalc({ caseId, activeCase }: { caseId: string; activeCase: Case }) {
+function PCELimitationCalc({ caseId, activeCase, fullContext }: { caseId: string; activeCase: Case; fullContext: string }) {
   const [coa,     setCoa]    = useState('');
   const [td,      setTd]     = useState('');
   const [extras,  setExtras] = useState('');
@@ -507,7 +508,7 @@ Is there any limitation risk in this matter? What must be done immediately?
 Cite specific Nigerian statutes: Limitation Law of Lagos/Rivers/applicable state, Public Officers Protection Act, CAMA, relevant sector statutes.`;
 
     try {
-      const text = await pceCall('', prompt, 1500, activeCase);
+      const text = await pceCall(fullContext, prompt, 1500, activeCase);
       setAiRes(text);
     } catch (e) { setErr('API error: ' + (e as Error).message); }
     setLoad(false);
@@ -580,7 +581,7 @@ Cite specific Nigerian statutes: Limitation Law of Lagos/Rivers/applicable state
 // SUB-MODULE 3: Affidavit Defect Checker
 // ─────────────────────────────────────────────────────────────────────────────
 
-function PCEAffidavitCheck({ caseId, activeCase }: { caseId: string; activeCase: Case }) {
+function PCEAffidavitCheck({ caseId, activeCase, fullContext }: { caseId: string; activeCase: Case; fullContext: string }) {
   const [affText, setAffText] = useState('');
   const [affType, setAffType] = useState('');
   const [aiRes,   setAiRes]   = useState('');
@@ -626,7 +627,7 @@ For each defect: the specific correction required before the affidavit is court-
 Be specific. Reference Evidence Act 2011 sections and applicable court rules.`;
 
     try {
-      const text = await pceCall('', prompt, 1800, activeCase);
+      const text = await pceCall(fullContext, prompt, 1800, activeCase);
       setAiRes(text);
     } catch (e) { setErr('API error: ' + (e as Error).message); }
     setLoad(false);
@@ -669,7 +670,7 @@ Be specific. Reference Evidence Act 2011 sections and applicable court rules.`;
 // SUB-MODULE 4: Service of Process Validator
 // ─────────────────────────────────────────────────────────────────────────────
 
-function PCEServiceCheck({ caseId, activeCase }: { caseId: string; activeCase: Case }) {
+function PCEServiceCheck({ caseId, activeCase, fullContext }: { caseId: string; activeCase: Case; fullContext: string }) {
   const [details,     setDetails]     = useState('');
   const [processType, setProcessType] = useState('');
   const [aiRes,       setAiRes]       = useState('');
@@ -713,7 +714,7 @@ If service is defective: can it be cured? How? What order must be sought?
 Cite applicable Rules of Court (High Court Civil Procedure Rules, Sheriffs and Civil Process Act, Foreign Judgments Act if applicable).`;
 
     try {
-      const text = await pceCall('', prompt, 1500, activeCase);
+      const text = await pceCall(fullContext, prompt, 1500, activeCase);
       setAiRes(text);
     } catch (e) { setErr('API error: ' + (e as Error).message); }
     setLoad(false);
@@ -774,6 +775,7 @@ interface Props {
 export function ComplianceEngine({ activeCase }: Props) {
   const caseId = activeCase.id;
   const [sub, setSub] = useState<SubTab>('audit');
+  const { fullContext } = useIntelligence(activeCase);
 
   const SUB_TABS: Array<{ id: SubTab; icon: string; label: string }> = [
     { id: 'audit',      icon: '⚙',  label: 'Full Compliance Audit' },
@@ -842,10 +844,10 @@ export function ComplianceEngine({ activeCase }: Props) {
       </div>
 
       {/* Sub-module panels */}
-      {sub === 'audit'      && <PCEFullAudit      caseId={caseId} activeCase={activeCase} />}
-      {sub === 'limitation' && <PCELimitationCalc caseId={caseId} activeCase={activeCase} />}
-      {sub === 'affidavit'  && <PCEAffidavitCheck caseId={caseId} activeCase={activeCase} />}
-      {sub === 'service'    && <PCEServiceCheck   caseId={caseId} activeCase={activeCase} />}
+      {sub === 'audit'      && <PCEFullAudit      caseId={caseId} activeCase={activeCase} fullContext={fullContext} />}
+      {sub === 'limitation' && <PCELimitationCalc caseId={caseId} activeCase={activeCase} fullContext={fullContext} />}
+      {sub === 'affidavit'  && <PCEAffidavitCheck caseId={caseId} activeCase={activeCase} fullContext={fullContext} />}
+      {sub === 'service'    && <PCEServiceCheck   caseId={caseId} activeCase={activeCase} fullContext={fullContext} />}
     </div>
   );
 }

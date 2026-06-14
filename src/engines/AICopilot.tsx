@@ -26,6 +26,7 @@ import {
   copilotAccent,
   copilotSuggestions,
 } from '@/utils/rolePrompt';
+import { useIntelligence } from '@/hooks/useIntelligence';
 import {
   COUNSEL_ROLE_LABELS,
   MATTER_TRACK_LABELS,
@@ -108,6 +109,7 @@ export function AICopilot({ activeCase }: Props) {
   const heading      = copilotHeading(matterTrack, counselRole);
   const suggestions  = copilotSuggestions(matterTrack, counselRole);
   const roleColors   = counselRole ? COUNSEL_ROLE_COLORS[counselRole] : null;
+  const { fullContext } = useIntelligence(activeCase);
 
   // ── Send ──────────────────────────────────────────────────────────────────
 
@@ -136,7 +138,7 @@ export function AICopilot({ activeCase }: Props) {
     const baseSystem = buildRoleSystemPrompt(matterTrack, counselRole);
 
     // Query library for relevant authorities
-    let effectiveSystem = baseSystem;
+    let effectiveSystem = baseSystem + fullContext;
     try {
       const query = deriveQuery(baseSystem, txt);
       if (query.trim()) {

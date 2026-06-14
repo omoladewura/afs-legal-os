@@ -25,9 +25,11 @@ import React, { useState, useCallback, useEffect } from 'react';
 import type { Case } from '@/types';
 import { T } from '@/constants/tokens';
 import { useAI } from '@/hooks/useAI';
+import { useIntelligence } from '@/hooks/useIntelligence';
 import { loadBlindSpot, saveBlindSpot } from '@/storage/helpers';
 import { Md, ErrorBlock } from '@/components/common/ui';
 import { COUNSEL_ROLE_COLORS } from '@/types';
+import { buildRoleSystemPrompt } from '@/utils/rolePrompt';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES
@@ -402,7 +404,7 @@ function MotionTracker({
 // CLAIMANT TABS
 // ─────────────────────────────────────────────────────────────────────────────
 
-function DefaultJudgmentTab({ data, onSave, accent, ai }: { data: SavedData; onSave: (d: Partial<SavedData>) => void; accent: string; ai: ReturnType<typeof useAI> }) {
+function DefaultJudgmentTab({ data, onSave, accent, ai, systemCtx }: { data: SavedData; onSave: (d: Partial<SavedData>) => void; accent: string; ai: ReturnType<typeof useAI>; systemCtx: string }) {
   const [context, setContext] = useState(data.defaultJudgmentContext ?? '');
   const [draft, setDraft]     = useState(data.defaultJudgmentDraft ?? '');
   const { ask, loading, error } = ai;
@@ -433,7 +435,7 @@ PART B — If applying in default of defence:
 
 Apply the applicable High Court (Civil Procedure) Rules. Use formal Nigerian court drafting language. Number all paragraphs in affidavits. Include an exhibit list.`;
 
-    const result = await ask({ userMsg: prompt, maxTokens: 2000 });
+    const result = await ask({ system: systemCtx, userMsg: prompt, maxTokens: 2000 });
     if (result) {
       setDraft(result);
       onSave({ defaultJudgmentContext: context, defaultJudgmentDraft: result });
@@ -479,7 +481,7 @@ Apply the applicable High Court (Civil Procedure) Rules. Use formal Nigerian cou
   );
 }
 
-function SummaryJudgmentTab({ data, onSave, accent, ai }: { data: SavedData; onSave: (d: Partial<SavedData>) => void; accent: string; ai: ReturnType<typeof useAI> }) {
+function SummaryJudgmentTab({ data, onSave, accent, ai, systemCtx }: { data: SavedData; onSave: (d: Partial<SavedData>) => void; accent: string; ai: ReturnType<typeof useAI>; systemCtx: string }) {
   const [context, setContext] = useState(data.summaryJudgmentContext ?? '');
   const [draft, setDraft]     = useState(data.summaryJudgmentDraft ?? '');
   const { ask, loading, error } = ai;
@@ -512,7 +514,7 @@ Draft a complete Application for Summary Judgment. The basis is that the defenda
 
 Use formal Nigerian court drafting language throughout.`;
 
-    const result = await ask({ userMsg: prompt, maxTokens: 2000 });
+    const result = await ask({ system: systemCtx, userMsg: prompt, maxTokens: 2000 });
     if (result) {
       setDraft(result);
       onSave({ summaryJudgmentContext: context, summaryJudgmentDraft: result });
@@ -543,7 +545,7 @@ Use formal Nigerian court drafting language throughout.`;
   );
 }
 
-function InjunctionTab({ data, onSave, accent, ai }: { data: SavedData; onSave: (d: Partial<SavedData>) => void; accent: string; ai: ReturnType<typeof useAI> }) {
+function InjunctionTab({ data, onSave, accent, ai, systemCtx }: { data: SavedData; onSave: (d: Partial<SavedData>) => void; accent: string; ai: ReturnType<typeof useAI>; systemCtx: string }) {
   const [context, setContext] = useState(data.injunctionContext ?? '');
   const [draft, setDraft]     = useState(data.injunctionDraft ?? '');
   const [injType, setInjType] = useState(data.injunctionType ?? 'Prohibitory');
@@ -578,7 +580,7 @@ Draft a complete Interlocutory Injunction Application. Include:
 
 Use formal Nigerian court drafting language. Cite relevant Nigerian authorities.`;
 
-    const result = await ask({ userMsg: prompt, maxTokens: 2000 });
+    const result = await ask({ system: systemCtx, userMsg: prompt, maxTokens: 2000 });
     if (result) {
       setDraft(result);
       onSave({ injunctionContext: context, injunctionDraft: result, injunctionType: injType });
@@ -636,7 +638,7 @@ Use formal Nigerian court drafting language. Cite relevant Nigerian authorities.
 // DEFENDANT TABS
 // ─────────────────────────────────────────────────────────────────────────────
 
-function PrelimObjTab({ data, onSave, accent, ai }: { data: SavedData; onSave: (d: Partial<SavedData>) => void; accent: string; ai: ReturnType<typeof useAI> }) {
+function PrelimObjTab({ data, onSave, accent, ai, systemCtx }: { data: SavedData; onSave: (d: Partial<SavedData>) => void; accent: string; ai: ReturnType<typeof useAI>; systemCtx: string }) {
   const [context, setContext] = useState(data.prelimObjContext ?? '');
   const [draft, setDraft]     = useState(data.prelimObjDraft ?? '');
   const { ask, loading, error } = ai;
@@ -673,7 +675,7 @@ C. Reliefs sought (that the suit be struck out / dismissed with costs)
 
 Apply Nigerian High Court Rules and leading authorities on each ground.`;
 
-    const result = await ask({ userMsg: prompt, maxTokens: 2200 });
+    const result = await ask({ system: systemCtx, userMsg: prompt, maxTokens: 2200 });
     if (result) {
       setDraft(result);
       onSave({ prelimObjContext: context, prelimObjDraft: result });
@@ -716,7 +718,7 @@ Apply Nigerian High Court Rules and leading authorities on each ground.`;
   );
 }
 
-function StrikeOutTab({ data, onSave, accent, ai }: { data: SavedData; onSave: (d: Partial<SavedData>) => void; accent: string; ai: ReturnType<typeof useAI> }) {
+function StrikeOutTab({ data, onSave, accent, ai, systemCtx }: { data: SavedData; onSave: (d: Partial<SavedData>) => void; accent: string; ai: ReturnType<typeof useAI>; systemCtx: string }) {
   const [context, setContext] = useState(data.strikeOutContext ?? '');
   const [draft, setDraft]     = useState(data.strikeOutDraft ?? '');
   const { ask, loading, error } = ai;
@@ -749,7 +751,7 @@ For the applicable ground(s):
 
 Note: for "no reasonable cause of action" — the court looks only at the pleading; no affidavit evidence is admissible.`;
 
-    const result = await ask({ userMsg: prompt, maxTokens: 1800 });
+    const result = await ask({ system: systemCtx, userMsg: prompt, maxTokens: 1800 });
     if (result) {
       setDraft(result);
       onSave({ strikeOutContext: context, strikeOutDraft: result });
@@ -780,7 +782,7 @@ Note: for "no reasonable cause of action" — the court looks only at the pleadi
   );
 }
 
-function StayApplicationTab({ data, onSave, accent, ai }: { data: SavedData; onSave: (d: Partial<SavedData>) => void; accent: string; ai: ReturnType<typeof useAI> }) {
+function StayApplicationTab({ data, onSave, accent, ai, systemCtx }: { data: SavedData; onSave: (d: Partial<SavedData>) => void; accent: string; ai: ReturnType<typeof useAI>; systemCtx: string }) {
   const [context, setContext] = useState(data.stayContext ?? '');
   const [draft, setDraft]     = useState(data.stayDraft ?? '');
   const [stayBasis, setStayBasis] = useState('Appeal Pending');
@@ -812,7 +814,7 @@ Draft a complete Application for Stay of Proceedings. Include:
 
 Apply Nigerian procedural law throughout.`;
 
-    const result = await ask({ userMsg: prompt, maxTokens: 1800 });
+    const result = await ask({ system: systemCtx, userMsg: prompt, maxTokens: 1800 });
     if (result) {
       setDraft(result);
       onSave({ stayContext: context, stayDraft: result });
@@ -871,7 +873,7 @@ Apply Nigerian procedural law throughout.`;
   );
 }
 
-function SecurityCostsTab({ data, onSave, accent, ai }: { data: SavedData; onSave: (d: Partial<SavedData>) => void; accent: string; ai: ReturnType<typeof useAI> }) {
+function SecurityCostsTab({ data, onSave, accent, ai, systemCtx }: { data: SavedData; onSave: (d: Partial<SavedData>) => void; accent: string; ai: ReturnType<typeof useAI>; systemCtx: string }) {
   const [context, setContext] = useState(data.securityCostsContext ?? '');
   const [draft, setDraft]     = useState(data.securityCostsDraft ?? '');
   const { ask, loading, error } = ai;
@@ -900,7 +902,7 @@ Draft a complete Application for Security for Costs. Include:
 
 Apply Nigerian procedural law and relevant High Court Rules.`;
 
-    const result = await ask({ userMsg: prompt, maxTokens: 1600 });
+    const result = await ask({ system: systemCtx, userMsg: prompt, maxTokens: 1600 });
     if (result) {
       setDraft(result);
       onSave({ securityCostsContext: context, securityCostsDraft: result });
@@ -967,6 +969,8 @@ export function MotionEngine({ activeCase }: Props) {
   const [data, setData]     = useState<SavedData>(DEFAULT_DATA);
   const [loaded, setLoaded] = useState(false);
   const ai                  = useAI(activeCase);
+  const { fullContext }     = useIntelligence(activeCase);
+  const systemCtx           = buildRoleSystemPrompt(activeCase.matter_track, activeCase.counsel_role) + fullContext;
 
   useEffect(() => {
     let live = true;
@@ -1010,7 +1014,7 @@ export function MotionEngine({ activeCase }: Props) {
     );
   }
 
-  const sharedProps = { data, onSave, accent, ai };
+  const sharedProps = { data, onSave, accent, ai, systemCtx };
   const isTrackerTab = activeTab === 'motion_tracker' || activeTab === 'application_tracker';
 
   return (

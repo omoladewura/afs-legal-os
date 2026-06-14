@@ -23,6 +23,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import type { Case } from '@/types';
 import { T } from '@/constants/tokens';
 import { useAI } from '@/hooks/useAI';
+import { useIntelligence } from '@/hooks/useIntelligence';
 import { loadBlindSpot, saveBlindSpot } from '@/storage/helpers';
 import { Md, ErrorBlock } from '@/components/common/ui';
 import { COUNSEL_ROLE_COLORS } from '@/types';
@@ -392,11 +393,12 @@ function WitnessesTab({ witnesses, setWitnesses, accent }: {
   );
 }
 
-function ExamInChiefTab({ witnesses, setWitnesses, accent, activeCase }: {
+function ExamInChiefTab({ witnesses, setWitnesses, accent, activeCase, fullContext }: {
   witnesses: DefenceWitness[];
   setWitnesses: (fn: (p: DefenceWitness[]) => DefenceWitness[]) => void;
   accent: string;
   activeCase: Case;
+  fullContext: string;
 }) {
   const { call, loading, error } = useAI(activeCase);
   const [selectedId, setSelectedId] = useState<string>(witnesses[0]?.id ?? '');
@@ -407,7 +409,7 @@ function ExamInChiefTab({ witnesses, setWitnesses, accent, activeCase }: {
   const draftExam = useCallback(async () => {
     if (!selected?.name || !selected?.summary) return;
     const r = await call({
-      system: `You are a Nigerian criminal defence counsel. Draft examination-in-chief questions for a defence witness. Questions must be non-leading (examination-in-chief), logically sequenced, and designed to elicit the witness's full evidence efficiently. Apply the Evidence Act 2011.`,
+      system: `You are a Nigerian criminal defence counsel. Draft examination-in-chief questions for a defence witness. Questions must be non-leading (examination-in-chief), logically sequenced, and designed to elicit the witness's full evidence efficiently. Apply the Evidence Act 2011.` + fullContext,
       userMsg: `Draft examination-in-chief questions for defence witness ${selected.name} in the matter: ${activeCase.caseName} at ${activeCase.court}.
 
 Witness role: ${selected.role || 'Defence Witness'}
@@ -586,11 +588,12 @@ const emptyProsCross = (idx: number): ProsWitnessCross => ({
   crossDraft: '',
 });
 
-function CrossTrackerTab({ witnesses, setWitnesses, accent, activeCase }: {
+function CrossTrackerTab({ witnesses, setWitnesses, accent, activeCase, fullContext }: {
   witnesses: ProsWitnessCross[];
   setWitnesses: (fn: (p: ProsWitnessCross[]) => ProsWitnessCross[]) => void;
   accent: string;
   activeCase: Case;
+  fullContext: string;
 }) {
   const { call, loading, error } = useAI(activeCase);
   const [selectedId, setSelectedId] = useState<string>(witnesses[0]?.id ?? '');
@@ -605,7 +608,7 @@ function CrossTrackerTab({ witnesses, setWitnesses, accent, activeCase }: {
   const draftCross = useCallback(async () => {
     if (!selected?.name) return;
     const r = await call({
-      system: `You are a Nigerian prosecution counsel preparing cross-examination questions for a defence witness. Your goal is to challenge the witness's credibility, expose inconsistencies with prosecution evidence, and undermine the defence narrative. Apply Evidence Act 2011 on leading questions in cross-examination.`,
+      system: `You are a Nigerian prosecution counsel preparing cross-examination questions for a defence witness. Your goal is to challenge the witness's credibility, expose inconsistencies with prosecution evidence, and undermine the defence narrative. Apply Evidence Act 2011 on leading questions in cross-examination.` + fullContext,
       userMsg: `Draft cross-examination questions for defence witness ${selected.name} in: ${activeCase.caseName} at ${activeCase.court}.
 
 Witness role: ${selected.role || 'Defence Witness'}
@@ -868,6 +871,7 @@ export function DefenceCaseEngine({ activeCase }: Props) {
   const isPros    = role === 'prosecution';
   const isDefence = !isPros;
   const accent    = COUNSEL_ROLE_COLORS[role]?.col ?? '#40a860';
+  const { fullContext } = useIntelligence(activeCase);
 
   const defSubTabs: { id: DefSubTab; label: string }[] = [
     { id: 'election',     label: '1 — Election' },
@@ -1015,7 +1019,7 @@ export function DefenceCaseEngine({ activeCase }: Props) {
       {isDefence && subTab === 'exam_in_chief' && (
         <ExamInChiefTab
           witnesses={witnesses} setWitnesses={setWitnesses}
-          accent={accent} activeCase={activeCase}
+          accent={accent} activeCase={activeCase} fullContext={fullContext}
         />
       )}
       {isDefence && subTab === 'close_def' && (
@@ -1031,7 +1035,7 @@ export function DefenceCaseEngine({ activeCase }: Props) {
       {isPros && subTab === 'cross_tracker' && (
         <CrossTrackerTab
           witnesses={prosWitnesses} setWitnesses={setProsWitnesses}
-          accent={accent} activeCase={activeCase}
+          accent={accent} activeCase={activeCase} fullContext={fullContext}
         />
       )}
       {isPros && subTab === 'evidence_monitor' && (

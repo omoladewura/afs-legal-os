@@ -20,6 +20,7 @@
 import { useState, useRef } from 'react';
 import { T } from '@/constants/tokens';
 import { callClaude } from '@/services/api';
+import { useIntelligence } from '@/hooks/useIntelligence';
 import { queryLibrary, deriveQuery } from '@/services/library';
 import { uid } from '@/storage/helpers';
 import { Spinner } from '@/components/common/ui';
@@ -133,6 +134,7 @@ function SectionHead({
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function InheritanceMode({ activeCase, onSave }: Props) {
+  const { fullContext } = useIntelligence(activeCase);
   const saved = activeCase.inheritance_data ?? null;
 
   const [subTab,    setSubTab]    = useState<SubTab>(saved ? 'audit' : 'upload');
@@ -279,7 +281,7 @@ Respond ONLY with a single valid JSON object — no preamble, no backticks, no m
   }
 }
 
-Return ONLY the JSON object. No additional text.`;
+Return ONLY the JSON object. No additional text.` + fullContext;
 
     try {
       setRunPhase('Running forensic audit — analysing documents…');

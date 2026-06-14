@@ -59,6 +59,7 @@ import {
 } from '@/types';
 import { loadDeadlines, loadEntries, saveCase } from '@/storage/helpers';
 import { callClaude } from '@/services/api';
+import { useIntelligence } from '@/hooks/useIntelligence';
 import { T } from '@/constants/tokens';
 import { STAGE_KEYWORDS } from '@/constants/roleWorkspace';
 import { uid } from '@/utils';
@@ -549,6 +550,7 @@ async function generateAIAlerts(
   activeCase: Case,
   entries:    DocketEntry[],
   deadlines:  Deadline[],
+  fullContext: string,
 ): Promise<Alert[]> {
   const role  = activeCase.counsel_role as CounselRole;
   const track = activeCase.matter_track;
@@ -596,7 +598,7 @@ Return ONLY a JSON array. No markdown. No preamble. Each item:
 Return an empty array [] if no meaningful alerts can be generated from the data provided.`;
 
   const raw = await callClaude({
-    system:    `You are the AFS Legal OS alert generator. Return only valid JSON arrays. No prose, no markdown fences.`,
+    system:    `You are the AFS Legal OS alert generator. Return only valid JSON arrays. No prose, no markdown fences.` + fullContext,
     userMsg:   prompt,
     maxTokens: 700,
     skipLibrary: true,
@@ -862,6 +864,7 @@ interface AlertsEngineProps {
 }
 
 export function AlertsEngine({ activeCase }: AlertsEngineProps) {
+  const { fullContext } = useIntelligence(activeCase);
   const role      = activeCase.counsel_role as CounselRole | undefined;
   const roleColor = role ? COUNSEL_ROLE_COLORS[role].col : '#888888';
   const roleBg    = role ? COUNSEL_ROLE_COLORS[role].bg  : '#ffffff';
@@ -927,7 +930,7 @@ export function AlertsEngine({ activeCase }: AlertsEngineProps) {
     setAILoading(true);
     setAIError('');
     try {
-      const ai = await generateAIAlerts(activeCase, entries, deadlines);
+      const ai = await generateAIAlerts(activeCase, entries, deadlines, fullContext);
       setAIAlerts(ai);
       setAIGenerated(true);
     } catch (err: unknown) {

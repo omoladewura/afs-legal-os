@@ -16,6 +16,7 @@ import { callClaude } from '@/services/api';
 import { buildRoleLibraryOpts } from '@/utils/roleLibrary';
 import { loadBlindSpot, saveBlindSpot } from '@/storage/helpers';
 import { buildRoleSystemPrompt } from '@/utils/rolePrompt';
+import { useIntelligence } from '@/hooks/useIntelligence';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES
@@ -199,6 +200,7 @@ interface Props {
 
 export function RiskAnalytics({ activeCase }: Props) {
   const caseId = activeCase?.id || 'unknown';
+  const { fullContext } = useIntelligence(activeCase);
 
   // ── State ──────────────────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<'dashboard' | 'scenarios' | 'register'>('dashboard');
@@ -326,7 +328,7 @@ export function RiskAnalytics({ activeCase }: Props) {
     setError('');
     setAnimated(false);
     try {
-      const raw    = await callClaude({ system: buildRoleSystemPrompt(activeCase.matter_track, activeCase.counsel_role) + '\n\n' + RISK_SYSTEM, userMsg: `Case Stage: ${stage}\n\nCase Facts:\n${facts}`, maxTokens: 1200, matter_track: activeCase.matter_track, counsel_role: activeCase.counsel_role, libraryOpts: buildRoleLibraryOpts(activeCase.matter_track, activeCase.counsel_role, 'risk analytics litigation risk assessment') });
+      const raw    = await callClaude({ system: buildRoleSystemPrompt(activeCase.matter_track, activeCase.counsel_role) + '\n\n' + RISK_SYSTEM + fullContext, userMsg: `Case Stage: ${stage}\n\nCase Facts:\n${facts}`, maxTokens: 1200, matter_track: activeCase.matter_track, counsel_role: activeCase.counsel_role, libraryOpts: buildRoleLibraryOpts(activeCase.matter_track, activeCase.counsel_role, 'risk analytics litigation risk assessment') });
       const clean  = raw.replace(/^```json\s*/, '').replace(/```\s*$/, '').trim();
       const parsed = JSON.parse(clean) as Omit<RiskResult, 'timestamp' | 'stage'>;
       const withMeta: RiskResult = { ...parsed, timestamp: Date.now(), stage };
@@ -354,7 +356,7 @@ export function RiskAnalytics({ activeCase }: Props) {
     try {
       const results: ScenarioResult[] = [];
       for (const scenario of PRESET_SCENARIOS) {
-        const raw    = await callClaude({ system: RISK_SYSTEM, userMsg: `Case Stage: ${stage}\n\nCase Facts:\n${facts}\n\nSCENARIO MODIFIER: ${scenario.description}`, maxTokens: 1000, matter_track: activeCase.matter_track, counsel_role: activeCase.counsel_role });
+        const raw    = await callClaude({ system: RISK_SYSTEM + fullContext, userMsg: `Case Stage: ${stage}\n\nCase Facts:\n${facts}\n\nSCENARIO MODIFIER: ${scenario.description}`, maxTokens: 1000, matter_track: activeCase.matter_track, counsel_role: activeCase.counsel_role });
         const clean  = raw.replace(/^```json\s*/, '').replace(/```\s*$/, '').trim();
         const parsed = JSON.parse(clean) as Omit<RiskResult, 'timestamp' | 'stage'>;
         results.push({ id: scenario.id, label: scenario.label, verdict: parsed.verdict, scores: parsed.scores, recommendation: parsed.recommendation });
@@ -378,7 +380,7 @@ export function RiskAnalytics({ activeCase }: Props) {
         : '';
       const registerSystem = `You are a senior Nigerian litigation risk analyst. Produce a detailed Litigation Risk Register in structured plain text. No JSON, no markdown fences. Use clear section headings, numbered risks, and concise prose. Each risk entry must include: Risk ID, Risk Category, Description, Likelihood (High/Medium/Low), Impact (High/Medium/Low), Risk Rating (Critical/Significant/Moderate/Low), Mitigation Strategy, and Responsible Action. Group risks by category: Procedural, Evidential, Witness, Jurisdictional, Financial, Strategic, and Reputational. Begin with an Executive Summary showing the overall risk rating and top 3 risks. End with a Risk Mitigation Action Plan.`;
       const content = await callClaude({
-        system:       registerSystem,
+        system:       registerSystem + fullContext,
         userMsg:      `Case: ${activeCase.caseName || 'Untitled'}\nCourt: ${activeCase.court || '—'}\nStage: ${stage}\n\nCase Facts:\n${facts}${scoreContext}`,
         maxTokens:    2500,
         matter_track: activeCase.matter_track,

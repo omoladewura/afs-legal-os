@@ -17,6 +17,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { T } from '@/constants/tokens';
 import { callClaude } from '@/services/api';
+import { useIntelligence } from '@/hooks/useIntelligence';
 import { copyToClipboard } from '@/utils';
 import { loadEvidenceMeta, loadDeadlines, loadBlindSpot, saveBlindSpot } from '@/storage/helpers';
 import type { Case, EvidenceItem, Deadline } from '@/types';
@@ -96,6 +97,7 @@ interface Props {
 
 export function BriefMe({ activeCase }: Props) {
   const caseId = activeCase.id;
+  const { fullContext } = useIntelligence(activeCase);
 
   const [hearingDate,  setHearingDate]  = useState('');
   const [courtName,    setCourtName]    = useState('');
@@ -243,7 +245,7 @@ ${context}`;
       const roleInstruction = roleCtxMap[briefingCounselRole] ?? roleCtxMap['claimant_side'];
 
       const raw = await callClaude({
-        system:    `You are Senior Counsel at AFS Advocates. You produce precise, actionable pre-court briefings for Nigerian litigation.\nMATTER TRACK: ${briefingTrack.toUpperCase()} | COUNSEL ROLE: ${briefingCounselRole.toUpperCase().replace(/_/g, ' ')}\n${roleInstruction}\nYou speak directly and specifically — no generalities. You reference actual documents, dates, and parties from the file. You output ONLY valid JSON as specified.`,
+        system:    `You are Senior Counsel at AFS Advocates. You produce precise, actionable pre-court briefings for Nigerian litigation.\nMATTER TRACK: ${briefingTrack.toUpperCase()} | COUNSEL ROLE: ${briefingCounselRole.toUpperCase().replace(/_/g, ' ')}\n${roleInstruction}\nYou speak directly and specifically — no generalities. You reference actual documents, dates, and parties from the file. You output ONLY valid JSON as specified.` + fullContext,
         userMsg:   prompt,
         maxTokens: 3000,
         mcpDrive:  useDrive,

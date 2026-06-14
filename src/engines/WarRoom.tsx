@@ -26,6 +26,7 @@ import { useAppStore } from '@/state/appStore';
 import { loadBlindSpot, loadEvidenceMeta } from '@/storage/helpers';
 import type { Case, DashTabId, EvidenceItem } from '@/types';
 import { buildRoleSystemPrompt } from '@/utils/rolePrompt';
+import { useIntelligence } from '@/hooks/useIntelligence';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -300,7 +301,8 @@ export function WarRoom({ activeCase }: Props) {
 
   const ctx = buildCtx(activeCase);
   // Role-aware system prompt — used as base for all WarRoom AI panels
-  const roleSystem = buildRoleSystemPrompt(activeCase.matter_track, activeCase.counsel_role);
+  const { fullContext } = useIntelligence(activeCase);
+  const roleSystem = buildRoleSystemPrompt(activeCase.matter_track, activeCase.counsel_role) + fullContext;
 
   // ─────────────────────────────────────────────────────────────────────────
   // PANEL: CASE THEORY MAP
@@ -312,7 +314,7 @@ export function WarRoom({ activeCase }: Props) {
         title="Case Theory Map" icon="◉"
         onGenerate={() => aiGenerate(
           'theory',
-          roleSystem,
+          roleSystem + fullContext,
           `Produce a Case Theory Map for this matter. Structure your analysis as:\n(1) Primary cause of action / defence theory\n(2) Core legal proposition\n(3) Each legal issue — strength (STRONG/MODERATE/WEAK/UNCERTAIN) and reasoning\n(4) Evidence that anchors the theory\n(5) The single most vulnerable point in the theory\n(6) Strategic recommendation\n\nBe specific and role-specific — advice must reflect the counsel role on this matter.\n\nCASE CONTEXT:\n${ctx}\n\nIntelligence Package:\n${JSON.stringify(intel, null, 2)}\n\nBuild the Case Theory Map.`,
           setCaseTheory,
           `afs_wr_theory_${caseId}`,
@@ -645,7 +647,7 @@ export function WarRoom({ activeCase }: Props) {
         title="Appellate Vulnerability Tracker" icon="↑"
         onGenerate={() => aiGenerate(
           'appvuln',
-          roleSystem,
+          roleSystem + fullContext,
           `Identify every live appellate issue in this case from the perspective of the counsel role.\n\nFor each appellate issue:\n(1) The issue\n(2) The ground of appeal it generates\n(3) Survivability rating at the Court of Appeal (High/Medium/Low)\n(4) What must be done NOW to preserve the point\n\nCover: errors of law, wrongly admitted/excluded evidence, jurisdictional points, constitutional issues, procedural violations.\n\nCASE CONTEXT:\n${ctx}\n\nAppeal data: ${JSON.stringify(appeal, null, 2)}\n\nIdentify all appellate vulnerabilities from this counsel's position.`,
           setAppellateVuln,
           `afs_wr_appvuln_${caseId}`,
@@ -675,7 +677,7 @@ export function WarRoom({ activeCase }: Props) {
         title="Opponent Strategy Board" icon="◈"
         onGenerate={() => aiGenerate(
           'opp',
-          roleSystem,
+          roleSystem + fullContext,
           `Analyse the opposing side's most likely litigation strategy on this matter.\n\nCover:\n(1) Their strongest 3 arguments against our position\n(2) Their most likely procedural moves in the next 60 days\n(3) Their evidential strategy — what they will try to admit and what they will challenge\n(4) Their vulnerabilities and the single most damaging thing we can do to their case now\n(5) Recommended counter-posture from our counsel role\n\nCASE CONTEXT:\n${ctx}\n\nBuild the opponent strategy analysis from our side's perspective.`,
           setOppStrategy,
           `afs_wr_opp_${caseId}`,

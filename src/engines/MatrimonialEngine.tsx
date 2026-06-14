@@ -17,8 +17,10 @@ import React, { useState, useCallback, useEffect } from 'react';
 import type { Case }        from '@/types';
 import { T }                from '@/constants/tokens';
 import { useAI }            from '@/hooks/useAI';
+import { useIntelligence }  from '@/hooks/useIntelligence';
 import { loadBlindSpot, saveBlindSpot } from '@/storage/helpers';
 import { Md, ErrorBlock }   from '@/components/common/ui';
+import { useIntelligence } from '@/hooks/useIntelligence';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES
@@ -178,6 +180,7 @@ export function MatrimonialEngine({ activeCase }: Props) {
 
   const [subTab, setSubTab] = useState<SubTabId>('intake');
   const [saved,  setSaved]  = useState<MatrimonialSaved>({} as MatrimonialSaved);
+  const { fullContext } = useIntelligence(activeCase);
 
   useEffect(() => {
     loadBlindSpot<MatrimonialSaved>(caseId, 'matrimonial', {} as MatrimonialSaved)
@@ -185,7 +188,7 @@ export function MatrimonialEngine({ activeCase }: Props) {
   }, [caseId]);
 
   const { call, loading, error, clearError } = useAI();
-
+  const { fullContext } = useIntelligence(activeCase);
   const save = useCallback((patch: Partial<MatrimonialSaved>) => {
     setSaved(prev => {
       const next = { ...prev, ...patch };
@@ -224,7 +227,7 @@ export function MatrimonialEngine({ activeCase }: Props) {
       const data: IntakeData = { petitioner, respondent, marriageDate, marriagePlace, marriageType, children, jurisdiction, relief };
       save({ intakeData: data });
       const result = await call({
-        system:   MATRIMONIAL_SYSTEM,
+        system:   MATRIMONIAL_SYSTEM + fullContext,
         userMsg:  `${buildCtx()}\n\nMARRIAGE TYPE: ${marriageType}\nRELIEF SOUGHT: ${relief}\nCHILDREN OF MARRIAGE: ${children || 'None stated'}\nJURISDICTION BASIS: ${jurisdiction}\n\n## 1. Proper Court\nIs the Federal High Court or State High Court the correct court? Analyse jurisdiction under s.2 MCA.\n\n## 2. Domicile / Residence Qualification\nDoes the petitioner satisfy the domicile or two-year residence requirement under s.4 MCA?\n\n## 3. Appropriate Relief\nIs the relief sought (dissolution, nullity, judicial separation) correctly identified? Any alternative or additional relief that should be claimed?\n\n## 4. Pre-Conditions\nAny pre-conditions to filing — reconciliation attempt, two-year bar on petitions within two years of marriage (s.30 MCA), unless exceptional hardship or depravity applies.\n\n## 5. Immediate Steps\nThe 5 most urgent steps before filing — documents needed, Certificate of Marriage, domicile evidence.\n\n## 6. Children Urgency\nAre there urgent custody, maintenance, or welfare issues requiring interim orders before the main petition is heard?`,
         maxTokens: 2500,
       });
@@ -341,7 +344,7 @@ export function MatrimonialEngine({ activeCase }: Props) {
       save({ petGround: ground, petParticulars: particulars, petChildArrange: childArrange, petFinancials: financials });
       const ip = saved.intakeData || {} as IntakeData;
       const result = await call({
-        system:   MATRIMONIAL_SYSTEM,
+        system:   MATRIMONIAL_SYSTEM + fullContext,
         userMsg:  `${buildCtx()}\n\nGROUND FOR DISSOLUTION: ${ground}\nPARTICULARS: ${particulars}\nARRANGEMENTS FOR CHILDREN: ${childArrange || 'To be determined by court'}\nFINANCIAL POSITION: ${financials || 'Not provided'}\n\nDraft a COMPLETE PETITION FOR DISSOLUTION OF MARRIAGE to court-filing standard under the Matrimonial Causes Rules. Structure it as follows:\n\n## Court Heading\nIN THE [COURT] | PETITION NO | BETWEEN: [PETITIONER] — PETITIONER and [RESPONDENT] — RESPONDENT | IN THE MATTER OF THE MATRIMONIAL CAUSES ACT CAP M7 LFN 2004\n\n## Petition for Dissolution of Marriage\n\nInclude all of the following:\n(a) Details of marriage — date, place, certificate\n(b) Petitioner's domicile/residence qualification\n(c) Prior proceedings (none, or details)\n(d) Ground for dissolution with full particulars\n(e) Children of the marriage and proposed arrangements\n(f) Financial position of each party\n(g) Prayer/relief sought including all ancillary reliefs\n\nDraft to court-filing standard in formal legal language throughout. Flag any particulars that must be verified by the client before filing with [VERIFY: ...] markers.`,
         maxTokens: 3500,
       });
@@ -406,7 +409,7 @@ export function MatrimonialEngine({ activeCase }: Props) {
       if (!facts) return;
       save({ nullityFacts: facts });
       const result = await call({
-        system:   MATRIMONIAL_SYSTEM,
+        system:   MATRIMONIAL_SYSTEM + fullContext,
         userMsg:  `${buildCtx()}\n\nFACTS RELEVANT TO NULLITY:\n${facts}\n\n## 1. Void or Voidable?\nApply ss.3 and 5 MCA:\n\n**VOID MARRIAGES (s.3 MCA):** either party already married (bigamy), parties within prohibited degrees of consanguinity or affinity, parties not male and female, ceremony not valid.\n\n**VOIDABLE MARRIAGES (s.5 MCA):** non-consummation due to incapacity or wilful refusal, lack of consent (duress, fraud, mistake, unsoundness of mind), respondent suffering communicable venereal disease at time of marriage, respondent pregnant by another at time of marriage.\n\n## 2. Correct Route\nIs this a nullity matter or should the practitioner file for dissolution instead? Explain which is more appropriate.\n\n## 3. Evidence Required\nWhat evidence must be produced to establish the nullity ground? Medical evidence? Witnesses? Documentary evidence of prior marriage?\n\n## 4. Bars to Nullity\nAny bars to the petition — approbation, delay, petitioner's knowledge at time of marriage?\n\n## 5. Petition Structure\nOutline the structure of a Petition for Nullity for this specific ground.\n\n## 6. Consequences\nEffects of a decree of nullity vs dissolution — on children's legitimacy, property, succession, pension rights.`,
         maxTokens: 2500,
       });
@@ -451,7 +454,7 @@ export function MatrimonialEngine({ activeCase }: Props) {
       if (!childrenDetails || !clientSituation) return;
       save({ custodyChildren: childrenDetails, custodyCurrent: currentArrange, custodyClient: clientSituation, custodyOther: otherParty });
       const result = await call({
-        system:   MATRIMONIAL_SYSTEM,
+        system:   MATRIMONIAL_SYSTEM + fullContext,
         userMsg:  `${buildCtx()}\n\nCHILDREN DETAILS (names, ages, schooling):\n${childrenDetails}\nCURRENT ARRANGEMENTS:\n${currentArrange || 'Not specified'}\nOUR CLIENT'S SITUATION:\n${clientSituation}\nOTHER PARENT'S SITUATION:\n${otherParty || 'Not specified'}\n\n## 1. Welfare Principle\nApply the paramount consideration — the welfare of the child (s.71 MCA). List the specific welfare factors Nigerian courts weigh: stability and continuity, primary carer history, wishes of the child (age-appropriate), harmful exposure, each parent's capacity, siblings, extended family.\n\n## 2. Custody Recommendation\nBased on the facts, what custody order should be sought? Sole custody, joint custody, or primary residence with generous contact? With reasons.\n\n## 3. Contact Arrangements\nWhat contact arrangements for the non-custodial parent should be proposed — routine contact, holiday contact, special occasion contact?\n\n## 4. Interim Orders\nIs an urgent interim custody order needed? What grounds and what application to make?\n\n## 5. Arguments to Anticipate\nWhat custody arguments will the other party make? How to rebut each.\n\n## 6. Supporting Affidavit Structure\nKey paragraphs the affidavit in support of custody must address.\n\n## 7. Draft Application Prayers\nThe specific reliefs to seek in the custody application.`,
         maxTokens: 2800,
       });
@@ -519,7 +522,7 @@ export function MatrimonialEngine({ activeCase }: Props) {
       if (!maintType || !needs) return;
       save({ maintType, maintClientIncome: clientIncome, maintOtherIncome: otherIncome, maintNeeds: needs, maintMarriage: marriage });
       const result = await call({
-        system:   MATRIMONIAL_SYSTEM,
+        system:   MATRIMONIAL_SYSTEM + fullContext,
         userMsg:  `${buildCtx()}\n\nMAINTENANCE TYPE: ${maintType}\nCLIENT'S INCOME & ASSETS: ${clientIncome || 'Not disclosed'}\nOTHER PARTY'S INCOME & ASSETS: ${otherIncome || 'Not disclosed'}\nFINANCIAL NEEDS: ${needs}\nSTANDARD OF LIVING DURING MARRIAGE: ${marriage || 'Not described'}\n\n## 1. Legal Basis\nApplicable provisions of the MCA for this type of maintenance — maintenance pending suit (s.70), periodical payments (s.72), lump sum orders.\n\n## 2. Quantum Assessment\nWhat is a reasonable maintenance figure? Consider: earning capacity of each party, standard of living during marriage, financial needs of applicant and children, contributions made, any disability, duration of marriage.\n\n## 3. Maintenance Pending Suit\nIf applicable — is an interim maintenance order needed now? What to apply for and on what grounds.\n\n## 4. Children's Maintenance\nSeparate analysis of maintenance for each child — school fees, medical, general upkeep.\n\n## 5. Arguments for Our Position\nThe strongest arguments for the maintenance figure we will seek.\n\n## 6. Anticipated Opposition\nHow the other side will resist and how to rebut.\n\n## 7. Draft Application Prayers\nThe specific maintenance orders to seek, including the amount and frequency.`,
         maxTokens: 2500,
       });
@@ -598,7 +601,7 @@ export function MatrimonialEngine({ activeCase }: Props) {
       if (!assets) return;
       save({ propAssets: assets, propContributions: contributions, propPostSep: postSep });
       const result = await call({
-        system:   MATRIMONIAL_SYSTEM,
+        system:   MATRIMONIAL_SYSTEM + fullContext,
         userMsg:  `${buildCtx()}\n\nMATRIMONIAL ASSETS:\n${assets}\nCONTRIBUTIONS OF EACH PARTY:\n${contributions || 'Not specified'}\nPOST-SEPARATION ACCRETIONS:\n${postSep || 'None stated'}\n\n## 1. Nigerian Legal Framework\nNigeria is NOT a community property jurisdiction. Apply the principles — ownership follows title, but courts have discretion under s.72 MCA to make property orders. Distinguish matrimonial property from separate property.\n\n## 2. Per-Asset Analysis\nFor each asset listed — legal title holder, financial contributions, non-financial contributions (homemaking, childcare), post-separation accretion, recommended settlement position.\n\n## 3. Matrimonial Home\nSpecific analysis — whose name? Mortgage? Can client remain? Transfer of property order or Mesne profits?\n\n## 4. Settlement Zone\nWhat is a fair settlement range? Floor and ceiling of a reasonable negotiated outcome.\n\n## 5. Applications Available\nTransfer of property order, sale and division of proceeds, variation of settlement — with specific prayers for each.\n\n## 6. Financial Disclosure\nWhat financial disclosure must the other party make? How to compel disclosure if refused.\n\n## 7. Litigation Strategy\nShould this be litigated or negotiated? Risk assessment of litigating to judgment.`,
         maxTokens: 2800,
       });
@@ -655,7 +658,7 @@ export function MatrimonialEngine({ activeCase }: Props) {
       if (!situation) return;
       save({ ancillarySituation: situation });
       const result = await call({
-        system:   MATRIMONIAL_SYSTEM,
+        system:   MATRIMONIAL_SYSTEM + fullContext,
         userMsg:  `${buildCtx()}\n\nSITUATION:\n${situation}\n\n## 1. Injunctions\nRestraining order preventing disposal, transfer, or encumbrance of matrimonial assets pending proceedings. Is an ex parte injunction urgently needed? What assets are at risk? Draft the prayer for an injunction.\n\n## 2. Occupation Order\nExclusive occupation of the matrimonial home. Is the client currently in the home? Is there domestic violence? Basis for an occupation order under Nigerian law.\n\n## 3. Financial Disclosure Order\nCompelling the other party to make full and frank financial disclosure. What documents should be requested?\n\n## 4. Variation of Settlement\nAny ante-nuptial or post-nuptial settlement that can be varied by the court.\n\n## 5. Tenancy Transfer\nIs the matrimonial home rented? Can the tenancy be transferred to the client?\n\n## 6. Most Urgent Relief\nWhich ancillary relief is most urgent and should be applied for first? Draft the motion paper prayers for the most urgent application.\n\n## 7. Procedural Steps\nThe correct procedure to apply for each relief identified — ex parte or on notice, affidavit requirements, hearing timelines.`,
         maxTokens: 2500,
       });
@@ -714,7 +717,7 @@ export function MatrimonialEngine({ activeCase }: Props) {
       if (!petitionSummary) return;
       save({ respPetition: petitionSummary, respAccount: clientAccount, respDefences: defences });
       const result = await call({
-        system:   MATRIMONIAL_SYSTEM,
+        system:   MATRIMONIAL_SYSTEM + fullContext,
         userMsg:  `${buildCtx()}\n\nPETITION GROUNDS ALLEGED:\n${petitionSummary}\nRESPONDENT'S ACCOUNT:\n${clientAccount || 'Not provided'}\nDEFENCES TO RAISE: ${defences.join(', ') || 'To be identified'}\n\n## 1. Paragraph-by-Paragraph Response\nFor each allegation in the petition — admit, deny, or neither admit nor deny (with reasons). Identify which facts are truly in dispute.\n\n## 2. Affirmative Defences\nFor each selected defence — condonation, connivance, delay, petitioner's conduct — develop the legal and factual basis under the MCA.\n\n## 3. Cross-Petition\nIf the respondent has independent grounds for dissolution — identify them, develop the particulars, and recommend whether to cross-petition.\n\n## 4. Custody & Maintenance Response\nRespondent's position on children's arrangements and financial orders if the petition proceeds.\n\n## 5. Strength Assessment\nHonest assessment — can this petition be successfully defended? Realistic outcome if defended vs negotiated?\n\n## 6. Answer Structure\nDraft the opening section of the Answer to Petition with the formal denials and affirmative defences.\n\n## 7. Negotiation Leverage\nWhat leverage does the respondent have in any financial settlement negotiations?`,
         maxTokens: 2800,
       });

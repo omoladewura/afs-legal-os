@@ -16,6 +16,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import type { Case } from '@/types';
 import { T } from '@/constants/tokens';
 import { callClaude } from '@/services/api';
+import { useIntelligence } from '@/hooks/useIntelligence';
 import { loadBlindSpot, saveBlindSpot, uid } from '@/storage/helpers';
 
 // ── Design tokens (CX-specific) ───────────────────────────────────────────────
@@ -211,7 +212,7 @@ function CXWitnessProfiler({ caseId, activeCase }: { caseId: string; activeCase:
     setLoading(true); setErr(''); setAiRes('');
     try {
       const result = await callClaude({
-        system: roleSystemPrompt(activeCase),
+        system: roleSystemPrompt(activeCase) + fullContext,
         userMsg: `${caseHeader(activeCase)}
 
 WITNESS: ${form.name || 'Unnamed'}
@@ -355,7 +356,7 @@ function CXContradictionMapper({ caseId, activeCase }: { caseId: string; activeC
     setLoading(true); setErr(''); setAiRes('');
     try {
       const result = await callClaude({
-        system: roleSystemPrompt(activeCase),
+        system: roleSystemPrompt(activeCase) + fullContext,
         userMsg: `${caseHeader(activeCase)}
 WITNESS: ${form.witness || 'Unknown'}
 
@@ -480,7 +481,7 @@ function CXQuestionSequencer({ caseId: _caseId, activeCase }: { caseId: string; 
     setLoading(true); setErr(''); setAiRes('');
     try {
       const result = await callClaude({
-        system: roleSystemPrompt(activeCase),
+        system: roleSystemPrompt(activeCase) + fullContext,
         userMsg: `${caseHeader(activeCase)}
 WITNESS: ${witName}
 CROSS-EXAMINATION OBJECTIVE: ${objective}
@@ -598,7 +599,7 @@ function CXImpeachmentBank({ caseId, activeCase }: { caseId: string; activeCase:
     setLoading(true); setErr(''); setAiRes('');
     try {
       const result = await callClaude({
-        system: roleSystemPrompt(activeCase),
+        system: roleSystemPrompt(activeCase) + fullContext,
         userMsg: `Nigerian court. Senior Advocate. Cross-examination impeachment analysis.
 
 ${caseHeader(activeCase)}
@@ -721,7 +722,7 @@ function CXLiveMode({ caseId: _caseId, activeCase }: { caseId: string; activeCas
     const log = answers.map((a, i) => `Answer ${i + 1} [${a.time}]: ${a.text}`).join('\n\n');
     try {
       const result = await callClaude({
-        system: roleSystemPrompt(activeCase),
+        system: roleSystemPrompt(activeCase) + fullContext,
         userMsg: `${caseHeader(activeCase)}
 WITNESS BEING CROSS-EXAMINED: ${witness}
 BACKGROUND CONTEXT: ${context || 'Not provided'}
@@ -849,6 +850,7 @@ interface Props {
 }
 
 export function CrossExamEngine({ activeCase }: Props) {
+  const { fullContext } = useIntelligence(activeCase);
   const caseId = activeCase.id;
   type SubTab = 'profiler' | 'contradictions' | 'sequencer' | 'impeachment' | 'live';
   const [sub, setSub] = useState<SubTab>('profiler');

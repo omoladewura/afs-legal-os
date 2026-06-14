@@ -21,6 +21,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import type { Case }                               from '@/types';
 import { T }                                       from '@/constants/tokens';
 import { callClaude }                              from '@/services/api';
+import { useIntelligence }                         from '@/hooks/useIntelligence';
 import { Md, Spinner }                             from '@/components/common/ui';
 import { uid }                                     from '@/utils';
 
@@ -211,7 +212,7 @@ const ROLE_LABELS_AVE: Record<string, string> = {
   defence:        'Defence',
 };
 
-function AVEAuthorityLibrary({ caseId, activeCase }: { caseId: string; activeCase: Case }) {
+function AVEAuthorityLibrary({ caseId, activeCase, fullContext }: { caseId: string; activeCase: Case; fullContext: string }) {
   const [auths, setAuths] = useState<Authority[]>(
     () => loadAve<Authority[]>(caseId, 'auths', []),
   );
@@ -283,7 +284,7 @@ How would opposing counsel attack or distinguish this authority?
 How to deploy this authority most effectively in argument.`;
 
     try {
-      const text = await aveCall(buildValidateSystem(activeCase), prompt, 1400, activeCase);
+      const text = await aveCall(buildValidateSystem(activeCase, fullContext), prompt, 1400, activeCase);
       setAiRes(text);
       persistAuths(auths.map(a =>
         a.id === auth.id ? { ...a, validated: true, validation: text } : a,
@@ -547,7 +548,7 @@ How to deploy this authority most effectively in argument.`;
 // SUB-MODULE 2: Conflict Detector
 // ─────────────────────────────────────────────────────────────────────────────
 
-function AVEConflictDetector({ caseId, activeCase }: { caseId: string; activeCase: Case }) {
+function AVEConflictDetector({ caseId, activeCase, fullContext }: { caseId: string; activeCase: Case; fullContext: string }) {
   const [issue,    setIssue]    = useState('');
   const [authList, setAuthList] = useState('');
   const [aiRes,    setAiRes]    = useState('');
@@ -592,7 +593,7 @@ How to present these authorities to the court most effectively, handling any con
 What additional authorities should be sourced to strengthen this position?`;
 
     try {
-      const text = await aveCall('', prompt, 1500, activeCase);
+      const text = await aveCall('' + fullContext, prompt, 1500, activeCase);
       setAiRes(text);
     } catch (e) { setErr('API error: ' + (e as Error).message); }
     setLoad(false);
@@ -652,21 +653,21 @@ Always flag that authorities must be independently verified. \
 Never fabricate citations. When unsure of an exact citation, say so clearly. \
 Know the NWLR, SCNLR, FWLR, and key Nigerian Supreme Court and Court of Appeal decisions.`;
 
-function buildValidateSystem(activeCase: Case): string {
+function buildValidateSystem(activeCase: Case, fullContext = ''): string {
   const role  = activeCase.counsel_role ? (ROLE_LABELS_AVE[activeCase.counsel_role] ?? activeCase.role ?? '') : (activeCase.role ?? '');
   const track = activeCase.matter_track === 'criminal' ? 'Criminal' : 'Civil';
   const roleCtx = role ? ` You are advising ${role} counsel on a ${track} matter. Prioritise authorities that support their position and flag authorities opposing counsel may deploy.` : '';
-  return VALIDATE_SYSTEM + roleCtx;
+  return VALIDATE_SYSTEM + roleCtx + fullContext;
 }
 
-function buildQuickSystem(activeCase: Case): string {
+function buildQuickSystem(activeCase: Case, fullContext = ''): string {
   const role  = activeCase.counsel_role ? (ROLE_LABELS_AVE[activeCase.counsel_role] ?? activeCase.role ?? '') : (activeCase.role ?? '');
   const track = activeCase.matter_track === 'criminal' ? 'Criminal' : 'Civil';
   const roleCtx = role ? ` You are advising ${role} counsel on a ${track} matter. Tailor research to their position and flag both supportive and hostile authorities.` : '';
-  return QUICK_SYSTEM + roleCtx;
+  return QUICK_SYSTEM + roleCtx + fullContext;
 }
 
-function AVEQuickCheck({ caseId, activeCase }: { caseId: string; activeCase: Case }) {
+function AVEQuickCheck({ caseId, activeCase, fullContext }: { caseId: string; activeCase: Case; fullContext: string }) {
   const [query, setQuery] = useState('');
   const [aiRes, setAiRes] = useState('');
   const [load,  setLoad]  = useState(false);
@@ -707,7 +708,7 @@ Where to find and verify these authorities: LawPavilion PRIMA, NigeriaLII, CaseP
 Flag: this is AI-generated research guidance only. All authorities must be independently verified before reliance in court proceedings. The lawyer must confirm existence, citation, and current standing.`;
 
     try {
-      const text = await aveCall(buildQuickSystem(activeCase), prompt, 1400, activeCase);
+      const text = await aveCall(buildQuickSystem(activeCase, fullContext), prompt, 1400, activeCase);
       setAiRes(text);
     } catch (e) { setErr('API error: ' + (e as Error).message); }
     setLoad(false);
@@ -771,6 +772,7 @@ interface Props {
 
 export function AuthorityValidator({ activeCase }: Props) {
   const caseId = activeCase.id;
+  const { fullContext } = useIntelligence(activeCase);
   const [sub, setSub] = useState<SubTab>('library');
 
   const SUB_TABS: Array<{ id: SubTab; icon: string; label: string }> = [
@@ -839,9 +841,9 @@ export function AuthorityValidator({ activeCase }: Props) {
       </div>
 
       {/* Sub-module panels */}
-      {sub === 'library'   && <AVEAuthorityLibrary caseId={caseId} activeCase={activeCase} />}
-      {sub === 'conflicts' && <AVEConflictDetector caseId={caseId} activeCase={activeCase} />}
-      {sub === 'research'  && <AVEQuickCheck       caseId={caseId} activeCase={activeCase} />}
+      {sub === 'library'   && <AVEAuthorityLibrary caseId={caseId} activeCase={activeCase} fullContext={fullContext} />}
+      {sub === 'conflicts' && <AVEConflictDetector caseId={caseId} activeCase={activeCase} fullContext={fullContext} />}
+      {sub === 'research'  && <AVEQuickCheck       caseId={caseId} activeCase={activeCase} fullContext={fullContext} />}
     </div>
   );
 }

@@ -17,6 +17,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import type { Case, RiskResult } from '@/types';
 import { T, S } from '@/constants/tokens';
 import { useAI } from '@/hooks/useAI';
+import { useIntelligence } from '@/hooks/useIntelligence';
 import { Spinner, Md } from '@/components/common/ui';
 import { loadBlindSpot, saveBlindSpot } from '@/storage/helpers';
 import { copyToClipboard } from '@/utils';
@@ -463,6 +464,7 @@ export function SynthesisEngine({ activeCase, onNavigate }: Props) {
   const caseId = activeCase.id;
   const ai     = useAI(activeCase);
   const mode   = detectMode(activeCase);
+  const { fullContext } = useIntelligence(activeCase);
 
   const [inputs,    setInputs]    = useState<AllInputs | null>(null);
   const [result,    setResult]    = useState<SynthesisResult | null>(null);
@@ -512,7 +514,7 @@ export function SynthesisEngine({ activeCase, onNavigate }: Props) {
 
     const prompt = buildSynthesisPrompt(mode, activeCase, inputs);
     const raw = await ai.ask({
-      system:  'You are a senior Nigerian advocate. Respond in plain structured text suitable for law chambers. No markdown fences. Use numbered sections exactly as instructed.',
+      system:  'You are a senior Nigerian advocate. Respond in plain structured text suitable for law chambers. No markdown fences. Use numbered sections exactly as instructed.' + fullContext,
       userMsg: prompt,
       maxTokens: 3000,
     });

@@ -22,6 +22,8 @@ import React, { useState, useCallback, useEffect } from 'react';
 import type { Case } from '@/types';
 import { T } from '@/constants/tokens';
 import { useAI } from '@/hooks/useAI';
+import { useIntelligence } from '@/hooks/useIntelligence';
+import { buildRoleSystemPrompt } from '@/utils/rolePrompt';
 import { loadBlindSpot, saveBlindSpot } from '@/storage/helpers';
 import { Md, ErrorBlock } from '@/components/common/ui';
 import { COUNSEL_ROLE_COLORS } from '@/types';
@@ -296,6 +298,7 @@ function CountValidatorTab({
   activeCase: Case;
 }) {
   const { call, loading, error } = useAI();
+  const { fullContext } = useIntelligence(activeCase);
   const [result, setResult] = useState('');
 
   const validate = useCallback(async () => {
@@ -305,7 +308,7 @@ function CountValidatorTab({
     ).join('\n\n');
 
     const r = await call({
-      system: `You are a Nigerian prosecution counsel validating a criminal charge document. Apply ACJA 2015, Evidence Act 2011, and the relevant criminal statutes.`,
+      system: `You are a Nigerian prosecution counsel validating a criminal charge document. Apply ACJA 2015, Evidence Act 2011, and the relevant criminal statutes.` + fullContext,
       userMsg: `Validate the following charge counts for the matter: ${activeCase.caseName} (Court: ${activeCase.court}).
 
 ${countSummary}
@@ -382,13 +385,14 @@ function ArraignmentRecordPros({
   activeCase: Case;
 }) {
   const { call, loading, error } = useAI();
+  const { fullContext } = useIntelligence(activeCase);
 
   const setField = (k: keyof ArraignmentPros, v: string) =>
     setData({ ...data, [k]: v });
 
   const analyse = useCallback(async () => {
     const r = await call({
-      system: `You are a Nigerian prosecution counsel. Apply ACJA 2015.`,
+      system: `You are a Nigerian prosecution counsel. Apply ACJA 2015.` + fullContext,
       userMsg: `Arraignment record for ${activeCase.caseName}:
 
 Date: ${data.date}
@@ -487,11 +491,12 @@ function ChargeDefectAnalyserTab({
   activeCase: Case;
 }) {
   const { call, loading, error } = useAI();
+  const { fullContext } = useIntelligence(activeCase);
 
   const analyse = useCallback(async () => {
     if (!chargeText.trim()) return;
     const r = await call({
-      system: `You are a Nigerian criminal defence counsel. Apply ACJA 2015, Criminal Procedure Act, and Evidence Act 2011. Your goal is to identify every defect in the charge that can be used to protect the accused.`,
+      system: `You are a Nigerian criminal defence counsel. Apply ACJA 2015, Criminal Procedure Act, and Evidence Act 2011. Your goal is to identify every defect in the charge that can be used to protect the accused.` + fullContext,
       userMsg: `Analyse the following charge for defects in the matter ${activeCase.caseName}:
 
 ${chargeText}
@@ -568,10 +573,11 @@ function PreliminaryObjectionTab({
   activeCase: Case;
 }) {
   const { call, loading, error } = useAI();
+  const { fullContext } = useIntelligence(activeCase);
 
   const generateGrounds = useCallback(async () => {
     const r = await call({
-      system: `You are a Nigerian criminal defence counsel specialising in preliminary objections to charge documents.`,
+      system: `You are a Nigerian criminal defence counsel specialising in preliminary objections to charge documents.` + fullContext,
       userMsg: `For the matter ${activeCase.caseName}, the charge reads:
 
 ${chargeText || '[Charge text not entered — please enter in Charge Defect Analyser tab]'}
@@ -592,7 +598,7 @@ Format as a numbered list suitable for filing.`,
   const draftObjection = useCallback(async () => {
     if (!objGrounds.trim()) return;
     const r = await call({
-      system: `You are a Nigerian criminal defence counsel drafting a preliminary objection to a charge document for filing in court.`,
+      system: `You are a Nigerian criminal defence counsel drafting a preliminary objection to a charge document for filing in court.` + fullContext,
       userMsg: `Draft a formal Preliminary Objection to the charge in the matter:
 
 ${activeCase.caseName} — ${activeCase.court}
@@ -699,6 +705,7 @@ function ArraignmentTrackerDef({
   activeCase: Case;
 }) {
   const { call, loading, error } = useAI();
+  const { fullContext } = useIntelligence(activeCase);
   const [analysis, setAnalysis] = useState('');
 
   const setField = (k: keyof ArraignmentDef, v: string) =>
@@ -706,7 +713,7 @@ function ArraignmentTrackerDef({
 
   const analyse = useCallback(async () => {
     const r = await call({
-      system: `You are a Nigerian criminal defence counsel. Apply ACJA 2015, CFRN 1999, and Evidence Act 2011. The accused's liberty and rights are paramount.`,
+      system: `You are a Nigerian criminal defence counsel. Apply ACJA 2015, CFRN 1999, and Evidence Act 2011. The accused's liberty and rights are paramount.` + fullContext,
       userMsg: `Defence arraignment assessment for ${activeCase.caseName}:
 
 Date: ${data.date}
@@ -814,6 +821,7 @@ const DEFAULT_DEF_DATA: ArraignmentDef = {
 };
 
 export function ChargeArraignment({ activeCase }: Props) {
+  const { fullContext } = useIntelligence(activeCase);
   const role   = activeCase.counsel_role ?? 'defence';
   const isPros = role === 'prosecution';
   const accent = COUNSEL_ROLE_COLORS[role]?.col ?? '#c09030';

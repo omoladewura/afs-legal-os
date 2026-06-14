@@ -23,6 +23,8 @@ import React, { useState, useCallback, useEffect } from 'react';
 import type { Case } from '@/types';
 import { T } from '@/constants/tokens';
 import { useAI } from '@/hooks/useAI';
+import { useIntelligence } from '@/hooks/useIntelligence';
+import { buildRoleSystemPrompt } from '@/utils/rolePrompt';
 import { loadBlindSpot, saveBlindSpot, uid } from '@/storage/helpers';
 import { Md, ErrorBlock } from '@/components/common/ui';
 import { COUNSEL_ROLE_COLORS, MATTER_TRACK_COLORS } from '@/types';
@@ -287,6 +289,8 @@ Begin drafting now. Do not add any preamble — go straight to the first documen
 
 export function ApplicationsEngine({ activeCase }: Props) {
   const { ask, loading, error, clearError } = useAI(activeCase);
+  const { fullContext } = useIntelligence(activeCase);
+  const systemCtx = buildRoleSystemPrompt(activeCase.matter_track, activeCase.counsel_role) + fullContext;
 
   // ── Tab state ──────────────────────────────────────────────────────────────
   const [mainTab, setMainTab] = useState<MainTab>('new');
@@ -383,6 +387,7 @@ export function ApplicationsEngine({ activeCase }: Props) {
     );
 
     const result = await ask({
+      system: systemCtx,
       userMsg: prompt,
       maxTokens: 4000,
       libraryOpts: {

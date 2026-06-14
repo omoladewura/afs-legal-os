@@ -20,6 +20,8 @@ import React, { useState, useCallback, useEffect } from 'react';
 import type { Case } from '@/types';
 import { T } from '@/constants/tokens';
 import { useAI } from '@/hooks/useAI';
+import { useIntelligence } from '@/hooks/useIntelligence';
+import { buildRoleSystemPrompt } from '@/utils/rolePrompt';
 import { loadBlindSpot, saveBlindSpot } from '@/storage/helpers';
 import { Md, ErrorBlock } from '@/components/common/ui';
 import { COUNSEL_ROLE_COLORS } from '@/types';
@@ -204,6 +206,7 @@ function PleaRecordTab({
   activeCase: Case;
 }) {
   const { call, loading, error } = useAI();
+  const { fullContext } = useIntelligence(activeCase);
 
   const addCount = () =>
     setCountPleas(p => [...p, { id: Date.now(), count: `Count ${p.length + 1}`, offence: '', plea: '', notes: '' }]);
@@ -221,7 +224,7 @@ function PleaRecordTab({
     ).join('\n');
 
     const r = await call({
-      system: `You are a Nigerian prosecution counsel. Apply ACJA 2015. Pleas have been taken and you must advise on routing and next steps.`,
+      system: `You are a Nigerian prosecution counsel. Apply ACJA 2015. Pleas have been taken and you must advise on routing and next steps.` + fullContext,
       userMsg: `Plea taken in ${activeCase.caseName} at ${activeCase.court}:
 
 ${plea_summary}
@@ -363,11 +366,12 @@ function PleaBargainProsTab({
   activeCase: Case;
 }) {
   const { call, loading, error } = useAI();
+  const { fullContext } = useIntelligence(activeCase);
   const set = (k: keyof PleaBargainTerms, v: string) => setTerms({ ...terms, [k]: v });
 
   const generateDraft = useCallback(async () => {
     const r = await call({
-      system: `You are a Nigerian prosecution counsel. Draft a formal plea bargain agreement under ACJA 2015 s.270.`,
+      system: `You are a Nigerian prosecution counsel. Draft a formal plea bargain agreement under ACJA 2015 s.270.` + fullContext,
       userMsg: `Draft a plea bargain agreement for ${activeCase.caseName}:
 
 Offence pleading to: ${terms.offencePleadingTo}
@@ -474,13 +478,14 @@ function PleaAdviceTab({
   activeCase: Case;
 }) {
   const { call, loading, error } = useAI();
+  const { fullContext } = useIntelligence(activeCase);
   const [chargesText, setChargesText]   = useState('');
   const [evidenceSummary, setEvidence]  = useState('');
   const [instructions, setInstructions] = useState('');
 
   const generateAdvice = useCallback(async () => {
     const r = await call({
-      system: `You are a Nigerian criminal defence counsel. Your duty is to protect the accused and to advise honestly on all available options. Apply ACJA 2015, Evidence Act 2011, and CFRN 1999. Client instructions are paramount.`,
+      system: `You are a Nigerian criminal defence counsel. Your duty is to protect the accused and to advise honestly on all available options. Apply ACJA 2015, Evidence Act 2011, and CFRN 1999. Client instructions are paramount.` + fullContext,
       userMsg: `Plea advice required for ${activeCase.caseName}:
 
 Charges faced:
@@ -579,12 +584,13 @@ function PleaBargainDefTab({
   activeCase: Case;
 }) {
   const { call, loading, error } = useAI();
+  const { fullContext } = useIntelligence(activeCase);
   const set = (k: keyof PleaBargainTerms, v: string) => setTerms({ ...terms, [k]: v });
   const [prosOffer, setProsOffer] = useState('');
 
   const analyseOffer = useCallback(async () => {
     const r = await call({
-      system: `You are a Nigerian criminal defence counsel analysing a prosecution plea bargain offer. Your sole duty is to the accused's best interests.`,
+      system: `You are a Nigerian criminal defence counsel analysing a prosecution plea bargain offer. Your sole duty is to the accused's best interests.` + fullContext,
       userMsg: `Plea bargain analysis for ${activeCase.caseName}:
 
 Prosecution offer:
@@ -683,6 +689,7 @@ function RoutingConfirmTab({
   activeCase: Case;
 }) {
   const { call, loading, error } = useAI();
+  const { fullContext } = useIntelligence(activeCase);
   const [routingAnalysis, setRoutingAnalysis] = useState('');
 
   const update = (id: number, field: keyof CountPlea, value: string) =>
@@ -700,7 +707,7 @@ function RoutingConfirmTab({
     ).join('\n');
 
     const r = await call({
-      system: `You are a Nigerian criminal defence counsel. Pleas have been taken. Advise the defence on routing and immediate next steps.`,
+      system: `You are a Nigerian criminal defence counsel. Pleas have been taken. Advise the defence on routing and immediate next steps.` + fullContext,
       userMsg: `Plea routing assessment for ${activeCase.caseName}:
 
 Pleas entered:
@@ -815,6 +822,7 @@ const defaultCount = (): CountPlea =>
   ({ id: Date.now(), count: 'Count 1', offence: '', plea: '', notes: '' });
 
 export function PleaEngine({ activeCase }: Props) {
+  const { fullContext } = useIntelligence(activeCase);
   const role   = activeCase.counsel_role ?? 'defence';
   const isPros = role === 'prosecution';
   const accent = COUNSEL_ROLE_COLORS[role]?.col ?? '#c09030';

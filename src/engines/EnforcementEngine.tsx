@@ -25,6 +25,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import type { Case } from '@/types';
 import { T } from '@/constants/tokens';
 import { useAI } from '@/hooks/useAI';
+import { useIntelligence } from '@/hooks/useIntelligence';
 import { loadBlindSpot, saveBlindSpot } from '@/storage/helpers';
 import { Md, ErrorBlock } from '@/components/common/ui';
 import { COUNSEL_ROLE_COLORS } from '@/types';
@@ -278,7 +279,8 @@ export function EnforcementEngine({ activeCase }: Props) {
   // ── Compliance row form ────────────────────────────────────────────────────
   const [newObligation, setNewObligation] = useState<Omit<ComplianceStep, 'id'>>({ date: '', obligation: '', done: false });
 
-  const { generate, loading, error } = useAI();
+  const { ask, loading, error } = useAI(activeCase);
+  const { fullContext } = useIntelligence(activeCase);
 
   // ── Load saved data ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -337,12 +339,12 @@ For each recommended mechanism:
 
 Conclude with your primary recommendation and the first step to take.`;
 
-    const result = await generate(prompt);
+    const result = await ask({ system: fullContext, userMsg: prompt });
     if (result) {
       setEnforcementResult(result);
       persist({ enforcementContext, enforcementResult: result });
     }
-  }, [activeCase, judgmentDate, judgmentCourt, reliefsGranted, amountAwarded, enforcementContext, generate, persist]);
+  }, [activeCase, judgmentDate, judgmentCourt, reliefsGranted, amountAwarded, enforcementContext, ask, persist]);
 
   const handleWritDrafter = useCallback(async () => {
     const prompt = `Acting as claimant's counsel on this civil matter, draft a Writ of Fieri Facias (FIFA).
@@ -365,12 +367,12 @@ Draft a complete Writ of Fieri Facias in the standard Nigerian court form. The d
 
 Use standard Nigerian High Court practice for the writ. Insert [BRACKETS] for any information that must be completed from the actual court record.`;
 
-    const result = await generate(prompt);
+    const result = await ask({ system: fullContext, userMsg: prompt });
     if (result) {
       setWritDraft(result);
       persist({ writContext, writDraft: result });
     }
-  }, [activeCase, judgmentDate, judgmentCourt, amountAwarded, reliefsGranted, writContext, generate, persist]);
+  }, [activeCase, judgmentDate, judgmentCourt, amountAwarded, reliefsGranted, writContext, ask, persist]);
 
   const handleGarnisheeDrafter = useCallback(async () => {
     const prompt = `Acting as claimant's counsel on this civil matter, draft a Garnishee Order Nisi and supporting affidavit.
@@ -394,12 +396,12 @@ The motion and affidavit should:
 
 Insert [BRACKETS] for information to be completed from the actual record.`;
 
-    const result = await generate(prompt);
+    const result = await ask({ system: fullContext, userMsg: prompt });
     if (result) {
       setGarnisheeDraft(result);
       persist({ garnisheeContext, garnisheeDraft: result });
     }
-  }, [activeCase, judgmentDate, judgmentCourt, amountAwarded, garnisheeContext, generate, persist]);
+  }, [activeCase, judgmentDate, judgmentCourt, amountAwarded, garnisheeContext, ask, persist]);
 
   const handleStayDrafter = useCallback(async () => {
     const prompt = `Acting as defendant's counsel on this civil matter, draft a Motion for Stay of Execution pending appeal.
@@ -420,12 +422,12 @@ Draft a complete Motion for Stay of Execution and supporting affidavit. The draf
 
 Insert [BRACKETS] for information to be completed from the court record.`;
 
-    const result = await generate(prompt);
+    const result = await ask({ system: fullContext, userMsg: prompt });
     if (result) {
       setStayDraft(result);
       persist({ stayContext, stayDraft: result });
     }
-  }, [activeCase, judgmentDate, judgmentCourt, reliefsGranted, amountAwarded, stayContext, generate, persist]);
+  }, [activeCase, judgmentDate, judgmentCourt, reliefsGranted, amountAwarded, stayContext, ask, persist]);
 
   const handleAppealGrounds = useCallback(async () => {
     const prompt = `Acting as defendant's counsel on this civil matter, identify and develop grounds of appeal from the judgment.
@@ -449,12 +451,12 @@ For each ground:
 
 Conclude with a priority ranking of the grounds.`;
 
-    const result = await generate(prompt);
+    const result = await ask({ system: fullContext, userMsg: prompt });
     if (result) {
       setAppealGroundsResult(result);
       persist({ appealGroundsContext, appealGroundsResult: result });
     }
-  }, [activeCase, judgmentDate, judgmentCourt, reliefsGranted, appealGroundsContext, generate, persist]);
+  }, [activeCase, judgmentDate, judgmentCourt, reliefsGranted, appealGroundsContext, ask, persist]);
 
   // ─────────────────────────────────────────────────────────────────────────
   // TABLE HELPERS

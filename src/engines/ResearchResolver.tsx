@@ -19,6 +19,8 @@
 
 import React, { useState, useRef } from 'react';
 import { callClaude } from '@/services/api';
+import { useIntelligence } from '@/hooks/useIntelligence';
+import type { Case }  from '@/types';
 import { T }          from '@/constants/tokens';
 import { uid }        from '@/utils';
 
@@ -41,6 +43,7 @@ interface CaseEntry {
 
 interface Props {
   onBack: () => void;
+  activeCase: Case;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -210,7 +213,7 @@ function parseResearchBlock(raw: string): ParsedBlock | null {
   };
 }
 
-function CaseFinder() {
+function CaseFinder({ fullContext }: { fullContext: string }) {
   const [block,        setBlock]        = useState('');
   const [parsed,       setParsed]       = useState<ParsedBlock | null>(null);
   const [error,        setError]        = useState('');
@@ -235,7 +238,7 @@ function CaseFinder() {
     setGenerating(true);
     try {
       const text = await callClaude({
-        system: 'You are a Nigerian legal research expert specialising in LawPavilion searches. Generate precise, effective search queries for finding Nigerian case law.',
+        system: 'You are a Nigerian legal research expert specialising in LawPavilion searches. Generate precise, effective search queries for finding Nigerian case law.' + fullContext,
         userMsg:
           `Generate 4 additional LawPavilion search queries for this legal research need.\n\n` +
           `Proposition: ${parsed.proposition}\n` +
@@ -406,7 +409,7 @@ function CaseFinder() {
 // RESOLVER — Tab B
 // ─────────────────────────────────────────────────────────────────────────────
 
-function Resolver() {
+function Resolver({ fullContext }: { fullContext: string }) {
   const [resBlock, setResBlock] = useState('');
   const [argPara,  setArgPara]  = useState('');
   const [cases,    setCases]    = useState<CaseEntry[]>([{ id: uid(), citation: '', text: '', file: null }]);
@@ -460,7 +463,7 @@ function Resolver() {
         system:
           'You are Senior Counsel at AFS Advocates. You rewrite argument paragraphs using real cases ' +
           'provided by the instructing solicitor. You cite accurately in Nigerian format. ' +
-          'You output only the rewritten paragraph — nothing else.',
+          'You output only the rewritten paragraph — nothing else.' + fullContext,
         messages: [{ role: 'user' as const, content: content as import('@/types').ContentBlock[] }],
         maxTokens: 2000,
       });
@@ -579,7 +582,8 @@ function Resolver() {
 // MAIN EXPORT — tabbed shell
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function ResearchResolver({ onBack }: Props) {
+export function ResearchResolver({ onBack, activeCase }: Props) {
+  const { fullContext } = useIntelligence(activeCase);
   const [activeTab, setActiveTab] = useState<'finder' | 'resolver'>('finder');
 
   return (
@@ -625,8 +629,8 @@ export function ResearchResolver({ onBack }: Props) {
         ))}
       </div>
 
-      {activeTab === 'finder'   && <CaseFinder />}
-      {activeTab === 'resolver' && <Resolver />}
+      {activeTab === 'finder'   && <CaseFinder fullContext={fullContext} />}
+      {activeTab === 'resolver' && <Resolver fullContext={fullContext} />}
 
       <p style={{ marginTop: 40, fontSize: 11, color: '#1e1e2a', textAlign: 'center', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.8 }}>
         AFS Advocates · Research Resolver — authorities verified by counsel, citations resolved by AI.

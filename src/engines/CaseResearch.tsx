@@ -17,6 +17,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import type { Case }                               from '@/types';
 import { T }                                       from '@/constants/tokens';
 import { callClaude }                              from '@/services/api';
+import { useIntelligence }                         from '@/hooks/useIntelligence';
 import { Md, Spinner }                             from '@/components/common/ui';
 import { uid }                                     from '@/utils';
 import {
@@ -265,7 +266,7 @@ interface TopicSearchProps {
   onSave: (query: string, result: string, note: string) => void;
 }
 
-function TopicSearch({ activeCase, onSave }: TopicSearchProps) {
+function TopicSearch({ activeCase, onSave, fullContext }: TopicSearchProps & { fullContext: string }) {
   const [query,   setQuery]   = useState('');
   const [result,  setResult]  = useState('');
   const [loading, setLoading] = useState(false);
@@ -298,7 +299,7 @@ Flag any citations that require independent verification before reliance in cour
 Be precise about Nigerian law. Do not fabricate citations. If unsure of a citation, say so explicitly.`;
 
     try {
-      const text = await runResearchPrompt(TOPIC_SYSTEM, prompt);
+      const text = await runResearchPrompt(TOPIC_SYSTEM + fullContext, prompt);
       setResult(text);
     } catch (e) {
       setError('Research error: ' + (e as Error).message);
@@ -352,7 +353,7 @@ interface StatuteSearchProps {
   onSave: (query: string, result: string, note: string) => void;
 }
 
-function StatuteSearch({ activeCase, onSave }: StatuteSearchProps) {
+function StatuteSearch({ activeCase, onSave, fullContext }: StatuteSearchProps & { fullContext: string }) {
   const [statute,  setStatute]  = useState('');
   const [section,  setSection]  = useState('');
   const [result,   setResult]   = useState('');
@@ -382,7 +383,7 @@ How this provision typically operates in litigation — what courts look for, co
 Cite Nigerian statutes precisely. Flag citation uncertainty.`;
 
     try {
-      const text = await runResearchPrompt(STATUTE_SYSTEM, prompt);
+      const text = await runResearchPrompt(STATUTE_SYSTEM + fullContext, prompt);
       setResult(text);
     } catch (e) {
       setError('Research error: ' + (e as Error).message);
@@ -581,6 +582,7 @@ type SubTab = 'topic' | 'statute' | 'saved';
 
 export function CaseResearch({ activeCase }: Props) {
   const caseId = activeCase.id;
+  const { fullContext } = useIntelligence(activeCase);
 
   const [sub,     setSub]     = useState<SubTab>('topic');
   const [records, setRecords] = useState<ResearchRecord[]>([]);
@@ -702,6 +704,7 @@ export function CaseResearch({ activeCase }: Props) {
         <TopicSearch
           activeCase={activeCase}
           onSave={(q, r, n) => handleSave(q, r, n, 'topic')}
+          fullContext={fullContext}
         />
       )}
 
@@ -709,6 +712,7 @@ export function CaseResearch({ activeCase }: Props) {
         <StatuteSearch
           activeCase={activeCase}
           onSave={(q, r, n) => handleSave(q, r, n, 'statute')}
+          fullContext={fullContext}
         />
       )}
 

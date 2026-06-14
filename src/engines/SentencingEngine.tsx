@@ -27,6 +27,7 @@ import { useAI } from '@/hooks/useAI';
 import { loadBlindSpot, saveBlindSpot, saveDeadline } from '@/storage/helpers';
 import { Md, ErrorBlock } from '@/components/common/ui';
 import { COUNSEL_ROLE_COLORS } from '@/types';
+import { useIntelligence } from '@/hooks/useIntelligence';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES
@@ -424,11 +425,12 @@ function ProsConvictionRecord({
 // ─────────────────────────────────────────────────────────────────────────────
 
 function AggravatingFactorsPanel({
-  data, onSave, accent,
+  data, onSave, accent, fullContext,
 }: {
   data: SavedData;
   onSave: (patch: Partial<SavedData>) => void;
   accent: string;
+  fullContext: string;
 }) {
   const { call, loading, error, clearError } = useAI();
   const factors  = data.aggravatingFactors ?? [];
@@ -463,7 +465,7 @@ function AggravatingFactorsPanel({
     const counts   = (data.convictionCounts ?? []).filter(c => c.finding === 'Convicted');
     const existing = factors.map(f => `${f.category}: ${f.detail}`).join('\n');
     const res = await call({
-      system: `You are a Nigerian prosecution counsel preparing sentencing submissions. Identify and articulate aggravating factors under Nigerian sentencing jurisprudence. Apply relevant statutory provisions and sentencing authorities. Be specific and evidence-based.`,
+      system: `You are a Nigerian prosecution counsel preparing sentencing submissions. Identify and articulate aggravating factors under Nigerian sentencing jurisprudence. Apply relevant statutory provisions and sentencing authorities. Be specific and evidence-based.` + fullContext,
       userMsg: `Matter: ${data.court || 'Criminal matter'}
 Convicted on: ${counts.map(c => `${c.count} — ${c.offence} (${c.section})`).join('; ')}
 Additional context: ${context}
@@ -554,11 +556,12 @@ Provide a structured analysis of all relevant aggravating factors for sentencing
 // ─────────────────────────────────────────────────────────────────────────────
 
 function SentencingAddressPanel({
-  data, onSave, accent,
+  data, onSave, accent, fullContext,
 }: {
   data: SavedData;
   onSave: (patch: Partial<SavedData>) => void;
   accent: string;
+  fullContext: string;
 }) {
   const { call, loading, error, clearError } = useAI();
   const context     = data.sentenceAddressContext ?? '';
@@ -570,7 +573,7 @@ function SentencingAddressPanel({
     const factors   = (data.aggravatingFactors ?? []).map(f => `[${f.weight}] ${f.category}: ${f.detail}`).join('\n');
     const aiFactors = data.aggravatingResult ?? '';
     const res = await call({
-      system: `You are a Nigerian prosecution counsel drafting sentencing submissions. Write in formal Nigerian legal style appropriate for a superior court of record. Apply Nigerian sentencing jurisprudence, ACJA 2015, and relevant statutory sentencing provisions. Structure the address formally.`,
+      system: `You are a Nigerian prosecution counsel drafting sentencing submissions. Write in formal Nigerian legal style appropriate for a superior court of record. Apply Nigerian sentencing jurisprudence, ACJA 2015, and relevant statutory sentencing provisions. Structure the address formally.` + fullContext,
       userMsg: `Matter: ${data.court || 'Criminal matter'}
 Convicted on: ${counts.map(c => `${c.count} — ${c.offence} (${c.section})`).join('; ')}
 Aggravating factors identified:
@@ -635,11 +638,12 @@ The address should be persuasive, evidence-based, and grounded in Nigerian law.`
 // ─────────────────────────────────────────────────────────────────────────────
 
 function ProsAppealAssessment({
-  data, onSave, accent,
+  data, onSave, accent, fullContext,
 }: {
   data: SavedData;
   onSave: (patch: Partial<SavedData>) => void;
   accent: string;
+  fullContext: string;
 }) {
   const { call, loading, error, clearError } = useAI();
   const context = data.prosAppealContext ?? '';
@@ -650,7 +654,7 @@ function ProsAppealAssessment({
     const acquitted = counts.filter(c => c.finding === 'Acquitted');
     const convicted = counts.filter(c => c.finding === 'Convicted');
     const res = await call({
-      system: `You are a senior Nigerian prosecution counsel. Advise on whether to appeal an acquittal or inadequate sentence under Nigerian criminal appeal law. Apply ACJA 2015, Constitution of Nigeria, and relevant appellate jurisprudence.`,
+      system: `You are a senior Nigerian prosecution counsel. Advise on whether to appeal an acquittal or inadequate sentence under Nigerian criminal appeal law. Apply ACJA 2015, Constitution of Nigeria, and relevant appellate jurisprudence.` + fullContext,
       userMsg: `Matter: ${data.court || 'Criminal matter'}
 Convicted on: ${convicted.map(c => `${c.count} — ${c.offence}: ${c.sentence}`).join('; ') || 'None'}
 Acquitted on: ${acquitted.map(c => `${c.count} — ${c.offence}`).join('; ') || 'None'}
@@ -773,11 +777,12 @@ function DefConvictionRecord({
 // ─────────────────────────────────────────────────────────────────────────────
 
 function AllocutusDrafter({
-  data, onSave, accent,
+  data, onSave, accent, fullContext,
 }: {
   data: SavedData;
   onSave: (patch: Partial<SavedData>) => void;
   accent: string;
+  fullContext: string;
 }) {
   const { call, loading, error, clearError } = useAI();
   const context = data.allocutusContext ?? '';
@@ -814,7 +819,7 @@ function AllocutusDrafter({
     const convicted = (data.convictionCounts ?? []).filter(c => c.finding === 'Convicted');
     const fList     = factors.map(f => `${f.category}: ${f.detail}`).join('\n');
     const res = await call({
-      system: `You are a Nigerian defence counsel preparing an allocutus (plea in mitigation) for delivery in open court after conviction. The allocutus is a formal court address. It must be dignified, factual, and persuasive. Do not include admissions of guilt beyond what is already established by the conviction. Apply Nigerian sentencing mitigation principles including the Ogundipe factors and totality principle.`,
+      system: `You are a Nigerian defence counsel preparing an allocutus (plea in mitigation) for delivery in open court after conviction. The allocutus is a formal court address. It must be dignified, factual, and persuasive. Do not include admissions of guilt beyond what is already established by the conviction. Apply Nigerian sentencing mitigation principles including the Ogundipe factors and totality principle.` + fullContext,
       userMsg: `Accused context: ${context}
 Convicted on: ${convicted.map(c => `${c.count} — ${c.offence}`).join('; ')}
 Mitigating factors:
@@ -905,11 +910,12 @@ The allocutus must be court-ready and deliverable as-is by defence counsel.`,
 // ─────────────────────────────────────────────────────────────────────────────
 
 function MitigationAddress({
-  data, onSave, accent,
+  data, onSave, accent, fullContext,
 }: {
   data: SavedData;
   onSave: (patch: Partial<SavedData>) => void;
   accent: string;
+  fullContext: string;
 }) {
   const { call, loading, error, clearError } = useAI();
   const context = data.mitigationContext ?? '';
@@ -920,7 +926,7 @@ function MitigationAddress({
     const factors   = (data.mitigatingFactors ?? []).map(f => `[${f.weight}] ${f.category}: ${f.detail}`).join('\n');
     const accCtx    = data.allocutusContext ?? '';
     const res = await call({
-      system: `You are a senior Nigerian defence counsel drafting written mitigation submissions after conviction. This is a formal legal document submitted to the court. Apply Nigerian sentencing mitigation jurisprudence including the Ogundipe factors (from Ogundipe v. State), totality principle, principle against crushing sentences, and constitutional right to fair sentencing. Cite Nigerian authorities on sentence mitigation.`,
+      system: `You are a senior Nigerian defence counsel drafting written mitigation submissions after conviction. This is a formal legal document submitted to the court. Apply Nigerian sentencing mitigation jurisprudence including the Ogundipe factors (from Ogundipe v. State), totality principle, principle against crushing sentences, and constitutional right to fair sentencing. Cite Nigerian authorities on sentence mitigation.` + fullContext,
       userMsg: `Matter: ${data.court || 'Criminal matter'}
 Convicted on: ${convicted.map(c => `${c.count} — ${c.offence} (${c.section}): ${c.sentence}`).join('; ')}
 Accused's circumstances: ${accCtx || 'See allocutus drafter'}
@@ -978,12 +984,13 @@ This document is a standalone formal court submission, not just an allocutus.`,
 // ─────────────────────────────────────────────────────────────────────────────
 
 function AppealDeadlinePanel({
-  data, onSave, caseId, accent,
+  data, onSave, caseId, accent, fullContext,
 }: {
   data: SavedData;
   onSave: (patch: Partial<SavedData>) => void;
   caseId: string;
   accent: string;
+  fullContext: string;
 }) {
   const { call, loading, error, clearError } = useAI();
   const deadlineDate = data.appealDeadlineDate ?? '';
@@ -1004,7 +1011,7 @@ function AppealDeadlinePanel({
   const analyseAppeal = useCallback(async () => {
     const convicted = (data.convictionCounts ?? []).filter(c => c.finding === 'Convicted');
     const res = await call({
-      system: `You are a senior Nigerian defence counsel advising on criminal appeal after conviction. Apply ACJA 2015, Court of Appeal Rules, Supreme Court Rules, and relevant constitutional provisions on criminal appeal rights.`,
+      system: `You are a senior Nigerian defence counsel advising on criminal appeal after conviction. Apply ACJA 2015, Court of Appeal Rules, Supreme Court Rules, and relevant constitutional provisions on criminal appeal rights.` + fullContext,
       userMsg: `Convicted on: ${convicted.map(c => `${c.count} — ${c.offence} (${c.section}): ${c.sentence}`).join('; ')}
 Sentence date: ${data.sentenceDate || data.judgmentDate || 'Not recorded'}
 Court: ${data.court || 'Not recorded'}
@@ -1146,6 +1153,8 @@ export function SentencingEngine({ activeCase }: Props) {
 
   const accent = COUNSEL_ROLE_COLORS[role]?.col ?? '#c09030';
 
+  const { fullContext } = useIntelligence(activeCase);
+
   const PROS_TABS: { id: ProsSubTab; label: string }[] = [
     { id: 'conviction_record_pros', label: 'Conviction Record' },
     { id: 'aggravating_factors',    label: 'Aggravating Factors' },
@@ -1242,13 +1251,13 @@ export function SentencingEngine({ activeCase }: Props) {
             <ProsConvictionRecord data={data} onSave={save} accent={accent} />
           )}
           {activeTab === 'aggravating_factors' && (
-            <AggravatingFactorsPanel data={data} onSave={save} accent={accent} />
+            <AggravatingFactorsPanel data={data} onSave={save} accent={accent} fullContext={fullContext} />
           )}
           {activeTab === 'sentencing_address' && (
-            <SentencingAddressPanel data={data} onSave={save} accent={accent} />
+            <SentencingAddressPanel data={data} onSave={save} accent={accent} fullContext={fullContext} />
           )}
           {activeTab === 'appeal_assessment' && (
-            <ProsAppealAssessment data={data} onSave={save} accent={accent} />
+            <ProsAppealAssessment data={data} onSave={save} accent={accent} fullContext={fullContext} />
           )}
         </>
       ) : (
@@ -1257,13 +1266,13 @@ export function SentencingEngine({ activeCase }: Props) {
             <DefConvictionRecord data={data} onSave={save} accent={accent} />
           )}
           {activeTab === 'allocutus_drafter' && (
-            <AllocutusDrafter data={data} onSave={save} accent={accent} />
+            <AllocutusDrafter data={data} onSave={save} accent={accent} fullContext={fullContext} />
           )}
           {activeTab === 'mitigation_address' && (
-            <MitigationAddress data={data} onSave={save} accent={accent} />
+            <MitigationAddress data={data} onSave={save} accent={accent} fullContext={fullContext} />
           )}
           {activeTab === 'appeal_deadline' && (
-            <AppealDeadlinePanel data={data} onSave={save} caseId={activeCase.id} accent={accent} />
+            <AppealDeadlinePanel data={data} onSave={save} caseId={activeCase.id} accent={accent} fullContext={fullContext} />
           )}
         </>
       )}

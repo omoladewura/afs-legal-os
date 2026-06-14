@@ -17,8 +17,10 @@ import React, { useState, useCallback, useEffect } from 'react';
 import type { Case }        from '@/types';
 import { T }                from '@/constants/tokens';
 import { useAI }            from '@/hooks/useAI';
+import { useIntelligence }  from '@/hooks/useIntelligence';
 import { loadBlindSpot, saveBlindSpot } from '@/storage/helpers';
 import { Md, ErrorBlock }   from '@/components/common/ui';
+import { useIntelligence } from '@/hooks/useIntelligence';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES
@@ -177,6 +179,7 @@ export function CriminalDefence({ activeCase }: Props) {
 
   const [subTab, setSubTab] = useState<SubTabId>('intake');
   const [saved,  setSaved]  = useState<CriminalSaved>({} as CriminalSaved);
+  const { fullContext } = useIntelligence(activeCase);
 
   useEffect(() => {
     loadBlindSpot<CriminalSaved>(caseId, 'criminal', {} as CriminalSaved)
@@ -184,7 +187,7 @@ export function CriminalDefence({ activeCase }: Props) {
   }, [caseId]);
 
   const { call, loading, error, clearError } = useAI(activeCase);
-
+  const { fullContext } = useIntelligence(activeCase);
   const save = useCallback((patch: Partial<CriminalSaved>) => {
     setSaved(prev => {
       const next = { ...prev, ...patch };
@@ -222,7 +225,7 @@ export function CriminalDefence({ activeCase }: Props) {
       const intakeData: IntakeData = { charges, agency, arrestDate, facts, instructions, coAccused };
       save({ intakeData });
       const result = await call({
-        system: DEFENCE_SYSTEM,
+        system: DEFENCE_SYSTEM + fullContext,
         userMsg: `${buildCtx()}\n\nCHARGES (with section numbers): ${charges}\nAGENCY: ${agency}\nARREST DATE: ${arrestDate}\nALLEGED FACTS: ${facts}\nCLIENT INSTRUCTIONS: ${instructions}\nCO-ACCUSED: ${coAccused || 'None'}\n\nProvide:\n## 1. Elements of Each Charge\nList every element the prosecution must prove per count.\n\n## 2. Initial Strength Assessment\nRate prosecution's case per count (Strong/Moderate/Weak) with reasons.\n\n## 3. Immediate Defence Flags\nConstitutional concerns, procedural issues, and evidentiary gaps visible at intake.\n\n## 4. Priority Actions\nThe 5 most urgent steps for the defence right now.`,
         maxTokens: 2500,
       });
@@ -302,7 +305,7 @@ export function CriminalDefence({ activeCase }: Props) {
       const arrestData: ArrestData = { hasWarrant, circumstances, detention, counsel };
       save({ arrestData });
       const result = await call({
-        system: DEFENCE_SYSTEM,
+        system: DEFENCE_SYSTEM + fullContext,
         userMsg: `${buildCtx()}\n\nARREST LEGALITY ANALYSIS\nWas there an arrest warrant? ${hasWarrant}\nCircumstances of arrest: ${circumstances}\nDetention details: ${detention}\nAccess to counsel: ${counsel}\n\n## 1. Warrant Analysis\nWas the arrest lawful — warrant basis or statutory warrantless power (s.24 ACJA)?\n\n## 2. Constitutional Rights Audit\nCheck compliance with Section 35 CFRN (personal liberty), Section 36 (fair hearing), right to be informed, right to remain silent, right to counsel.\n\n## 3. ACJA / ACJL Compliance\nDetention period vs mandatory charge period (24–48 hours rule), bail rights, court appearance timelines.\n\n## 4. Arguable Violations\nList every constitutional and statutory violation with specific section numbers.\n\n## 5. Remedies Available\nFundamental rights enforcement, bail, exclusion of statements obtained in violation, damages.\n\n## 6. Strength of Constitutional Challenge\nRate (Strong/Moderate/Weak) with strategic recommendation.`,
         maxTokens: 2500,
       });
@@ -369,7 +372,7 @@ export function CriminalDefence({ activeCase }: Props) {
       if (!chargeText) return;
       save({ chargeText });
       const result = await call({
-        system: DEFENCE_SYSTEM,
+        system: DEFENCE_SYSTEM + fullContext,
         userMsg: `${buildCtx()}\n\nCHARGE SHEET:\n${chargeText}\n\n## 1. Per-Count Breakdown\nFor each count — the offence charged, the statute, every element the prosecution must prove, the penalty on conviction.\n\n## 2. Defects in Charges\nDuplicity, wrong section cited, wrong court/jurisdiction, misjoinder of accused, vague particulars, missing material averments.\n\n## 3. Burden Map\nFor each element of each count — what evidence must the prosecution adduce? What does the defence need to create reasonable doubt?\n\n## 4. Jurisdiction Analysis\nIs this the proper court? Magistrate vs High Court? Federal vs State court?\n\n## 5. Joinder Issues\nDefective joinder issues with co-accused or counts?\n\n## 6. Recommended Applications\nPreliminary objection to charge, application to quash, motion to sever, request for particulars?`,
         maxTokens: 3000,
       });
@@ -433,7 +436,7 @@ export function CriminalDefence({ activeCase }: Props) {
       if (!evidenceList.length) return;
       const evList = evidenceList.map((e, i) => `${i + 1}. [${e.type}] ${e.desc}`).join('\n');
       const result = await call({
-        system: DEFENCE_SYSTEM,
+        system: DEFENCE_SYSTEM + fullContext,
         userMsg: `${buildCtx()}\n\nPROSECUTION EVIDENCE LIST:\n${evList}\n\nFor EACH piece of evidence provide:\n\n## Admissibility Status\nIs this evidence admissible? Relevant provisions of the Evidence Act 2011.\n\n## Attack Strategy\nThe most effective defence challenge (voluntariness, authentication, hearsay rule, s.84 for electronic, Turnbull warning for identification).\n\n## Required Counter-Evidence\nWhat must the defence produce or elicit to neutralise this evidence?\n\n## Strength Rating\nRate for the prosecution: Devastating / Strong / Moderate / Weak / Inadmissible — with explanation.\n\n## Key Applications\nApplications to exclude or limit this evidence (trial-within-trial, voire dire, formal objection, pre-trial motion).`,
         maxTokens: 3000,
       });
@@ -499,7 +502,7 @@ export function CriminalDefence({ activeCase }: Props) {
       if (!confText && !confCircumstances) return;
       save({ confText, confCircumstances });
       const result = await call({
-        system: DEFENCE_SYSTEM,
+        system: DEFENCE_SYSTEM + fullContext,
         userMsg: `${buildCtx()}\n\nCONFESSIONAL STATEMENT TEXT:\n${confText || '[Not pasted — see circumstances below]'}\n\nCIRCUMSTANCES OF TAKING:\n${confCircumstances}\n\n## 1. Voluntariness Analysis\nWas this statement free from inducement, threat, or promise? Apply Sections 28 and 29 Evidence Act 2011. Identify every indicator of involuntariness.\n\n## 2. Cautioning Compliance\nWas proper caution administered? Right to remain silent. Right to legal representation at the time.\n\n## 3. Timing & Custody\nTime of statement relative to arrest. Was the accused in unlawful detention when the statement was taken?\n\n## 4. Consistency Check\nInternal contradictions? Facts inconsistent with other prosecution evidence? Corroboration analysis.\n\n## 5. Retraction Strategy\nRetraction strategy and the evidentiary weight of retraction under Nigerian law.\n\n## 6. Trial-Within-Trial\nIs a trial-within-trial warranted? Legal basis, procedure under ACJA/Evidence Act, and witnesses to call.\n\n## 7. Overall Admissibility Rating\nWill this statement likely be admitted? Arguments for exclusion rated by strength.`,
         maxTokens: 2800,
       });
@@ -550,7 +553,7 @@ export function CriminalDefence({ activeCase }: Props) {
       if (!offence) return;
       save({ bailType, bailOffence: offence, bailFacts: facts });
       const result = await call({
-        system: DEFENCE_SYSTEM,
+        system: DEFENCE_SYSTEM + fullContext,
         userMsg: `${buildCtx()}\n\nBAIL APPLICATION TYPE: ${bailType}\nOFFENCE CATEGORY: ${offence}\nRELEVANT FACTS FOR BAIL: ${facts}\n\n## 1. Bail-ability Analysis\nIs this offence bailable as of right (Part 7 ACJA) or discretionary? Statutory provisions.\n\n## 2. Arguments for Bail\nNature of offence, prosecution case strength, flight risk rebuttal, community ties, health, lengthy detention, cooperative attitude, family responsibilities.\n\n## 3. Arguments to Rebut\nAnticipate prosecution's bail opposition and how to counter each point.\n\n## 4. Conditions to Propose\nRealistic bail conditions — sureties, passport deposit, reporting obligations, amount — calibrated to the court.\n\n## 5. Exceptional Circumstances\nFor capital/serious offences — build the exceptional circumstances argument (Dokubo-Asari test).\n\n## 6. Surety Strategy\nHow many sureties, what class, what conditions to propose.\n\n## 7. Draft Arguments\n3 key paragraphs of oral argument for the bail application.`,
         maxTokens: 2500,
       });
@@ -620,7 +623,7 @@ export function CriminalDefence({ activeCase }: Props) {
       save({ noCaseFacts: prosecutionCase });
       const charges = saved.intakeData?.charges || saved.chargeText || '';
       const result = await call({
-        system: DEFENCE_SYSTEM,
+        system: DEFENCE_SYSTEM + fullContext,
         userMsg: `${buildCtx()}\n\nCHARGES: ${charges}\n\nPROSECUTION'S CASE AT CLOSE:\n${prosecutionCase}\n\n## 1. Legal Test\nState the applicable Nigerian no-case standard — Ajidagba v State, Ibeziako v COP, and the current Supreme Court position. Is this the "prima facie case" test or the "no evidence" test?\n\n## 2. Per-Count Analysis\nFor each count — has the prosecution established a prima facie case on EVERY element? Identify specifically which elements have not been proved.\n\n## 3. Evidence Failures\nFor each count where no-case lies — which witnesses failed to prove which elements? Which documents were not properly admitted? Which evidence was excluded?\n\n## 4. Submission Structure\nDraft the structure of the no-case submission — introduction, law, analysis per count, conclusion, relief sought.\n\n## 5. Tactical Assessment\nShould we submit no-case or go into defence? Risk of going into defence? Recommendation with reasons.\n\n## 6. Draft Opening Paragraph\nDraft the first paragraph of the submission as it would be delivered in court.`,
         maxTokens: 3000,
       });
@@ -672,7 +675,7 @@ export function CriminalDefence({ activeCase }: Props) {
       save({ defenceTheoryType: theory, defenceTheoryFacts: facts, defenceWitnesses: witnesses });
       const charges = saved.intakeData?.charges || saved.chargeText || '';
       const result = await call({
-        system: DEFENCE_SYSTEM,
+        system: DEFENCE_SYSTEM + fullContext,
         userMsg: `${buildCtx()}\n\nCHARGES: ${charges}\nDEFENCE THEORY: ${theory}\nFACTS SUPPORTING DEFENCE: ${facts}\nAVAILABLE WITNESSES: ${witnesses || 'Not specified'}\n\n## 1. Theory Viability\nHow strong is this defence theory given the charges and available facts? Rate (Strong/Moderate/Weak) with reasons.\n\n## 2. Elements to Establish\nWhat must the defence prove or raise? Evidential burden vs legal burden.\n\n## 3. Evidence Map\nMap each available fact and witness to the element of the defence it supports.\n\n## 4. Gaps in the Defence\nWhat is missing? What evidence must still be obtained? What witnesses are critical?\n\n## 5. Prosecution Counter-Attack\nHow will the prosecution attack this theory? How does the defence rebut each anticipated attack?\n\n## 6. Case Theory Narrative\nDraft a 200-word case theory narrative — the story the defence will tell from opening to closing.\n\n## 7. Strategic Integration\nHow does this defence theory integrate with: the no-case submission strategy, cross-examination priorities, and any constitutional arguments already made?`,
         maxTokens: 3000,
       });

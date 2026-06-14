@@ -21,6 +21,8 @@ import React, { useState, useCallback, useEffect } from 'react';
 import type { Case } from '@/types';
 import { T } from '@/constants/tokens';
 import { useAI } from '@/hooks/useAI';
+import { useIntelligence } from '@/hooks/useIntelligence';
+import { buildRoleSystemPrompt } from '@/utils/rolePrompt';
 import { loadBlindSpot, saveBlindSpot } from '@/storage/helpers';
 import { Md, ErrorBlock } from '@/components/common/ui';
 import { COUNSEL_ROLE_COLORS } from '@/types';
@@ -208,6 +210,7 @@ function SubmissionDrafterTab({
   activeCase: Case;
 }) {
   const { call, loading, error } = useAI();
+  const { fullContext } = useIntelligence(activeCase);
 
   const add    = () => setCounts(p => [...p, emptyNoCaseCount(p.length)]);
   const remove = (id: number) => setCounts(p => p.filter(c => c.id !== id));
@@ -223,7 +226,7 @@ function SubmissionDrafterTab({
     ).join('\n\n');
 
     const r = await call({
-      system: `You are a Nigerian criminal defence counsel drafting a No-Case Submission for filing in court. Apply ACJA 2015 s.303(1) and the authorities in Ajidagba v. State (1981) 1 NCLR 91, Ibeziako v. Commissioner of Police (1963), and Tongo v. COP. The test is whether there is evidence on which a reasonable tribunal, properly directing itself, could convict. Your drafting must be formal, precise, and court-ready.`,
+      system: `You are a Nigerian criminal defence counsel drafting a No-Case Submission for filing in court. Apply ACJA 2015 s.303(1) and the authorities in Ajidagba v. State (1981) 1 NCLR 91, Ibeziako v. Commissioner of Police (1963), and Tongo v. COP. The test is whether there is evidence on which a reasonable tribunal, properly directing itself, could convict. Your drafting must be formal, precise, and court-ready.` + fullContext,
       userMsg: `Draft a No-Case Submission for the matter:\n\n${activeCase.caseName}\n${activeCase.court}\n\nCounts and grounds:\n\n${countsSummary}\n\nDraft a full No-Case Submission document in the following structure:\n\n1. **Caption** — formal court caption with matter name, charge number, court\n2. **Introduction** — who is making the submission and under which provision (ACJA s.303(1) or equivalent CPA provision)\n3. **The Applicable Legal Standard** — state the Ajidagba/Ibeziako test precisely, with citations\n4. **Count-by-Count Submissions** — for each count:\n   a. Restate the charge and the essential ingredients prosecution must prove\n   b. Summarise what prosecution actually led in evidence\n   c. Identify the specific ingredient(s) not proved\n   d. Cite any authority supporting this ground\n   e. Conclude: prosecution has failed to make out a prima facie case on this count\n5. **Conclusion and Prayer** — invite the court to discharge the accused on the named counts and make the necessary orders\n6. **Signature block** — defence counsel's signature block\n\nUse formal Nigerian legal drafting. Each count must be argued separately and precisely.`,
     });
     if (r) setSubmissionDraft(r);
@@ -370,6 +373,7 @@ function AuthoritiesBuilderTab({
   activeCase: Case;
 }) {
   const { call, loading, error } = useAI();
+  const { fullContext } = useIntelligence(activeCase);
   const [offenceFocus, setOffenceFocus] = useState('');
 
   const buildAuthorities = useCallback(async () => {
@@ -377,7 +381,7 @@ function AuthoritiesBuilderTab({
     if (!offences) return;
 
     const r = await call({
-      system: `You are a Nigerian criminal defence counsel. Provide Nigerian case authorities on no-case submissions, with specific application to the offences in question.`,
+      system: `You are a Nigerian criminal defence counsel. Provide Nigerian case authorities on no-case submissions, with specific application to the offences in question.` + fullContext,
       userMsg: `Provide Nigerian legal authorities for a no-case submission in ${activeCase.caseName}.\n\nOffences in the charge: ${offences}\n\nProvide:\n\n1. **The Governing Standard** — Ajidagba v. State (1981), Ibeziako v. COP, and any Supreme Court authorities refining the test. For each: case name, citation, court, and the precise ratio on the no-case standard.\n\n2. **Authorities on Specific Ingredients** — for each offence listed, are there authorities on which essential ingredients must be proved by the prosecution (i.e., authorities where no-case was upheld or a conviction was quashed for failure to prove a specific ingredient)?\n\n3. **Witness Credibility** — authorities where no-case was upheld because prosecution witnesses were so discredited or inconsistent that no court could rely on them.\n\n4. **ACJA s.303 Procedure** — authorities on the proper procedure for no-case submissions under ACJA 2015, including whether defence is entitled to be heard.\n\n5. **Recent Authorities** — any post-2015 decisions from the Court of Appeal or Supreme Court developing the no-case standard.\n\nFor each authority: name, citation, court, year, and the specific proposition for which it is cited.`,
     });
     if (r) setAuthoritiesResult(r);
@@ -454,6 +458,7 @@ function RulingTrackerTab({
   isDefence: boolean;
 }) {
   const { call, loading, error } = useAI();
+  const { fullContext } = useIntelligence(activeCase);
   const [nextStepsResult, setNextStepsResult] = useState('');
 
   const add    = () => setRulings(p => [...p, emptyRuling(p.length)]);
@@ -654,11 +659,12 @@ function ResponseDrafterTab({
   activeCase: Case;
 }) {
   const { call, loading, error } = useAI();
+  const { fullContext } = useIntelligence(activeCase);
 
   const draft = useCallback(async () => {
     if (!responseContext.trim()) return;
     const r = await call({
-      system: `You are a Nigerian prosecution counsel drafting a formal response to a no-case submission. Apply ACJA 2015 s.303, the Ajidagba/Ibeziako standard, and Evidence Act 2011. Your task is to demonstrate that there is prima facie evidence on each count that a reasonable tribunal could act upon.`,
+      system: `You are a Nigerian prosecution counsel drafting a formal response to a no-case submission. Apply ACJA 2015 s.303, the Ajidagba/Ibeziako standard, and Evidence Act 2011. Your task is to demonstrate that there is prima facie evidence on each count that a reasonable tribunal could act upon.` + fullContext,
       userMsg: `Draft a prosecution response to the no-case submission in ${activeCase.caseName} at ${activeCase.court}.\n\nContext (defence grounds / case summary):\n${responseContext}\n\nStructure the response as follows:\n\n1. **Introduction** — prosecution's right to respond; the applicable standard\n2. **Restatement of the Test** — the Ajidagba/Ibeziako test and why the submission fails\n3. **Response per Count** — for each count:\n   a. Restate the essential ingredients\n   b. Identify the evidence led — which witness, which exhibit, which testimony\n   c. Address each defence ground directly and explain why it fails\n   d. Cite authority where applicable\n   e. Conclusion: prima facie case established on this count\n4. **Weight of Evidence is Not the Issue** — remind the court that this is not the stage for weighing evidence (cite authority)\n5. **Prayer** — invite the court to overrule the submission and call the accused to enter a defence\n6. **Signature block**\n\nUse formal Nigerian court drafting. Be precise and address each defence ground directly.`,
     });
     if (r) setResponseResult(r);
@@ -724,6 +730,7 @@ function EvidenceSummaryTab({
   activeCase: Case;
 }) {
   const { call, loading, error } = useAI();
+  const { fullContext } = useIntelligence(activeCase);
 
   const add    = () => setProsCounts(p => [...p, emptyProsSufficiency(p.length)]);
   const remove = (id: number) => setProsCounts(p => p.filter(c => c.id !== id));
@@ -736,7 +743,7 @@ function EvidenceSummaryTab({
     ).join('\n\n');
 
     const r = await call({
-      system: `You are a Nigerian prosecution counsel. Generate a structured evidence summary for the prosecution's response to a no-case submission.`,
+      system: `You are a Nigerian prosecution counsel. Generate a structured evidence summary for the prosecution's response to a no-case submission.` + fullContext,
       userMsg: `Generate a per-count prosecution evidence summary for ${activeCase.caseName}:\n\n${countsSummary}\n\nFor each count:\n1. **Essential Ingredients** — list every ingredient prosecution must prove\n2. **Prosecution Evidence Available** — which witness(es) address each ingredient? Which exhibit?\n3. **Defence Ground Summary** — what is defence alleging is unproved?\n4. **Prosecution Rebuttal** — explain precisely why the evidence led is sufficient for prima facie purposes\n5. **Authority** — cite any authority on this ingredient's proof standard at no-case stage\n6. **Verdict** — PRIMA FACIE CASE ESTABLISHED / ARGUABLE / AT RISK\n\nEnd with overall prosecution assessment and confidence level on surviving the no-case submission.`,
     });
     if (r) setProsEvidenceSummary(r);
@@ -842,6 +849,7 @@ function EvidenceSummaryTab({
 const STORAGE_KEY = 'no_case_submission';
 
 export function NoCaseSubmission({ activeCase }: Props) {
+  const { fullContext } = useIntelligence(activeCase);
   const role      = activeCase.counsel_role ?? 'defence';
   const isPros    = role === 'prosecution';
   const isDefence = !isPros;

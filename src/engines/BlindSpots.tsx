@@ -19,6 +19,7 @@ import { T } from '@/constants/tokens';
 import { callClaude } from '@/services/api';
 import { loadBlindSpot, saveBlindSpot, uid } from '@/storage/helpers';
 import { buildRoleSystemPrompt } from '@/utils/rolePrompt';
+import { useIntelligence } from '@/hooks/useIntelligence';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -205,10 +206,10 @@ function useAI() {
   const [result, setResult] = useState('');
   const [error, setError] = useState('');
 
-  const run = useCallback(async (prompt: string, maxTokens = 1000) => {
+  const run = useCallback(async (prompt: string, maxTokens = 1000, system?: string) => {
     setLoading(true); setError(''); setResult('');
     try {
-      const text = await callClaude({ userMsg: prompt, maxTokens });
+      const text = await callClaude({ userMsg: prompt, maxTokens, ...(system ? { system } : {}) });
       setResult(text);
     } catch (e) {
       setError((e as Error).message || 'API error');
@@ -222,7 +223,7 @@ function useAI() {
 
 // ── 1. CONFLICT CHECK ────────────────────────────────────────────────────────
 
-function BSConflict({ caseId, activeCase }: { caseId: string; activeCase: Case }) {
+function BSConflict({ caseId, activeCase, fullContext }: { caseId: string; activeCase: Case; fullContext: string }) {
   const [data, setData] = useState<ConflictData>({
     opposingParties: '', subjectMatter: '', previousMatters: '',
     personalInterest: '', outcome: '', notes: '', checkedAt: null,
@@ -261,7 +262,7 @@ Provide:
 6. RISK TO LICENCE — Frankly assess the bar risk if you proceed
 
 Be direct. A wrong answer here costs a licence.`;
-    await ai.run(prompt);
+    await ai.run(prompt, 1000, `You are a Nigerian bar ethics adviser specialising in professional responsibility under the Rules of Professional Conduct 2007. Assess conflict of interest risks with precision and candour.` + fullContext);
     update('checkedAt', new Date().toISOString());
   }
 
@@ -295,7 +296,7 @@ Be direct. A wrong answer here costs a licence.`;
 
 // ── 2. WITNESS MANAGEMENT ────────────────────────────────────────────────────
 
-function BSWitnesses({ caseId, activeCase }: { caseId: string; activeCase: Case }) {
+function BSWitnesses({ caseId, activeCase, fullContext }: { caseId: string; activeCase: Case; fullContext: string }) {
   const [witnesses, setWitnesses] = useState<WitnessRecord[]>([]);
   const [ready, setReady] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
@@ -357,7 +358,7 @@ ${form.side === 'ours' ? `Provide:
 5. WHAT TO EXTRACT — The specific concessions or admissions you need from this witness`}
 
 Be precise. Every observation must be actionable.`;
-    await ai.run(prompt);
+    await ai.run(prompt, 1000, `You are a senior Nigerian litigation counsel specialising in witness preparation and cross-examination strategy. Apply Nigerian evidence law and courtroom tactics.` + fullContext);
   }
 
   const STATUS_OPTS = ['Pending', 'In Preparation', 'Ready', 'Testified', 'Withdrawn'];
@@ -424,7 +425,7 @@ Be precise. Every observation must be actionable.`;
 
 // ── 3. OPPOSING COUNSEL PROFILER ─────────────────────────────────────────────
 
-function BSCounsel({ caseId, activeCase }: { caseId: string; activeCase: Case }) {
+function BSCounsel({ caseId, activeCase, fullContext }: { caseId: string; activeCase: Case; fullContext: string }) {
   const [profiles, setProfiles] = useState<CounselProfile[]>([]);
   const [ready, setReady] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
@@ -479,7 +480,7 @@ Advise:
 6. WHAT TO NEVER DO — Mistakes that play into this particular counsel's strengths
 
 Be direct and tactical.`;
-    await ai.run(prompt);
+    await ai.run(prompt, 1000, `You are a senior Nigerian litigation strategist specialising in opposing counsel intelligence. Provide tactical, actionable analysis of opposing counsel's likely approach and vulnerabilities.` + fullContext);
   }
 
   if (!ready) return null;
@@ -525,7 +526,7 @@ Be direct and tactical.`;
 
 // ── 4. JUDGE / COURT TENDENCIES ──────────────────────────────────────────────
 
-function BSJudge({ caseId, activeCase }: { caseId: string; activeCase: Case }) {
+function BSJudge({ caseId, activeCase, fullContext }: { caseId: string; activeCase: Case; fullContext: string }) {
   const [data, setData] = useState<JudgeData>({
     judgeName: '', court: '', knownPreferences: '', rulingPatterns: '',
     proceduralStrictness: '', receptionToAuthorities: '', whatToAvoid: '', notes: '',
@@ -566,7 +567,7 @@ Advise:
 6. THE OPENING WE SHOULD MAKE — The impression to create on first appearance before this court
 
 General principles where specifics are unknown. Be practical — this is court intelligence, not a textbook.`;
-    await ai.run(prompt);
+    await ai.run(prompt, 1000, `You are a senior Nigerian litigation counsel with deep knowledge of Nigerian court practice and judicial temperament. Provide practical court intelligence grounded in Nigerian procedure and advocacy.` + fullContext);
   }
 
   if (!ready) return null;
@@ -598,7 +599,7 @@ General principles where specifics are unknown. Be practical — this is court i
 
 // ── 5. SETTLEMENT TRACKER + BATNA ────────────────────────────────────────────
 
-function BSSettlement({ caseId, activeCase }: { caseId: string; activeCase: Case }) {
+function BSSettlement({ caseId, activeCase, fullContext }: { caseId: string; activeCase: Case; fullContext: string }) {
   const [data, setData] = useState<SettlementData>({
     clientAuthority: '', batna: '', latna: '', claimValue: '', offers: [], status: 'Open', notes: '',
   });
@@ -658,7 +659,7 @@ Provide:
 6. RECOMMENDATION — Settle now / Hold / Counter at [X] / Reject and proceed
 
 Be ruthlessly honest about litigation risk.`;
-    await ai.run(prompt);
+    await ai.run(prompt, 1000, `You are a senior Nigerian litigation counsel and settlement negotiation strategist. Provide honest, tactical settlement analysis grounded in Nigerian litigation realities and BATNA principles.` + fullContext);
   }
 
   const STATUS_COLOURS: Record<string, string> = {
@@ -831,7 +832,7 @@ function BSComms({ caseId }: { caseId: string }) {
 
 // ── 7. INTERLOCUTORY APPLICATIONS TRACKER ────────────────────────────────────
 
-function BSInterlocutory({ caseId, activeCase }: { caseId: string; activeCase: Case }) {
+function BSInterlocutory({ caseId, activeCase, fullContext }: { caseId: string; activeCase: Case; fullContext: string }) {
   const [apps, setApps] = useState<InterlockApp[]>([]);
   const [ready, setReady] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
@@ -891,7 +892,7 @@ Advise:
 6. WHAT TO WATCH — The landmine on this application that most lawyers miss
 
 Be precise.`;
-    await ai.run(prompt);
+    await ai.run(prompt, 1000, `You are a senior Nigerian litigation counsel specialising in interlocutory applications and procedural strategy. Apply Nigerian court rules, relevant case law, and procedural jurisprudence.` + fullContext);
   }
 
   const STATUSES = ['Pending', 'Filed', 'Heard', 'Adjourned', 'Granted', 'Dismissed', 'Withdrawn', 'Appealed'];
@@ -997,6 +998,7 @@ type SubTab = typeof SUB_TABS[number]['id'];
 export function BlindSpots({ activeCase }: Props) {
   const [sub, setSub] = useState<SubTab>('conflict');
   const caseId = activeCase.id;
+  const { fullContext } = useIntelligence(activeCase);
 
   return (
     <div style={{ padding: '0 0 40px' }}>
@@ -1018,13 +1020,13 @@ export function BlindSpots({ activeCase }: Props) {
       </div>
 
       {/* Module content */}
-      {sub === 'conflict'      && <BSConflict      caseId={caseId} activeCase={activeCase} />}
-      {sub === 'witnesses'     && <BSWitnesses     caseId={caseId} activeCase={activeCase} />}
-      {sub === 'counsel'       && <BSCounsel       caseId={caseId} activeCase={activeCase} />}
-      {sub === 'judge'         && <BSJudge         caseId={caseId} activeCase={activeCase} />}
-      {sub === 'settlement'    && <BSSettlement    caseId={caseId} activeCase={activeCase} />}
+      {sub === 'conflict'      && <BSConflict      caseId={caseId} activeCase={activeCase} fullContext={fullContext} />}
+      {sub === 'witnesses'     && <BSWitnesses     caseId={caseId} activeCase={activeCase} fullContext={fullContext} />}
+      {sub === 'counsel'       && <BSCounsel       caseId={caseId} activeCase={activeCase} fullContext={fullContext} />}
+      {sub === 'judge'         && <BSJudge         caseId={caseId} activeCase={activeCase} fullContext={fullContext} />}
+      {sub === 'settlement'    && <BSSettlement    caseId={caseId} activeCase={activeCase} fullContext={fullContext} />}
       {sub === 'comms'         && <BSComms         caseId={caseId} />}
-      {sub === 'interlocutory' && <BSInterlocutory caseId={caseId} activeCase={activeCase} />}
+      {sub === 'interlocutory' && <BSInterlocutory caseId={caseId} activeCase={activeCase} fullContext={fullContext} />}
     </div>
   );
 }

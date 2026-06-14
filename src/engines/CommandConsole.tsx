@@ -24,6 +24,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import type { Case, DashTabId }                      from '@/types';
 import { T }                                          from '@/constants/tokens';
 import { callClaude }                                from '@/services/api';
+import { useIntelligence }                           from '@/hooks/useIntelligence';
 import { loadBlindSpot, saveBlindSpot }               from '@/storage/helpers';
 import { buildCaseContext }                           from '@/utils';
 import { Md }                                         from '@/components/common/ui';
@@ -147,6 +148,7 @@ interface ConsoleBlob { history: HistoryEntry[]; posture: Posture; }
 
 export function CommandConsole({ activeCase, setDashTab }: Props) {
   const caseId = activeCase.id;
+  const { fullContext } = useIntelligence(activeCase);
 
   const [cmd,          setCmd]          = useState('');
   const [history,      setHistory]      = useState<HistoryEntry[]>([]);
@@ -248,7 +250,7 @@ export function CommandConsole({ activeCase, setDashTab }: Props) {
           '(return ONLY the category key, nothing else):\n' +
           'strategy_rebuild | witness_analysis | cross_exam | evidence_analysis | ' +
           'argument_build | document_generate | compliance_check | risk_assessment | ' +
-          'appeal_analysis | settlement | general',
+          'appeal_analysis | settlement | general' + fullContext,
         messages: [{
           role:    'user',
           content: `Case context:\n${ctx}\n\nUser command: "${command}"\n\nReturn ONLY the category key.`,
@@ -264,7 +266,7 @@ export function CommandConsole({ activeCase, setDashTab }: Props) {
 
       // ── Step 2: Execute ───────────────────────────────────────────────────
       const aiText = await callClaude({
-        system:    buildSystemPrompt(routeKey, posture, ctx),
+        system:    buildSystemPrompt(routeKey, posture, ctx) + fullContext,
         userMsg:   command,
         maxTokens: 2000,
       });

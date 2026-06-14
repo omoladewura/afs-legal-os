@@ -23,6 +23,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import type { Case } from '@/types';
 import { T } from '@/constants/tokens';
 import { useAI } from '@/hooks/useAI';
+import { useIntelligence } from '@/hooks/useIntelligence';
 import { loadBlindSpot, saveBlindSpot } from '@/storage/helpers';
 import { Md, ErrorBlock } from '@/components/common/ui';
 import { COUNSEL_ROLE_COLORS } from '@/types';
@@ -261,18 +262,18 @@ function StatusBadge({ value, options, onChange, accent }: {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function OpeningAddressTab({
-  draft, setDraft, date, setDate, notes, setNotes, accent, activeCase,
+  draft, setDraft, date, setDate, notes, setNotes, accent, activeCase, fullContext,
 }: {
   draft: string; setDraft: (v: string) => void;
   date: string;  setDate:  (v: string) => void;
   notes: string; setNotes: (v: string) => void;
-  accent: string; activeCase: Case;
+  accent: string; activeCase: Case; fullContext: string;
 }) {
   const { call, loading, error } = useAI();
 
   const generate = useCallback(async () => {
     const r = await call({
-      system: `You are a Nigerian prosecution counsel drafting an opening address for a criminal trial. Apply ACJA 2015 and Evidence Act 2011. The opening address introduces the prosecution's case to the court.`,
+      system: `You are a Nigerian prosecution counsel drafting an opening address for a criminal trial. Apply ACJA 2015 and Evidence Act 2011. The opening address introduces the prosecution's case to the court.` + fullContext,
       userMsg: `Draft a prosecution opening address for the matter: ${activeCase.caseName} — ${activeCase.court}.
 
 Additional context / charges:
@@ -349,7 +350,7 @@ const emptyProsWitness = (idx: number): ProsWitness => ({
 });
 
 function WitnessScheduleTab({
-  witnesses, setWitnesses, closed, setClosed, accent, activeCase,
+  witnesses, setWitnesses, closed, setClosed, accent, activeCase, fullContext,
 }: {
   witnesses: ProsWitness[];
   setWitnesses: (fn: (p: ProsWitness[]) => ProsWitness[]) => void;
@@ -357,6 +358,7 @@ function WitnessScheduleTab({
   setClosed: (v: boolean) => void;
   accent: string;
   activeCase: Case;
+  fullContext: string;
 }) {
   const { call, loading, error } = useAI();
   const [scheduleAdvice, setScheduleAdvice] = useState('');
@@ -376,7 +378,7 @@ function WitnessScheduleTab({
     ).join('\n\n');
 
     const r = await call({
-      system: `You are a Nigerian prosecution counsel. Apply ACJA 2015 and Evidence Act 2011.`,
+      system: `You are a Nigerian prosecution counsel. Apply ACJA 2015 and Evidence Act 2011.` + fullContext,
       userMsg: `Witness schedule advice for ${activeCase.caseName}:\n\n${witnessSummary}\n\nCase closed: ${closed ? 'YES' : 'NO'}\n\nAdvise prosecution:\n1. **Witness Order** — is the current order optimal? Should any witnesses be reordered for maximum impact?\n2. **Evidence Gaps** — are there counts without a witness to prove each essential ingredient?\n3. **Overlap / Redundancy** — are any witnesses duplicating evidence? Can any be consolidated?\n4. **ACJA Compliance** — have all witnesses in the proof of evidence been called or accounted for?\n5. **Vulnerable Witnesses** — any witness likely to face aggressive cross-examination? How to protect?\n6. **Close of Case Assessment** — if prosecution is ready to close, what must be confirmed before closing?\n7. **Next Prosecution Action** — based on current status, what should prosecution do next?`,
     });
     if (r) setScheduleAdvice(r);
@@ -517,12 +519,13 @@ const emptyExhibit = (idx: number): Exhibit => ({
 });
 
 function ExhibitRegisterTab({
-  exhibits, setExhibits, accent, activeCase,
+  exhibits, setExhibits, accent, activeCase, fullContext,
 }: {
   exhibits: Exhibit[];
   setExhibits: (fn: (p: Exhibit[]) => Exhibit[]) => void;
   accent: string;
   activeCase: Case;
+  fullContext: string;
 }) {
   const { call, loading, error } = useAI();
   const [admissibilityResult, setAdmissibilityResult] = useState('');
@@ -540,7 +543,7 @@ function ExhibitRegisterTab({
   const checkAdmissibility = useCallback(async (ex: Exhibit) => {
     setTargetExhibitId(ex.id);
     const r = await call({
-      system: `You are a Nigerian prosecution counsel. Apply the Evidence Act 2011 to assess the admissibility of exhibits.`,
+      system: `You are a Nigerian prosecution counsel. Apply the Evidence Act 2011 to assess the admissibility of exhibits.` + fullContext,
       userMsg: `Admissibility check for ${ex.ref} in ${activeCase.caseName}:\n\nDescription: ${ex.description}\nCount linked: ${ex.countLinked}\nTendered by: ${ex.tenderedBy || 'prosecution'}\nNotes: ${ex.notes || 'none'}\n\nAnalyse admissibility:\n1. **Document type** — what category of evidence is this?\n2. **Primary rule** — which Evidence Act provision governs admission?\n3. **Authentication requirements** — how must this document be authenticated?\n4. **Best evidence** — is this the original or a copy? If a copy, is secondary evidence admissible?\n5. **Hearsay issues** — does this document contain hearsay? Is any exception applicable?\n6. **Confessional statement specific issues** (if applicable) — was the statement made voluntarily? Was ACJA s.15 caution administered?\n7. **Likely defence objection** — what objection is defence likely to raise?\n8. **Prosecution response** — how should prosecution respond to that objection?\n9. **Verdict** — ADMISSIBLE / LIKELY ADMISSIBLE / DISPUTED / INADMISSIBLE`,
     });
     if (r) {
@@ -689,12 +692,13 @@ function ExhibitRegisterTab({
 }
 
 function EvidenceSufficiencyTab({
-  witnesses, exhibits, accent, activeCase,
+  witnesses, exhibits, accent, activeCase, fullContext,
 }: {
   witnesses: ProsWitness[];
   exhibits:  Exhibit[];
   accent: string;
   activeCase: Case;
+  fullContext: string;
 }) {
   const { call, loading, error } = useAI();
   const [counts, setCounts] = useState('');
@@ -709,7 +713,7 @@ function EvidenceSufficiencyTab({
     ).join('\n');
 
     const r = await call({
-      system: `You are a Nigerian prosecution counsel conducting a pre-close evidence sufficiency audit. Apply ACJA 2015 and Evidence Act 2011. Your task is to identify every gap before the prosecution closes its case.`,
+      system: `You are a Nigerian prosecution counsel conducting a pre-close evidence sufficiency audit. Apply ACJA 2015 and Evidence Act 2011. Your task is to identify every gap before the prosecution closes its case.` + fullContext,
       userMsg: `Evidence sufficiency check for ${activeCase.caseName} (${activeCase.court}).\n\nCharges / counts:\n${counts || '[Please describe the counts in the text box below]'}\n\nProsecution witnesses:\n${witSummary || '[No witnesses entered]'}\n\nExhibits:\n${exhSummary || '[No exhibits entered]'}\n\nFor each count, assess:\n1. **Essential Ingredients** — list every essential ingredient of the offence that prosecution must prove\n2. **Evidence Available** — which witnesses and exhibits prove each ingredient?\n3. **Gaps** — which ingredients have no evidence yet? (CRITICAL: these must be plugged before close)\n4. **Admissibility Risks** — are any tendered exhibits at risk of exclusion?\n5. **Count Verdict** — SUFFICIENTLY PROVED / ARGUABLE / INSUFFICIENT / NOT YET PROVED\n6. **Actions Before Close** — what must prosecution still do before closing its case?\n\nEnd with an overall sufficiency rating and a priority action list.`,
     });
     if (r) setResult(r);
@@ -921,7 +925,7 @@ const emptyCountStatus = (idx: number): CountNoCaseStatus => ({
 });
 
 function NoCaseThresholdTab({
-  countStatuses, setCountStatuses, overallAssessment, setOverallAssessment, accent, activeCase,
+  countStatuses, setCountStatuses, overallAssessment, setOverallAssessment, accent, activeCase, fullContext,
 }: {
   countStatuses:        CountNoCaseStatus[];
   setCountStatuses:     (fn: (p: CountNoCaseStatus[]) => CountNoCaseStatus[]) => void;
@@ -929,6 +933,7 @@ function NoCaseThresholdTab({
   setOverallAssessment: (v: string) => void;
   accent: string;
   activeCase: Case;
+  fullContext: string;
 }) {
   const { call, loading, error } = useAI();
 
@@ -947,7 +952,7 @@ function NoCaseThresholdTab({
     ).join('\n\n');
 
     const r = await call({
-      system: `You are a Nigerian criminal defence counsel. Apply the no-case submission standard from Ajidagba v. State (1981), Ibeziako v. COP, and ACJA 2015 s.303. The test is whether there is evidence on which a reasonable court could convict — not whether the prosecution has proved its case beyond reasonable doubt.`,
+      system: `You are a Nigerian criminal defence counsel. Apply the no-case submission standard from Ajidagba v. State (1981), Ibeziako v. COP, and ACJA 2015 s.303. The test is whether there is evidence on which a reasonable court could convict — not whether the prosecution has proved its case beyond reasonable doubt.` + fullContext,
       userMsg: `No-case submission threshold assessment for ${activeCase.caseName}:\n\n${countSummary}\n\nFor each count:\n1. **Essential Ingredients** — confirm or correct the list of essential ingredients prosecution must establish\n2. **Evidence Analysis** — has prosecution led prima facie evidence on each ingredient?\n3. **Critical Gaps** — which ingredients have NO evidence at all? (These are the strongest grounds)\n4. **Threshold Verdict:**\n   - MET: Prosecution has led no evidence on one or more essential ingredients — submission is clearly available\n   - STRONG: Evidence led is so manifestly unreliable or contradicted that no court should act on it\n   - ARGUABLE: Some gaps or weaknesses but court could go either way\n   - NOT MET: Sufficient prima facie case established — submission unlikely to succeed\n5. **Grounds to Include in Submission** — draft the specific grounds for this count\n\nEnd with an overall recommendation: SUBMIT NOW / WAIT FOR MORE WITNESSES / DO NOT SUBMIT ON THIS COUNT`,
     });
     if (r) setOverallAssessment(r);
@@ -1228,7 +1233,7 @@ function ObjectionLogTab({
 }
 
 function CrossPrepTab({
-  defWitnesses, witnessInput, setWitnessInput, crossPrepResult, setCrossPrepResult, accent, activeCase,
+  defWitnesses, witnessInput, setWitnessInput, crossPrepResult, setCrossPrepResult, accent, activeCase, fullContext,
 }: {
   defWitnesses:      DefWitnessTrack[];
   witnessInput:      string;
@@ -1237,6 +1242,7 @@ function CrossPrepTab({
   setCrossPrepResult: (v: string) => void;
   accent: string;
   activeCase: Case;
+  fullContext: string;
 }) {
   const { call, loading, error } = useAI();
   const [targetRef, setTargetRef] = useState('');
@@ -1249,7 +1255,7 @@ function CrossPrepTab({
       : `Witness information: ${witnessInput}`;
 
     const r = await call({
-      system: `You are a Nigerian criminal defence counsel. Your task is to develop a detailed cross-examination strategy for a prosecution witness. Apply Evidence Act 2011 s.209–223 (cross-examination provisions) and best cross-examination practice.`,
+      system: `You are a Nigerian criminal defence counsel. Your task is to develop a detailed cross-examination strategy for a prosecution witness. Apply Evidence Act 2011 s.209–223 (cross-examination provisions) and best cross-examination practice.` + fullContext,
       userMsg: `Cross-examination preparation for a prosecution witness in ${activeCase.caseName}:\n\n${witInfo}\n\nDevelop a comprehensive cross-examination strategy:\n\n1. **Objectives** — what are the primary goals of cross-examining this witness? (undermine credibility / establish no-case / create doubt / extract admissions)\n\n2. **Key Attack Areas** — identify each weakness in this witness's evidence:\n   - Internal inconsistencies within their testimony\n   - Inconsistencies with other witnesses\n   - Inconsistencies with documentary evidence or exhibits\n   - Observations / perceptions (distance, lighting, time)\n   - Prior inconsistent statements (s.209 Evidence Act)\n   - Interest in the outcome / motive to lie\n\n3. **Question Sequences** — draft specific question sequences for the top 3 attack areas (closed, leading questions)\n\n4. **Exhibits to Challenge** — if this witness tendered any exhibits, how should those be challenged?\n\n5. **No-Case Contribution** — after your cross, what essential ingredient on which count will remain unproved?\n\n6. **Risk Warning** — what are the risks in cross-examining this witness aggressively? Any questions to avoid?\n\n7. **Closing Line** — what admission or damaging concession should be the last thing this witness says before they are released?`,
     });
     if (r) setCrossPrepResult(r);
@@ -1343,6 +1349,7 @@ export function ProsecutionCase({ activeCase }: Props) {
   const role   = activeCase.counsel_role ?? 'defence';
   const isPros = role === 'prosecution';
   const accent = COUNSEL_ROLE_COLORS[role]?.col ?? '#c09030';
+  const { fullContext } = useIntelligence(activeCase);
 
   const prosSubTabs: { id: ProsSubTab; label: string }[] = [
     { id: 'opening_address',    label: '1 — Opening Address' },
@@ -1489,26 +1496,26 @@ export function ProsecutionCase({ activeCase }: Props) {
           draft={openingDraft} setDraft={setOpeningDraft}
           date={openingDate}   setDate={setOpeningDate}
           notes={openingNotes} setNotes={setOpeningNotes}
-          accent={accent} activeCase={activeCase}
+          accent={accent} activeCase={activeCase} fullContext={fullContext}
         />
       )}
       {isPros && subTab === 'witness_schedule' && (
         <WitnessScheduleTab
           witnesses={prosWitnesses} setWitnesses={setProsWitnesses}
           closed={prosecutionClosed} setClosed={setProsecutionClosed}
-          accent={accent} activeCase={activeCase}
+          accent={accent} activeCase={activeCase} fullContext={fullContext}
         />
       )}
       {isPros && subTab === 'exhibit_register' && (
         <ExhibitRegisterTab
           exhibits={exhibits} setExhibits={setExhibits}
-          accent={accent} activeCase={activeCase}
+          accent={accent} activeCase={activeCase} fullContext={fullContext}
         />
       )}
       {isPros && subTab === 'evidence_sufficiency' && (
         <EvidenceSufficiencyTab
           witnesses={prosWitnesses} exhibits={exhibits}
-          accent={accent} activeCase={activeCase}
+          accent={accent} activeCase={activeCase} fullContext={fullContext}
         />
       )}
 
@@ -1516,14 +1523,14 @@ export function ProsecutionCase({ activeCase }: Props) {
       {!isPros && subTab === 'witness_tracker' && (
         <WitnessTrackerTab
           witnesses={defWitnesses} setWitnesses={setDefWitnesses}
-          accent={accent} activeCase={activeCase}
+          accent={accent} activeCase={activeCase} fullContext={fullContext}
         />
       )}
       {!isPros && subTab === 'no_case_threshold' && (
         <NoCaseThresholdTab
           countStatuses={countNoCaseStatuses} setCountStatuses={setCountNoCaseStatuses}
           overallAssessment={noCaseOverall}    setOverallAssessment={setNoCaseOverall}
-          accent={accent} activeCase={activeCase}
+          accent={accent} activeCase={activeCase} fullContext={fullContext}
         />
       )}
       {!isPros && subTab === 'objection_log' && (
@@ -1537,7 +1544,7 @@ export function ProsecutionCase({ activeCase }: Props) {
           defWitnesses={defWitnesses}
           witnessInput={crossPrepWitness}   setWitnessInput={setCrossPrepWitness}
           crossPrepResult={crossPrepResult} setCrossPrepResult={setCrossPrepResult}
-          accent={accent} activeCase={activeCase}
+          accent={accent} activeCase={activeCase} fullContext={fullContext}
         />
       )}
     </div>
