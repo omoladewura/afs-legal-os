@@ -20,7 +20,6 @@ import { useAI }            from '@/hooks/useAI';
 import { useIntelligence }  from '@/hooks/useIntelligence';
 import { loadBlindSpot, saveBlindSpot } from '@/storage/helpers';
 import { Md, ErrorBlock }   from '@/components/common/ui';
-import { useIntelligence } from '@/hooks/useIntelligence';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES
@@ -179,15 +178,13 @@ export function CriminalDefence({ activeCase }: Props) {
 
   const [subTab, setSubTab] = useState<SubTabId>('intake');
   const [saved,  setSaved]  = useState<CriminalSaved>({} as CriminalSaved);
+  const { call, loading, error, clearError } = useAI(activeCase);
   const { fullContext } = useIntelligence(activeCase);
 
   useEffect(() => {
     loadBlindSpot<CriminalSaved>(caseId, 'criminal', {} as CriminalSaved)
       .then(setSaved);
   }, [caseId]);
-
-  const { call, loading, error, clearError } = useAI(activeCase);
-  const { fullContext } = useIntelligence(activeCase);
   const save = useCallback((patch: Partial<CriminalSaved>) => {
     setSaved(prev => {
       const next = { ...prev, ...patch };
