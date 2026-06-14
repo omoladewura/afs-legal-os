@@ -14,6 +14,7 @@
 
 import { db } from './db';
 import type { Case, DocketEntry, Deadline, EvidenceItem, ArgumentVersion } from '@/types';
+import type { MatrimonialCaseData } from '@/matrimonial/types';
 import type { BlindSpotRecord, ResearchRecord } from './db';
 
 // ── Config ────────────────────────────────────────────────────────────────────
@@ -467,3 +468,63 @@ export async function deleteArgVersion(id: string): Promise<boolean> {
     return false;
   }
 }
+
+// ── Matrimonial Data ──────────────────────────────────────────────────────────
+// Matrimonial structured state — stored in its own blindSpot slot with key
+// 'matrimonial'. Never conflicts with other modules. Parallelise reads with
+// Promise.all when loading case data.
+//
+// Key: afs_bs_matrimonial_<caseId>
+// This deliberately reuses the blind_spots table as a generic key-value store
+// so no schema migration is required. The 'matrimonial' module key is reserved
+// and must never be used by any other module.
+
+const MATRIMONIAL_MODULE = 'matrimonial';
+
+export async function loadMatrimonialData(caseId: string): Promise<MatrimonialCaseData | null> {
+  try {
+    const rec = await db.blind_spots.get(`afs_bs_${MATRIMONIAL_MODULE}_${caseId}`);
+    return (rec?.data as MatrimonialCaseData) ?? null;
+  } catch (e) {
+    console.error('[Storage] loadMatrimonialData failed', e);
+    return null;
+  }
+}
+
+export async function saveMatrimonialData(
+  caseId: string,
+  data: MatrimonialCaseData,
+): Promise<boolean> {
+  try {
+    const now = new Date().toISOString();
+    await db.blind_spots.put({
+      id: `afs_bs_${MATRIMONIAL_MODULE}_${caseId}`,
+      caseId,
+      module: MATRIMONIAL_MODULE,
+      data: { ...data, _updatedAt: now },
+    });
+    return true;
+  } catch (e) {
+    console.error('[Storage] saveMatrimonialData failed', e);
+    return false;
+  }
+}
+
+/**
+ * Load matrimonial data in parallel with blind spots for efficient case load.
+ * Usage:
+ *   const [blindSpotData, matrimonialData] = await Promise.all([
+ *     loadBlindSpot(caseId, 'someModule', fallback),
+ *     loadMatrimonialData(caseId),
+ *   ]);
+ */
+export async function loadCaseWithMatrimonialData(
+  caseId: string,
+): Promise<{ case: Case | null; matrimonialData: MatrimonialCaseData | null }> {
+  const [caseRecord, matrimonialData] = await Promise.all([
+    loadCase(caseId),
+    loadMatrimonialData(caseId),
+  ]);
+  return { case: caseRecord, matrimonialData };
+}
+
