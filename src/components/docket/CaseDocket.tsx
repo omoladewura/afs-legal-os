@@ -8,6 +8,13 @@
  * - matter_track auto-derives from originating process selection.
  * - Matrimonial, Election, and FREP tracks fully wired.
  * - Custom "Other" option allows free-text party label entry.
+ *
+ * V4 CHANGES (Phase 3 — FREP & Matrimonial integration):
+ * - Reads docketFilter from store to filter the case list.
+ * - Auto-presets originating_process when filter is 'frep' or 'matrimonial'
+ *   (skips the dropdown — it is already determined by entry point).
+ * - Party label placeholders and role button labels reflect filter context.
+ * - Header title and subtitle adapt to active filter.
  */
 
 import { useState, useEffect } from 'react';
@@ -27,8 +34,14 @@ import {
   getOriginatingProcess,
 } from '@/types';
 
+// ── Filter → preset originating process mapping ───────────────────────────
+const FILTER_PRESET: Record<'frep' | 'matrimonial', OriginatingProcess> = {
+  frep:        'frep',
+  matrimonial: 'petition_matrimonial',
+};
+
 export function CaseDocket() {
-  const { setDocketOpen, setActiveCase, setView } = useAppStore();
+  const { setDocketOpen, setActiveCase, setView, docketFilter } = useAppStore();
 
   const [cases,    setCases]    = useState<Case[]>([]);
   const [search,   setSearch]   = useState('');
@@ -44,8 +57,19 @@ export function CaseDocket() {
   // Track — criminal uses buttons; civil derives from originating process
   const [isCriminal, setIsCriminal] = useState(false);
 
-  // Originating process — civil/special matters only
-  const [ncOrigProc, setNcOrigProc] = useState<OriginatingProcess>('writ_of_summons');
+  // Originating process — civil/special matters only.
+  // When docketFilter is 'frep' or 'matrimonial', this is preset and the
+  // dropdown is hidden (the entry point already determined the process).
+  const filterPreset = docketFilter !== 'all' ? FILTER_PRESET[docketFilter] : null;
+  const [ncOrigProc, setNcOrigProc] = useState<OriginatingProcess>(
+    filterPreset ?? 'writ_of_summons'
+  );
+
+  // Keep ncOrigProc in sync if user navigates between filtered entry points
+  // without unmounting the docket (e.g. unlikely but safe to handle).
+  useEffect(() => {
+    if (filterPreset) setNcOrigProc(filterPreset);
+  }, [filterPreset]);
 
   // Custom party labels — used when originating_process === 'other'
   const [ncCustomA, setNcCustomA] = useState('');
@@ -77,26 +101,35 @@ export function CaseDocket() {
       setNcRole('prosecution');
     } else {
       setNcRole('claimant_side');
-      setNcOrigProc('writ_of_summons');
+      // If a filter preset exists, honour it; otherwise fall back to writ
+      setNcOrigProc(filterPreset ?? 'writ_of_summons');
     }
   }
 
   // When originating process changes, update role to match side
   function handleOrigProcChange(proc: OriginatingProcess) {
     setNcOrigProc(proc);
-    // keep role as claimant_side by default; lawyer can switch
     setNcRole('claimant_side');
   }
 
   useEffect(() => { loadCases().then(setCases); }, []);
 
-  const filtered = search.trim()
-    ? cases.filter(c =>
-        c.caseName.toLowerCase().includes(search.toLowerCase()) ||
-        (c.suitNo  || '').toLowerCase().includes(search.toLowerCase()) ||
-        (c.court   || '').toLowerCase().includes(search.toLowerCase())
-      )
-    : cases;
+  // ── Case list filtering ────────────────────────────────────────────────────
+  // Apply docketFilter first, then text search on top.
+  const filterByCaseType = (c: Case) => {
+    if (docketFilter === 'frep')        return c.originating_process === 'frep';
+    if (docketFilter === 'matrimonial') return c.originating_process === 'petition_matrimonial';
+    return true; // 'all'
+  };
+
+  const filtered = cases
+    .filter(filterByCaseType)
+    .filter(c =>
+      !search.trim() ||
+      c.caseName.toLowerCase().includes(search.toLowerCase()) ||
+      (c.suitNo  || '').toLowerCase().includes(search.toLowerCase()) ||
+      (c.court   || '').toLowerCase().includes(search.toLowerCase())
+    );
 
   async function createCase() {
     if (!ncName.trim()) return;
@@ -152,12 +185,29 @@ export function CaseDocket() {
   function resetForm() {
     setNcName(''); setNcCourt(''); setNcSuit(''); setNcDate('');
     setIsCriminal(false);
-    setNcOrigProc('writ_of_summons');
+    setNcOrigProc(filterPreset ?? 'writ_of_summons');
     setNcRole('claimant_side');
     setNcCustomA(''); setNcCustomB('');
     setNcPartiesA([{ id: cid(), name: '' }]);
     setNcPartiesB([{ id: cid(), name: '' }]);
   }
+
+  // ── Header copy driven by docketFilter ────────────────────────────────────
+  const headerTitle = docketFilter === 'frep'
+    ? 'FREP Docket'
+    : docketFilter === 'matrimonial'
+      ? 'Matrimonial Docket'
+      : 'Case Docket';
+
+  const headerSubtitle = docketFilter === 'frep'
+    ? 'Fundamental Rights Enforcement Proceedings — Applicant / Respondent matters.'
+    : docketFilter === 'matrimonial'
+      ? 'Matrimonial causes and ancillary relief — Petitioner / Respondent matters.'
+      : 'All matters — open, search, and manage your full docket.';
+
+  const emptyMsg = cases.filter(filterByCaseType).length === 0
+    ? `No ${docketFilter === 'all' ? '' : docketFilter === 'frep' ? 'FREP ' : 'matrimonial '}matters yet. Create your first matter above.`
+    : 'No matters match your search.';
 
   // ── Styles ─────────────────────────────────────────────────────────────────
 
@@ -226,10 +276,16 @@ export function CaseDocket() {
             <h1 style={{
               fontSize: 28, color: '#111111',
               fontFamily: "'Times New Roman', Times, serif",
-              fontWeight: 700, fontStyle: 'italic',
+              fontWeight: 700, fontStyle: 'italic', marginBottom: 6,
             }}>
-              Case Docket
+              {headerTitle}
             </h1>
+            <p style={{
+              fontSize: 12, color: '#888888',
+              fontFamily: "'Times New Roman', Times, serif",
+            }}>
+              {headerSubtitle}
+            </p>
           </div>
           <button
             onClick={() => setDocketOpen(false)}
@@ -281,28 +337,39 @@ export function CaseDocket() {
               borderBottom: '1px solid #cccccc', paddingBottom: 10,
             }}>
               New Matter
+              {filterPreset && (
+                <span style={{ fontWeight: 400, color: '#888888', marginLeft: 10, letterSpacing: '.06em' }}>
+                  — {docketFilter === 'frep' ? 'FREP · Applicant / Respondent' : 'Matrimonial · Petitioner / Respondent'}
+                </span>
+              )}
             </p>
 
-            {/* ── STEP 1: Criminal vs Civil/Special ── */}
-            <div style={{ marginBottom: 18 }}>
-              <label style={{ ...S.label, marginBottom: 8, display: 'block' }}>
-                Track <span style={{ color: '#111111' }}>*</span>
-                <span style={{ color: '#888888', fontWeight: 400, fontSize: 10, marginLeft: 8 }}>
-                  Cannot be changed after creation
-                </span>
-              </label>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button onClick={() => handleTrackSwitch(false)} style={trackBtnStyle(!isCriminal)}>
-                  ⚖ Civil / Special
-                </button>
-                <button onClick={() => handleTrackSwitch(true)} style={trackBtnStyle(isCriminal)}>
-                  ⚖ Criminal
-                </button>
+            {/* ── STEP 1: Criminal vs Civil/Special ──
+                Hidden when filter is 'frep' or 'matrimonial' — those are
+                always civil/special. The track is already determined. */}
+            {!filterPreset && (
+              <div style={{ marginBottom: 18 }}>
+                <label style={{ ...S.label, marginBottom: 8, display: 'block' }}>
+                  Track <span style={{ color: '#111111' }}>*</span>
+                  <span style={{ color: '#888888', fontWeight: 400, fontSize: 10, marginLeft: 8 }}>
+                    Cannot be changed after creation
+                  </span>
+                </label>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button onClick={() => handleTrackSwitch(false)} style={trackBtnStyle(!isCriminal)}>
+                    ⚖ Civil / Special
+                  </button>
+                  <button onClick={() => handleTrackSwitch(true)} style={trackBtnStyle(isCriminal)}>
+                    ⚖ Criminal
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
 
-            {/* ── STEP 2: Originating Process (civil/special only) ── */}
-            {!isCriminal && (
+            {/* ── STEP 2: Originating Process (civil/special only) ──
+                Hidden when docketFilter presets the process — the entry
+                point has already determined it. Shown for 'all' filter. */}
+            {!isCriminal && !filterPreset && (
               <div style={{ marginBottom: 18 }}>
                 <label style={{ ...S.label, marginBottom: 8, display: 'block' }}>
                   Originating Process <span style={{ color: '#111111' }}>*</span>
@@ -354,6 +421,23 @@ export function CaseDocket() {
                     </div>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* When filter preset is active, show a read-only process badge instead */}
+            {!isCriminal && filterPreset && (
+              <div style={{
+                marginBottom: 18, padding: '8px 12px',
+                background: trackColor.bg,
+                border: `1px solid ${trackColor.bdr}`,
+                borderRadius: 3, fontSize: 12, color: trackColor.col,
+                fontFamily: "'Times New Roman', Times, serif",
+              }}>
+                <span style={{ fontWeight: 700 }}>{origConfig.label}</span>
+                <span style={{ fontStyle: 'italic', marginLeft: 8 }}>{origConfig.description}</span>
+                <span style={{ color: '#888888', marginLeft: 8, fontSize: 11 }}>
+                  — {origConfig.courtNote}
+                </span>
               </div>
             )}
 
@@ -518,7 +602,7 @@ export function CaseDocket() {
         {filtered.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '60px 24px', borderTop: '1px solid #cccccc' }}>
             <p style={{ fontSize: 14, color: '#888888', fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic' }}>
-              {cases.length === 0 ? 'No matters yet. Create your first matter above.' : 'No matters match your search.'}
+              {emptyMsg}
             </p>
           </div>
         ) : (
