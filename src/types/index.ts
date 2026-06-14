@@ -4,60 +4,73 @@
  * Every engine, storage layer, and component imports from here.
  */
 
+// Re-export matrimonial types so engines can import from '@/types'
+export type { MatrimonialCaseData, MatrimonialChild, MatrimonialReliefType, DissolutionFact, NullityVoidGround, NullityVoidableGround } from '@/matrimonial/types';
+import type { MatrimonialCaseData } from '@/matrimonial/types';
+
 // ─────────────────────────────────────────────────────────────────────────────
 // MATTER TRACK & COUNSEL ROLE — THE TWO GOVERNING FIELDS
 // These two fields are set at matter creation and are permanent.
 // Every engine, tab, document, AI output, and risk alert derives from them.
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** The track of the matter — civil or criminal. */
-export type MatterTrack = 'civil' | 'criminal';
+/** The track of the matter — civil, criminal, or matrimonial. */
+export type MatterTrack = 'civil' | 'criminal' | 'matrimonial';
 
 /**
  * The lawyer's role on this matter.
- * Civil:    claimant_side | defendant_side
- * Criminal: prosecution   | defence
+ * Civil:        claimant_side  | defendant_side
+ * Criminal:     prosecution    | defence
+ * Matrimonial:  petitioner_side | respondent_side
  */
 export type CounselRole =
   | 'claimant_side'
   | 'defendant_side'
   | 'prosecution'
-  | 'defence';
+  | 'defence'
+  | 'petitioner_side'
+  | 'respondent_side';
 
 /** Human-readable labels for display throughout the UI. */
 export const MATTER_TRACK_LABELS: Record<MatterTrack, string> = {
-  civil:    'Civil',
-  criminal: 'Criminal',
+  civil:        'Civil',
+  criminal:     'Criminal',
+  matrimonial:  'Matrimonial',
 };
 
 export const COUNSEL_ROLE_LABELS: Record<CounselRole, string> = {
-  claimant_side: 'Claimant Side',
-  defendant_side: 'Defendant Side',
-  prosecution:   'Prosecution',
-  defence:       'Defence',
+  claimant_side:   'Claimant Side',
+  defendant_side:  'Defendant Side',
+  prosecution:     'Prosecution',
+  defence:         'Defence',
+  petitioner_side: 'Petitioner Side',
+  respondent_side: 'Respondent Side',
 };
 
 /** Accent colours for role badges throughout the UI — white newspaper canvas. */
 export const COUNSEL_ROLE_COLORS: Record<CounselRole, { bg: string; bdr: string; col: string }> = {
-  claimant_side:  { bg: '#edf3fb', bdr: '#b8cfe8', col: '#1a4a8a' },
-  defendant_side: { bg: '#fbeaea', bdr: '#e0b8b8', col: '#7a1a1a' },
-  prosecution:    { bg: '#fdf3e0', bdr: '#e0cfa0', col: '#7a4a00' },
-  defence:        { bg: '#e8f5ee', bdr: '#a8d0b8', col: '#1a5a30' },
+  claimant_side:   { bg: '#edf3fb', bdr: '#b8cfe8', col: '#1a4a8a' },
+  defendant_side:  { bg: '#fbeaea', bdr: '#e0b8b8', col: '#7a1a1a' },
+  prosecution:     { bg: '#fdf3e0', bdr: '#e0cfa0', col: '#7a4a00' },
+  defence:         { bg: '#e8f5ee', bdr: '#a8d0b8', col: '#1a5a30' },
+  petitioner_side: { bg: '#f5edfb', bdr: '#ccb8e8', col: '#4a1a7a' },
+  respondent_side: { bg: '#fbedf5', bdr: '#e8b8d4', col: '#7a1a4a' },
 };
 
 /** Track accent colours — white newspaper canvas. */
 export const MATTER_TRACK_COLORS: Record<MatterTrack, { bg: string; bdr: string; col: string }> = {
-  civil:    { bg: '#f3f0fb', bdr: '#ccc0e8', col: '#4a3080' },
-  criminal: { bg: '#fdf0e8', bdr: '#e0c8a0', col: '#7a4000' },
+  civil:       { bg: '#f3f0fb', bdr: '#ccc0e8', col: '#4a3080' },
+  criminal:    { bg: '#fdf0e8', bdr: '#e0c8a0', col: '#7a4000' },
+  matrimonial: { bg: '#f5edfb', bdr: '#ccb8e8', col: '#4a1a7a' },
 };
 
 /**
  * Given a matter_track, returns the valid CounselRole values for that track.
  */
 export function rolesForTrack(track: MatterTrack): CounselRole[] {
-  return track === 'civil'
-    ? ['claimant_side', 'defendant_side']
-    : ['prosecution', 'defence'];
+  if (track === 'criminal')    return ['prosecution', 'defence'];
+  if (track === 'matrimonial') return ['petitioner_side', 'respondent_side'];
+  return ['claimant_side', 'defendant_side'];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -241,6 +254,13 @@ export interface Case {
   custom_party_b_label?:   string;
   appeal_data?:        AppealData;
   inheritance_data?:   InheritanceData;
+
+  /**
+   * Matrimonial structured state — populated by MIntelligence and all
+   * matrimonial engines. Stored in its own slot; never touches blindSpots.
+   * Two reads on case load, parallelised with Promise.all.
+   */
+  matrimonial_data?:   MatrimonialCaseData;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -429,7 +449,8 @@ export type AppView =
   | 'gate'        // password screen
   | 'home'        // mode selector
   | 'docket'      // case docket overlay
-  | 'engine'      // active case dashboard
+  | 'engine'      // active case dashboard (civil / criminal)
+  | 'matrimonial' // matrimonial case workspace
   | 'resolver'    // Research Resolver standalone tool
   | 'san'         // SAN Mode standalone
   | 'settings';   // Settings panel (library management, system info) 
@@ -478,7 +499,7 @@ export interface OriginatingProcessConfig {
   partyAPlural: string;
   partyBPlural: string;
   /** Derived matter_track for this originating process */
-  track:        'civil' | 'criminal';
+  track:        'civil' | 'criminal' | 'matrimonial';
 }
 
 export const ORIGINATING_PROCESSES: OriginatingProcessConfig[] = [
@@ -516,7 +537,7 @@ export const ORIGINATING_PROCESSES: OriginatingProcessConfig[] = [
     partyBLabel:  'Respondent',
     partyAPlural: 'Petitioners',
     partyBPlural: 'Respondents',
-    track:        'civil',
+    track:        'matrimonial',
   },
   {
     id:           'petition_election',
