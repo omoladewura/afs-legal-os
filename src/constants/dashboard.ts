@@ -117,25 +117,6 @@ export const TABS_FREP: DashTab[] = tabs(
 );
 
 /**
- * Matrimonial — Petition under the Matrimonial Causes Act.
- * Petitioner / Respondent. No Pleadings. No criminal engines.
- * Includes the dedicated MatrimonialEngine tab.
- */
-export const TABS_MATRIMONIAL: DashTab[] = tabs(
-  'overview',
-  'intelligence',
-  'matrimonial',
-  'applications',
-  'motions',
-  'evidence',
-  'builder',
-  'risk',
-  'blindspots',
-  'research',
-  'copilot',
-);
-
-/**
  * Criminal — all criminal matters (unchanged).
  */
 export const TABS_CRIMINAL: DashTab[] = tabs(
@@ -173,8 +154,7 @@ export function getTabsForOriginatingProcess(
   switch (originating_process) {
     case 'frep':
       return TABS_FREP;
-    case 'petition_matrimonial':
-      return TABS_MATRIMONIAL;
+    // petition_matrimonial → routed to MatrimonialDashboard in App.tsx; never reaches CaseDashboard
     default:
       return TABS_WRIT;
   }
