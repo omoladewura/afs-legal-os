@@ -19,9 +19,10 @@ export type MatterTrack = 'civil' | 'criminal' | 'matrimonial';
 
 /**
  * The lawyer's role on this matter.
- * Civil:        claimant_side  | defendant_side
- * Criminal:     prosecution    | defence
+ * Civil:        claimant_side   | defendant_side
+ * Criminal:     prosecution     | defence
  * Matrimonial:  petitioner_side | respondent_side
+ * FREP:         frep_applicant  | frep_respondent
  */
 export type CounselRole =
   | 'claimant_side'
@@ -29,7 +30,9 @@ export type CounselRole =
   | 'prosecution'
   | 'defence'
   | 'petitioner_side'
-  | 'respondent_side';
+  | 'respondent_side'
+  | 'frep_applicant'
+  | 'frep_respondent';
 
 /** Human-readable labels for display throughout the UI. */
 export const MATTER_TRACK_LABELS: Record<MatterTrack, string> = {
@@ -45,6 +48,8 @@ export const COUNSEL_ROLE_LABELS: Record<CounselRole, string> = {
   defence:         'Defence',
   petitioner_side: 'Petitioner Side',
   respondent_side: 'Respondent Side',
+  frep_applicant:  'Applicant (FREP)',
+  frep_respondent: 'Respondent (FREP)',
 };
 
 /** Accent colours for role badges throughout the UI — white newspaper canvas. */
@@ -55,6 +60,8 @@ export const COUNSEL_ROLE_COLORS: Record<CounselRole, { bg: string; bdr: string;
   defence:         { bg: '#e8f5ee', bdr: '#a8d0b8', col: '#1a5a30' },
   petitioner_side: { bg: '#f5edfb', bdr: '#ccb8e8', col: '#4a1a7a' },
   respondent_side: { bg: '#fbedf5', bdr: '#e8b8d4', col: '#7a1a4a' },
+  frep_applicant:  { bg: '#edf5f0', bdr: '#a8d4bc', col: '#1a5a38' },
+  frep_respondent: { bg: '#fdf0ea', bdr: '#e0c0a8', col: '#7a3010' },
 };
 
 /** Track accent colours — white newspaper canvas. */
@@ -66,10 +73,28 @@ export const MATTER_TRACK_COLORS: Record<MatterTrack, { bg: string; bdr: string;
 
 /**
  * Given a matter_track, returns the valid CounselRole values for that track.
+ *
+ * Note: FREP roles (frep_applicant / frep_respondent) are not returned here
+ * because FREP cases share the 'civil' matter_track. Role selection for FREP
+ * matters is gated on originating_process === 'frep' in the case-creation
+ * flow (HomePage / CaseDashboard), which presents frep_applicant and
+ * frep_respondent instead of claimant_side / defendant_side.
  */
 export function rolesForTrack(track: MatterTrack): CounselRole[] {
   if (track === 'criminal')    return ['prosecution', 'defence'];
   if (track === 'matrimonial') return ['petitioner_side', 'respondent_side'];
+  return ['claimant_side', 'defendant_side'];
+}
+
+/**
+ * Returns the two valid CounselRole values for a given originating_process.
+ * Use this instead of rolesForTrack() anywhere the originating_process is known.
+ */
+export function rolesForOriginatingProcess(op: OriginatingProcess | string | undefined): CounselRole[] {
+  if (op === 'frep')               return ['frep_applicant', 'frep_respondent'];
+  if (op === 'petition_matrimonial') return ['petitioner_side', 'respondent_side'];
+  const cfg = getOriginatingProcess(op);
+  if (cfg.track === 'criminal')    return ['prosecution', 'defence'];
   return ['claimant_side', 'defendant_side'];
 }
 
@@ -261,11 +286,119 @@ export interface Case {
    * Two reads on case load, parallelised with Promise.all.
    */
   matrimonial_data?:   MatrimonialCaseData;
+
+  /**
+   * FREP structured state — populated at intake for Fundamental Rights
+   * Enforcement Proceedings matters (originating_process === 'frep').
+   * Absent on all non-FREP matters; never read or written by civil /
+   * criminal / matrimonial engines.
+   */
+  frep_data?:          FrepData;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// EVIDENCE VAULT
+// FREP — FUNDAMENTAL RIGHTS ENFORCEMENT PROCEEDINGS
 // ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Capacity / representation of the applicant in a FREP matter.
+ * Set at intake; drives party label rendering and estate-claim warnings.
+ */
+export type FrepCapacity =
+  | 'self'
+  | 'next_friend'         // infant / minor
+  | 'guardian_ad_litem'   // person without legal capacity
+  | 'corporate'
+  | 'association'
+  | 'public_interest';
+
+/**
+ * Originating process mode chosen for the FREP application.
+ * Defaults to originating_motion. Locked once the matter reaches
+ * the application_filed stage (mode_locked: true).
+ */
+export type FrepMode = 'originating_motion' | 'originating_summons';
+
+/**
+ * Parallel status of any ex parte / interim relief order.
+ * Tracked as a badge in FOverview alongside the main procedural stage.
+ * Runs independently of the main application stage — an interim order
+ * can be 'granted' while the main matter is still at 'awaiting_response'.
+ */
+export type FrepInterimReliefStatus = 'not_sought' | 'pending' | 'granted' | 'discharged';
+
+/**
+ * Output of the FIntelligence jurisdiction gate (Step 0).
+ * 'pass'  — matter is within FREP jurisdiction; proceed to drafting.
+ * 'flag'  — potential jurisdiction concern; counsel advised but not hard-blocked.
+ * 'fail'  — matter appears outside FREP jurisdiction; strong warning surfaced.
+ * null    — gate has not yet been run.
+ */
+export type FrepJurisdictionGate = 'pass' | 'flag' | 'fail' | null;
+
+/**
+ * Branch taken by the respondent's opposition.
+ * Determines which documents the Applications Engine generates on the
+ * respondent side and whether silence on the applicant's affidavit
+ * constitutes an admission.
+ *
+ * 'factual'  → Counter-Affidavit + Written Address required (5-day window).
+ * 'law_only' → Written Address only; PO grounds folded in; silence = admission.
+ * null       → not yet determined; engine prompts respondent to select.
+ */
+export type FrepRespondentOppositionType = 'factual' | 'law_only' | null;
+
+/**
+ * Structured FREP-specific state for a Case.
+ * Populated at intake and updated throughout the matter lifecycle.
+ * Stored in Case.frep_data; absent on non-FREP matters.
+ */
+export interface FrepData {
+  // ── Intake fields (set at case creation) ──────────────────────────────────
+  /** Capacity / representation of the applicant. */
+  capacity:                   FrepCapacity;
+  /** Originating process mode. Defaults to 'originating_motion'. */
+  mode:                       FrepMode;
+  /** True once the matter reaches application_filed stage. Mode selector disabled. */
+  mode_locked:                boolean;
+  /** True if ex parte / urgency relief is sought alongside the main application. */
+  ex_parte_sought:            boolean;
+
+  // ── Parallel interim relief tracker (§A1) ─────────────────────────────────
+  /**
+   * Status of any ex parte / interim order.
+   * Shown as a badge in FOverview independently of the main stage.
+   * Set to 'discharged' automatically when the main ruling records
+   * "Discharge of Interim Order" as one of the reliefs granted.
+   */
+  interim_relief_status:      FrepInterimReliefStatus;
+
+  // ── Amendment tracking (§B5) ──────────────────────────────────────────────
+  /** ISO date by which an amendment to the Statement must be filed. Null if no amendment granted. */
+  amendment_deadline:         string | null;
+  /** True once the amended Statement has been filed within the deadline. */
+  amendment_filed:            boolean;
+
+  // ── Jurisdiction gate output (§C) ─────────────────────────────────────────
+  /** Result of the FIntelligence jurisdiction gate. */
+  jurisdiction_gate:          FrepJurisdictionGate;
+  /** Human-readable explanation when gate is 'flag' or 'fail'. */
+  jurisdiction_flag_reason:   string | null;
+  /** Court identified by the gate (e.g. 'Federal High Court'). */
+  jurisdiction_court:         string | null;
+  /** Division identified by the gate (e.g. 'Lagos Division'). */
+  jurisdiction_division:      string | null;
+
+  // ── Respondent opposition branch (§A3) ────────────────────────────────────
+  /**
+   * Whether the respondent's opposition is factual (Counter-Affidavit required)
+   * or law-only (Written Address only; no Counter-Affidavit needed).
+   * Null until respondent counsel selects the branch.
+   */
+  respondent_opposition_type: FrepRespondentOppositionType;
+}
+
+
 
 export interface EvidenceItem {
   id:        string;
