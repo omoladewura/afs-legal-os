@@ -104,14 +104,14 @@ export const TABS_WRIT: DashTab[] = tabs(
 export const TABS_FREP: DashTab[] = tabs(
   'overview',
   'intelligence',
-  'motions',
   'applications',
-  'crossexam',
   'evidence',
   'builder',
   'final_address',
   'risk',
   'blindspots',
+  'alerts',        // 5-day / 7-day FREP deadline alerts
+  'timeline',      // visual tracking of 5-day / 7-day procedural windows
   'research',
   'copilot',
 );
