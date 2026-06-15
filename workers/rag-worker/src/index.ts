@@ -9,18 +9,24 @@
  *
  *   /ingest now tags every vector with counsel_role + matter_track
  *   derived from the R2 key path:
- *     NG/civil_claimant/HighCourtRules.pdf   → counsel_role: claimant_side, matter_track: civil
- *     NG/criminal_defence/ACJA2015.pdf       → counsel_role: defence, matter_track: criminal
- *     NG/shared/EvidenceAct2011.pdf          → counsel_role: shared, matter_track: shared
+ *     NG/civil_claimant/HighCourtRules.pdf        → counsel_role: claimant_side,    matter_track: civil
+ *     NG/criminal_defence/ACJA2015.pdf            → counsel_role: defence,           matter_track: criminal
+ *     NG/matrimonial_shared/MCA_Cap_M7.pdf        → counsel_role: shared,            matter_track: matrimonial
+ *     NG/matrimonial_petitioner/PracticeGuide.pdf → counsel_role: petitioner_side,   matter_track: matrimonial
+ *     NG/matrimonial_respondent/DefenceGuide.pdf  → counsel_role: respondent_side,   matter_track: matrimonial
+ *     NG/shared/EvidenceAct2011.pdf               → counsel_role: shared,            matter_track: shared
  *
  * R2 FOLDER CONVENTION (tag your documents by folder):
- *   JURISDICTION/civil_claimant/   → claimant-side civil materials
- *   JURISDICTION/civil_defendant/  → defendant-side civil materials
- *   JURISDICTION/criminal_prosecution/ → prosecution materials
- *   JURISDICTION/criminal_defence/ → defence materials
- *   JURISDICTION/shared/           → both tracks, all roles (Evidence Act general, Court hierarchy)
- *   JURISDICTION/Statutes/         → legacy — treated as shared
- *   JURISDICTION/Authorities/      → legacy — treated as shared
+ *   JURISDICTION/civil_claimant/        → claimant-side civil materials
+ *   JURISDICTION/civil_defendant/       → defendant-side civil materials
+ *   JURISDICTION/criminal_prosecution/  → prosecution materials
+ *   JURISDICTION/criminal_defence/      → defence materials
+ *   JURISDICTION/matrimonial_shared/    → MCA, MCR, Marriage Act, Child's Rights Act
+ *   JURISDICTION/matrimonial_petitioner/→ petitioner practice guides and petition precedents
+ *   JURISDICTION/matrimonial_respondent/→ respondent defence guides and answer precedents
+ *   JURISDICTION/shared/                → both tracks, all roles (Evidence Act, Court hierarchy)
+ *   JURISDICTION/Statutes/              → legacy — treated as shared
+ *   JURISDICTION/Authorities/           → legacy — treated as shared
  *
  * Endpoints:
  *   POST /chat     — role-aware RAG + Claude proxy
@@ -85,8 +91,8 @@ function authorized(req: Request, env: Env): boolean {
 
 // ── Role → Vectorize Filter ───────────────────────────────────────────────────
 
-type CounselRole  = 'claimant_side' | 'defendant_side' | 'prosecution' | 'defence';
-type MatterTrack  = 'civil' | 'criminal';
+type CounselRole  = 'claimant_side' | 'defendant_side' | 'prosecution' | 'defence' | 'petitioner_side' | 'respondent_side';
+type MatterTrack  = 'civil' | 'criminal' | 'matrimonial';
 
 /**
  * Maps a counsel_role to its Vectorize metadata filter.
@@ -104,12 +110,15 @@ function buildRoleFilter(counselRole: CounselRole): Record<string, unknown> {
  * returns empty matches without erroring.
  */
 function roleToNamespace(counselRole?: CounselRole, matterTrack?: MatterTrack): string | undefined {
-  if (counselRole === 'claimant_side')  return 'civil_claimant';
-  if (counselRole === 'defendant_side') return 'civil_defendant';
-  if (counselRole === 'prosecution')    return 'criminal_prosecution';
-  if (counselRole === 'defence')        return 'criminal_defence';
-  if (matterTrack === 'civil')          return 'civil_shared';
-  if (matterTrack === 'criminal')       return 'criminal_shared';
+  if (counselRole === 'claimant_side')    return 'civil_claimant';
+  if (counselRole === 'defendant_side')   return 'civil_defendant';
+  if (counselRole === 'prosecution')      return 'criminal_prosecution';
+  if (counselRole === 'defence')          return 'criminal_defence';
+  if (counselRole === 'petitioner_side')  return 'matrimonial_petitioner';
+  if (counselRole === 'respondent_side')  return 'matrimonial_respondent';
+  if (matterTrack === 'civil')            return 'civil_shared';
+  if (matterTrack === 'criminal')         return 'criminal_shared';
+  if (matterTrack === 'matrimonial')      return 'matrimonial_shared';
   return undefined;
 }
 
@@ -125,7 +134,12 @@ interface VectorMatch {
  * into the Claude system prompt. Role-aware header included.
  */
 function formatLibraryBlock(matches: VectorMatch[], counselRole?: string): string {
-  const relevant = matches.filter(m => (m.score ?? 0) >= 0.68 && m.metadata?.doc_title);
+  // Fix 3 — lower similarity threshold for statutory documents so provisions are not lost
+  const relevant = matches.filter(m => {
+    const isStatute = m.metadata?.is_statute === true || String(m.metadata?.doc_type ?? '').includes('Statute');
+    const threshold = isStatute ? 0.60 : 0.68;
+    return (m.score ?? 0) >= threshold && m.metadata?.doc_title;
+  });
   if (relevant.length === 0) return '';
 
   const roleLabel = counselRole
@@ -154,7 +168,12 @@ function formatLibraryBlock(matches: VectorMatch[], counselRole?: string): strin
     if (md.counsel_role && md.counsel_role !== 'shared') {
       lines.push(`Role scope: ${String(md.counsel_role).replace('_', ' ')}`);
     }
-    if (md.chunk_text)   lines.push(`\n${String(md.chunk_text).slice(0, 600)}${String(md.chunk_text).length > 600 ? '…' : ''}`);
+    if (md.chunk_text) {
+      // Fix 2 — statutory documents get a 2000-char window; all others keep 600
+      const isStatute = md.is_statute === true || String(md.doc_type ?? '').includes('Statute');
+      const limit = isStatute ? 2000 : 600;
+      lines.push(`\n${String(md.chunk_text).slice(0, limit)}${String(md.chunk_text).length > limit ? '…' : ''}`);
+    }
     lines.push(`[/LIBRARY ${i + 1}]`);
     lines.push('');
   });
@@ -275,7 +294,55 @@ function chunkText(text: string, chunkWords = 500, overlapWords = 50): string[] 
   return chunks;
 }
 
-// ── Metadata Parsing ──────────────────────────────────────────────────────────
+// ── Section-Aware Chunking (Fix 1) ───────────────────────────────────────────
+
+/**
+ * Detects whether text looks like a statute by checking for section-number
+ * patterns: "1.", "1A.", "15(2).", "s.15", "Section 15", etc.
+ */
+function looksLikeStatute(text: string): boolean {
+  const sectionPatterns = [
+    /^\s*\d+[A-Z]?\.\s/m,              // "1. " "15A. " at line start
+    /^\s*s\.\s*\d+/im,                 // "s.15" or "s. 15" at line start
+    /^\s*Section\s+\d+/im,             // "Section 15"
+    /\(\d+\)\s*[A-Z]/,                 // "(2) The court..."
+  ];
+  return sectionPatterns.some(re => re.test(text.slice(0, 5000)));
+}
+
+/**
+ * Splits a statute into per-section chunks so each provision becomes its own
+ * vector. Falls back to regular word-window chunking if no section boundaries
+ * are detected.
+ */
+function chunkStatute(text: string): string[] {
+  // Split on lines that look like section headings
+  const sectionBoundary = /(?=^\s*(?:\d+[A-Z]?\.|\(?\d+\)?)\s+[A-Z])/m;
+  const rawSections = text.split(sectionBoundary).map(s => s.trim()).filter(s => s.length > 20);
+
+  if (rawSections.length < 3) {
+    // Not enough section breaks found — fall back to word-window
+    return chunkText(text);
+  }
+
+  // Merge very short sections (under 80 chars) with the next one
+  const merged: string[] = [];
+  let carry = '';
+  for (const sec of rawSections) {
+    const combined = carry ? `${carry}\n\n${sec}` : sec;
+    if (combined.length < 80 && rawSections.indexOf(sec) < rawSections.length - 1) {
+      carry = combined;
+    } else {
+      merged.push(combined);
+      carry = '';
+    }
+  }
+  if (carry) merged.push(carry);
+
+  return merged;
+}
+
+
 
 /**
  * Derives jurisdiction, doc_type, doc_title, counsel_role, and matter_track
@@ -296,6 +363,7 @@ function parseKeyMetadata(key: string): {
   doc_title:    string;
   counsel_role: string;
   matter_track: string;
+  is_statute:   boolean;
 } {
   const parts        = key.split('/');
   const jurisdiction = parts.length >= 3 ? parts[0] : 'NG';
@@ -328,13 +396,29 @@ function parseKeyMetadata(key: string): {
   } else if (folderLower === 'criminal' || folderLower === 'criminal_shared') {
     counsel_role = 'shared'; matter_track = 'criminal';
     doc_type     = 'Criminal — Shared';
+  } else if (folderLower === 'matrimonial_shared') {
+    counsel_role = 'shared'; matter_track = 'matrimonial';
+    doc_type     = 'Matrimonial — Statute';          // all shared matrimonial docs are statutes
+  } else if (folderLower === 'matrimonial_petitioner') {
+    counsel_role = 'petitioner_side'; matter_track = 'matrimonial';
+    doc_type     = 'Matrimonial — Petitioner Side';
+  } else if (folderLower === 'matrimonial_respondent') {
+    counsel_role = 'respondent_side'; matter_track = 'matrimonial';
+    doc_type     = 'Matrimonial — Respondent Side';
   } else {
     // Legacy folders: Statutes, Authorities, shared, etc. → shared on both tracks
     counsel_role = 'shared'; matter_track = 'shared';
     doc_type     = folderName;
   }
 
-  return { jurisdiction, doc_type, doc_title, counsel_role, matter_track };
+  // A document is a statute when its doc_type includes 'Statute', or it lives in
+  // a Statutes legacy folder, or the filename matches a known Act naming pattern.
+  const is_statute =
+    doc_type.includes('Statute') ||
+    folderLower === 'statutes' ||
+    /Act\d{4}|_Act_|Act\.pdf$/i.test(filename);
+
+  return { jurisdiction, doc_type, doc_title, counsel_role, matter_track, is_statute };
 }
 
 // ── Ingest Handler ────────────────────────────────────────────────────────────
@@ -383,7 +467,7 @@ async function handleIngest(req: Request, env: Env): Promise<Response> {
         const obj = await env.R2.get(key);
         if (!obj) { failed.push({ key, reason: 'File not found in R2' }); continue; }
 
-        const { jurisdiction, doc_type, doc_title, counsel_role, matter_track } = parseKeyMetadata(key);
+        const { jurisdiction, doc_type, doc_title, counsel_role, matter_track, is_statute } = parseKeyMetadata(key);
         let text = '';
 
         if (key.toLowerCase().endsWith('.txt')) {
@@ -402,7 +486,9 @@ async function handleIngest(req: Request, env: Env): Promise<Response> {
           continue;
         }
 
-        const chunks = chunkText(text);
+        // Fix 1 — section-aware chunking for statute documents
+        const useStatuteChunker = is_statute || looksLikeStatute(text);
+        const chunks = useStatuteChunker ? chunkStatute(text) : chunkText(text);
         if (chunks.length === 0) { failed.push({ key, reason: 'No chunks produced after splitting' }); continue; }
 
         let successfulChunks = 0;
@@ -434,8 +520,9 @@ async function handleIngest(req: Request, env: Env): Promise<Response> {
               doc_title,
               jurisdiction,
               doc_type,
-              counsel_role,     // 'claimant_side' | 'defendant_side' | 'prosecution' | 'defence' | 'shared'
-              matter_track,     // 'civil' | 'criminal' | 'shared'
+              counsel_role,     // 'claimant_side' | 'defendant_side' | 'prosecution' | 'defence' | 'petitioner_side' | 'respondent_side' | 'shared'
+              matter_track,     // 'civil' | 'criminal' | 'matrimonial' | 'shared'
+              is_statute:    useStatuteChunker,
               chunk_index:   i,
               total_chunks:  chunks.length,
               source_file:   key,
