@@ -367,13 +367,13 @@ export async function deleteEvidenceFile(id: string, caseId?: string): Promise<b
 // ── Blind Spots ───────────────────────────────────────────────────────────────
 // Blind spot data is session-specific analytical output — local only is fine.
 
-export async function loadBlindSpot<T>(caseId: string, module: string, fallback: T): Promise<T> {
+export async function loadBlindSpot<T>(caseId: string, module: string, fallback?: T): Promise<T | null> {
   try {
     const rec = await db.blind_spots.get(`afs_bs_${module}_${caseId}`);
-    return (rec?.data as T) ?? fallback;
+    return (rec?.data as T) ?? fallback ?? null;
   } catch (e) {
     console.error('[Storage] loadBlindSpot failed', e);
-    return fallback;
+    return fallback ?? null;
   }
 }
 
