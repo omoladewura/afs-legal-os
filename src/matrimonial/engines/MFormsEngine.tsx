@@ -325,7 +325,7 @@ Draft the complete form in its prescribed MCR format. Include:
 
 Use formal legal drafting throughout. The form must be ready for counsel review and signing.`;
 
-    const result = await ai.ask({ system: SYSTEM, userMsg: prompt, maxTokens: 2000 });
+    const result = await ai.ask({ system: SYSTEM, userMsg: prompt, maxTokens: 2000, libraryOpts: { queryHint: 'MCR statutory forms Form 6 Form 11 Form 15 Form 3A Form 31 Form 32 MCR O.5 O.6 petition acknowledgement answer set down' } });
     if (result) setDraft(result);
   }
 

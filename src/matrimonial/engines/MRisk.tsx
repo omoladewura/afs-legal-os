@@ -388,7 +388,7 @@ Rules:
 - Apply Nigerian MCA law precisely. Be analytically honest.
 - s.241(2) CFRN hard bar: if any appeal against decree absolute is in play, appeal_survivability score must be 0 with raw_risk HIGH.`;
 
-    const raw = await ai.ask({ system: MRISK_SYSTEM, userMsg: prompt, maxTokens: 2500 });
+    const raw = await ai.ask({ system: MRISK_SYSTEM, userMsg: prompt, maxTokens: 2500, libraryOpts: { queryHint: 'MCA matrimonial risk condonation connivance s.30 two-year bar nullity bars ss.35-37 ground strength s.15(2) decree timeline s.57 s.58 appeal s.241(2) CFRN financial disclosure' } });
     if (!raw) return;
 
     try {

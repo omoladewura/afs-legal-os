@@ -200,8 +200,7 @@ Advise on:
 - Cost-benefit for both sides
 - Recommended course`;
 
-    const result = await ai.ask({ system: SYSTEM, userMsg: prompt, maxTokens: 2500 });
-    if (result) setOutput(result);
+    const result = await ai.ask({ system: SYSTEM, userMsg: prompt, maxTokens: 2500, libraryOpts: { queryHint: 'appeal decree nisi s.241(1)(f)(iv) CFRN s.241(2) absolute bar Court of Appeal matrimonial pending appeal effect' } });
   }
 
   return (
@@ -307,8 +306,7 @@ Draft a complete Notice of Appeal under the Court of Appeal Rules 2021, includin
 
 Note: This is an appeal as of right under s.241(1)(f)(iv) CFRN — no leave required. State this clearly in the preamble.`;
 
-    const result = await ai.ask({ system: SYSTEM, userMsg: prompt, maxTokens: 2000 });
-    if (result) setDraft(result);
+    const result = await ai.ask({ system: SYSTEM, userMsg: prompt, maxTokens: 2000, libraryOpts: { queryHint: 'notice of appeal Court of Appeal matrimonial s.241(1)(f)(iv) CFRN grounds of appeal decree nisi as of right' } });
   }
 
   return (

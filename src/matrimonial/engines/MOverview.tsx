@@ -343,7 +343,7 @@ Provide a concise risk summary under these headings:
 
 Be specific to the facts above. Use correct MCA section numbers.`;
 
-    const result = await ai.ask({ system: SYSTEM, userMsg: prompt, maxTokens: 1500 });
+    const result = await ai.ask({ system: SYSTEM, userMsg: prompt, maxTokens: 1500, libraryOpts: { queryHint: 'MCA matrimonial causes overview s.15(2) dissolution facts decree nisi absolute procedural stage next steps' } });
     if (result) setSummary(result);
   }
 

@@ -477,12 +477,7 @@ Extract all matrimonial intelligence from the facts above and return a single JS
   ]
 }`;
 
-    const raw = await ai.ask({ system: SYSTEM, userMsg: prompt, maxTokens: 2500 });
-    if (!raw) return;
-
-    try {
-      const clean = raw.replace(/```json|```/g, '').trim();
-      const ex: MExtractionResult = JSON.parse(clean);
+    const raw = await ai.ask({ system: SYSTEM, userMsg: prompt, maxTokens: 2500, libraryOpts: { queryHint: 'MCA s.15(2) dissolution facts two-year bar s.30 condonation co-respondent s.32 marriage timeline relief nullity children financial' } });
       upd({ stage: 2, extraction: ex });
     } catch {
       upd({ stage: 2, extraction: null });
@@ -504,11 +499,7 @@ Return JSON array only:
   { "id": "q1", "question": "string", "purpose": "why this matters legally" }
 ]`;
 
-    const raw = await ai.ask({ system: SYSTEM, userMsg: prompt, maxTokens: 1000 });
-    if (!raw) return;
-    try {
-      const clean = raw.replace(/```json|```/g, '').trim();
-      const qs = JSON.parse(clean);
+    const raw = await ai.ask({ system: SYSTEM, userMsg: prompt, maxTokens: 1000, libraryOpts: { queryHint: 'MCA evidence gaps s.30 bar exception co-respondent identification condonation connivance welfare officer financial disclosure missing dates' } });
       upd({ stage: 3, followUpQs: qs });
     } catch {
       upd({ stage: 3, followUpQs: [] });
@@ -544,11 +535,7 @@ Return JSON array:
   }
 ]`;
 
-    const raw = await ai.ask({ system: SYSTEM, userMsg: prompt, maxTokens: 2000 });
-    if (!raw) return;
-    try {
-      const clean = raw.replace(/```json|```/g, '').trim();
-      const em = JSON.parse(clean);
+    const raw = await ai.ask({ system: SYSTEM, userMsg: prompt, maxTokens: 2000, libraryOpts: { queryHint: 'MCA MCR evidence map dissolution fact s.15(2) corroboration affidavit documentary evidence children welfare financial disclosure MCR rules' } });
       upd({ stage: 4, evidenceMap: em });
     } catch {
       upd({ stage: 4, evidenceMap: [] });
@@ -578,7 +565,7 @@ Generate the full MCA Intelligence Package using ## section headings:
 
 Use correct MCA section numbers throughout. Identify the counsel role (${activeCase.counsel_role === 'petitioner_side' ? 'Petitioner Side' : 'Respondent Side'}) and tailor strategy accordingly.`;
 
-    const raw = await ai.ask({ system: SYSTEM, userMsg: prompt, maxTokens: 3000 });
+    const raw = await ai.ask({ system: SYSTEM, userMsg: prompt, maxTokens: 3000, libraryOpts: { queryHint: 'MCA intelligence package s.15(2) dissolution analysis s.30 two-year bar nullity children welfare financial maintenance condonation procedural stage risk register' } });
     if (!raw) return;
     upd({ stage: 5, intPackage: raw });
   }

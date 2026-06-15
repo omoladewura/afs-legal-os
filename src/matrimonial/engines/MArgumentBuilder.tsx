@@ -367,7 +367,7 @@ Draft the complete document described above. Requirements:
 ---
 ⚠ COUNSEL REVIEW REQUIRED: This draft must be reviewed and settled by counsel before filing. Any affidavit must be sworn before a Commissioner for Oaths or other competent authority. All statutory references should be verified against the current MCA and MCR.`;
 
-    const raw = await ai.ask({ system: MAB_SYSTEM, userMsg: prompt, maxTokens: 4000 });
+    const raw = await ai.ask({ system: MAB_SYSTEM, userMsg: prompt, maxTokens: 4000, libraryOpts: { queryHint: `MCA MCR ${selDoc.authority} ${selDoc.label} affidavit written address verifying affidavit Nigerian matrimonial causes drafting` } });
     if (!raw) return;
 
     setDraft(raw);

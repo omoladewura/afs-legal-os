@@ -150,7 +150,7 @@ Advise on:
 
 Where contempt is involved, advise on the O.17 r.4 MCR procedure, the standard for committal, and the purging of contempt.`;
 
-    const result = await ai.ask({ system: SYSTEM, userMsg: prompt, maxTokens: 2000 });
+    const result = await ai.ask({ system: SYSTEM, userMsg: prompt, maxTokens: 2000, libraryOpts: { queryHint: 'decree enforcement MCA O.17 r.4 MCR contempt maintenance arrears attachment sequestration post-decree compliance' } });
     if (result) setOutput(result);
   }
 
@@ -292,7 +292,7 @@ Draft:
 
 State the applicable statutory provision clearly (${childrenOrder === 'yes' ? 's.57' : 's.58'} MCA). The application must state that the prescribed period has elapsed or will have elapsed by the return date.`;
 
-    const result = await ai.ask({ system: SYSTEM, userMsg: prompt, maxTokens: 2500 });
+    const result = await ai.ask({ system: SYSTEM, userMsg: prompt, maxTokens: 2500, libraryOpts: { queryHint: 'decree absolute s.57 s.58 MCA application make absolute children welfare order O.11 MCR prescribed period' } });
     if (result) setDraftOutput(result);
   }
 

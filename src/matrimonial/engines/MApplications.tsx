@@ -423,7 +423,7 @@ Draft the complete document package for this application. For each document in t
 
 After all documents, add a section: "## FILING CHECKLIST" with the steps counsel must complete before filing.`;
 
-    const raw = await ai.ask({ system: MCA_SYSTEM, userMsg: prompt, maxTokens: 4000 });
+    const raw = await ai.ask({ system: MCA_SYSTEM, userMsg: prompt, maxTokens: 4000, libraryOpts: { queryHint: `MCA MCR application ${selApp.authority} ${selApp.label} affidavit motion ex-parte notice matrimonial causes` } });
     if (!raw) return;
 
     setDraft(raw);
