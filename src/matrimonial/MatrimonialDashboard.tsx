@@ -7,9 +7,8 @@
  * Phase 1: Skeleton (replaced here)
  * Phase 4: Full 16-tab bar, own header (Petitioner v Respondent, suit number,
  *           court, MCA citation strip, relief-type badge), own engine router.
- *
- * Tabs with engines not yet built (Phases 5 & 6) render clearly-labelled
- * placeholders — no blank screens, no broken routes.
+ * Phase 9E: Intelligence Status Bar — always visible, shows last run date,
+ *           version, top-line risk summary. Anchors MIntelligence as first step.
  *
  * MCA = Matrimonial Causes Act, Cap M7, LFN 2004
  * MCR = Matrimonial Causes Rules 1983
@@ -102,6 +101,151 @@ const PROMOTED_SUB_TAB_MAP: Record<PromotedSubTab, string> = {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
+// INTELLIGENCE STATUS BAR — Phase 9E
+// Always visible below the case header, above the tab bar.
+// ─────────────────────────────────────────────────────────────────────────────
+
+function IntelligenceStatusBar({
+  mData,
+  onGoToIntelligence,
+  onReRun,
+}: {
+  mData: MatrimonialCaseData | null;
+  onGoToIntelligence: () => void;
+  onReRun: () => void;
+}) {
+  const hasIntel = !!mData?.intelligence_extraction;
+
+  if (!hasIntel) {
+    return (
+      <div style={{
+        background: '#f8f8fc', border: '1px solid #d8d8e8', borderRadius: 6,
+        padding: '12px 20px', margin: '12px 0',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10,
+      }}>
+        <div>
+          <span style={{
+            display: 'inline-block', width: 8, height: 8, borderRadius: '50%',
+            background: '#aaaaaa', marginRight: 8, verticalAlign: 'middle',
+          }} />
+          <span style={{ fontSize: 13, color: '#555555', fontFamily: SERIF }}>
+            Intelligence not yet run · Run MIntelligence first for pre-filled forms, targeted risk assessment, and smart application suggestions.
+          </span>
+        </div>
+        <button
+          onClick={onGoToIntelligence}
+          style={{
+            background: 'linear-gradient(135deg,#000000,#a07820)', color: '#ffffff',
+            border: 'none', borderRadius: 4, padding: '7px 18px',
+            fontSize: 12, fontFamily: SERIF, cursor: 'pointer', letterSpacing: '.04em', fontWeight: 600,
+            flexShrink: 0,
+          }}
+        >
+          Go to Intelligence →
+        </button>
+      </div>
+    );
+  }
+
+  const runAt    = mData!.intelligence_run_at;
+  const version  = mData!.intelligence_version ?? 1;
+  const ex       = mData!.intelligence_extraction!;
+
+  const runDate = runAt
+    ? new Date(runAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+    : '—';
+
+  const highRisks = ex.gaps_and_risks?.filter(g => g.severity === 'HIGH') ?? [];
+  const barApplies   = ex.two_year_bar?.bar_applies && !ex.two_year_bar?.leave_obtained;
+  const exceptionFound = ex.two_year_bar?.bar_applies && !!ex.two_year_bar?.exception;
+
+  // Build top-line summary tags
+  const summaryTags: Array<{ label: string; col: string; bg: string; bdr: string }> = [];
+  if (highRisks.length > 0) {
+    summaryTags.push({ label: `${highRisks.length} HIGH risk${highRisks.length > 1 ? 's' : ''}`, col: '#a01010', bg: '#fff3f3', bdr: '#e04040' });
+  }
+  if (barApplies) {
+    summaryTags.push({ label: 's.30 bar applies', col: '#8a5a00', bg: '#fff8e1', bdr: '#f0c040' });
+    if (!exceptionFound) {
+      summaryTags.push({ label: 'No exception identified', col: '#7a1a1a', bg: '#fbedf0', bdr: '#e8b8c0' });
+    } else {
+      summaryTags.push({ label: 'Exception may apply', col: '#1a4a1a', bg: '#edfaf3', bdr: '#60b060' });
+    }
+  }
+  const condonationHigh = ex.condonation_risk?.severity === 'HIGH';
+  if (condonationHigh) {
+    summaryTags.push({ label: 'Condonation HIGH', col: '#a01010', bg: '#fff3f3', bdr: '#e04040' });
+  }
+  if (ex.co_respondent?.named) {
+    summaryTags.push({ label: 'Co-respondent named', col: '#4a1a7a', bg: '#f5edfb', bdr: '#ccb8e8' });
+  }
+
+  return (
+    <div style={{
+      background: '#f0f8f0', border: '1px solid #60b060', borderRadius: 6,
+      padding: '12px 20px', margin: '12px 0',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <span style={{
+            display: 'inline-block', width: 8, height: 8, borderRadius: '50%',
+            background: '#40a040', marginRight: 4, verticalAlign: 'middle',
+          }} />
+          <span style={{ fontSize: 13, color: '#1a4a1a', fontFamily: SERIF, fontWeight: 600 }}>
+            ⚡ Intelligence
+          </span>
+          <span style={{ fontSize: 12, color: '#336633', fontFamily: SERIF }}>
+            Last run: {runDate} · Version {version}
+          </span>
+
+          {summaryTags.map((tag, i) => (
+            <span key={i} style={{
+              fontSize: 10, fontWeight: 600, letterSpacing: '.07em', textTransform: 'uppercase',
+              background: tag.bg, color: tag.col, border: `1px solid ${tag.bdr}`,
+              borderRadius: 3, padding: '2px 8px', fontFamily: SERIF,
+            }}>
+              {tag.label}
+            </span>
+          ))}
+        </div>
+
+        <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+          <button
+            onClick={onReRun}
+            style={{
+              background: 'none', border: '1px solid #60b060', color: '#2a6a2a',
+              borderRadius: 4, padding: '5px 14px', fontSize: 11,
+              fontFamily: SERIF, cursor: 'pointer', letterSpacing: '.04em',
+            }}
+          >
+            Re-run
+          </button>
+          <button
+            onClick={onGoToIntelligence}
+            style={{
+              background: 'none', border: '1px solid #60b060', color: '#2a6a2a',
+              borderRadius: 4, padding: '5px 14px', fontSize: 11,
+              fontFamily: SERIF, cursor: 'pointer', letterSpacing: '.04em',
+            }}
+          >
+            View
+          </button>
+        </div>
+      </div>
+
+      {highRisks.length > 0 && (
+        <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid #b0d8b0' }}>
+          <span style={{ fontSize: 11, color: '#a01010', fontFamily: SERIF, fontWeight: 600 }}>High risks: </span>
+          <span style={{ fontSize: 11, color: '#555555', fontFamily: SERIF }}>
+            {highRisks.map(r => r.issue).join(' · ')}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // PLACEHOLDER PANEL
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -141,8 +285,6 @@ function PlaceholderPanel({
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MATRIMONIAL ENGINE WRAPPER
-// Renders MatrimonialEngine with the full engine intact.
-// The engine's own sub-tab bar lets counsel navigate within it.
 // ─────────────────────────────────────────────────────────────────────────────
 
 function MatrimonialEngineSubTab({
@@ -186,6 +328,25 @@ export function MatrimonialDashboard() {
     : activeCase?.caseName ?? 'Matrimonial Matter';
 
   const twoYearBarActive = mData?.two_year_bar_applies === true && !mData?.leave_granted;
+
+  // ── Intelligence Status Bar handlers ─────────────────────────────────────
+
+  const handleGoToIntelligence = useCallback(() => {
+    setActiveTab('intelligence');
+  }, []);
+
+  // Re-run: navigate to intelligence tab (associate triggers the run there)
+  const handleReRun = useCallback(() => {
+    setActiveTab('intelligence');
+  }, []);
+
+  // Refresh mData after returning from intelligence tab
+  useEffect(() => {
+    if (!activeCase?.id) return;
+    loadMatrimonialData(activeCase.id)
+      .then(setMData)
+      .catch(() => setMData(null));
+  }, [activeCase?.id, activeTab]);
 
   // ── Engine router ─────────────────────────────────────────────────────────
 
@@ -351,7 +512,7 @@ export function MatrimonialDashboard() {
         position: 'sticky', top: 0, zIndex: 10,
       }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-          <div>
+          <div style={{ flex: 1 }}>
             <p style={{
               fontSize: 9, color: '#888888', letterSpacing: '.2em',
               textTransform: 'uppercase', marginBottom: 4, fontWeight: 600,
@@ -409,6 +570,15 @@ export function MatrimonialDashboard() {
                 </span>
               )}
             </div>
+
+            {/* ── Intelligence Status Bar — Phase 9E ──────────────────────── */}
+            {activeCase && (
+              <IntelligenceStatusBar
+                mData={mData}
+                onGoToIntelligence={handleGoToIntelligence}
+                onReRun={handleReRun}
+              />
+            )}
           </div>
 
           <button
