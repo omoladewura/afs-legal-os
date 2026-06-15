@@ -31,6 +31,24 @@ const MatrimonialEngine = lazy(() =>
   import('@/engines/MatrimonialEngine').then(m => ({ default: m.MatrimonialEngine }))
 );
 
+// ── Phase 5 engines ───────────────────────────────────────────────────────────
+
+const MOverview = lazy(() =>
+  import('@/matrimonial/engines/MOverview').then(m => ({ default: m.MOverview }))
+);
+const MIntelligence = lazy(() =>
+  import('@/matrimonial/engines/MIntelligence').then(m => ({ default: m.MIntelligence }))
+);
+const MFormsEngine = lazy(() =>
+  import('@/matrimonial/engines/MFormsEngine').then(m => ({ default: m.MFormsEngine }))
+);
+const DecreeEnforcementEngine = lazy(() =>
+  import('@/matrimonial/engines/DecreeEnforcementEngine').then(m => ({ default: m.DecreeEnforcementEngine }))
+);
+const MAppeal = lazy(() =>
+  import('@/matrimonial/engines/MAppeal').then(m => ({ default: m.MAppeal }))
+);
+
 // ── Shared engines (as-is) ───────────────────────────────────────────────────
 
 const CrossExamEngine = lazy(() =>
@@ -191,6 +209,51 @@ export function MatrimonialDashboard() {
           <ErrorBoundary name={activeTab}>
             <Suspense fallback={fallback}>
               <MatrimonialEngineSubTab activeCase={activeCase} />
+            </Suspense>
+          </ErrorBoundary>
+        );
+
+      case 'overview':
+        return (
+          <ErrorBoundary name="overview">
+            <Suspense fallback={fallback}>
+              <MOverview activeCase={activeCase} />
+            </Suspense>
+          </ErrorBoundary>
+        );
+
+      case 'intelligence':
+        return (
+          <ErrorBoundary name="intelligence">
+            <Suspense fallback={fallback}>
+              <MIntelligence activeCase={activeCase} />
+            </Suspense>
+          </ErrorBoundary>
+        );
+
+      case 'forms_documents':
+        return (
+          <ErrorBoundary name="forms_documents">
+            <Suspense fallback={fallback}>
+              <MFormsEngine activeCase={activeCase} />
+            </Suspense>
+          </ErrorBoundary>
+        );
+
+      case 'decree_enforcement':
+        return (
+          <ErrorBoundary name="decree_enforcement">
+            <Suspense fallback={fallback}>
+              <DecreeEnforcementEngine activeCase={activeCase} />
+            </Suspense>
+          </ErrorBoundary>
+        );
+
+      case 'appeal':
+        return (
+          <ErrorBoundary name="appeal">
+            <Suspense fallback={fallback}>
+              <MAppeal activeCase={activeCase} />
             </Suspense>
           </ErrorBoundary>
         );
