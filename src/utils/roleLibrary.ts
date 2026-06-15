@@ -8,7 +8,7 @@
  * HOW IT WORKS
  * ────────────
  * Your Cloudflare Vectorize index stores every document with a metadata field:
- *   { counsel_role: 'claimant_side' | 'defendant_side' | 'prosecution' | 'defence' | 'shared' }
+ *   { counsel_role: 'claimant_side' | 'defendant_side' | 'prosecution' | 'defence' | 'petitioner_side' | 'respondent_side' | 'shared' }
  *
  * When a claimant-side engine calls Claude, Vectorize is queried with:
  *   filter: { counsel_role: 'claimant_side' }
@@ -91,6 +91,20 @@ export const ROLE_RAG_CONFIG: Record<CounselRole, RoleRagConfig> = {
     threshold: 0.68,
     queryHint: 'Nigerian criminal defence ACJA bail remand no-case submission acquittal appeal allocutus',
   },
+  petitioner_side: {
+    filter:    { counsel_role: 'petitioner_side' },
+    namespace: 'matrimonial_petitioner',
+    topK:      10,
+    threshold: 0.60,
+    queryHint: 'Nigerian matrimonial causes MCA petition dissolution nullity s.15(2) facts two-year bar co-respondent Form 6',
+  },
+  respondent_side: {
+    filter:    { counsel_role: 'respondent_side' },
+    namespace: 'matrimonial_respondent',
+    topK:      10,
+    threshold: 0.60,
+    queryHint: 'Nigerian matrimonial causes MCA answer cross-petition condonation connivance bars s.28 decree nisi respondent',
+  },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -99,8 +113,9 @@ export const ROLE_RAG_CONFIG: Record<CounselRole, RoleRagConfig> = {
 
 /** Used when counsel_role is absent (legacy V1 matters). */
 const TRACK_FALLBACK_NAMESPACE: Record<MatterTrack, string> = {
-  civil:    'civil_shared',
-  criminal: 'criminal_shared',
+  civil:       'civil_shared',
+  criminal:    'criminal_shared',
+  matrimonial: 'matrimonial_shared',
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -143,12 +158,15 @@ export function buildRoleLibraryOpts(
 
   // V1 legacy matter — track-based namespace, no role filter
   if (matterTrack) {
+    const matrimonialHint = 'Nigerian matrimonial causes MCA MCR petition dissolution nullity decree';
     return {
       namespace: TRACK_FALLBACK_NAMESPACE[matterTrack],
       topK:      8,
-      threshold: 0.70,
+      threshold: matterTrack === 'matrimonial' ? 0.60 : 0.70,
       queryHint: matterTrack === 'criminal'
         ? 'Nigerian criminal litigation procedure evidence'
+        : matterTrack === 'matrimonial'
+        ? matrimonialHint
         : 'Nigerian civil litigation procedure High Court Rules',
     };
   }
