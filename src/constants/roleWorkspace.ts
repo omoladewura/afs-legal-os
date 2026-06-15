@@ -174,6 +174,42 @@ export const ROLE_TABS: Record<CounselRole, DashTabId[]> = {
     'research',
     'copilot',
   ],
+  frep_applicant: [
+    'overview',
+    'alerts',
+    'copilot',
+    'intelligence',
+    'applications',
+    'evidence',
+    'builder',
+    'final_address',
+    'risk',
+    'blindspots',
+    'timeline',
+    'research',
+    'authority',
+    'san',
+    'console',
+    'synthesis',
+  ],
+  frep_respondent: [
+    'overview',
+    'alerts',
+    'copilot',
+    'intelligence',
+    'applications',
+    'evidence',
+    'builder',
+    'final_address',
+    'risk',
+    'blindspots',
+    'timeline',
+    'research',
+    'authority',
+    'san',
+    'console',
+    'synthesis',
+  ],
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -230,6 +266,20 @@ export const ROLE_QUICK_ACTIONS: Record<CounselRole, QuickAction[]> = {
     { label: 'Intelligence',         icon: '⚡', tab: 'intelligence',           accent: '#c07030', hint: 'MCA defence analysis — bars, condonation, cross-petition' },
     { label: 'Ancillary Relief',     icon: '⚖', tab: 'ancillary_applications', accent: '#c07030', hint: 'Maintenance, custody, property — respondent applications' },
     { label: 'Decree Tracker',       icon: '📅', tab: 'decree_enforcement',     accent: '#c07030', hint: 'Monitor nisi and absolute timeline' },
+  ],
+  frep_applicant: [
+    { label: 'File Application',  icon: '§',  tab: 'applications',  accent: '#1a5a38', hint: 'Originating Motion bundle — OM + Statement + Affidavit + Written Address' },
+    { label: 'Intelligence',      icon: '⚡', tab: 'intelligence',  accent: '#1a5a38', hint: 'Jurisdiction gate, rights analysis, urgency assessment' },
+    { label: 'Evidence',          icon: '📁', tab: 'evidence',      accent: '#1a5a38', hint: 'Upload and categorise proof of rights breach' },
+    { label: 'Final Address',     icon: '✍', tab: 'final_address', accent: '#1a5a38', hint: 'Written Address and Reply on Points of Law' },
+    { label: 'Risk Analytics',    icon: '■',  tab: 'risk',          accent: '#1a5a38', hint: 'Jurisdiction, laches, proper respondent, mode exposure' },
+  ],
+  frep_respondent: [
+    { label: 'File Response',     icon: '🛡', tab: 'applications',  accent: '#7a3010', hint: 'Counter-Affidavit + Written Address or Written Address only (law-only PO)' },
+    { label: 'Intelligence',      icon: '⚡', tab: 'intelligence',  accent: '#7a3010', hint: 'Jurisdiction gate, opposition type, PO grounds' },
+    { label: 'Evidence',          icon: '📁', tab: 'evidence',      accent: '#7a3010', hint: 'Upload and categorise respondent evidence' },
+    { label: 'Final Address',     icon: '✍', tab: 'final_address', accent: '#7a3010', hint: 'Written Address in Opposition — 5-day window from service' },
+    { label: 'Risk Analytics',    icon: '■',  tab: 'risk',          accent: '#7a3010', hint: 'Admission risk, PO grounds, compliance exposure' },
   ],
 };
 
@@ -321,6 +371,104 @@ export const ROLE_STAGES: Record<CounselRole, ProceduralStage[]> = {
     { id: 'compliance',        label: 'Compliance',            icon: '◦', desc: 'Comply with ancillary relief orders — maintenance payments, property transfer, custody arrangements. Monitor enforcement risk. Apply for variation under s.45 or s.70 MCA if circumstances change.' },
     { id: 'appeal',            label: 'Appeal',                icon: '◦', desc: 'Appeal against decree nisi as of right under s.241(1)(f)(iv) CFRN. No appeal against decree absolute — s.241(2) CFRN is an absolute bar. Pursue Court of Appeal matrimonial division procedure.' },
   ],
+
+  // ── FREP — Fundamental Rights Enforcement Proceedings ────────────────────
+
+  frep_applicant: [
+    {
+      id:    'pre_action',
+      label: 'Pre-Action',
+      icon:  '◦',
+      desc:  'Rights engaged, capacity and representation confirmed, proper respondent(s) identified, jurisdiction and court/division screened, mode selected (Originating Motion default), urgency assessed.',
+    },
+    {
+      id:    'application_filed',
+      label: 'Application Filed',
+      icon:  '◦',
+      desc:  'Originating Motion + Statement + Affidavit in Support + Written Address filed. If urgency flagged: Motion Ex-Parte + Affidavit of Urgency bundled in the same filing package. Mode locked on filing.',
+    },
+    {
+      id:    'service',
+      label: 'Service',
+      icon:  '◦',
+      desc:  'Personal / agent / substituted service effected on each respondent. Attorney-General served if a state agency is respondent. Proof of service filed with the court.',
+    },
+    {
+      id:    'awaiting_response',
+      label: 'Awaiting Response',
+      icon:  '◦',
+      desc:  'Monitoring 5-day window for Counter-Affidavit + Written Address (factual opposition) or Written Address only (law-only PO). Interim relief status tracked in parallel. Facts in applicant\'s affidavit stand admitted if counter-affidavit not filed by deadline.',
+    },
+    {
+      id:    'reply_address',
+      label: 'Reply Address',
+      icon:  '◦',
+      desc:  'Reply on Points of Law filed within 5 days of receiving respondent\'s Written Address. Further Affidavit filed if respondent raised new facts not in the original affidavit.',
+    },
+    {
+      id:    'hearing',
+      label: 'Hearing',
+      icon:  '◦',
+      desc:  'Matter listed within 7-day target from filing. Oral address limited to 20 minutes, confined to issues arising after the Written Address was filed. Adoption on absence if respondent had notice.',
+    },
+    {
+      id:    'ruling',
+      label: 'Ruling',
+      icon:  '◦',
+      desc:  'Full relief taxonomy recorded — declaration, injunction, mandatory order, apology, damages/compensation, bail/release, access to counsel and family, non-arrest/non-repeat order, production order. Discharge of any interim order recorded and interim_relief_status updated.',
+    },
+    {
+      id:    'compliance',
+      label: 'Compliance',
+      icon:  '◦',
+      desc:  'Enforcement against respondent (state or private). Contempt/committal proceedings if non-compliance. Mandatory orders enforced as directed.',
+    },
+    {
+      id:    'appeal',
+      label: 'Appeal',
+      icon:  '◦',
+      desc:  'Priority appeal. File Notice of Appeal within time. Compile records. File Appellant\'s Brief.',
+    },
+  ],
+
+  frep_respondent: [
+    {
+      id:    'service_received',
+      label: 'Service Received',
+      icon:  '◦',
+      desc:  'Received Originating Motion package. Assess service regularity and any urgency ex parte motion. Confirm whether Attorney-General endorsement is on record if a state agency is named as respondent.',
+    },
+    {
+      id:    'counter_affidavit',
+      label: 'Counter-Affidavit / Written Address',
+      icon:  '◦',
+      desc:  'If facts contested: file Counter-Affidavit + Written Address within 5 days of service. If law-only PO: file Written Address only — PO grounds folded in; silence on applicant\'s facts is treated as admission. Branch determined by respondent_opposition_type flag set in intake.',
+    },
+    {
+      id:    'hearing',
+      label: 'Hearing',
+      icon:  '◦',
+      desc:  'Oral address limited to 20 minutes, confined to issues arising after Written Address filed. No oral argument if Written Address was not filed. Adoption rules apply on absence if respondent had notice.',
+    },
+    {
+      id:    'ruling',
+      label: 'Ruling',
+      icon:  '◦',
+      desc:  'Record reliefs granted. Assess grounds of appeal. Note discharge of any interim order. Advise client on compliance obligations and timelines.',
+    },
+    {
+      id:    'compliance',
+      label: 'Compliance',
+      icon:  '◦',
+      desc:  'Comply with orders granted. Apply for variation or stay of execution if appropriate. Contempt risk for non-compliance.',
+    },
+    {
+      id:    'appeal',
+      label: 'Appeal',
+      icon:  '◦',
+      desc:  'Priority appeal against adverse ruling. File Notice of Appeal and Appellant\'s Brief within time. Consider stay of execution pending appeal.',
+    },
+  ],
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -385,6 +533,22 @@ export const ROLE_POSITION_CONFIG: Record<CounselRole, RolePositionConfig> = {
     accentColor:     '#c07030',
     icon:            '🛡',
   },
+  frep_applicant: {
+    positionLabel:   "Applicant's Position",
+    positionDesc:    'Enforcing fundamental rights — driving the application, service, and compliance with any order obtained.',
+    nextActionLabel: 'Next Applicant Action',
+    riskLabel:       'Applicant Risk Flags',
+    accentColor:     '#1a5a38',
+    icon:            '§',
+  },
+  frep_respondent: {
+    positionLabel:   "Respondent's Position",
+    positionDesc:    'Resisting or managing the rights enforcement claim — counter-affidavit, written address, preliminary objection, and compliance.',
+    nextActionLabel: 'Next Respondent Action',
+    riskLabel:       'Respondent Risk Flags',
+    accentColor:     '#7a3010',
+    icon:            '🛡',
+  },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -398,6 +562,8 @@ export const ROLE_DEFAULT_NEXT_ACTION: Record<CounselRole, string> = {
   defence:         'Review charge for defects and apply for bail if in custody.',
   petitioner_side: 'Obtain Form 3A reconciliation certificate, confirm s.15(2) dissolution fact, check two-year bar under s.30 MCA, then draft and file Petition Form 6.',
   respondent_side: 'File Acknowledgement of Service Form 11 within time, assess petition for defects and available bars, then advise on Answer and cross-petition.',
+  frep_applicant:  'Confirm jurisdiction gate passed, capacity confirmed, and urgency assessed. Draft and file the Originating Motion bundle — Motion + Statement + Affidavit in Support + Written Address.',
+  frep_respondent: 'Assess service regularity. Determine whether opposition is factual (Counter-Affidavit required) or law-only (Written Address only). File within 5 days of service.',
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -448,6 +614,24 @@ export const ROLE_RISK_FLAGS: Record<CounselRole, Array<{ label: string; severit
     { label: 'Nullity bars (ss.35–37 MCA) — check whether Respondent\'s own disability bars a voidable nullity petition.', severity: 'MEDIUM' },
     { label: 'Appeal against nisi must be filed within time — no appeal lies against decree absolute (s.241(2) CFRN).', severity: 'LOW' },
     { label: 'Monitor Petitioner\'s application for absolute — Respondent may object if appeal pending or children order unresolved.', severity: 'LOW' },
+  ],
+  frep_applicant: [
+    { label: 'Jurisdiction / Main-vs-Ancillary Exposure — chieftaincy, pure contract, land, or employment without FR breach as the ground.', severity: 'HIGH' },
+    { label: 'Single-Applicant Rule — personal rights cannot be joined in one application; joinder is not permitted.',                         severity: 'HIGH' },
+    { label: 'NIC Exclusivity — labour/employment-related FR matters (including child trafficking) belong at the National Industrial Court.',   severity: 'HIGH' },
+    { label: 'Mode Lock — Originating Summons not advisable where facts are contested; disputed facts force oral evidence.',                    severity: 'MEDIUM' },
+    { label: 'Ex Parte Bundle Completeness — if urgency sought, both the main bundle and urgency bundle must be filed together, not separately.', severity: 'MEDIUM' },
+    { label: 'Delay / Laches — no statutory limitation period, but unreasonable delay is a discretionary equitable bar to injunctive/declaratory relief.', severity: 'MEDIUM' },
+    { label: 'Proper Respondent — if state agency is respondent, Attorney-General must be joined or at minimum served.',                        severity: 'MEDIUM' },
+    { label: 'Capacity — fundamental rights relief is personal and does not survive the applicant; estate damages belong in separate civil action.', severity: 'LOW' },
+  ],
+  frep_respondent: [
+    { label: 'Counter-Affidavit Silence = Admission — failure to file Counter-Affidavit within 5 days means facts in applicant\'s affidavit stand admitted.', severity: 'HIGH' },
+    { label: '5-Day Response Deadline — Counter-Affidavit + Written Address (factual) or Written Address only (law-only PO) must be filed within 5 days of service.', severity: 'HIGH' },
+    { label: 'PO Grounds — preliminary objection must be raised in the Written Address; there is no separate motion for this in FREP proceedings.',                     severity: 'HIGH' },
+    { label: 'Jurisdiction Gate — assess NIC exclusivity, chieftaincy exclusion, and whether FR claim is genuine or merely dressed on top of a non-FR dispute.',        severity: 'MEDIUM' },
+    { label: 'Interim Order Discharge — if an interim order was granted ex parte, a discharge application must be made separately; it does not automatically lapse.',   severity: 'MEDIUM' },
+    { label: 'No Oral Address if Written Address Not Filed — failure to file a Written Address loses the right to oral argument entirely.',                              severity: 'LOW' },
   ],
 };
 
@@ -527,6 +711,26 @@ export const ROLE_MODULES: Record<CounselRole, RoleModule[]> = {
     { id: 'decree_enforcement',    icon: '📅', label: 'Decree Tracker',      desc: 'Monitor nisi, absolute pathway, compliance obligations' },
     { id: 'appeal',                icon: '↑',  label: 'Appeal Engine',       desc: 'Appeal against nisi — s.241(1)(f)(iv) CFRN; hard bar on absolute' },
   ],
+  frep_applicant: [
+    { id: 'intelligence',  icon: '⚡', label: 'Intelligence',   desc: 'Jurisdiction gate, rights analysis, urgency assessment, capacity screen' },
+    { id: 'applications',  icon: '§',  label: 'Applications',   desc: 'Originating Motion bundle — OM + Statement + Affidavit + Written Address; ex parte bundle if urgent' },
+    { id: 'evidence',      icon: '📁', label: 'Evidence',       desc: 'Upload and categorise proof of rights breach' },
+    { id: 'final_address', icon: '✍', label: 'Final Address',  desc: 'Written Address (filed with main bundle) and Reply on Points of Law (within 5 days of respondent\'s WA)' },
+    { id: 'risk',          icon: '■',  label: 'Risk Analytics', desc: 'Jurisdiction, laches, proper respondent, mode lock, ex parte completeness' },
+    { id: 'blindspots',    icon: '◈',  label: 'Blind Spots',    desc: 'Jurisdiction flag, single-applicant compliance, NIC exclusivity check' },
+    { id: 'alerts',        icon: '🔔', label: 'Alerts',         desc: '5-day and 7-day deadline alerts, amendment tracker, interim relief status' },
+    { id: 'appeal',        icon: '↑',  label: 'Appeal Engine',  desc: 'Priority appeal — Notice of Appeal and Appellant\'s Brief' },
+  ],
+  frep_respondent: [
+    { id: 'intelligence',  icon: '⚡', label: 'Intelligence',   desc: 'Jurisdiction gate, opposition type determination, PO grounds analysis' },
+    { id: 'applications',  icon: '🛡', label: 'Applications',   desc: 'Counter-Affidavit + Written Address (factual) or Written Address only (law-only PO) — 5-day window' },
+    { id: 'evidence',      icon: '📁', label: 'Evidence',       desc: 'Upload and categorise respondent evidence' },
+    { id: 'final_address', icon: '✍', label: 'Final Address',  desc: 'Written Address in Opposition — filed within 5-day window; no oral argument if not filed' },
+    { id: 'risk',          icon: '■',  label: 'Risk Analytics', desc: 'Admission risk (no counter-affidavit), PO grounds, compliance exposure' },
+    { id: 'blindspots',    icon: '◈',  label: 'Blind Spots',    desc: 'Jurisdiction gate, interim discharge status, 5-day deadline monitor' },
+    { id: 'alerts',        icon: '🔔', label: 'Alerts',         desc: '5-day response deadline, no-oral-argument risk, compliance alerts post-ruling' },
+    { id: 'appeal',        icon: '↑',  label: 'Appeal Engine',  desc: 'Priority appeal against adverse ruling — Notice of Appeal and Appellant\'s Brief' },
+  ],
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -579,6 +783,13 @@ export const STAGE_KEYWORDS: Record<string, string[]> = {
   petition_received:   ['petition received', 'served with petition', 'process received matrimonial', 'form 8', 'notice of petition'],
   answer_filed:        ['answer filed', 'form 15', 'answer to petition', 'respondent answer', 'cross-petition filed'],
   ancillary_response:  ['ancillary response', 'respondent ancillary', 'maintenance response', 'custody response', 'property response'],
+
+  // FREP stage IDs
+  application_filed:   ['originating motion filed', 'motion filed', 'frep application', 'statement filed', 'affidavit in support', 'motion ex-parte', 'affidavit of urgency'],
+  awaiting_response:   ['awaiting counter-affidavit', 'counter-affidavit', 'awaiting written address', 'respondent response', '5-day window'],
+  reply_address:       ['reply on points of law', 'further affidavit', 'reply address', 'applicant reply'],
+  counter_affidavit:   ['counter-affidavit filed', 'written address opposition', 'written address in opposition', 'preliminary objection frep', 'law-only opposition'],
+  ruling:              ['frep ruling', 'ruling delivered', 'declaration granted', 'injunction granted', 'mandatory order', 'bail released', 'damages awarded', 'apology ordered'],
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -666,6 +877,25 @@ export const STAGE_NEXT_ACTIONS: Record<CounselRole, Record<string, string>> = {
     compliance:         'Continue compliance. Flag any enforcement risk. Apply for variation promptly if financial circumstances change.',
     appeal:             'File Appellant\'s Brief within time. Note: no appeal lies against decree absolute under s.241(2) CFRN.',
   },
+  frep_applicant: {
+    pre_action:        'Draft and file Originating Motion + Statement + Affidavit in Support + Written Address. Bundle Motion Ex-Parte + Affidavit of Urgency if urgency is flagged.',
+    application_filed: 'Effect service — personal/agent/substituted on each respondent. Serve Attorney-General if state agency is named. File proof of service.',
+    service:           'Monitor 5-day window for Counter-Affidavit. If deadline passes without counter-affidavit — flag facts as admitted and prepare hearing submissions.',
+    awaiting_response: 'File Reply on Points of Law + Further Affidavit (if respondent raised new facts) within 5 days of receiving respondent\'s Written Address.',
+    reply_address:     'Confirm matter is listed within 7-day target. Prepare oral address (20-minute cap). Check adoption-on-absence rules if respondent fails to appear.',
+    hearing:           'Await ruling. Record all reliefs granted. Update interim_relief_status to "discharged" if interim order resolved by the main ruling.',
+    ruling:            'Commence compliance monitoring. Notify respondent of obligations. Issue contempt/committal proceedings if respondent fails to comply.',
+    compliance:        'Assess whether further enforcement steps are required. Advise client on any residual obligations or further orders needed.',
+    appeal:            'File Notice of Appeal within time. File Appellant\'s Brief. Brief client on the priority nature of FREP appeals.',
+  },
+  frep_respondent: {
+    service_received:    'Determine opposition type — factual (Counter-Affidavit + Written Address) or law-only (Written Address only, PO grounds folded in). File within 5 days of service.',
+    counter_affidavit:   'Prepare oral address (20-minute cap). If Written Address was not filed — no oral argument is available. Confirm hearing date.',
+    hearing:             'Await ruling. Advise client on compliance obligations and timelines. Identify grounds of appeal if ruling is adverse.',
+    ruling:              'File Notice of Appeal within time if grounds exist. Comply with orders granted. Apply for stay of execution if appropriate.',
+    compliance:          'Monitor and fulfil compliance obligations. Apply for variation of order if circumstances change. Flag contempt risk to client.',
+    appeal:              'File Appellant\'s Brief or Respondent\'s Brief within time.',
+  },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -690,4 +920,10 @@ export const STAGE_URGENCY: Partial<Record<string, { level: 'HIGH' | 'MEDIUM'; n
   decree_nisi:       { level: 'HIGH',   note: 'Calculate absolute deadline now — s.57 (28 days) or s.58 (3 months). Do not let it lapse.' },
   petition_received: { level: 'HIGH',   note: 'Acknowledgement of Service Form 11 deadline running — file within time.' },
   answer_filed:      { level: 'HIGH',   note: 'Answer filing deadline — failure risks undefended hearing proceeding against Respondent.' },
+  // FREP urgency flags
+  application_filed:   { level: 'HIGH',   note: 'Service must be effected immediately — 5-day response window starts from date of service.' },
+  awaiting_response:   { level: 'HIGH',   note: '5-day window for Counter-Affidavit running. Facts stand admitted if deadline passes without filing.' },
+  counter_affidavit:   { level: 'HIGH',   note: '5-day filing deadline from service — no oral argument if Written Address not filed.' },
+  reply_address:       { level: 'HIGH',   note: '5-day window to file Reply on Points of Law from receipt of respondent\'s Written Address.' },
+  ruling:              { level: 'HIGH',   note: 'Compliance obligations and appeal deadline begin from date of ruling — act immediately.' },
 };
