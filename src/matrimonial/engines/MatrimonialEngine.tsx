@@ -279,7 +279,7 @@ export function MatrimonialEngine({ activeCase }: Props) {
   function buildCtx(): string {
     const ip = saved.intakeData;
     return [
-      `CASE: ${activeCase?.caseName || 'Matrimonial Matter'} | COURT: ${activeCase?.court || 'Federal High Court'}`,
+      `CASE: ${activeCase?.caseName || 'Matrimonial Matter'} | COURT: ${activeCase?.court || 'High Court (State)'}`,
       ip ? `PETITIONER: ${ip.petitioner || '—'} | RESPONDENT: ${ip.respondent || '—'}` : '',
       ip ? `DATE OF MARRIAGE: ${ip.marriageDate || '—'} | PLACE: ${ip.marriagePlace || '—'} | TYPE: ${ip.marriageType || '—'}` : '',
       ip?.children ? `CHILDREN: ${ip.children}` : '',
