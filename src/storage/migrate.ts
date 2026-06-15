@@ -57,6 +57,25 @@ async function migrateCases(): Promise<void> {
   for (const c of cases) {
     // Migrate case record (without entries — those go to their own table)
     const { recent_entries, deadlines, ...caseRecord } = c;
+
+    // §12 — Seed frep_data on existing FREP cases that predate the FrepData interface
+    if (caseRecord.originating_process === 'frep' && !caseRecord.frep_data) {
+      (caseRecord as typeof caseRecord & { frep_data: unknown }).frep_data = {
+        capacity:                   'self',
+        mode:                       'originating_motion',
+        mode_locked:                false,
+        ex_parte_sought:            false,
+        interim_relief_status:      'not_sought',
+        amendment_deadline:         null,
+        amendment_filed:            false,
+        jurisdiction_gate:          null,
+        jurisdiction_flag_reason:   null,
+        jurisdiction_court:         null,
+        jurisdiction_division:      null,
+        respondent_opposition_type: null,
+      };
+    }
+
     await db.cases.put({ ...caseRecord, recent_entries: [], deadlines: [] });
 
     // Migrate docket entries
