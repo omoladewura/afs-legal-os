@@ -14,7 +14,7 @@ import type { Case } from '@/types';
 import { useAI } from '@/hooks/useAI';
 import { Md, ErrorBlock } from '@/components/common/ui';
 import { loadMatrimonialData, saveMatrimonialData } from '@/storage/helpers';
-import type { MatrimonialCaseData, MatrimonialReliefType, DissolutionFact } from '@/matrimonial/types';
+import type { MatrimonialCaseData, MatrimonialReliefType, DissolutionFact, MExtractionResult } from '@/matrimonial/types';
 import { DISSOLUTION_FACT_LABELS } from '@/matrimonial/types';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -314,9 +314,42 @@ function ParticularsEditor({
 function RiskSummary({ activeCase, mData }: { activeCase: Case; mData: Partial<MatrimonialCaseData> }) {
   const ai = useAI(activeCase);
   const [summary, setSummary] = useState('');
+  const ex = mData.intelligence_extraction;
 
   async function generate() {
-    const prompt = `Generate a concise risk summary for this matrimonial case.
+    // Phase 9B — if extraction exists, build a richer prompt from it.
+    // Falls back to the structural fields from mData when no extraction present.
+    const prompt = ex
+      ? `Generate a concise risk summary for this matrimonial case.
+
+Case: ${activeCase.caseName}
+Court: ${activeCase.court || 'Not specified'}
+Counsel Role: ${activeCase.counsel_role === 'petitioner_side' ? 'Petitioner Side' : 'Respondent Side'}
+${mData.intelligence_run_at ? `Intelligence Run: ${new Date(mData.intelligence_run_at).toLocaleDateString('en-NG', { day: 'numeric', month: 'long', year: 'numeric' })} (v${mData.intelligence_version ?? 1})` : ''}
+
+MINTELLIGENCE EXTRACTION:
+Marriage: ${ex.marriage_timeline.marriage_date} — ${ex.marriage_timeline.marriage_place} (${ex.marriage_timeline.marriage_type})
+Cohabitation ended: ${ex.marriage_timeline.cohabitation_end || 'unknown'}
+Relief sought: ${ex.relief_sought}
+s.15(2) Facts: ${ex.dissolution_facts.map(f => `${f.fact} [${f.strength}]`).join('; ') || 'None identified'}
+Two-year bar: ${ex.two_year_bar.bar_applies ? `Applies — leave ${ex.two_year_bar.leave_obtained ? 'obtained' : 'NOT obtained'}${ex.two_year_bar.exception ? ` — exception: ${ex.two_year_bar.exception}` : ''}` : 'Does not apply'}
+Condonation risk: ${ex.condonation_risk.severity} — ${ex.condonation_risk.basis || 'none'}
+Connivance risk: ${ex.connivance_risk.risk ? ex.connivance_risk.basis : 'None identified'}
+Co-respondent: ${ex.co_respondent.named ? `${ex.co_respondent.name || 'named but unidentified'} — service ${ex.co_respondent.service_feasible ? 'feasible' : 'may be problematic'}` : 'Not named'}
+Decree stage: ${ex.decree_stage}
+Children: ${ex.children.length > 0 ? ex.children.map(c => `${c.name} (${c.age})${c.welfare_concern ? ' ⚠ ' + c.welfare_concern : ''}`).join('; ') : 'None'}
+Financial: pendente lite urgency ${ex.financial_picture.pendente_lite_urgency}${ex.financial_picture.disclosure_gaps.length ? ' — disclosure gaps: ' + ex.financial_picture.disclosure_gaps.join(', ') : ''}
+HIGH risks: ${ex.gaps_and_risks.filter(g => g.severity === 'HIGH').map(g => g.issue).join('; ') || 'None'}
+
+Provide a concise risk summary under these headings:
+## Immediate Risks
+## Ground Strength Assessment
+## Procedural Urgencies
+## Recommended Next Steps
+
+Be specific to the extracted facts. Use correct MCA section numbers.`
+
+      : `Generate a concise risk summary for this matrimonial case.
 
 Case: ${activeCase.caseName}
 Court: ${activeCase.court || 'Not specified'}
@@ -352,10 +385,32 @@ Be specific to the facts above. Use correct MCA section numbers.`;
   return (
     <div style={cardS}>
       <div style={secH}>AI Risk Summary</div>
-      <p style={{ fontSize: 12, fontFamily: SERIF, color: '#666666', marginBottom: 12, lineHeight: 1.65 }}>
-        Generate an AI risk summary based on the case data recorded above.
-        Save the case data first for the most accurate summary.
-      </p>
+
+      {/* Phase 9B — show HIGH gaps from extraction before the associate even generates */}
+      {ex && ex.gaps_and_risks.filter(g => g.severity === 'HIGH').length > 0 && (
+        <div style={{ background: '#fbedf0', border: '1px solid #e8b8c0', borderRadius: 6, padding: '10px 14px', marginBottom: 14 }}>
+          <p style={{ fontSize: 11, fontFamily: SERIF, color: '#7a1a1a', fontWeight: 700, marginBottom: 6 }}>
+            ⚠ HIGH Risk Issues Identified by MIntelligence
+          </p>
+          {ex.gaps_and_risks.filter(g => g.severity === 'HIGH').map((g, i) => (
+            <p key={i} style={{ fontSize: 12, fontFamily: SERIF, color: '#7a1a1a', lineHeight: 1.6, margin: '2px 0' }}>
+              · {g.issue}
+            </p>
+          ))}
+        </div>
+      )}
+
+      {ex ? (
+        <p style={{ fontSize: 12, fontFamily: SERIF, color: '#1a5a3a', background: '#edfaf3', border: '1px solid #b8e8cc', borderRadius: 4, padding: '7px 12px', marginBottom: 12, lineHeight: 1.65 }}>
+          ⚡ Using MIntelligence extraction (v{mData.intelligence_version ?? 1} · {mData.intelligence_run_at ? new Date(mData.intelligence_run_at).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' }) : 'unknown date'}) — summary will reflect extracted facts, not manual entries.
+        </p>
+      ) : (
+        <p style={{ fontSize: 12, fontFamily: SERIF, color: '#666666', marginBottom: 12, lineHeight: 1.65 }}>
+          Generate an AI risk summary based on the case data recorded above.
+          Save the case data first for the most accurate summary.
+          Run MIntelligence first for a richer, extraction-driven summary.
+        </p>
+      )}
 
       <Btn onClick={generate} loading={ai.loading} label="Generate Risk Summary →" />
       {ai.error && <ErrorBlock message={ai.error} onDismiss={ai.clearError} />}
@@ -487,13 +542,38 @@ export function MOverview({ activeCase }: { activeCase: Case }) {
   const [edits, setEdits] = useState<Partial<MatrimonialCaseData>>({});
   const [saving, setSaving] = useState(false);
   const [saved,  setSaved]  = useState(false);
+  const [prePopulated, setPrePopulated] = useState(false);
 
   useEffect(() => {
     if (!activeCase?.id) return;
     loadMatrimonialData(activeCase.id).then(d => {
       const data = d ?? {};
       setMData(data);
-      setEdits(data);
+
+      // Phase 9B — pre-populate edit fields from extraction if present
+      const ex: MExtractionResult | undefined = data.intelligence_extraction;
+      if (ex) {
+        const prepopEdits: Partial<MatrimonialCaseData> = {
+          ...data,
+          // Marriage particulars from extraction (only fill if not already set manually)
+          marriage_date:  data.marriage_date  || ex.marriage_timeline.marriage_date  || '',
+          marriage_place: data.marriage_place || ex.marriage_timeline.marriage_place || '',
+          marriage_type:  data.marriage_type  || (ex.marriage_timeline.marriage_type as MatrimonialCaseData['marriage_type']) || undefined,
+          // Two-year bar
+          two_year_bar_applies: ex.two_year_bar.bar_applies,
+          leave_granted:        ex.two_year_bar.leave_obtained || data.leave_granted,
+          // Co-respondent
+          co_respondent_joined: ex.co_respondent.named || data.co_respondent_joined,
+          co_respondent_name:   data.co_respondent_name || (ex.co_respondent.named ? ex.co_respondent.name : undefined),
+          // Risk flags
+          condonation_risk: ex.condonation_risk.risk || data.condonation_risk,
+          connivance_risk:  ex.connivance_risk.risk  || data.connivance_risk,
+        };
+        setEdits(prepopEdits);
+        setPrePopulated(true);
+      } else {
+        setEdits(data);
+      }
     });
   }, [activeCase?.id]);
 
@@ -541,6 +621,26 @@ export function MOverview({ activeCase }: { activeCase: Case }) {
           Marriage particulars · Relief type · Two-year bar · s.15(2) facts · Decree timeline · Risk summary
         </p>
       </div>
+
+      {/* Phase 9B — Intelligence pre-fill banner */}
+      {prePopulated && mData.intelligence_extraction && (
+        <div style={{
+          background: '#edfaf3', border: '1px solid #b8e8cc', borderRadius: 6,
+          padding: '10px 14px', marginBottom: 16,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+        }}>
+          <span style={{ fontSize: 12, fontFamily: SERIF, color: '#1a5a3a', lineHeight: 1.5 }}>
+            ⚡ Pre-filled from MIntelligence
+            {mData.intelligence_run_at ? ` · Run ${new Date(mData.intelligence_run_at).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' })}` : ''}
+            {` · Version ${mData.intelligence_version ?? 1}`}
+          </span>
+          <button
+            onClick={() => { setEdits(mData); setPrePopulated(false); }}
+            style={{ background: 'transparent', border: '1px solid #b8e8cc', color: '#1a5a3a', borderRadius: 4, padding: '3px 10px', fontSize: 11, fontFamily: SERIF, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+            Clear and enter manually
+          </button>
+        </div>
+      )}
 
       {/* Sub-tab bar */}
       <div style={{ display: 'flex', gap: 4, marginBottom: 22, borderBottom: '1px solid #e0e0e0' }}>

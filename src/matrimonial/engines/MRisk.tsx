@@ -23,8 +23,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import type { Case } from '@/types';
 import { T } from '@/constants/tokens';
 import { useAI } from '@/hooks/useAI';
-import { loadBlindSpot, saveBlindSpot } from '@/storage/helpers';
+import { loadBlindSpot, saveBlindSpot, loadMatrimonialData } from '@/storage/helpers';
 import { Md, ErrorBlock } from '@/components/common/ui';
+import type { MExtractionResult } from '@/matrimonial/types';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES
@@ -328,16 +329,22 @@ function Btn({ label, onClick, loading = false, disabled = false, secondary = fa
 export function MRisk({ activeCase }: Props) {
   const ai = useAI(activeCase);
 
-  const [stage, setStage]     = useState('Pre-Filing');
-  const [context, setContext] = useState('');
-  const [result, setResult]   = useState<RiskResult | null>(null);
-  const [history, setHistory] = useState<RiskResult[]>([]);
-  const [tab, setTab]         = useState<'analyse' | 'history'>('analyse');
-  const [copied, setCopied]   = useState(false);
+  const [stage, setStage]         = useState('Pre-Filing');
+  const [context, setContext]     = useState('');
+  const [result, setResult]       = useState<RiskResult | null>(null);
+  const [history, setHistory]     = useState<RiskResult[]>([]);
+  const [tab, setTab]             = useState<'analyse' | 'history'>('analyse');
+  const [copied, setCopied]       = useState(false);
+  // Phase 9B
+  const [extraction, setExtraction] = useState<MExtractionResult | null>(null);
+  const [intVersion, setIntVersion] = useState<number | undefined>(undefined);
+  const [intRunAt,   setIntRunAt]   = useState<string | undefined>(undefined);
+  const [prePopulated, setPrePopulated] = useState(false);
 
   const caseId = activeCase.id;
 
   useEffect(() => {
+    // Load risk history
     loadBlindSpot<SavedData>(caseId, MODULE)
       .then(d => {
         const saved = d ?? DEFAULT_DATA;
@@ -345,6 +352,59 @@ export function MRisk({ activeCase }: Props) {
         setHistory(saved.history);
       })
       .catch(() => {});
+
+    // Phase 9B — load intelligence extraction and pre-populate context
+    loadMatrimonialData(caseId).then(mData => {
+      if (!mData?.intelligence_extraction) return;
+      const ex = mData.intelligence_extraction;
+      setExtraction(ex);
+      setIntVersion(mData.intelligence_version);
+      setIntRunAt(mData.intelligence_run_at);
+
+      // Auto-populate the procedural stage from extraction if possible
+      if (mData.intelligence_extraction.decree_stage) {
+        // Map extraction decree stage to closest MATRIMONIAL_STAGES entry
+        const ds = ex.decree_stage.toLowerCase();
+        const stageMatch = MATRIMONIAL_STAGES.find(s =>
+          ds.includes('pre-fil') ? s === 'Pre-Filing' :
+          ds.includes('petition') && ds.includes('filed') ? s === 'Petition Filed — Service Pending' :
+          ds.includes('answer') && ds.includes('filed') ? s === 'Answer Filed — Defended' :
+          ds.includes('nisi') && ds.includes('absolute') ? s === 'Nisi to Absolute Period' :
+          ds.includes('absolute') ? s === 'Decree Absolute Granted' :
+          ds.includes('nisi') ? s === 'Decree Nisi Granted' :
+          ds.includes('hearing') ? s === 'Hearing' :
+          false
+        );
+        if (stageMatch) setStage(stageMatch);
+      }
+
+      // Build a rich context from the extraction so the associate can hit Generate immediately
+      const autoContext = [
+        `Marriage: ${ex.marriage_timeline.marriage_date} at ${ex.marriage_timeline.marriage_place} (${ex.marriage_timeline.marriage_type})`,
+        ex.marriage_timeline.cohabitation_end ? `Cohabitation ended: ${ex.marriage_timeline.cohabitation_end}` : '',
+        `Relief sought: ${ex.relief_sought}`,
+        ex.dissolution_facts.length > 0
+          ? `s.15(2) facts: ${ex.dissolution_facts.map(f => `${f.fact} — evidence: ${f.evidence} [strength: ${f.strength}]`).join('; ')}`
+          : 'No s.15(2) facts identified.',
+        `Two-year bar: ${ex.two_year_bar.bar_applies
+          ? `Applies — leave ${ex.two_year_bar.leave_obtained ? 'obtained' : 'NOT obtained'}${ex.two_year_bar.exception ? ` — exception: ${ex.two_year_bar.exception} (${ex.two_year_bar.exception_basis})` : ''}`
+          : 'Does not apply'}`,
+        `Condonation risk: ${ex.condonation_risk.severity} — ${ex.condonation_risk.basis || 'no specific basis noted'}`,
+        `Connivance risk: ${ex.connivance_risk.risk ? ex.connivance_risk.basis : 'None identified'}`,
+        `Co-respondent: ${ex.co_respondent.named ? `${ex.co_respondent.name || 'named but unidentified'} — service ${ex.co_respondent.service_feasible ? 'feasible' : 'may be problematic'}` : 'Not named'}`,
+        ex.children.length > 0
+          ? `Children: ${ex.children.map(c => `${c.name} (${c.age}) — ${c.current_arrangement}${c.welfare_concern ? ' — welfare concern: ' + c.welfare_concern : ''}`).join('; ')}`
+          : 'No children of the marriage.',
+        `Financial: pendente lite urgency — ${ex.financial_picture.pendente_lite_urgency}. Maintenance needs: ${ex.financial_picture.maintenance_needs}${ex.financial_picture.disclosure_gaps.length ? '. Disclosure gaps: ' + ex.financial_picture.disclosure_gaps.join(', ') : ''}`,
+        `Decree stage: ${ex.decree_stage}`,
+        ex.gaps_and_risks.length > 0
+          ? `Identified risks: ${ex.gaps_and_risks.map(g => `[${g.severity}] ${g.issue}`).join('; ')}`
+          : '',
+      ].filter(Boolean).join('\n');
+
+      setContext(autoContext);
+      setPrePopulated(true);
+    }).catch(() => {});
   }, [caseId]);
 
   async function runAnalysis() {
@@ -354,14 +414,30 @@ export function MRisk({ activeCase }: Props) {
         ? 'Respondent Side'
         : activeCase.counsel_role ?? 'Unknown';
 
+    // Phase 9B — when extraction available, map directly to the 8 dimensions in the prompt preamble
+    const extractionPreamble = extraction ? `
+MINTELLIGENCE EXTRACTION (use as primary source of facts — do not contradict without reason):
+${context}
+
+Extraction dimensions mapping:
+- ground_strength → dissolution_facts[].strength values above
+- condonation_connivance → condonation_risk and connivance_risk above
+- two_year_bar → two_year_bar section above
+- nullity_bar → relief_sought + dissolution_facts above
+- financial_disclosure → financial picture above
+- welfare_of_child → children records above
+- decree_timeline → decree_stage above
+- appeal_survivability → decree_stage + dissolution_facts above
+` : `
+FACTS AND CONTEXT:\n${context}`;
+
     const prompt = `CASE: ${activeCase.caseName}
 Court: ${activeCase.court ?? 'High Court of the relevant State'}
 Suit No: ${activeCase.suitNo ?? 'Not assigned'}
 Counsel Role: ${roleLabel}
 Procedural Stage: ${stage}
-
-FACTS AND CONTEXT:
-${context}
+${extraction ? `Intelligence Version: ${intVersion ?? 1} · Run: ${intRunAt ? new Date(intRunAt).toLocaleDateString('en-NG') : 'unknown'}` : ''}
+${extractionPreamble}
 
 Analyse the matrimonial risk across all 8 dimensions and return ONLY this JSON object:
 
@@ -486,6 +562,27 @@ Rules:
       {/* ── ANALYSIS TAB ────────────────────────────────────────────────── */}
       {tab === 'analyse' && (
         <>
+          {/* Phase 9B — intelligence pre-fill banner */}
+          {prePopulated && extraction && (
+            <div style={{
+              background: '#edfaf3', border: '1px solid #b8e8cc', borderRadius: 6,
+              padding: '10px 14px', marginBottom: 16,
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+            }}>
+              <span style={{ fontSize: 12, fontFamily: SERIF, color: '#1a5a3a', lineHeight: 1.5 }}>
+                ⚡ Pre-filled from MIntelligence
+                {intRunAt ? ` · Run ${new Date(intRunAt).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' })}` : ''}
+                {` · Version ${intVersion ?? 1}`}
+                {' · '}Hit Run Risk Analysis to assess the extracted facts
+              </span>
+              <button
+                onClick={() => { setContext(''); setPrePopulated(false); }}
+                style={{ background: 'transparent', border: '1px solid #b8e8cc', color: '#1a5a3a', borderRadius: 4, padding: '3px 10px', fontSize: 11, fontFamily: SERIF, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                Clear and enter manually
+              </button>
+            </div>
+          )}
+
           {/* Input panel */}
           <div style={cardS}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
@@ -506,12 +603,14 @@ Rules:
             </div>
 
             <label style={lbS}>Case facts and context for risk analysis</label>
-            <p style={{ fontSize: 12, fontFamily: SERIF, color: '#888888', lineHeight: 1.6, marginBottom: 10 }}>
-              Describe the matrimonial matter: marriage date, facts alleged, evidence available, any condonation events, financial situation, children, current procedural stage, and any specific concerns.
-            </p>
+            {!prePopulated && (
+              <p style={{ fontSize: 12, fontFamily: SERIF, color: '#888888', lineHeight: 1.6, marginBottom: 10 }}>
+                Describe the matrimonial matter: marriage date, facts alleged, evidence available, any condonation events, financial situation, children, current procedural stage, and any specific concerns.
+              </p>
+            )}
             <textarea
-              style={{ ...taS, minHeight: 160 }}
-              rows={9}
+              style={{ ...taS, minHeight: prePopulated ? 220 : 160 }}
+              rows={prePopulated ? 14 : 9}
               value={context}
               onChange={e => setContext(e.target.value)}
               placeholder="Marriage date, grounds pleaded, evidence available, condonation risk, children, financial disclosure status, stage of proceedings, specific risk concerns…"
