@@ -20,6 +20,15 @@ import type { Case } from '@/types';
 import { T } from '@/constants/tokens';
 import { useAI } from '@/hooks/useAI';
 import { Md, ErrorBlock } from '@/components/common/ui';
+import type {
+  MarriageTimeline,
+  S152FactInPlay,
+  TwoYearBar,
+  ChildRecord,
+  FinancialPicture,
+  MExtractionResult,
+} from '@/matrimonial/types';
+import { writeIntelligenceToCase } from '@/storage/helpers';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CONSTANTS
@@ -51,59 +60,9 @@ DOCTRINAL RULES:
 Always respond in valid JSON only. No preamble, no markdown fences.`;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// TYPES
+// TYPES — Phase 9A: promoted to @/matrimonial/types and imported above.
 // ─────────────────────────────────────────────────────────────────────────────
 
-interface MarriageTimeline {
-  marriage_date:        string;
-  marriage_place:       string;
-  marriage_type:        string;
-  cohabitation_end:     string;
-  cohabitation_history: string;
-}
-
-interface S152FactInPlay {
-  fact:     string; // e.g. "s.15(2)(b) — Adultery and intolerability"
-  evidence: string;
-  strength: 'STRONG' | 'MODERATE' | 'WEAK' | 'UNKNOWN';
-}
-
-interface TwoYearBar {
-  marriage_date:     string;
-  bar_applies:       boolean;
-  exception:         string | null;
-  exception_basis:   string;
-  leave_required:    boolean;
-  leave_obtained:    boolean;
-}
-
-interface ChildRecord {
-  name:              string;
-  age:               string;
-  current_arrangement: string;
-  welfare_concern:   string;
-}
-
-interface FinancialPicture {
-  assets_known:      string[];
-  maintenance_needs: string;
-  pendente_lite_urgency: 'HIGH' | 'MEDIUM' | 'LOW' | 'NONE';
-  disclosure_gaps:   string[];
-}
-
-interface MExtractionResult {
-  marriage_timeline:       MarriageTimeline;
-  relief_sought:           string;
-  dissolution_facts:       S152FactInPlay[];
-  two_year_bar:            TwoYearBar;
-  children:                ChildRecord[];
-  financial_picture:       FinancialPicture;
-  condonation_risk:        { risk: boolean; basis: string; severity: 'HIGH' | 'MEDIUM' | 'LOW' | 'NONE' };
-  connivance_risk:         { risk: boolean; basis: string };
-  co_respondent:           { named: boolean; name: string; service_feasible: boolean };
-  decree_stage:            string;
-  gaps_and_risks:          Array<{ issue: string; severity: 'HIGH' | 'MEDIUM' | 'LOW' }>;
-}
 
 interface EvidenceMapItem {
   issue:              string;
@@ -115,13 +74,14 @@ interface EvidenceMapItem {
 }
 
 interface MIData {
-  stage:        number;
-  rawFacts:     string;
-  extraction:   MExtractionResult | null;
-  followUpQs:   Array<{ id: string; question: string; purpose: string }>;
-  followUpAs:   Record<string, string>;
-  evidenceMap:  EvidenceMapItem[] | null;
-  intPackage:   string;
+  stage:            number;
+  rawFacts:         string;
+  extraction:       MExtractionResult | null;
+  followUpQs:       Array<{ id: string; question: string; purpose: string }>;
+  followUpAs:       Record<string, string>;
+  evidenceMap:      EvidenceMapItem[] | null;
+  intPackage:       string;
+  intelligenceSaved?: boolean; // Phase 9A — true after successful write to storage
 }
 
 interface Props {
@@ -481,7 +441,10 @@ Extract all matrimonial intelligence from the facts above and return a single JS
       const raw = await ai.ask({ system: SYSTEM, userMsg: prompt, maxTokens: 2500, libraryOpts: { queryHint: 'MCA s.15(2) dissolution facts two-year bar s.30 condonation co-respondent s.32 marriage timeline relief nullity children financial' } });
       const clean = (raw || '').replace(/```json|```/g, '').trim();
       const ex = JSON.parse(clean);
-      upd({ stage: 2, extraction: ex });
+      // Phase 9A — write extraction immediately so downstream engines can use it
+      // even if the associate stops here and never reaches Step 5.
+      writeIntelligenceToCase(activeCase.id, ex, '').catch(() => {});
+      upd({ stage: 2, extraction: ex, intelligenceSaved: true });
     } catch {
       upd({ stage: 2, extraction: null });
     }
@@ -576,12 +539,16 @@ Use correct MCA section numbers throughout. Identify the counsel role (${activeC
 
     const raw = await ai.ask({ system: SYSTEM, userMsg: prompt, maxTokens: 3000, libraryOpts: { queryHint: 'MCA intelligence package s.15(2) dissolution analysis s.30 two-year bar nullity children welfare financial maintenance condonation procedural stage risk register' } });
     if (!raw) return;
-    upd({ stage: 5, intPackage: raw });
+    // Phase 9A — update with full package. Version increments again here.
+    if (data.extraction) {
+      writeIntelligenceToCase(activeCase.id, data.extraction, raw).catch(() => {});
+    }
+    upd({ stage: 5, intPackage: raw, intelligenceSaved: true });
   }
 
   // ── Render ───────────────────────────────────────────────────────────────
 
-  const { stage, rawFacts, extraction, followUpQs, followUpAs, evidenceMap, intPackage } = data;
+  const { stage, rawFacts, extraction, followUpQs, followUpAs, evidenceMap, intPackage, intelligenceSaved } = data;
 
   return (
     <div style={{ paddingTop: 24, maxWidth: 900 }}>
@@ -629,6 +596,18 @@ Use correct MCA section numbers throughout. Identify the counsel role (${activeC
       {/* Step 2 — Extraction */}
       {stage === 2 && (
         <>
+          {/* Phase 9A — confirmation banner shown after successful write */}
+          {intelligenceSaved && extraction && (
+            <div style={{
+              background: '#edfaf3', border: '1px solid #b8e8cc', borderRadius: 6,
+              padding: '10px 14px', marginBottom: 12,
+              display: 'flex', alignItems: 'center', gap: 8,
+              fontFamily: SERIF, fontSize: 13, color: '#1a5a3a',
+            }}>
+              <span style={{ fontSize: 15 }}>✓</span>
+              <span>Intelligence saved to case — all engines will now use this extraction</span>
+            </div>
+          )}
           {extraction
             ? <ExtractionDisplay ex={extraction} />
             : (
@@ -734,6 +713,18 @@ Use correct MCA section numbers throughout. Identify the counsel role (${activeC
       {/* Step 5 — Intelligence Package */}
       {stage === 5 && (
         <>
+          {/* Phase 9A — confirmation banner */}
+          {intelligenceSaved && (
+            <div style={{
+              background: '#edfaf3', border: '1px solid #b8e8cc', borderRadius: 6,
+              padding: '10px 14px', marginBottom: 12,
+              display: 'flex', alignItems: 'center', gap: 8,
+              fontFamily: SERIF, fontSize: 13, color: '#1a5a3a',
+            }}>
+              <span style={{ fontSize: 15 }}>✓</span>
+              <span>Intelligence package saved to case — all engines will now use this extraction</span>
+            </div>
+          )}
           <div style={{ background: '#faf8ff', border: '1px solid #ccb8e8', borderRadius: 8, padding: '20px 22px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
               <span style={{ ...secH, margin: 0, border: 'none', padding: 0 }}>MCA Intelligence Package</span>
