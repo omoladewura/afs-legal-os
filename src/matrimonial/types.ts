@@ -72,6 +72,63 @@ export type NullityVoidableGround =
   | 'duress_or_fraud';               // s.5(1)(g) — consent obtained by duress or fraud
 
 // ─────────────────────────────────────────────────────────────────────────────
+// MINTELLIGENCE EXTRACTION TYPES — Phase 9A
+// Promoted from MIntelligence.tsx so every engine can import them without
+// depending on the intelligence engine file directly.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface MarriageTimeline {
+  marriage_date:        string;
+  marriage_place:       string;
+  marriage_type:        string;
+  cohabitation_end:     string;
+  cohabitation_history: string;
+}
+
+export interface S152FactInPlay {
+  fact:     string; // e.g. "s.15(2)(b) — Adultery and intolerability"
+  evidence: string;
+  strength: 'STRONG' | 'MODERATE' | 'WEAK' | 'UNKNOWN';
+}
+
+export interface TwoYearBar {
+  marriage_date:   string;
+  bar_applies:     boolean;
+  exception:       string | null;
+  exception_basis: string;
+  leave_required:  boolean;
+  leave_obtained:  boolean;
+}
+
+export interface ChildRecord {
+  name:                string;
+  age:                 string;
+  current_arrangement: string;
+  welfare_concern:     string;
+}
+
+export interface FinancialPicture {
+  assets_known:          string[];
+  maintenance_needs:     string;
+  pendente_lite_urgency: 'HIGH' | 'MEDIUM' | 'LOW' | 'NONE';
+  disclosure_gaps:       string[];
+}
+
+export interface MExtractionResult {
+  marriage_timeline:  MarriageTimeline;
+  relief_sought:      string;
+  dissolution_facts:  S152FactInPlay[];
+  two_year_bar:       TwoYearBar;
+  children:           ChildRecord[];
+  financial_picture:  FinancialPicture;
+  condonation_risk:   { risk: boolean; basis: string; severity: 'HIGH' | 'MEDIUM' | 'LOW' | 'NONE' };
+  connivance_risk:    { risk: boolean; basis: string };
+  co_respondent:      { named: boolean; name: string; service_feasible: boolean };
+  decree_stage:       string;
+  gaps_and_risks:     Array<{ issue: string; severity: 'HIGH' | 'MEDIUM' | 'LOW' }>;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // CHILDREN
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -131,6 +188,14 @@ export interface MatrimonialCaseData {
 
   // Children — s.71 MCA
   children?:                   MatrimonialChild[];
+
+  // ── Phase 9 — MIntelligence upstream fields ──────────────────────────────
+  // Written by MIntelligence; read by every other matrimonial engine.
+  // Present → engines pre-populate. Absent → engines work as before (no regression).
+  intelligence_extraction?: MExtractionResult; // written after Step 2
+  intelligence_package?:    string;             // written after Step 5 (full narrative)
+  intelligence_run_at?:     string;             // ISO timestamp of last run
+  intelligence_version?:    number;             // incremented on each re-run
 
   // Timestamps
   _createdAt?:                 string;
