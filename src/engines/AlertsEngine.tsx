@@ -466,6 +466,162 @@ function generateStaticAlerts(
     }
   }
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // FREP — FUNDAMENTAL RIGHTS ENFORCEMENT PROCEEDINGS ALERTS
+  // ─────────────────────────────────────────────────────────────────────────
+
+  if (role === 'frep_applicant') {
+    const fd = activeCase.frep_data;
+
+    // Service stage → 5-day response window starts
+    const hasService = entryMatches(entries, STAGE_KEYWORDS['service'] ?? []);
+    const hasCounter = entryMatches(entries, STAGE_KEYWORDS['counter_affidavit'] ?? []) ||
+                       entryMatches(entries, STAGE_KEYWORDS['awaiting_response'] ?? []);
+    if (hasService && !hasCounter) {
+      alerts.push(mk({
+        severity: 'HIGH',
+        category: 'deadline',
+        title:    '5-Day Response Window Running',
+        body:     'Service has been effected. The respondent has 5 days from service to file a Counter-Affidavit + Written Address (factual opposition) or Written Address only (law-only PO). Monitor the docket closely.',
+        action:   'Track the service date. If 5 days expire without a counter-affidavit, flag the facts in the applicant\'s affidavit as admitted and prepare hearing submissions.',
+      }));
+    }
+
+    // Counter-affidavit deadline lapsed — facts admitted
+    const hasApplicationFiled = entryMatches(entries, STAGE_KEYWORDS['application_filed'] ?? []);
+    if (hasApplicationFiled && hasService && !hasCounter && activeCase.current_stage === 'awaiting_response') {
+      alerts.push(mk({
+        severity: 'CRITICAL',
+        category: 'procedural',
+        title:    'Counter-Affidavit Deadline Lapsed — Facts Stand Admitted',
+        body:     'The 5-day window for the respondent to file a Counter-Affidavit has passed with no filing on record. Facts deposed to in the applicant\'s Affidavit in Support now stand admitted. The matter is ripe for hearing.',
+        action:   'Prepare hearing submissions on the basis that all deposed facts are admitted. Open Applications Engine → FREP — Reply Bundle if a Written Address was received.',
+      }));
+    }
+
+    // Respondent Written Address received → applicant has 5 days to reply
+    const hasRespondentWA = entryMatches(entries, ['written address in opposition', 'written address filed', 'respondent written address']);
+    const hasReply        = entryMatches(entries, STAGE_KEYWORDS['reply_address'] ?? []);
+    if (hasRespondentWA && !hasReply) {
+      alerts.push(mk({
+        severity: 'HIGH',
+        category: 'deadline',
+        title:    'Respondent Written Address Filed — Reply Deadline Running',
+        body:     'The respondent has filed a Written Address. The applicant has 5 days from receipt to file a Reply on Points of Law. If the respondent raised new facts, a Further Affidavit must also be filed within the same window.',
+        action:   'Draft Reply on Points of Law (and Further Affidavit if new facts arose) using Applications Engine → FREP — Reply Bundle. File within 5 days.',
+      }));
+    }
+
+    // Application filed 7+ days ago — no hearing date
+    if (hasApplicationFiled && !entryMatches(entries, STAGE_KEYWORDS['hearing'] ?? []) && !entryMatches(entries, ['hearing date', 'listed for hearing', 'adjournment'])) {
+      alerts.push(mk({
+        severity: 'MEDIUM',
+        category: 'procedural',
+        title:    'Hearing Should Be Listed Within 7 Days — Follow Up',
+        body:     'The FREP application has been filed but no hearing date appears in the docket. The procedure requires the matter to be listed within 7 days of filing. Registry follow-up may be needed.',
+        action:   'Write to the registry to obtain a hearing date within the 7-day target. Note the filing date and escalate if not listed promptly.',
+      }));
+    }
+
+    // Amendment deadline approaching
+    if (fd?.amendment_deadline && !fd.amendment_filed) {
+      const daysLeft = Math.ceil((new Date(fd.amendment_deadline).getTime() - Date.now()) / 86400000);
+      if (daysLeft <= 3 && daysLeft >= 0) {
+        alerts.push(mk({
+          severity: 'HIGH',
+          category: 'deadline',
+          title:    `Amendment Deadline in ${daysLeft === 0 ? 'TODAY' : `${daysLeft}d`}`,
+          body:     `Court-granted amendment deadline is ${new Date(fd.amendment_deadline).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}. The amendment has not been marked as filed.`,
+          action:   'File the amended Statement immediately. Mark amendment_filed in the FREP intake panel once filed.',
+        }));
+      }
+      if (daysLeft < 0) {
+        alerts.push(mk({
+          severity: 'CRITICAL',
+          category: 'deadline',
+          title:    'Amendment Deadline Lapsed — Deemed Abandoned',
+          body:     'The court-granted amendment deadline has passed and no amendment appears on record. The amendment is deemed abandoned unless an extension is obtained.',
+          action:   'Apply immediately for extension of time to file the amendment. If no extension is possible, advise client on the impact of losing the amendment opportunity.',
+        }));
+      }
+    }
+
+    // Interim order still active at ruling stage
+    if (fd?.interim_relief_status === 'granted' && activeCase.current_stage === 'ruling') {
+      alerts.push(mk({
+        severity: 'MEDIUM',
+        category: 'compliance',
+        title:    'Interim Order Still Active — Status at Ruling Stage',
+        body:     'An interim order is recorded as granted. At the ruling stage, the main ruling may expressly discharge the interim order or leave it in place. This must be recorded clearly.',
+        action:   'Check whether the ruling expressly discharged the interim order. If so, update interim_relief_status in the FREP intake panel. If not discharged, apply separately for discharge or variation.',
+      }));
+    }
+  }
+
+  // ────────────────────────────────────────────────────────────────────────────
+
+  if (role === 'frep_respondent') {
+    const fd = activeCase.frep_data;
+
+    // Service received — no opposition filed yet
+    const serviceReceived = entryMatches(entries, STAGE_KEYWORDS['service_received'] ?? []);
+    const hasCounter      = entryMatches(entries, STAGE_KEYWORDS['counter_affidavit'] ?? []);
+    if (serviceReceived && !hasCounter) {
+      alerts.push(mk({
+        severity: 'CRITICAL',
+        category: 'deadline',
+        title:    '5-Day Response Deadline — Counter-Affidavit or Written Address Required',
+        body:     'Service of the FREP application has been received. The 5-day window to file a Counter-Affidavit + Written Address (factual) or Written Address only (law-only PO) is running. Failure to file a counter-affidavit means the applicant\'s facts stand admitted.',
+        action:   'Determine opposition type immediately (factual or law-only). File Counter-Affidavit + Written Address OR Written Address only within 5 days of service. Use Applications Engine to draft.',
+      }));
+    }
+
+    // Opposition type not set
+    if (!fd?.respondent_opposition_type && serviceReceived) {
+      alerts.push(mk({
+        severity: 'HIGH',
+        category: 'procedural',
+        title:    'Opposition Type Not Selected — Required Before Drafting',
+        body:     'The respondent opposition type has not been set. This determines whether a Counter-Affidavit is required (factual) or Written Address only (law-only PO). Silence on factual opposition means admission.',
+        action:   'Open Applications Engine → FREP Intake Panel. Select opposition type (Factual or Law-Only) before drafting any response documents.',
+      }));
+    }
+
+    // Written address not filed — no oral argument available
+    if (hasCounter && !entryMatches(entries, ['written address in opposition', 'written address filed']) && activeCase.current_stage === 'hearing') {
+      alerts.push(mk({
+        severity: 'HIGH',
+        category: 'procedural',
+        title:    'No Written Address Filed — No Oral Argument Available',
+        body:     'A Written Address in Opposition does not appear in the docket. Under FREP procedure, a respondent who has not filed a Written Address has no right to oral argument at the hearing.',
+        action:   'Confirm whether a Written Address was filed and docketed. If not, urgently apply for extension of time or risk losing the right to address the court entirely.',
+      }));
+    }
+
+    // Ruling received — compliance obligations running
+    const hasRuling = entryMatches(entries, STAGE_KEYWORDS['ruling'] ?? []);
+    if (hasRuling && !entryMatches(entries, STAGE_KEYWORDS['compliance'] ?? [])) {
+      alerts.push(mk({
+        severity: 'HIGH',
+        category: 'compliance',
+        title:    'Ruling Delivered — Compliance Obligations Running',
+        body:     'A ruling has been recorded. FREP orders are enforceable immediately unless a stay of execution is obtained. Non-compliance exposes the respondent to contempt/committal proceedings.',
+        action:   'Advise client on specific compliance obligations from the ruling. Apply for stay of execution if an appeal is being considered. File Notice of Appeal within time.',
+      }));
+    }
+
+    // Interim order still active at ruling stage
+    if (fd?.interim_relief_status === 'granted' && activeCase.current_stage === 'ruling') {
+      alerts.push(mk({
+        severity: 'MEDIUM',
+        category: 'compliance',
+        title:    'Interim Order Still Active — Check Ruling for Discharge',
+        body:     'An interim order is recorded as granted. The main ruling may or may not discharge it. If not expressly discharged, the interim order remains in force as a separate matter.',
+        action:   'Check whether the ruling expressly discharged the interim order. If not discharged and circumstances warrant, file a separate application to discharge. Record in FREP Ruling Record.',
+      }));
+    }
+  }
+
   return alerts;
 }
 
@@ -1243,6 +1399,33 @@ function getAlertCoverageForRole(role: CounselRole): string[] {
       'No-case submission filed — awaiting ruling',
       'Conviction or sentence — appeal deadline running (CRITICAL)',
       'AI: charge defects, prosecution weakness, bail and appeal strategy alerts',
+    ],
+    petitioner_side: [
+      'Overdue deadlines (CRITICAL)',
+      'AI: matrimonial-specific procedural and strategy risks',
+    ],
+    respondent_side: [
+      'Overdue deadlines (CRITICAL)',
+      'AI: matrimonial-specific procedural and strategy risks',
+    ],
+    frep_applicant: [
+      'Overdue deadlines (CRITICAL)',
+      '5-day response window running after service',
+      'Counter-affidavit deadline lapsed — facts stand admitted',
+      'Respondent Written Address filed — 5-day Reply window running',
+      'Application filed 7+ days without hearing date — registry follow-up needed',
+      'Amendment deadline approaching or lapsed',
+      'Interim order still active at ruling stage',
+      'AI: jurisdiction, laches, proper respondent, and enforcement risk alerts',
+    ],
+    frep_respondent: [
+      'Overdue deadlines (CRITICAL)',
+      '5-day response deadline — Counter-Affidavit or Written Address required (CRITICAL)',
+      'Opposition type not selected — required before drafting',
+      'No Written Address filed — no oral argument available at hearing',
+      'Ruling delivered — compliance obligations running',
+      'Interim order still active — check ruling for discharge',
+      'AI: admission risk, PO grounds, compliance exposure alerts',
     ],
   };
   return coverage[role] ?? [];
