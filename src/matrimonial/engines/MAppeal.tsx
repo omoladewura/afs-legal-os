@@ -14,9 +14,11 @@
  * MCR  = Matrimonial Causes Rules 1983
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { Case } from '@/types';
 import { useAI } from '@/hooks/useAI';
+import { loadMatrimonialData } from '@/storage/helpers';
+import type { MatrimonialCaseData } from '@/matrimonial/types';
 import { Md, ErrorBlock } from '@/components/common/ui';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -201,6 +203,7 @@ Advise on:
 - Recommended course`;
 
     const result = await ai.ask({ system: SYSTEM, userMsg: prompt, maxTokens: 2500, libraryOpts: { queryHint: 'appeal decree nisi s.241(1)(f)(iv) CFRN s.241(2) absolute bar Court of Appeal matrimonial pending appeal effect' } });
+    if (result) setOutput(result);
   }
 
   return (
@@ -307,6 +310,7 @@ Draft a complete Notice of Appeal under the Court of Appeal Rules 2021, includin
 Note: This is an appeal as of right under s.241(1)(f)(iv) CFRN — no leave required. State this clearly in the preamble.`;
 
     const result = await ai.ask({ system: SYSTEM, userMsg: prompt, maxTokens: 2000, libraryOpts: { queryHint: 'notice of appeal Court of Appeal matrimonial s.241(1)(f)(iv) CFRN grounds of appeal decree nisi as of right' } });
+    if (result) setDraft(result);
   }
 
   return (
@@ -376,6 +380,31 @@ type AppealTab = 'absolute_check' | 'nisi_appeal' | 'notice';
 export function MAppeal({ activeCase }: { activeCase: Case }) {
   const [tab, setTab] = useState<AppealTab>('absolute_check');
 
+  // Intelligence pre-population
+  const [matrimonialData, setMatrimonialData] = useState<MatrimonialCaseData | null>(null);
+  const [absoluteBlockActive, setAbsoluteBlockActive] = useState(false);
+  const [intelligenceCleared, setIntelligenceCleared] = useState(false);
+
+  useEffect(() => {
+    loadMatrimonialData(activeCase.id)
+      .then(data => {
+        if (!data?.intelligence_extraction) return;
+        setMatrimonialData(data);
+
+        // Fire the s.241(2) hard block banner if decree stage indicates absolute already made
+        const stage = data.intelligence_extraction.decree_stage?.toLowerCase() ?? '';
+        if (
+          stage.includes('absolute') ||
+          stage.includes('absolute granted') ||
+          stage.includes('decree absolute')
+        ) {
+          setAbsoluteBlockActive(true);
+          setTab('absolute_check'); // Force onto that tab
+        }
+      })
+      .catch(() => {});
+  }, [activeCase.id]);
+
   const TABS: Array<{ id: AppealTab; label: string; icon: string }> = [
     { id: 'absolute_check', label: 'Appeal Against Absolute', icon: '⛔' },
     { id: 'nisi_appeal',    label: 'Appeal Against Nisi',     icon: '▲' },
@@ -392,6 +421,56 @@ export function MAppeal({ activeCase }: { activeCase: Case }) {
           s.241(2) CFRN — hard bar on absolute appeals · s.241(1)(f)(iv) CFRN — as-of-right nisi appeal · Court of Appeal procedure
         </p>
       </div>
+
+      {/* Intelligence: decree absolute early-fire banner */}
+      {absoluteBlockActive && !intelligenceCleared && (
+        <div style={{
+          background: '#3a0808', border: '2px solid #cc3333', borderRadius: 7,
+          padding: '14px 18px', marginBottom: 16,
+          display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12,
+        }}>
+          <div style={{ flex: 1 }}>
+            <p style={{ fontSize: 12, fontFamily: SERIF, fontWeight: 700, color: '#ff6060', marginBottom: 4 }}>
+              ⛔ MIntelligence detected: decree stage indicates decree absolute may already be granted
+            </p>
+            <p style={{ fontSize: 11, fontFamily: SERIF, color: '#cc8080', lineHeight: 1.6 }}>
+              Decree stage from extraction: <em>{matrimonialData?.intelligence_extraction?.decree_stage}</em>
+              <br />If decree absolute has been made, s.241(2) CFRN applies — no appeal lies. Review the tab below.
+            </p>
+          </div>
+          <button
+            onClick={() => setIntelligenceCleared(true)}
+            style={{ background: 'transparent', border: '1px solid #884444', color: '#cc6060', borderRadius: 4, padding: '4px 10px', fontSize: 10, fontFamily: SERIF, cursor: 'pointer', flexShrink: 0 }}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      {/* Intelligence: general pre-fill banner for nisi appeals */}
+      {matrimonialData?.intelligence_extraction && !absoluteBlockActive && !intelligenceCleared && (
+        <div style={{
+          background: '#f0faf5', border: '1px solid #4caf85', borderRadius: 7,
+          padding: '12px 16px', marginBottom: 16,
+          display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12,
+        }}>
+          <div style={{ flex: 1 }}>
+            <p style={{ fontSize: 12, fontFamily: SERIF, fontWeight: 700, color: '#1a5a38', marginBottom: 3 }}>
+              ⚡ Intelligence loaded · Decree stage: {matrimonialData.intelligence_extraction.decree_stage || '—'}
+            </p>
+            <p style={{ fontSize: 11, fontFamily: SERIF, color: '#2d7a52', lineHeight: 1.6 }}>
+              Facts in play: {matrimonialData.intelligence_extraction.dissolution_facts.map(f => f.fact).join('; ') || '—'}.
+              Gaps: {matrimonialData.intelligence_extraction.gaps_and_risks.filter(g => g.severity === 'HIGH').map(g => g.issue).join('; ') || 'None HIGH severity'}.
+            </p>
+          </div>
+          <button
+            onClick={() => setIntelligenceCleared(true)}
+            style={{ background: 'transparent', border: '1px solid #c04040', color: '#c04040', borderRadius: 4, padding: '4px 10px', fontSize: 10, fontFamily: SERIF, cursor: 'pointer', flexShrink: 0 }}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {/* Sub-tab bar */}
       <div style={{ display: 'flex', gap: 4, marginBottom: 22, borderBottom: '1px solid #e0e0e0' }}>

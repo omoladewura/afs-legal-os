@@ -25,7 +25,7 @@ import { T } from '@/constants/tokens';
 import { useAI } from '@/hooks/useAI';
 import { Md, ErrorBlock } from '@/components/common/ui';
 import { loadMatrimonialData, saveMatrimonialData } from '@/storage/helpers';
-import type { MatrimonialCaseData } from '@/matrimonial/types';
+import type { MatrimonialCaseData, MExtractionResult } from '@/matrimonial/types';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CONSTANTS
@@ -112,6 +112,55 @@ function Btn({ onClick, loading, disabled, label, variant = 'primary' }: {
     }}>
       {loading ? '⟳  Working…' : label}
     </button>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// INTELLIGENCE BANNER
+// ─────────────────────────────────────────────────────────────────────────────
+
+function IntelligenceBanner({
+  matrimonialData,
+  onClear,
+}: {
+  matrimonialData: MatrimonialCaseData;
+  onClear: () => void;
+}) {
+  const runAt = matrimonialData.intelligence_run_at
+    ? new Date(matrimonialData.intelligence_run_at).toLocaleDateString('en-NG', {
+        day: 'numeric', month: 'short', year: 'numeric',
+      })
+    : '—';
+  const version = matrimonialData.intelligence_version ?? 1;
+  const ex = matrimonialData.intelligence_extraction;
+
+  return (
+    <div style={{
+      background: '#f0faf5', border: '1px solid #4caf85', borderRadius: 7,
+      padding: '12px 16px', marginBottom: 20,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+        <div style={{ flex: 1 }}>
+          <p style={{ fontSize: 12, fontFamily: SERIF, fontWeight: 700, color: '#1a5a38', marginBottom: 3 }}>
+            ⚡ Pre-filled from MIntelligence · Run {runAt} · Version {version}
+          </p>
+          <p style={{ fontSize: 11, fontFamily: SERIF, color: '#2d7a52', lineHeight: 1.6 }}>
+            {ex?.children && ex.children.length > 0
+              ? `Children detected (${ex.children.length}) — s.57 path pre-selected (28 days). Verify whether a welfare order was actually made at nisi.`
+              : 'No children recorded — s.58 path pre-selected (3 months). Confirm with decree nisi order.'}
+            {ex?.decree_stage
+              ? <span> Decree stage: <em>{ex.decree_stage}</em>.</span>
+              : null}
+          </p>
+        </div>
+        <button
+          onClick={onClear}
+          style={{ background: 'transparent', border: '1px solid #c04040', color: '#c04040', borderRadius: 4, padding: '4px 10px', fontSize: 10, fontFamily: SERIF, cursor: 'pointer', flexShrink: 0 }}
+        >
+          Clear &amp; enter manually
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -237,6 +286,11 @@ export function DecreeEnforcementEngine({ activeCase }: { activeCase: Case }) {
   const [childrenOrder, setChildrenOrder] = useState<'yes' | 'no' | ''>('');
   const [saved, setSaved] = useState(false);
 
+  // Intelligence pre-population
+  const [intelligenceCleared, setIntelligenceCleared] = useState(false);
+  const [hasIntelligence, setHasIntelligence] = useState(false);
+  const [intelligencePackage, setIntelligencePackage] = useState('');
+
   // Draft application state
   const [draftOutput, setDraftOutput] = useState('');
   const [draftCopied, setDraftCopied] = useState(false);
@@ -246,8 +300,28 @@ export function DecreeEnforcementEngine({ activeCase }: { activeCase: Case }) {
     loadMatrimonialData(activeCase.id).then(d => {
       if (!d) return;
       setMData(d);
+
+      // Always apply saved structural fields first
       if (d.decree_nisi_date) setNisiDate(d.decree_nisi_date);
       if (d.decree_absolute_path) setChildrenOrder(d.decree_absolute_path === 's57_28_days' ? 'yes' : 'no');
+
+      // Then layer intelligence pre-population if available and not yet overridden
+      if (d.intelligence_extraction) {
+        setHasIntelligence(true);
+        if (d.intelligence_package) setIntelligencePackage(d.intelligence_package);
+
+        // Only pre-populate tracker if no saved structural data exists yet
+        if (!d.decree_nisi_date && !d.decree_absolute_path) {
+          const ex = d.intelligence_extraction;
+          // Infer children path from extraction
+          if (ex.children.length > 0) {
+            setChildrenOrder('yes'); // s.57 path — children present; associate must confirm welfare order
+          } else {
+            setChildrenOrder('no'); // s.58 path — no children
+          }
+          // nisiDate left blank — we know the stage but not the date yet
+        }
+      }
     });
   }, [activeCase?.id]);
 
@@ -275,6 +349,9 @@ export function DecreeEnforcementEngine({ activeCase }: { activeCase: Case }) {
   async function draftAbsolute() {
     if (!nisiDate || !childrenOrder) return;
     const path = childrenOrder === 'yes' ? 's.57 MCA (28-day path — children welfare order made)' : 's.58 MCA (3-month path — no children welfare order)';
+    const intelligenceContext = intelligencePackage
+      ? `\n\nCASE INTELLIGENCE SUMMARY (from MIntelligence):\n${intelligencePackage.slice(0, 1200)}`
+      : '';
     const prompt = `Draft an Application to Make Decree Nisi Absolute in the matter of ${activeCase.caseName}.
 
 DECREE NISI DATE: ${formatDate(nisiDate)}
@@ -282,7 +359,7 @@ APPLICABLE PATH: ${path}
 EARLIEST APPLICATION DATE: ${formatDate(deadline!)}
 
 DECREE NISI TERMS:
-${nisiTerms || '(counsel to insert)'}
+${nisiTerms || '(counsel to insert)'}${intelligenceContext}
 
 Draft:
 1. Motion paper (by Notice of Motion or ex-parte as applicable) — O.11 MCR
@@ -312,6 +389,19 @@ State the applicable statutory provision clearly (${childrenOrder === 'yes' ? 's
           s.57 MCA (28 days, children order) · s.58 MCA (3 months, no children order) · Post-decree enforcement
         </p>
       </div>
+
+      {hasIntelligence && !intelligenceCleared && mData && (
+        <IntelligenceBanner
+          matrimonialData={mData}
+          onClear={() => {
+            setIntelligenceCleared(true);
+            // Clear the intelligence-derived path suggestion if no structural data saved
+            if (!mData?.decree_nisi_date) {
+              setChildrenOrder('');
+            }
+          }}
+        />
+      )}
 
       {/* Sub-tab bar */}
       <div style={{ display: 'flex', gap: 4, marginBottom: 22, borderBottom: '1px solid #e0e0e0', paddingBottom: 0 }}>
@@ -351,6 +441,11 @@ State the applicable statutory provision clearly (${childrenOrder === 'yes' ? 's
                 <p style={{ fontSize: 11, fontFamily: SERIF, color: '#888888', marginBottom: 8, lineHeight: 1.6 }}>
                   This determines whether s.57 (28 days) or s.58 (3 months) applies. The wrong answer produces the wrong deadline.
                 </p>
+                {hasIntelligence && !intelligenceCleared && childrenOrder && !mData?.decree_absolute_path && (
+                  <p style={{ fontSize: 10, fontFamily: SERIF, color: '#1a5a38', background: '#edfaf3', border: '1px solid #b8e8cc', borderRadius: 4, padding: '5px 10px', marginBottom: 8 }}>
+                    ⚡ Path inferred from MIntelligence extraction — confirm against the actual decree nisi order before saving.
+                  </p>
+                )}
                 <div style={{ display: 'flex', gap: 10 }}>
                   {(['yes', 'no'] as const).map(v => (
                     <button key={v} onClick={() => setChildrenOrder(v)} style={{
