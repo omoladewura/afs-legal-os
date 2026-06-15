@@ -609,7 +609,10 @@ export type DashTabId =
   // Phase B — Applications Engine
   | 'applications'
   // Phase D — Synthesis Engine
-  | 'synthesis';
+  | 'synthesis'
+  // Phase 9 — Matrimonial sub-tabs
+  | 'petition_answer' | 'forms_documents' | 'custody' | 'maintenance'
+  | 'property' | 'ancillary_applications' | 'decree_enforcement';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ORIGINATING PROCESS
