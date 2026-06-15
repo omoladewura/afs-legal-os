@@ -11,7 +11,7 @@
  * Phase 5 (FREP & Matrimonial integration):
  * - Tab set now driven by activeCase.originating_process via
  *   getTabsForOriginatingProcess() rather than the role-based ROLE_TABS map.
- * - FREP cases render TABS_FREP; Matrimonial → TABS_MATRIMONIAL;
+ * - FREP cases render TABS_FREP; criminal (no originating_process) → TABS_CRIMINAL;
  *   criminal (no originating_process) → TABS_CRIMINAL; all others → TABS_WRIT.
  * - ROLE_TABS is retained for quick-action bar and position config lookups;
  *   it no longer controls which tabs are visible.
