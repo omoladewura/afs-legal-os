@@ -23,7 +23,8 @@ import React, { useState, useCallback, useEffect } from 'react';
 import type { Case } from '@/types';
 import { T } from '@/constants/tokens';
 import { useAI } from '@/hooks/useAI';
-import { loadBlindSpot, saveBlindSpot, uid } from '@/storage/helpers';
+import { loadBlindSpot, saveBlindSpot, loadMatrimonialData, uid } from '@/storage/helpers';
+import type { MatrimonialCaseData, MExtractionResult } from '@/matrimonial/types';
 import { Md, ErrorBlock } from '@/components/common/ui';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -129,10 +130,149 @@ const DOC_TYPES: DocType[] = [
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SYSTEM PROMPT
+// INTELLIGENCE PRE-FILL HELPERS
 // ─────────────────────────────────────────────────────────────────────────────
 
-const MAB_SYSTEM = `You are a specialist Nigerian matrimonial causes drafting counsel. You produce court documents and written addresses under the Matrimonial Causes Act Cap M7 LFN 2004 (MCA) and the Matrimonial Causes Rules 1983 (MCR).
+function buildContextFromExtraction(docTypeId: string, ex: MExtractionResult, caseName: string): string {
+  const t = ex.marriage_timeline;
+  const facts = ex.dissolution_facts.map(f => `${f.fact} (${f.strength})`).join('; ');
+  const children = ex.children.map(c => `${c.name}, aged ${c.age}`).join('; ') || 'None';
+
+  switch (docTypeId) {
+    case 'verifying_affidavit':
+      return [
+        `Case: ${caseName}`,
+        `Marriage date: ${t.marriage_date} at ${t.marriage_place} (${t.marriage_type}).`,
+        `Cohabitation history: ${t.cohabitation_history || '[not recorded]'}. Cohabitation ended: ${t.cohabitation_end || '[not recorded]'}.`,
+        `Relief sought: ${ex.relief_sought}.`,
+        `s.15(2) facts relied upon: ${facts || '—'}.`,
+        `Children of the marriage: ${children}.`,
+        ex.condonation_risk.risk
+          ? `Condonation risk identified (${ex.condonation_risk.severity}): ${ex.condonation_risk.basis}. Declaration basis: [COUNSEL TO CONFIRM].`
+          : `No condonation risk identified.`,
+        ex.co_respondent.named
+          ? `Co-respondent: ${ex.co_respondent.name}. Service feasible: ${ex.co_respondent.service_feasible ? 'Yes' : 'Requires attention'}.`
+          : '',
+        `Gaps and risks: ${ex.gaps_and_risks.map(g => `${g.issue} (${g.severity})`).join('; ') || 'None identified'}.`,
+        '[COUNSEL TO VERIFY: Review all facts before petitioner swears this affidavit.]',
+      ].filter(Boolean).join('\n');
+
+    case 'leave_affidavit': {
+      const bar = ex.two_year_bar;
+      return [
+        `Case: ${caseName}`,
+        `Marriage date: ${bar.marriage_date || t.marriage_date}.`,
+        `Two-year bar applies: ${bar.bar_applies ? 'Yes' : 'No'}.`,
+        bar.exception
+          ? `Exception identified: ${bar.exception_basis || bar.exception}. Leave may not be required — confirm with counsel.`
+          : `No exception identified. Application for leave under s.30 MCA is required before presenting the petition.`,
+        `Leave previously obtained: ${bar.leave_obtained ? 'Yes' : 'No'}.`,
+        `Facts of breakdown: ${facts || '—'}.`,
+        `Cohabitation ended: ${t.cohabitation_end || '[not recorded]'}.`,
+        '[COUNSEL TO VERIFY: Confirm date of intended petition and grounds for leave application before swearing.]',
+      ].filter(Boolean).join('\n');
+    }
+
+    case 'ancillary_affidavit': {
+      const fin = ex.financial_picture;
+      return [
+        `Case: ${caseName}`,
+        `Marriage date: ${t.marriage_date}. Cohabitation ended: ${t.cohabitation_end || '[not recorded]'}.`,
+        `Children: ${children}.`,
+        `Known assets: ${fin.assets_known.length > 0 ? fin.assets_known.join(', ') : '[not yet ascertained]'}.`,
+        `Maintenance needs: ${fin.maintenance_needs || '[not yet quantified]'}.`,
+        `Pendente lite urgency: ${fin.pendente_lite_urgency}.`,
+        fin.disclosure_gaps.length > 0
+          ? `Disclosure gaps: ${fin.disclosure_gaps.join('; ')}.`
+          : '',
+        '[COUNSEL TO VERIFY: Supply income, liabilities, monthly outgoings, and proposed quantum before filing.]',
+      ].filter(Boolean).join('\n');
+    }
+
+    case 'written_address_ancillary': {
+      const fin = ex.financial_picture;
+      return [
+        `Case: ${caseName}`,
+        `Marriage date: ${t.marriage_date}. Duration: [COUNSEL TO CALCULATE].`,
+        `Facts in play: ${facts || '—'}.`,
+        `Decree stage: ${ex.decree_stage || '[not yet determined]'}.`,
+        `Children: ${children}.`,
+        `Financial picture: ${fin.maintenance_needs || '[not yet quantified]'}.`,
+        `Known assets: ${fin.assets_known.join(', ') || '[not yet ascertained]'}.`,
+        fin.disclosure_gaps.length > 0
+          ? `Disclosure gaps to address in address: ${fin.disclosure_gaps.join('; ')}.`
+          : '',
+        '[COUNSEL TO VERIFY: Supply specific orders sought with quantum and case authorities before generating.]',
+      ].filter(Boolean).join('\n');
+    }
+
+    case 'written_address_custody':
+      return [
+        `Case: ${caseName}`,
+        `Children of the marriage:`,
+        ...ex.children.map(c =>
+          `  - ${c.name}, aged ${c.age}. Current arrangement: ${c.current_arrangement}.${c.welfare_concern ? ` Welfare concern: ${c.welfare_concern}` : ''}`
+        ),
+        `Marriage date: ${t.marriage_date}. Cohabitation ended: ${t.cohabitation_end || '[not recorded]'}.`,
+        `Decree stage: ${ex.decree_stage || '[not yet determined]'}.`,
+        '[COUNSEL TO VERIFY: Add each party\'s parenting capacity, proposed access arrangements, and welfare officer findings if any.]',
+      ].filter(Boolean).join('\n');
+
+    case 'written_address_absolute':
+      return [
+        `Case: ${caseName}`,
+        `Decree stage: ${ex.decree_stage || '[nisi not yet granted — confirm stage]'}.`,
+        `Children: ${children}.`,
+        `Applicable path: ${ex.children.length > 0 ? 's.57 MCA (28 days from nisi — children welfare order likely required)' : 's.58 MCA (3 months from nisi — no welfare order made)'}.`,
+        `Gaps and risks: ${ex.gaps_and_risks.map(g => `${g.issue} (${g.severity})`).join('; ') || 'None identified'}.`,
+        '[COUNSEL TO VERIFY: Confirm decree nisi date, whether any children welfare order was made, and elapsed period before generating.]',
+      ].filter(Boolean).join('\n');
+
+    default:
+      return '';
+  }
+}
+
+function IntelligenceBanner({
+  matrimonialData,
+  onClear,
+}: {
+  matrimonialData: MatrimonialCaseData;
+  onClear: () => void;
+}) {
+  const runAt = matrimonialData.intelligence_run_at
+    ? new Date(matrimonialData.intelligence_run_at).toLocaleDateString('en-NG', {
+        day: 'numeric', month: 'short', year: 'numeric',
+      })
+    : '—';
+  const version = matrimonialData.intelligence_version ?? 1;
+
+  return (
+    <div style={{
+      background: '#f0faf5', border: '1px solid #4caf85', borderRadius: 7,
+      padding: '12px 16px', marginBottom: 20,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+        <div style={{ flex: 1 }}>
+          <p style={{ fontSize: 12, fontFamily: SERIF, fontWeight: 700, color: '#1a5a38', marginBottom: 3 }}>
+            ⚡ Pre-filled from MIntelligence · Run {runAt} · Version {version}
+          </p>
+          <p style={{ fontSize: 11, fontFamily: SERIF, color: '#2d7a52', lineHeight: 1.6 }}>
+            Context boxes will auto-fill from the case extraction when you select a document type.
+          </p>
+        </div>
+        <button
+          onClick={onClear}
+          style={{ background: 'transparent', border: '1px solid #c04040', color: '#c04040', borderRadius: 4, padding: '4px 10px', fontSize: 10, fontFamily: SERIF, cursor: 'pointer', flexShrink: 0 }}
+        >
+          Clear &amp; enter manually
+        </button>
+      </div>
+    </div>
+  );
+}
+
+ = `You are a specialist Nigerian matrimonial causes drafting counsel. You produce court documents and written addresses under the Matrimonial Causes Act Cap M7 LFN 2004 (MCA) and the Matrimonial Causes Rules 1983 (MCR).
 
 DOCTRINAL RULES (mandatory throughout all documents):
 - Sole ground for dissolution: irretrievable breakdown s.15(1) MCA. The s.15(2)(a)–(h) facts are EVIDENCE of breakdown, not separate grounds.
@@ -299,11 +439,25 @@ export function MArgumentBuilder({ activeCase }: Props) {
   const [viewVer, setViewVer]   = useState<Version | null>(null);
   const [copied, setCopied]     = useState(false);
 
+  // Intelligence pre-population
+  const [matrimonialData, setMatrimonialData] = useState<MatrimonialCaseData | null>(null);
+  const [intelligenceCleared, setIntelligenceCleared] = useState(false);
+
   const caseId = activeCase.id;
 
   useEffect(() => {
     loadBlindSpot<SavedData>(caseId, MODULE)
       .then(d => setVersions((d ?? DEFAULT_DATA).versions))
+      .catch(() => {});
+  }, [caseId]);
+
+  useEffect(() => {
+    loadMatrimonialData(caseId)
+      .then(data => {
+        if (data?.intelligence_extraction) {
+          setMatrimonialData(data);
+        }
+      })
       .catch(() => {});
   }, [caseId]);
 
@@ -325,6 +479,19 @@ export function MArgumentBuilder({ activeCase }: Props) {
     setDraft('');
     setViewVer(null);
   }, []);
+
+  function selectDoc(doc: DocType) {
+    setSelDoc(doc);
+    // Pre-fill context from intelligence if available
+    if (matrimonialData?.intelligence_extraction && !intelligenceCleared) {
+      const prefilled = buildContextFromExtraction(doc.id, matrimonialData.intelligence_extraction, activeCase.caseName);
+      if (prefilled) setContext(prefilled);
+      else setContext('');
+    } else {
+      setContext('');
+    }
+    setStep(2);
+  }
 
   // ── Generation ────────────────────────────────────────────────────────────
 
@@ -424,6 +591,13 @@ Draft the complete document described above. Requirements:
         </p>
       </div>
 
+      {matrimonialData?.intelligence_extraction && !intelligenceCleared && (
+        <IntelligenceBanner
+          matrimonialData={matrimonialData}
+          onClear={() => { setIntelligenceCleared(true); setContext(''); }}
+        />
+      )}
+
       {/* Tab bar */}
       <div style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: '1px solid #e0e0e0' }}>
         {(['build', 'history'] as const).map(t => (
@@ -462,7 +636,7 @@ Draft the complete document described above. Requirements:
                 {DOC_TYPES.map(doc => (
                   <div
                     key={doc.id}
-                    onClick={() => { setSelDoc(doc); setStep(2); }}
+                    onClick={() => selectDoc(doc)}
                     style={{
                       ...cardS, marginBottom: 0, cursor: 'pointer',
                       border: `1px solid ${selDoc?.id === doc.id ? '#4a1a7a' : '#e0e0e0'}`,

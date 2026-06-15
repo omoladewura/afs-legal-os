@@ -24,7 +24,8 @@ import React, { useState, useCallback, useEffect } from 'react';
 import type { Case } from '@/types';
 import { T } from '@/constants/tokens';
 import { useAI } from '@/hooks/useAI';
-import { loadBlindSpot, saveBlindSpot, uid } from '@/storage/helpers';
+import { loadBlindSpot, saveBlindSpot, loadMatrimonialData, uid } from '@/storage/helpers';
+import type { MatrimonialCaseData, MExtractionResult } from '@/matrimonial/types';
 import { Md, ErrorBlock } from '@/components/common/ui';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -189,7 +190,141 @@ const APPLICATIONS: ApplicationDef[] = [
   },
 ];
 
-const MCA_SYSTEM = `You are a specialist Nigerian matrimonial causes drafting counsel. You draft court documents under the Matrimonial Causes Act Cap M7 LFN 2004 (MCA) and the Matrimonial Causes Rules 1983 (MCR).
+// ─────────────────────────────────────────────────────────────────────────────
+// INTELLIGENCE HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** IDs of applications that should be highlighted based on extraction fields. */
+function getRecommendedAppIds(ex: MExtractionResult): Set<string> {
+  const recommended = new Set<string>();
+  if (ex.two_year_bar?.bar_applies && !ex.two_year_bar?.leave_obtained) {
+    recommended.add('leave_s30');
+  }
+  if (ex.financial_picture?.pendente_lite_urgency === 'HIGH') {
+    recommended.add('maintenance_pendente');
+  }
+  if (ex.children?.some(c => c.welfare_concern && c.welfare_concern.trim().length > 0)) {
+    recommended.add('interim_custody');
+  }
+  if (ex.financial_picture?.disclosure_gaps?.length > 0) {
+    recommended.add('financial_disclosure');
+  }
+  return recommended;
+}
+
+/** Pre-populate the facts textarea for a selected application from extraction. */
+function buildPreFilledFacts(appId: string, ex: MExtractionResult, caseName: string): string {
+  const timeline = ex.marriage_timeline;
+
+  switch (appId) {
+    case 'leave_s30': {
+      const bar = ex.two_year_bar;
+      return [
+        `Case: ${caseName}`,
+        `Marriage date: ${timeline.marriage_date} at ${timeline.marriage_place}.`,
+        `The s.30 MCA two-year bar applies: ${bar.bar_applies ? 'Yes' : 'No'}.`,
+        bar.exception
+          ? `Exception identified: ${bar.exception_basis || bar.exception}.`
+          : `No exception identified — leave is required before presenting the petition.`,
+        `Facts in play: ${ex.dissolution_facts.map(f => f.fact).join('; ') || '—'}.`,
+        `Current proceedings stage: ${ex.decree_stage || 'Pre-petition'}.`,
+        '[COUNSEL TO VERIFY: Confirm marriage registration date and confirm no exception applies before proceeding.]',
+      ].filter(Boolean).join('\n');
+    }
+
+    case 'maintenance_pendente': {
+      const fin = ex.financial_picture;
+      return [
+        `Case: ${caseName}`,
+        `Marriage date: ${timeline.marriage_date}. Cohabitation ended: ${timeline.cohabitation_end || '[not recorded]'}.`,
+        `Financial picture: ${fin.maintenance_needs || 'Applicant has identified maintenance needs.'}`,
+        `Pendente lite urgency: ${fin.pendente_lite_urgency}.`,
+        fin.assets_known.length > 0
+          ? `Known matrimonial assets: ${fin.assets_known.join(', ')}.`
+          : '',
+        fin.disclosure_gaps.length > 0
+          ? `Disclosure gaps identified: ${fin.disclosure_gaps.join('; ')}.`
+          : '',
+        `Children: ${ex.children.length > 0 ? ex.children.map(c => `${c.name} (${c.age})`).join(', ') : 'None'}.`,
+        '[COUNSEL TO VERIFY: Provide current income, monthly expenditure, and respondent means before filing.]',
+      ].filter(Boolean).join('\n');
+    }
+
+    case 'interim_custody': {
+      return [
+        `Case: ${caseName}`,
+        `Children of the marriage:`,
+        ...ex.children.map(c =>
+          `  - ${c.name}, aged ${c.age}. Current arrangement: ${c.current_arrangement}.${c.welfare_concern ? ` Welfare concern: ${c.welfare_concern}` : ''}`
+        ),
+        `Marriage date: ${timeline.marriage_date}. Cohabitation ended: ${timeline.cohabitation_end || '[not recorded]'}.`,
+        '[COUNSEL TO VERIFY: Confirm current living arrangements and any immediate welfare risks before filing.]',
+      ].filter(Boolean).join('\n');
+    }
+
+    case 'financial_disclosure': {
+      const fin = ex.financial_picture;
+      return [
+        `Case: ${caseName}`,
+        `Known assets: ${fin.assets_known.length > 0 ? fin.assets_known.join(', ') : 'None identified'}.`,
+        `Disclosure gaps requiring court order: ${fin.disclosure_gaps.length > 0 ? fin.disclosure_gaps.join('; ') : 'None specified'}.`,
+        `Financial picture: ${fin.maintenance_needs || '—'}.`,
+        '[COUNSEL TO VERIFY: Specify exact documents required and grounds for believing non-disclosure before filing.]',
+      ].filter(Boolean).join('\n');
+    }
+
+    default:
+      return '';
+  }
+}
+
+function IntelligenceBanner({
+  matrimonialData,
+  onClear,
+}: {
+  matrimonialData: MatrimonialCaseData;
+  onClear: () => void;
+}) {
+  const ex = matrimonialData.intelligence_extraction;
+  const runAt = matrimonialData.intelligence_run_at
+    ? new Date(matrimonialData.intelligence_run_at).toLocaleDateString('en-NG', {
+        day: 'numeric', month: 'short', year: 'numeric',
+      })
+    : '—';
+  const version = matrimonialData.intelligence_version ?? 1;
+  const recommended = ex ? getRecommendedAppIds(ex) : new Set<string>();
+
+  return (
+    <div style={{
+      background: '#f0faf5', border: '1px solid #4caf85', borderRadius: 7,
+      padding: '12px 16px', marginBottom: 20,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+        <div style={{ flex: 1 }}>
+          <p style={{ fontSize: 12, fontFamily: SERIF, fontWeight: 700, color: '#1a5a38', marginBottom: 3 }}>
+            ⚡ Pre-filled from MIntelligence · Run {runAt} · Version {version}
+          </p>
+          <p style={{ fontSize: 11, fontFamily: SERIF, color: '#2d7a52', lineHeight: 1.6 }}>
+            {recommended.size > 0
+              ? `${recommended.size} application${recommended.size > 1 ? 's' : ''} recommended based on extraction. Highlighted below.`
+              : 'No priority applications flagged. Facts box will pre-fill when you select an application.'}
+            {ex?.two_year_bar?.bar_applies && !ex.two_year_bar.leave_obtained && (
+              <span style={{ color: '#c04040', fontWeight: 700 }}> ⚠ s.30 bar applies — Leave to Present Petition is required first.</span>
+            )}
+          </p>
+        </div>
+        <button
+          onClick={onClear}
+          style={{ background: 'transparent', border: '1px solid #c04040', color: '#c04040', borderRadius: 4, padding: '4px 10px', fontSize: 10, fontFamily: SERIF, cursor: 'pointer', flexShrink: 0 }}
+        >
+          Clear &amp; enter manually
+        </button>
+      </div>
+    </div>
+  );
+}
+
+ You draft court documents under the Matrimonial Causes Act Cap M7 LFN 2004 (MCA) and the Matrimonial Causes Rules 1983 (MCR).
 
 DOCTRINAL RULES (mandatory throughout):
 - Sole ground for dissolution: irretrievable breakdown s.15(1). The s.15(2)(a)–(h) facts are EVIDENCE of breakdown.
@@ -363,11 +498,27 @@ export function MApplications({ activeCase }: Props) {
   const [viewRecord, setViewRecord] = useState<AppRecord | null>(null);
   const [copied, setCopied] = useState(false);
 
+  // Intelligence pre-population state
+  const [matrimonialData, setMatrimonialData] = useState<MatrimonialCaseData | null>(null);
+  const [intelligenceCleared, setIntelligenceCleared] = useState(false);
+  const [recommendedIds, setRecommendedIds] = useState<Set<string>>(new Set());
+
   const caseId = activeCase.id;
 
   useEffect(() => {
     loadBlindSpot<SavedData>(caseId, MODULE)
       .then(d => setHistory((d ?? DEFAULT_DATA).history))
+      .catch(() => {});
+  }, [caseId]);
+
+  useEffect(() => {
+    loadMatrimonialData(caseId)
+      .then(data => {
+        if (data?.intelligence_extraction) {
+          setMatrimonialData(data);
+          setRecommendedIds(getRecommendedAppIds(data.intelligence_extraction));
+        }
+      })
       .catch(() => {});
   }, [caseId]);
 
@@ -389,6 +540,16 @@ export function MApplications({ activeCase }: Props) {
     setDraft('');
     setViewRecord(null);
   }, []);
+
+  function selectApp(app: ApplicationDef) {
+    setSelApp(app);
+    // Pre-fill facts from intelligence if available and not cleared
+    if (matrimonialData?.intelligence_extraction && !intelligenceCleared) {
+      const prefilled = buildPreFilledFacts(app.id, matrimonialData.intelligence_extraction, activeCase.caseName);
+      if (prefilled) setFacts(prefilled);
+    }
+    setStep(2);
+  }
 
   // ── Step 2 → 3: Generate drafts ─────────────────────────────────────────
 
@@ -482,6 +643,14 @@ After all documents, add a section: "## FILING CHECKLIST" with the steps counsel
         </p>
       </div>
 
+      {/* Intelligence banner */}
+      {matrimonialData?.intelligence_extraction && !intelligenceCleared && (
+        <IntelligenceBanner
+          matrimonialData={matrimonialData}
+          onClear={() => { setIntelligenceCleared(true); setRecommendedIds(new Set()); }}
+        />
+      )}
+
       {/* Tab bar */}
       <div style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: '1px solid #e0e0e0' }}>
         {(['new', 'history'] as const).map(t => (
@@ -513,16 +682,24 @@ After all documents, add a section: "## FILING CHECKLIST" with the steps counsel
             <div>
               <div style={secH}>Step 1 — Select Application</div>
               <div style={{ display: 'grid', gap: 12 }}>
-                {APPLICATIONS.map(app => (
+                {APPLICATIONS.map(app => {
+                  const isRecommended = recommendedIds.has(app.id);
+                  return (
                   <div
                     key={app.id}
-                    onClick={() => { setSelApp(app); setStep(2); }}
+                    onClick={() => selectApp(app)}
                     style={{
                       ...cardS, marginBottom: 0, cursor: 'pointer',
-                      border: `1px solid ${selApp?.id === app.id ? '#4a1a7a' : '#e0e0e0'}`,
+                      border: `1px solid ${isRecommended ? '#4caf85' : selApp?.id === app.id ? '#4a1a7a' : '#e0e0e0'}`,
+                      background: isRecommended ? '#f5fdf8' : '#ffffff',
                       transition: 'border-color .1s',
                     }}
                   >
+                    {isRecommended && (
+                      <div style={{ fontSize: 10, fontFamily: SERIF, fontWeight: 700, color: '#1a5a38', background: '#d8f5e8', borderRadius: 3, padding: '2px 8px', display: 'inline-block', marginBottom: 8 }}>
+                        ⚡ Recommended — flagged by MIntelligence
+                      </div>
+                    )}
                     <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
                       <span style={{ fontSize: 22, flexShrink: 0, marginTop: 2 }}>{app.icon}</span>
                       <div style={{ flex: 1 }}>
@@ -543,7 +720,8 @@ After all documents, add a section: "## FILING CHECKLIST" with the steps counsel
                       </div>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}

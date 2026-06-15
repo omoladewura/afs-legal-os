@@ -9,10 +9,12 @@
  * MCR = Matrimonial Causes Rules 1983
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import type { Case } from '@/types';
 import { T } from '@/constants/tokens';
 import { useAI } from '@/hooks/useAI';
+import { loadMatrimonialData } from '@/storage/helpers';
+import type { MatrimonialCaseData, MExtractionResult } from '@/matrimonial/types';
 import { Md, ErrorBlock } from '@/components/common/ui';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -252,8 +254,136 @@ const MCR_FORMS: MCRForm[] = [
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
-// STYLES
+// INTELLIGENCE BANNER
 // ─────────────────────────────────────────────────────────────────────────────
+
+function IntelligenceBanner({
+  matrimonialData,
+  onClear,
+}: {
+  matrimonialData: MatrimonialCaseData;
+  onClear: () => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const ex = matrimonialData.intelligence_extraction;
+  const runAt = matrimonialData.intelligence_run_at
+    ? new Date(matrimonialData.intelligence_run_at).toLocaleDateString('en-NG', {
+        day: 'numeric', month: 'short', year: 'numeric',
+      })
+    : '—';
+  const version = matrimonialData.intelligence_version ?? 1;
+
+  return (
+    <div style={{
+      background: '#f0faf5', border: '1px solid #4caf85', borderRadius: 7,
+      padding: '12px 16px', marginBottom: 20,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+        <div style={{ flex: 1 }}>
+          <p style={{ fontSize: 12, fontFamily: SERIF, fontWeight: 700, color: '#1a5a38', marginBottom: 3 }}>
+            ⚡ Pre-filled from MIntelligence · Run {runAt} · Version {version}
+          </p>
+          <p style={{ fontSize: 11, fontFamily: SERIF, color: '#2d7a52', lineHeight: 1.6 }}>
+            Marriage date, fact selection, children, and co-respondent have been pre-populated from the case extraction.
+            {ex?.two_year_bar?.bar_applies && (
+              <span style={{ color: '#c04040', fontWeight: 700 }}> ⚠ Two-year bar applies — verify s.30 leave before filing.</span>
+            )}
+          </p>
+        </div>
+        <div style={{ display: 'flex', gap: 8, flexShrink: 0, alignItems: 'flex-start' }}>
+          <button
+            onClick={() => setExpanded(v => !v)}
+            style={{ background: 'transparent', border: '1px solid #4caf85', color: '#1a5a38', borderRadius: 4, padding: '4px 10px', fontSize: 10, fontFamily: SERIF, cursor: 'pointer' }}
+          >
+            {expanded ? 'Hide extraction' : 'View extraction'}
+          </button>
+          <button
+            onClick={onClear}
+            style={{ background: 'transparent', border: '1px solid #c04040', color: '#c04040', borderRadius: 4, padding: '4px 10px', fontSize: 10, fontFamily: SERIF, cursor: 'pointer' }}
+          >
+            Clear &amp; enter manually
+          </button>
+        </div>
+      </div>
+      {expanded && ex && (
+        <div style={{ marginTop: 12, background: '#e8f5ee', borderRadius: 5, padding: '10px 14px', fontSize: 11, fontFamily: SERIF, color: '#1a3a28', lineHeight: 1.7 }}>
+          <strong>Marriage:</strong> {ex.marriage_timeline.marriage_date} · {ex.marriage_timeline.marriage_place} · {ex.marriage_timeline.marriage_type}<br />
+          <strong>Relief:</strong> {ex.relief_sought}<br />
+          <strong>Facts:</strong> {ex.dissolution_facts.map(f => f.fact).join('; ') || '—'}<br />
+          {ex.children.length > 0 && (
+            <><strong>Children:</strong> {ex.children.map(c => `${c.name} (${c.age})`).join(', ')}<br /></>
+          )}
+          {ex.co_respondent.named && (
+            <><strong>Co-respondent:</strong> {ex.co_respondent.name}<br /></>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HELPER — derive pre-populated field values from extraction
+// ─────────────────────────────────────────────────────────────────────────────
+
+function derivePreFill(ex: MExtractionResult): Record<string, string> {
+  const prefill: Record<string, string> = {};
+
+  // Marriage date — store as YYYY-MM-DD for <input type="date">
+  if (ex.marriage_timeline.marriage_date) {
+    // Attempt to parse a human date into YYYY-MM-DD
+    const parsed = new Date(ex.marriage_timeline.marriage_date);
+    if (!isNaN(parsed.getTime())) {
+      prefill['marriage_date'] = parsed.toISOString().slice(0, 10);
+    }
+  }
+
+  if (ex.marriage_timeline.marriage_place) {
+    prefill['marriage_place'] = ex.marriage_timeline.marriage_place;
+  }
+
+  // Marriage type — map to MCR select option
+  const typeMap: Record<string, string> = {
+    statutory: 'Statutory (Marriage Act)',
+    customary: 'Customary',
+    church:    'Church',
+    islamic:   'Islamic',
+    other:     'Other',
+  };
+  const rawType = ex.marriage_timeline.marriage_type?.toLowerCase() ?? '';
+  const mappedType = Object.entries(typeMap).find(([k]) => rawType.includes(k))?.[1];
+  if (mappedType) prefill['marriage_type'] = mappedType;
+
+  // Relief — map relief_sought to select option
+  const reliefSought = ex.relief_sought?.toLowerCase() ?? '';
+  if (reliefSought.includes('dissolution')) prefill['relief_sought'] = 'A decree of dissolution of the marriage';
+  else if (reliefSought.includes('judicial separation')) prefill['relief_sought'] = 'A decree of judicial separation';
+  else if (reliefSought.includes('nullity')) prefill['relief_sought'] = 'A decree of nullity';
+
+  // s.15(2) fact — pick strongest
+  const strongFact = ex.dissolution_facts.find(f => f.strength === 'STRONG') ?? ex.dissolution_facts[0];
+  if (strongFact) {
+    // Map the raw fact string to the MCR select option text
+    const factLabel = strongFact.fact.trim();
+    prefill['dissolution_fact'] = factLabel;
+  }
+
+  // Children — format for textarea
+  if (ex.children.length > 0) {
+    prefill['children'] = ex.children
+      .map(c => `${c.name}, aged ${c.age}. Current arrangement: ${c.current_arrangement}.${c.welfare_concern ? ` Welfare note: ${c.welfare_concern}` : ''}`)
+      .join('\n');
+  }
+
+  // Co-respondent
+  if (ex.co_respondent.named && ex.co_respondent.name) {
+    prefill['co_respondent'] = ex.co_respondent.name;
+  }
+
+  return prefill;
+}
+
+
 
 const iS: React.CSSProperties = {
   width: '100%', background: '#ffffff', border: '1px solid #cccccc',
@@ -293,9 +423,9 @@ function Btn({ onClick, loading, disabled, label, variant = 'primary' }: {
 // FORM DRAFTER
 // ─────────────────────────────────────────────────────────────────────────────
 
-function FormDrafter({ form, activeCase }: { form: MCRForm; activeCase: Case }) {
+function FormDrafter({ form, activeCase, initialValues = {} }: { form: MCRForm; activeCase: Case; initialValues?: Record<string, string> }) {
   const ai = useAI(activeCase);
-  const [values, setValues] = useState<Record<string, string>>({});
+  const [values, setValues] = useState<Record<string, string>>(initialValues);
   const [draft, setDraft] = useState('');
 
   function set(id: string, val: string) {
@@ -403,6 +533,29 @@ export function MFormsEngine({ activeCase }: { activeCase: Case }) {
   const [selectedFormId, setSelectedFormId] = useState<string | null>(null);
   const selectedForm = MCR_FORMS.find(f => f.id === selectedFormId) ?? null;
 
+  // Intelligence pre-population state
+  const [matrimonialData, setMatrimonialData] = useState<MatrimonialCaseData | null>(null);
+  const [intelligenceCleared, setIntelligenceCleared] = useState(false);
+  const [prefillValues, setPrefillValues] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    loadMatrimonialData(activeCase.id)
+      .then(data => {
+        if (data?.intelligence_extraction) {
+          setMatrimonialData(data);
+          setPrefillValues(derivePreFill(data.intelligence_extraction));
+        }
+      })
+      .catch(() => {});
+  }, [activeCase.id]);
+
+  const showBanner = !!(matrimonialData?.intelligence_extraction && !intelligenceCleared);
+
+  function handleClearIntelligence() {
+    setIntelligenceCleared(true);
+    setPrefillValues({});
+  }
+
   // Group forms
   const GROUPS: Array<{ label: string; ids: string[] }> = [
     { label: 'Pre-Filing', ids: ['form_3a'] },
@@ -424,6 +577,13 @@ export function MFormsEngine({ activeCase }: { activeCase: Case }) {
           All 14 prescribed forms under the Matrimonial Causes Rules 1983 · Generated to filing standard
         </p>
       </div>
+
+      {showBanner && matrimonialData && (
+        <IntelligenceBanner
+          matrimonialData={matrimonialData}
+          onClear={handleClearIntelligence}
+        />
+      )}
 
       <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr', gap: 20 }}>
 
@@ -491,7 +651,7 @@ export function MFormsEngine({ activeCase }: { activeCase: Case }) {
                   </div>
                 )}
               </div>
-              <FormDrafter form={selectedForm} activeCase={activeCase} />
+              <FormDrafter form={selectedForm} activeCase={activeCase} initialValues={prefillValues} />
             </div>
           )}
         </div>
