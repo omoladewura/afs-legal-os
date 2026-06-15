@@ -96,8 +96,7 @@ export const MATRIMONIAL_TABS: MTab[] = [
     id:          'ancillary_applications',
     icon:        '⬛',
     label:       'Applications',
-    phase:       6,
-    description: 'MApplications — 9 MCA-specific application packages: leave to present (s.30), maintenance pendente lite (s.70), interim custody (s.71), restraining injunction, occupation order, financial disclosure, decree absolute, variation (ss.45/70), transfer of forum (s.9(2)).',
+    phase:       'ready',
   },
   {
     id:          'crossexam',
@@ -117,15 +116,13 @@ export const MATRIMONIAL_TABS: MTab[] = [
     id:          'builder',
     icon:        '✍',
     label:       'Argument Builder',
-    phase:       6,
-    description: 'MArgumentBuilder — matrimonial document types: Verifying Affidavit (O.5 r.10 MCR), Affidavit in Support of Leave (s.30), Discretion Statement (Form 30), Ancillary Relief Affidavit, Written Addresses for ancillary hearing, custody/welfare, and decree absolute application.',
+    phase:       'ready',
   },
   {
     id:          'risk',
     icon:        '⚠',
     label:       'Risk',
-    phase:       6,
-    description: 'MRisk — 8 matrimonial risk dimensions: ground strength, condonation/connivance exposure, s.30 two-year bar, nullity bar check (ss.35–37), financial disclosure risk, welfare-of-child risk, nisi-to-absolute timeline (s.57 vs s.58), appeal survivability (s.241(2) CFRN hard bar).',
+    phase:       'ready',
   },
   {
     id:          'decree_enforcement',
