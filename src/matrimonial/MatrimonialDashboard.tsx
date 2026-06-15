@@ -49,6 +49,18 @@ const MAppeal = lazy(() =>
   import('@/matrimonial/engines/MAppeal').then(m => ({ default: m.MAppeal }))
 );
 
+// ── Phase 6 engines ───────────────────────────────────────────────────────────
+
+const MApplications = lazy(() =>
+  import('@/matrimonial/engines/MApplications').then(m => ({ default: m.MApplications }))
+);
+const MRisk = lazy(() =>
+  import('@/matrimonial/engines/MRisk').then(m => ({ default: m.MRisk }))
+);
+const MArgumentBuilder = lazy(() =>
+  import('@/matrimonial/engines/MArgumentBuilder').then(m => ({ default: m.MArgumentBuilder }))
+);
+
 // ── Shared engines (as-is) ───────────────────────────────────────────────────
 
 const CrossExamEngine = lazy(() =>
@@ -254,6 +266,33 @@ export function MatrimonialDashboard() {
           <ErrorBoundary name="appeal">
             <Suspense fallback={fallback}>
               <MAppeal activeCase={activeCase} />
+            </Suspense>
+          </ErrorBoundary>
+        );
+
+      case 'ancillary_applications':
+        return (
+          <ErrorBoundary name="ancillary_applications">
+            <Suspense fallback={fallback}>
+              <MApplications activeCase={activeCase} />
+            </Suspense>
+          </ErrorBoundary>
+        );
+
+      case 'builder':
+        return (
+          <ErrorBoundary name="builder">
+            <Suspense fallback={fallback}>
+              <MArgumentBuilder activeCase={activeCase} />
+            </Suspense>
+          </ErrorBoundary>
+        );
+
+      case 'risk':
+        return (
+          <ErrorBoundary name="risk">
+            <Suspense fallback={fallback}>
+              <MRisk activeCase={activeCase} />
             </Suspense>
           </ErrorBoundary>
         );
