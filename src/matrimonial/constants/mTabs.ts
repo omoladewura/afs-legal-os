@@ -97,6 +97,7 @@ export const MATRIMONIAL_TABS: MTab[] = [
     icon:        '⬛',
     label:       'Applications',
     phase:       'ready',
+    description: 'Ancillary applications — maintenance pendente lite, interim custody, leave under s.30 MCA.',
   },
   {
     id:          'crossexam',
@@ -117,12 +118,14 @@ export const MATRIMONIAL_TABS: MTab[] = [
     icon:        '✍',
     label:       'Argument Builder',
     phase:       'ready',
+    description: 'MArgumentBuilder — verifying affidavit, leave affidavit, written address, pre-populated from MIntelligence.',
   },
   {
     id:          'risk',
     icon:        '⚠',
     label:       'Risk',
     phase:       'ready',
+    description: 'MRisk — 8-dimension risk register, pre-populated from MIntelligence extraction.',
   },
   {
     id:          'decree_enforcement',
