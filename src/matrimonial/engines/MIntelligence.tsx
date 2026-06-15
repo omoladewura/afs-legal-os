@@ -477,7 +477,10 @@ Extract all matrimonial intelligence from the facts above and return a single JS
   ]
 }`;
 
-    const raw = await ai.ask({ system: SYSTEM, userMsg: prompt, maxTokens: 2500, libraryOpts: { queryHint: 'MCA s.15(2) dissolution facts two-year bar s.30 condonation co-respondent s.32 marriage timeline relief nullity children financial' } });
+    try {
+      const raw = await ai.ask({ system: SYSTEM, userMsg: prompt, maxTokens: 2500, libraryOpts: { queryHint: 'MCA s.15(2) dissolution facts two-year bar s.30 condonation co-respondent s.32 marriage timeline relief nullity children financial' } });
+      const clean = (raw || '').replace(/```json|```/g, '').trim();
+      const ex = JSON.parse(clean);
       upd({ stage: 2, extraction: ex });
     } catch {
       upd({ stage: 2, extraction: null });
@@ -499,7 +502,10 @@ Return JSON array only:
   { "id": "q1", "question": "string", "purpose": "why this matters legally" }
 ]`;
 
-    const raw = await ai.ask({ system: SYSTEM, userMsg: prompt, maxTokens: 1000, libraryOpts: { queryHint: 'MCA evidence gaps s.30 bar exception co-respondent identification condonation connivance welfare officer financial disclosure missing dates' } });
+    try {
+      const raw = await ai.ask({ system: SYSTEM, userMsg: prompt, maxTokens: 1000, libraryOpts: { queryHint: 'MCA evidence gaps s.30 bar exception co-respondent identification condonation connivance welfare officer financial disclosure missing dates' } });
+      const clean = (raw || '').replace(/```json|```/g, '').trim();
+      const qs = JSON.parse(clean);
       upd({ stage: 3, followUpQs: qs });
     } catch {
       upd({ stage: 3, followUpQs: [] });
@@ -535,7 +541,10 @@ Return JSON array:
   }
 ]`;
 
-    const raw = await ai.ask({ system: SYSTEM, userMsg: prompt, maxTokens: 2000, libraryOpts: { queryHint: 'MCA MCR evidence map dissolution fact s.15(2) corroboration affidavit documentary evidence children welfare financial disclosure MCR rules' } });
+    try {
+      const raw = await ai.ask({ system: SYSTEM, userMsg: prompt, maxTokens: 2000, libraryOpts: { queryHint: 'MCA MCR evidence map dissolution fact s.15(2) corroboration affidavit documentary evidence children welfare financial disclosure MCR rules' } });
+      const clean = (raw || '').replace(/```json|```/g, '').trim();
+      const em = JSON.parse(clean);
       upd({ stage: 4, evidenceMap: em });
     } catch {
       upd({ stage: 4, evidenceMap: [] });
