@@ -369,7 +369,31 @@ export function MatrimonialEngine({ activeCase }: Props) {
       const ip = saved.intakeData || {} as IntakeData;
       const result = await call({
         system:   MATRIMONIAL_SYSTEM + fullContext,
-        libraryOpts: { queryHint: 'MCA s.15(2) dissolution fact petition Form 6 MCR O.5 co-respondent s.32 Form 3A condonation ss.26-27 irretrievable breakdown' },\nPARTICULARS: ${particulars}\nARRANGEMENTS FOR CHILDREN: ${childArrange || 'To be determined by court'}\nFINANCIAL POSITION: ${financials || 'Not provided'}\n\n${ground.includes('Adultery') ? 'CO-RESPONDENT WARNING: Adultery (s.15(2)(b)) is alleged. The co-respondent must be joined as a party — s.32 MCA, O.9 rr.2–3 MCR, Ebe v Ebe. Flag this in the petition and in a pre-filing note.\n\n' : ''}Draft a COMPLETE PETITION FOR DISSOLUTION OF MARRIAGE to court-filing standard under the Matrimonial Causes Rules 1983. Structure it as follows:\n\n## Court Heading\nIN THE HIGH COURT OF [STATE] | HOLDEN AT [CITY] | PETITION NO. [___]/[YEAR] | BETWEEN: [PETITIONER] — PETITIONER and [RESPONDENT] — RESPONDENT${ground.includes('Adultery') ? ' and [CO-RESPONDENT] — CO-RESPONDENT' : ''} | IN THE MATTER OF THE MATRIMONIAL CAUSES ACT CAP M7 LFN 2004\n\n## Petition for Dissolution of Marriage\n\nInclude all of the following:\n(a) Details of marriage — date, place, type, certificate reference\n(b) Petitioner's domicile (s.2(3) MCA) or two-year residence qualification (s.7 MCA)\n(c) Prior proceedings declaration — s.10 MCA\n(d) The sole ground for dissolution: that the marriage has broken down irretrievably (s.15(1) MCA)\n(e) The fact(s) relied upon under s.15(2) with full particulars — using correct subsection letter(s)\n(f) Condonation/connivance/collusion declaration — ss.26–27 MCA — petitioner has not condoned, connived at, or colluded in the conduct relied upon\n(g) Form 3A certificate — that a reconciliation certificate has been filed per O.2 r.2 MCR\n(h) Children of the marriage — names, ages, proposed arrangements\n(i) Financial position of each party\n(j) Prayer/relief sought including all ancillary reliefs\n\nDraft to court-filing standard in formal legal language. Flag any particulars requiring client verification with [VERIFY: ...] markers.`,
+        libraryOpts: { queryHint: 'MCA s.15(2) dissolution fact petition Form 6 MCR O.5 co-respondent s.32 Form 3A condonation ss.26-27 irretrievable breakdown' },
+        userMsg: `PARTICULARS: ${particulars}
+ARRANGEMENTS FOR CHILDREN: ${childArrange || 'To be determined by court'}
+FINANCIAL POSITION: ${financials || 'Not provided'}
+
+${ground.includes('Adultery') ? 'CO-RESPONDENT WARNING: Adultery (s.15(2)(b)) is alleged. The co-respondent must be joined as a party — s.32 MCA, O.9 rr.2–3 MCR, Ebe v Ebe. Flag this in the petition and in a pre-filing note.\n\n' : ''}Draft a COMPLETE PETITION FOR DISSOLUTION OF MARRIAGE to court-filing standard under the Matrimonial Causes Rules 1983. Structure it as follows:
+
+## Court Heading
+IN THE HIGH COURT OF [STATE] | HOLDEN AT [CITY] | PETITION NO. [___]/[YEAR] | BETWEEN: [PETITIONER] — PETITIONER and [RESPONDENT] — RESPONDENT${ground.includes('Adultery') ? ' and [CO-RESPONDENT] — CO-RESPONDENT' : ''} | IN THE MATTER OF THE MATRIMONIAL CAUSES ACT CAP M7 LFN 2004
+
+## Petition for Dissolution of Marriage
+
+Include all of the following:
+(a) Details of marriage — date, place, type, certificate reference
+(b) Petitioner's domicile (s.2(3) MCA) or two-year residence qualification (s.7 MCA)
+(c) Prior proceedings declaration — s.10 MCA
+(d) The sole ground for dissolution: that the marriage has broken down irretrievably (s.15(1) MCA)
+(e) The fact(s) relied upon under s.15(2) with full particulars — using correct subsection letter(s)
+(f) Condonation/connivance/collusion declaration — ss.26–27 MCA — petitioner has not condoned, connived at, or colluded in the conduct relied upon
+(g) Form 3A certificate — that a reconciliation certificate has been filed per O.2 r.2 MCR
+(h) Children of the marriage — names, ages, proposed arrangements
+(i) Financial position of each party
+(j) Prayer/relief sought including all ancillary reliefs
+
+Draft to court-filing standard in formal legal language. Flag any particulars requiring client verification with [VERIFY: ...] markers.`,
         maxTokens: 3500,
       });
       if (result) save({ petGround: ground, petParticulars: particulars, petChildArrange: childArrange, petFinancials: financials, petitionDraft: result });
@@ -434,7 +458,42 @@ export function MatrimonialEngine({ activeCase }: Props) {
       save({ nullityFacts: facts });
       const result = await call({
         system:   MATRIMONIAL_SYSTEM + fullContext,
-        libraryOpts: { queryHint: 'nullity void voidable s.3 s.5 MCA bars ss.35-37 consummation prohibited degrees bigamy' },\n${facts}\n\n## 1. Void or Voidable?\n\n**VOID MARRIAGES (s.3 MCA) — marriage is void ab initio, decree is declaratory only:**\n(a) Either party was already married to another person living at the time of the marriage\n(b) The parties are within the prohibited degrees of consanguinity or affinity (Schedule to Marriage Act)\n(c) The parties are not respectively male and female\n(d) In the case of a marriage other than one under the Marriage Act — any ground under the relevant customary or religious law that renders the marriage void\n\n**VOIDABLE MARRIAGES (s.5 MCA) — valid until annulled, decree is constitutive):**\n(a) The marriage has not been consummated owing to the incapacity of either party to consummate it\n(b) The marriage has not been consummated owing to the wilful refusal of the respondent to consummate it\n(c) Either party did not validly consent to the marriage (duress, fraud, mistake as to identity or nature of ceremony, unsoundness of mind)\n(d) At the time of the marriage, the respondent was suffering from a communicable venereal disease\n(e) At the time of the marriage, the respondent was pregnant by a person other than the petitioner\n\n## 2. Bars to Voidable Nullity (ss.35–37 MCA)\nAssess each of the following bars:\n- s.35 MCA: The petitioner knew of the defect at the time of the marriage (applies to voidable grounds (c), (d), (e))\n- s.36 MCA: Conduct by the petitioner that would make it unjust to grant the decree (approbation / inequitable conduct)\n- s.37 MCA: For grounds (c), (d), (e) — proceedings must be commenced within one year of the marriage\n- THE DISABILITY RULE: A person whose incapacity or defect gives rise to a voidable ground CANNOT petition on that ground — only the other party can\n\n## 3. Correct Route\nIs nullity more appropriate than dissolution? Explain the legal and practical consequences of each route.\n\n## 4. Evidence Required\nWhat evidence must be produced? Medical evidence? Witnesses? Documentary proof of prior subsisting marriage?\n\n## 5. Petition Structure\nOutline the structure of a Petition for Nullity for this specific ground, with the correct MCA section citations.\n\n## 6. Consequences\nEffects of decree of nullity vs dissolution — on children's legitimacy, property, succession, pension rights.`,
+        libraryOpts: { queryHint: 'nullity void voidable s.3 s.5 MCA bars ss.35-37 consummation prohibited degrees bigamy' },
+        userMsg: `${facts}
+
+## 1. Void or Voidable?
+
+**VOID MARRIAGES (s.3 MCA) — marriage is void ab initio, decree is declaratory only:**
+(a) Either party was already married to another person living at the time of the marriage
+(b) The parties are within the prohibited degrees of consanguinity or affinity (Schedule to Marriage Act)
+(c) The parties are not respectively male and female
+(d) In the case of a marriage other than one under the Marriage Act — any ground under the relevant customary or religious law that renders the marriage void
+
+**VOIDABLE MARRIAGES (s.5 MCA) — valid until annulled, decree is constitutive):**
+(a) The marriage has not been consummated owing to the incapacity of either party to consummate it
+(b) The marriage has not been consummated owing to the wilful refusal of the respondent to consummate it
+(c) Either party did not validly consent to the marriage (duress, fraud, mistake as to identity or nature of ceremony, unsoundness of mind)
+(d) At the time of the marriage, the respondent was suffering from a communicable venereal disease
+(e) At the time of the marriage, the respondent was pregnant by a person other than the petitioner
+
+## 2. Bars to Voidable Nullity (ss.35–37 MCA)
+Assess each of the following bars:
+- s.35 MCA: The petitioner knew of the defect at the time of the marriage (applies to voidable grounds (c), (d), (e))
+- s.36 MCA: Conduct by the petitioner that would make it unjust to grant the decree (approbation / inequitable conduct)
+- s.37 MCA: For grounds (c), (d), (e) — proceedings must be commenced within one year of the marriage
+- THE DISABILITY RULE: A person whose incapacity or defect gives rise to a voidable ground CANNOT petition on that ground — only the other party can
+
+## 3. Correct Route
+Is nullity more appropriate than dissolution? Explain the legal and practical consequences of each route.
+
+## 4. Evidence Required
+What evidence must be produced? Medical evidence? Witnesses? Documentary proof of prior subsisting marriage?
+
+## 5. Petition Structure
+Outline the structure of a Petition for Nullity for this specific ground, with the correct MCA section citations.
+
+## 6. Consequences
+Effects of decree of nullity vs dissolution — on children's legitimacy, property, succession, pension rights.`,
         maxTokens: 2500,
       });
       if (result) save({ nullityAnalysis: result });
@@ -479,7 +538,35 @@ export function MatrimonialEngine({ activeCase }: Props) {
       save({ custodyChildren: childrenDetails, custodyCurrent: currentArrange, custodyClient: clientSituation, custodyOther: otherParty });
       const result = await call({
         system:   MATRIMONIAL_SYSTEM + fullContext,
-        libraryOpts: { queryHint: 'custody welfare child s.71 MCA interim custody order welfare principle guardianship' },\n${childrenDetails}\nCURRENT ARRANGEMENTS:\n${currentArrange || 'Not specified'}\nOUR CLIENT'S SITUATION:\n${clientSituation}\nOTHER PARENT'S SITUATION:\n${otherParty || 'Not specified'}\n\n## 1. Welfare Principle\nApply the paramount consideration — the welfare of the child (s.71 MCA). List the specific welfare factors Nigerian courts weigh: stability and continuity, primary carer history, wishes of the child (age-appropriate), harmful exposure, each parent's capacity, siblings, extended family.\n\n## 2. Custody Recommendation\nBased on the facts, what custody order should be sought? Sole custody, joint custody, or primary residence with generous contact? With reasons.\n\n## 3. Contact Arrangements\nWhat contact arrangements for the non-custodial parent should be proposed — routine contact, holiday contact, special occasion contact?\n\n## 4. Interim Orders\nIs an urgent interim custody order needed? What grounds and what application to make?\n\n## 5. Arguments to Anticipate\nWhat custody arguments will the other party make? How to rebut each.\n\n## 6. Supporting Affidavit Structure\nKey paragraphs the affidavit in support of custody must address.\n\n## 7. Draft Application Prayers\nThe specific reliefs to seek in the custody application.`,
+        libraryOpts: { queryHint: 'custody welfare child s.71 MCA interim custody order welfare principle guardianship' },
+        userMsg: `${childrenDetails}
+CURRENT ARRANGEMENTS:
+${currentArrange || 'Not specified'}
+OUR CLIENT'S SITUATION:
+${clientSituation}
+OTHER PARENT'S SITUATION:
+${otherParty || 'Not specified'}
+
+## 1. Welfare Principle
+Apply the paramount consideration — the welfare of the child (s.71 MCA). List the specific welfare factors Nigerian courts weigh: stability and continuity, primary carer history, wishes of the child (age-appropriate), harmful exposure, each parent's capacity, siblings, extended family.
+
+## 2. Custody Recommendation
+Based on the facts, what custody order should be sought? Sole custody, joint custody, or primary residence with generous contact? With reasons.
+
+## 3. Contact Arrangements
+What contact arrangements for the non-custodial parent should be proposed — routine contact, holiday contact, special occasion contact?
+
+## 4. Interim Orders
+Is an urgent interim custody order needed? What grounds and what application to make?
+
+## 5. Arguments to Anticipate
+What custody arguments will the other party make? How to rebut each.
+
+## 6. Supporting Affidavit Structure
+Key paragraphs the affidavit in support of custody must address.
+
+## 7. Draft Application Prayers
+The specific reliefs to seek in the custody application.`,
         maxTokens: 2800,
       });
       if (result) save({ custodyChildren: childrenDetails, custodyCurrent: currentArrange, custodyClient: clientSituation, custodyOther: otherParty, custodyAnalysis: result });
@@ -627,7 +714,33 @@ export function MatrimonialEngine({ activeCase }: Props) {
       save({ propAssets: assets, propContributions: contributions, propPostSep: postSep });
       const result = await call({
         system:   MATRIMONIAL_SYSTEM + fullContext,
-        libraryOpts: { queryHint: 'property settlement s.72 MCA matrimonial assets transfer of property financial disclosure variation of settlement' },\n${assets}\nCONTRIBUTIONS OF EACH PARTY:\n${contributions || 'Not specified'}\nPOST-SEPARATION ACCRETIONS:\n${postSep || 'None stated'}\n\n## 1. Nigerian Legal Framework\nNigeria is NOT a community property jurisdiction. Apply the principles — ownership follows title, but courts have discretion under s.72 MCA to make property orders. Distinguish matrimonial property from separate property.\n\n## 2. Per-Asset Analysis\nFor each asset listed — legal title holder, financial contributions, non-financial contributions (homemaking, childcare), post-separation accretion, recommended settlement position.\n\n## 3. Matrimonial Home\nSpecific analysis — whose name? Mortgage? Can client remain? Transfer of property order or Mesne profits?\n\n## 4. Settlement Zone\nWhat is a fair settlement range? Floor and ceiling of a reasonable negotiated outcome.\n\n## 5. Applications Available\nTransfer of property order, sale and division of proceeds, variation of settlement — with specific prayers for each.\n\n## 6. Financial Disclosure\nWhat financial disclosure must the other party make? How to compel disclosure if refused.\n\n## 7. Litigation Strategy\nShould this be litigated or negotiated? Risk assessment of litigating to judgment.`,
+        libraryOpts: { queryHint: 'property settlement s.72 MCA matrimonial assets transfer of property financial disclosure variation of settlement' },
+        userMsg: `${assets}
+CONTRIBUTIONS OF EACH PARTY:
+${contributions || 'Not specified'}
+POST-SEPARATION ACCRETIONS:
+${postSep || 'None stated'}
+
+## 1. Nigerian Legal Framework
+Nigeria is NOT a community property jurisdiction. Apply the principles — ownership follows title, but courts have discretion under s.72 MCA to make property orders. Distinguish matrimonial property from separate property.
+
+## 2. Per-Asset Analysis
+For each asset listed — legal title holder, financial contributions, non-financial contributions (homemaking, childcare), post-separation accretion, recommended settlement position.
+
+## 3. Matrimonial Home
+Specific analysis — whose name? Mortgage? Can client remain? Transfer of property order or Mesne profits?
+
+## 4. Settlement Zone
+What is a fair settlement range? Floor and ceiling of a reasonable negotiated outcome.
+
+## 5. Applications Available
+Transfer of property order, sale and division of proceeds, variation of settlement — with specific prayers for each.
+
+## 6. Financial Disclosure
+What financial disclosure must the other party make? How to compel disclosure if refused.
+
+## 7. Litigation Strategy
+Should this be litigated or negotiated? Risk assessment of litigating to judgment.`,
         maxTokens: 2800,
       });
       if (result) save({ propAssets: assets, propContributions: contributions, propPostSep: postSep, propAnalysis: result });
@@ -684,7 +797,29 @@ export function MatrimonialEngine({ activeCase }: Props) {
       save({ ancillarySituation: situation });
       const result = await call({
         system:   MATRIMONIAL_SYSTEM + fullContext,
-        libraryOpts: { queryHint: 'ancillary relief injunction occupation order financial disclosure s.70 s.71 MCA ex parte motion MCR O.11' },\n${situation}\n\n## 1. Injunctions\nRestraining order preventing disposal, transfer, or encumbrance of matrimonial assets pending proceedings. Is an ex parte injunction urgently needed? What assets are at risk? Draft the prayer for an injunction.\n\n## 2. Occupation Order\nExclusive occupation of the matrimonial home. Is the client currently in the home? Is there domestic violence? Basis for an occupation order under Nigerian law.\n\n## 3. Financial Disclosure Order\nCompelling the other party to make full and frank financial disclosure. What documents should be requested?\n\n## 4. Variation of Settlement\nAny ante-nuptial or post-nuptial settlement that can be varied by the court.\n\n## 5. Tenancy Transfer\nIs the matrimonial home rented? Can the tenancy be transferred to the client?\n\n## 6. Most Urgent Relief\nWhich ancillary relief is most urgent and should be applied for first? Draft the motion paper prayers for the most urgent application.\n\n## 7. Procedural Steps\nThe correct procedure to apply for each relief identified — ex parte or on notice, affidavit requirements, hearing timelines.`,
+        libraryOpts: { queryHint: 'ancillary relief injunction occupation order financial disclosure s.70 s.71 MCA ex parte motion MCR O.11' },
+        userMsg: `${situation}
+
+## 1. Injunctions
+Restraining order preventing disposal, transfer, or encumbrance of matrimonial assets pending proceedings. Is an ex parte injunction urgently needed? What assets are at risk? Draft the prayer for an injunction.
+
+## 2. Occupation Order
+Exclusive occupation of the matrimonial home. Is the client currently in the home? Is there domestic violence? Basis for an occupation order under Nigerian law.
+
+## 3. Financial Disclosure Order
+Compelling the other party to make full and frank financial disclosure. What documents should be requested?
+
+## 4. Variation of Settlement
+Any ante-nuptial or post-nuptial settlement that can be varied by the court.
+
+## 5. Tenancy Transfer
+Is the matrimonial home rented? Can the tenancy be transferred to the client?
+
+## 6. Most Urgent Relief
+Which ancillary relief is most urgent and should be applied for first? Draft the motion paper prayers for the most urgent application.
+
+## 7. Procedural Steps
+The correct procedure to apply for each relief identified — ex parte or on notice, affidavit requirements, hearing timelines.`,
         maxTokens: 2500,
       });
       if (result) save({ ancillarySituation: situation, ancillaryAnalysis: result });
@@ -743,7 +878,32 @@ export function MatrimonialEngine({ activeCase }: Props) {
       save({ respPetition: petitionSummary, respAccount: clientAccount, respDefences: defences });
       const result = await call({
         system:   MATRIMONIAL_SYSTEM + fullContext,
-        libraryOpts: { queryHint: 'answer to petition Form 15 MCR condonation connivance s.28 MCA cross-petition respondent defences bars' },\n${petitionSummary}\nRESPONDENT'S ACCOUNT:\n${clientAccount || 'Not provided'}\nDEFENCES TO RAISE: ${defences.join(', ') || 'To be identified'}\n\n## 1. Paragraph-by-Paragraph Response\nFor each allegation in the petition — admit, deny, or neither admit nor deny (with reasons). Identify which facts are truly in dispute.\n\n## 2. Affirmative Defences\nFor each selected defence — condonation, connivance, delay, petitioner's conduct — develop the legal and factual basis under the MCA.\n\n## 3. Cross-Petition\nIf the respondent has independent grounds for dissolution — identify them, develop the particulars, and recommend whether to cross-petition.\n\n## 4. Custody & Maintenance Response\nRespondent's position on children's arrangements and financial orders if the petition proceeds.\n\n## 5. Strength Assessment\nHonest assessment — can this petition be successfully defended? Realistic outcome if defended vs negotiated?\n\n## 6. Answer Structure\nDraft the opening section of the Answer to Petition with the formal denials and affirmative defences.\n\n## 7. Negotiation Leverage\nWhat leverage does the respondent have in any financial settlement negotiations?`,
+        libraryOpts: { queryHint: 'answer to petition Form 15 MCR condonation connivance s.28 MCA cross-petition respondent defences bars' },
+        userMsg: `${petitionSummary}
+RESPONDENT'S ACCOUNT:
+${clientAccount || 'Not provided'}
+DEFENCES TO RAISE: ${defences.join(', ') || 'To be identified'}
+
+## 1. Paragraph-by-Paragraph Response
+For each allegation in the petition — admit, deny, or neither admit nor deny (with reasons). Identify which facts are truly in dispute.
+
+## 2. Affirmative Defences
+For each selected defence — condonation, connivance, delay, petitioner's conduct — develop the legal and factual basis under the MCA.
+
+## 3. Cross-Petition
+If the respondent has independent grounds for dissolution — identify them, develop the particulars, and recommend whether to cross-petition.
+
+## 4. Custody & Maintenance Response
+Respondent's position on children's arrangements and financial orders if the petition proceeds.
+
+## 5. Strength Assessment
+Honest assessment — can this petition be successfully defended? Realistic outcome if defended vs negotiated?
+
+## 6. Answer Structure
+Draft the opening section of the Answer to Petition with the formal denials and affirmative defences.
+
+## 7. Negotiation Leverage
+What leverage does the respondent have in any financial settlement negotiations?`,
         maxTokens: 2800,
       });
       if (result) save({ respPetition: petitionSummary, respAccount: clientAccount, respDefences: defences, respAnalysis: result });
