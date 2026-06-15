@@ -14,7 +14,7 @@
 
 import { db } from './db';
 import type { Case, DocketEntry, Deadline, EvidenceItem, ArgumentVersion } from '@/types';
-import type { MatrimonialCaseData } from '@/matrimonial/types';
+import type { MatrimonialCaseData, MExtractionResult } from '@/matrimonial/types';
 import type { BlindSpotRecord, ResearchRecord } from './db';
 
 // ── Config ────────────────────────────────────────────────────────────────────
@@ -526,5 +526,38 @@ export async function loadCaseWithMatrimonialData(
     loadMatrimonialData(caseId),
   ]);
   return { case: caseRecord, matrimonialData };
+}
+
+/**
+ * Phase 9A — Write MIntelligence extraction output into matrimonial_data.
+ *
+ * Merges the intelligence fields into any existing MatrimonialCaseData without
+ * overwriting structural fields (marriage_date, relief_type, children, etc.).
+ * Increments intelligence_version on every call so engines can detect re-runs.
+ *
+ * Called twice by MIntelligence:
+ *   1. After Step 2 extraction (intPackage = '') — makes extraction immediately
+ *      available to other engines even if the associate stops early.
+ *   2. After Step 5 package generation (intPackage = full narrative text).
+ */
+export async function writeIntelligenceToCase(
+  caseId: string,
+  extraction: MExtractionResult,
+  intPackage: string,
+): Promise<boolean> {
+  try {
+    const existing = await loadMatrimonialData(caseId) ?? {};
+    await saveMatrimonialData(caseId, {
+      ...existing,
+      intelligence_extraction: extraction,
+      intelligence_package:    intPackage || existing.intelligence_package,
+      intelligence_run_at:     new Date().toISOString(),
+      intelligence_version:    ((existing.intelligence_version ?? 0) + 1),
+    });
+    return true;
+  } catch (e) {
+    console.error('[Storage] writeIntelligenceToCase failed', e);
+    return false;
+  }
 }
 
