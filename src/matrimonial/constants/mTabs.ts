@@ -47,14 +47,14 @@ export const MATRIMONIAL_TABS: MTab[] = [
     id:          'overview',
     icon:        '⊕',
     label:       'Overview',
-    phase:       5,
+    phase:       'ready',
     description: 'Case overview — parties, marriage particulars, relief type, two-year bar status, procedural stage, and risk register summary.',
   },
   {
     id:          'intelligence',
     icon:        '◈',
     label:       'Intelligence',
-    phase:       5,
+    phase:       'ready',
     description: 'MIntelligence — 5-step MCA-specific extraction: marriage timeline, s.15(2) facts in play, two-year bar, children, financial picture, condonation risk, co-respondent, decree stage, gaps and risks.',
   },
   {
@@ -68,7 +68,7 @@ export const MATRIMONIAL_TABS: MTab[] = [
     id:          'forms_documents',
     icon:        '📄',
     label:       'Forms & Documents',
-    phase:       5,
+    phase:       'ready',
     description: 'MFormsEngine — all 14 MCR statutory forms generated to filing standard: Form 3A, 6, 7, 8/8A, 11, 15, 15A, 17, 30, 31, 32, 33, 42/43, 60.',
   },
   {
@@ -131,14 +131,14 @@ export const MATRIMONIAL_TABS: MTab[] = [
     id:          'decree_enforcement',
     icon:        '⚡',
     label:       'Decree & Enforcement',
-    phase:       5,
+    phase:       'ready',
     description: 'DecreeEnforcementEngine — tracks decree nisi date, computes s.57 (28-day) or s.58 (3-month) absolute deadline, drafts application to make absolute, handles post-absolute enforcement (maintenance arrears, property transfer, contempt, custody non-compliance).',
   },
   {
     id:          'appeal',
     icon:        '▲',
     label:       'Appeal',
-    phase:       5,
+    phase:       'ready',
     description: 'MAppeal — hard block on appealing decree absolute (s.241(2) CFRN). As-of-right appeal against decree nisi (s.241(1)(f)(iv) CFRN). Court of Appeal matrimonial division procedure.',
   },
   {
