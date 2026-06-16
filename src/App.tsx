@@ -17,6 +17,7 @@ import { useAppStore } from '@/state/appStore';
 import { migrateFromLocalStorage } from '@/storage/migrate';
 import { db } from '@/storage/db';
 import { saveCase } from '@/storage/helpers';
+import { applyLawOverrides } from '@/constants/periodRules';
 import { SiteNav } from '@/components/layout/SiteNav';
 import { CaseDocket } from '@/components/docket/CaseDocket';
 import { PasswordGate } from '@/pages/PasswordGate';
@@ -36,6 +37,7 @@ export function App() {
 
   useEffect(() => {
     migrateFromLocalStorage().catch(console.error);
+    applyLawOverrides().catch(console.error);
 
     // One-time migration: push any existing IndexedDB cases up to D1
     const D1_MIGRATED_KEY = 'afs_d1_migrated_v1';
