@@ -25,6 +25,7 @@ import { buildRoleSystemPrompt } from '@/utils/rolePrompt';
 import { loadBlindSpot, saveBlindSpot } from '@/storage/helpers';
 import { Md, ErrorBlock } from '@/components/common/ui';
 import { COUNSEL_ROLE_COLORS } from '@/types';
+import { getPrompt } from '@/law/prompts';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES
@@ -371,7 +372,7 @@ function PleaBargainProsTab({
 
   const generateDraft = useCallback(async () => {
     const r = await call({
-      system: `You are a Nigerian prosecution counsel. Draft a formal plea bargain agreement under ACJA 2015 s.270.` + fullContext,
+      system: `You are a Nigerian prosecution counsel. Draft a formal plea bargain agreement. ${getPrompt('acja_plea_bargain_requirements')}` + fullContext,
       userMsg: `Draft a plea bargain agreement for ${activeCase.caseName}:
 
 Offence pleading to: ${terms.offencePleadingTo}
@@ -590,7 +591,7 @@ function PleaBargainDefTab({
 
   const analyseOffer = useCallback(async () => {
     const r = await call({
-      system: `You are a Nigerian criminal defence counsel analysing a prosecution plea bargain offer. Your sole duty is to the accused's best interests.` + fullContext,
+      system: `You are a Nigerian criminal defence counsel analysing a prosecution plea bargain offer. Your sole duty is to the accused's best interests. ${getPrompt('acja_plea_bargain_requirements')}` + fullContext,
       userMsg: `Plea bargain analysis for ${activeCase.caseName}:
 
 Prosecution offer:

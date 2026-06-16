@@ -29,6 +29,7 @@ import { Md, ErrorBlock } from '@/components/common/ui';
 import { COUNSEL_ROLE_COLORS } from '@/types';
 import { useIntelligence } from '@/hooks/useIntelligence';
 import { getLawSync } from '@/law/registry';
+import { getPrompt }  from '@/law/prompts';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES
@@ -998,9 +999,9 @@ function AppealDeadlinePanel({
   const deadlineNote = data.appealDeadlineNote ?? '';
   const saved        = data.appealDeadlineSaved ?? false;
 
-  // Auto-compute appeal deadline from sentence date (days sourced from Law Registry)
-  const sentDate = data.sentenceDate ?? data.judgmentDate ?? '';
+  // Auto-compute appeal deadline from sentence date — days sourced from Law Registry
   const CRIMINAL_APPEAL_DAYS = parseInt(getLawSync('criminal_appeal_conviction_hc'), 10) || 30;
+  const sentDate = data.sentenceDate ?? data.judgmentDate ?? '';
   const autoDeadline = React.useMemo(() => {
     if (!sentDate) return '';
     const d = new Date(sentDate);
@@ -1013,7 +1014,7 @@ function AppealDeadlinePanel({
   const analyseAppeal = useCallback(async () => {
     const convicted = (data.convictionCounts ?? []).filter(c => c.finding === 'Convicted');
     const res = await call({
-      system: `You are a senior Nigerian defence counsel advising on criminal appeal after conviction. Apply ACJA 2015, Court of Appeal Rules, Supreme Court Rules, and relevant constitutional provisions on criminal appeal rights.` + fullContext,
+      system: `You are a senior Nigerian defence counsel advising on criminal appeal after conviction. Apply ACJA 2015, Court of Appeal Rules, Supreme Court Rules, and relevant constitutional provisions on criminal appeal rights. ${getPrompt('acja_90_day_trial_target')}` + fullContext,
       userMsg: `Convicted on: ${convicted.map(c => `${c.count} — ${c.offence} (${c.section}): ${c.sentence}`).join('; ')}
 Sentence date: ${data.sentenceDate || data.judgmentDate || 'Not recorded'}
 Court: ${data.court || 'Not recorded'}
@@ -1128,7 +1129,7 @@ Advise the defence on:
         </div>
         {[
           'Advise client of conviction and sentence immediately',
-          'Calculate appeal deadline from today — ' + CRIMINAL_APPEAL_DAYS + ' days under ACJA',
+          'Calculate appeal deadline from today — 30 days under ACJA',
           'File Notice of Appeal within time — do not let deadline lapse',
           'Apply for bail pending appeal — grounds: arguable grounds of appeal + custodial sentence',
           'Compile records for appeal — charge, proceedings, judgment, sentence ruling',

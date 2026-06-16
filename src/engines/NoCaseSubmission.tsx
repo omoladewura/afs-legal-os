@@ -26,6 +26,7 @@ import { buildRoleSystemPrompt } from '@/utils/rolePrompt';
 import { loadBlindSpot, saveBlindSpot } from '@/storage/helpers';
 import { Md, ErrorBlock } from '@/components/common/ui';
 import { COUNSEL_ROLE_COLORS } from '@/types';
+import { getPrompt } from '@/law/prompts';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES
@@ -226,7 +227,7 @@ function SubmissionDrafterTab({
     ).join('\n\n');
 
     const r = await call({
-      system: `You are a Nigerian criminal defence counsel drafting a No-Case Submission for filing in court. Apply ACJA 2015 s.303(1) and the authorities in Ajidagba v. State (1981) 1 NCLR 91, Ibeziako v. Commissioner of Police (1963), and Tongo v. COP. The test is whether there is evidence on which a reasonable tribunal, properly directing itself, could convict. Your drafting must be formal, precise, and court-ready.` + fullContext,
+      system: `You are a Nigerian criminal defence counsel drafting a No-Case Submission for filing in court. ${getPrompt('acja_no_case_standard')} Your drafting must be formal, precise, and court-ready.` + fullContext,
       userMsg: `Draft a No-Case Submission for the matter:\n\n${activeCase.caseName}\n${activeCase.court}\n\nCounts and grounds:\n\n${countsSummary}\n\nDraft a full No-Case Submission document in the following structure:\n\n1. **Caption** — formal court caption with matter name, charge number, court\n2. **Introduction** — who is making the submission and under which provision (ACJA s.303(1) or equivalent CPA provision)\n3. **The Applicable Legal Standard** — state the Ajidagba/Ibeziako test precisely, with citations\n4. **Count-by-Count Submissions** — for each count:\n   a. Restate the charge and the essential ingredients prosecution must prove\n   b. Summarise what prosecution actually led in evidence\n   c. Identify the specific ingredient(s) not proved\n   d. Cite any authority supporting this ground\n   e. Conclude: prosecution has failed to make out a prima facie case on this count\n5. **Conclusion and Prayer** — invite the court to discharge the accused on the named counts and make the necessary orders\n6. **Signature block** — defence counsel's signature block\n\nUse formal Nigerian legal drafting. Each count must be argued separately and precisely.`,
     });
     if (r) setSubmissionDraft(r);
@@ -664,7 +665,7 @@ function ResponseDrafterTab({
   const draft = useCallback(async () => {
     if (!responseContext.trim()) return;
     const r = await call({
-      system: `You are a Nigerian prosecution counsel drafting a formal response to a no-case submission. Apply ACJA 2015 s.303, the Ajidagba/Ibeziako standard, and Evidence Act 2011. Your task is to demonstrate that there is prima facie evidence on each count that a reasonable tribunal could act upon.` + fullContext,
+      system: `You are a Nigerian prosecution counsel drafting a formal response to a no-case submission. ${getPrompt('acja_no_case_standard')} Apply Evidence Act 2011. Your task is to demonstrate that there is prima facie evidence on each count that a reasonable tribunal could act upon.` + fullContext,
       userMsg: `Draft a prosecution response to the no-case submission in ${activeCase.caseName} at ${activeCase.court}.\n\nContext (defence grounds / case summary):\n${responseContext}\n\nStructure the response as follows:\n\n1. **Introduction** — prosecution's right to respond; the applicable standard\n2. **Restatement of the Test** — the Ajidagba/Ibeziako test and why the submission fails\n3. **Response per Count** — for each count:\n   a. Restate the essential ingredients\n   b. Identify the evidence led — which witness, which exhibit, which testimony\n   c. Address each defence ground directly and explain why it fails\n   d. Cite authority where applicable\n   e. Conclusion: prima facie case established on this count\n4. **Weight of Evidence is Not the Issue** — remind the court that this is not the stage for weighing evidence (cite authority)\n5. **Prayer** — invite the court to overrule the submission and call the accused to enter a defence\n6. **Signature block**\n\nUse formal Nigerian court drafting. Be precise and address each defence ground directly.`,
     });
     if (r) setResponseResult(r);

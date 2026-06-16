@@ -66,6 +66,7 @@ import { uid } from '@/utils';
 
 // Phase E — period computation
 import { extractAnchors } from '@/utils/dateExtractor';
+import { getPrompt } from '@/law/prompts';
 import {
   computePeriods,
   formatPeriodDate,
@@ -338,7 +339,7 @@ function generateStaticAlerts(
         severity: 'HIGH',
         category: 'compliance',
         title:    'ACJA 90-Day Trial Period — Monitor Compliance',
-        body:     'Arraignment has occurred. Under the Administration of Criminal Justice Act 2015, trial must conclude within a reasonable time. The 90-day target under Section 396 ACJA requires each hearing to advance the matter.',
+        body:     getPrompt('acja_90_day_trial_target'),
         action:   'Ensure each hearing produces substantive progress. Avoid unnecessary adjournments that could ground a no-case submission on delay.',
       }));
     }
@@ -420,7 +421,7 @@ function generateStaticAlerts(
         severity: 'HIGH',
         category: 'remand',
         title:    'Client in Custody — ACJA Remand Period Running',
-        body:     'Your client appears to be in custody following arraignment. Under ACJA 2015 Section 296, an accused on remand has the right to apply for bail at any stage. Monitor the remand period carefully.',
+        body:     getPrompt('acja_remand_right'),
         action:   'Track the remand period. If bail was refused, renew the application at each hearing or apply to a higher court if circumstances change.',
       }));
     }
@@ -482,7 +483,7 @@ function generateStaticAlerts(
         severity: 'HIGH',
         category: 'deadline',
         title:    '5-Day Response Window Running',
-        body:     'Service has been effected. The respondent has 5 days from service to file a Counter-Affidavit + Written Address (factual opposition) or Written Address only (law-only PO). Monitor the docket closely.',
+        body:     getPrompt('frep_5_day_counter_window'),
         action:   'Track the service date. If 5 days expire without a counter-affidavit, flag the facts in the applicant\'s affidavit as admitted and prepare hearing submissions.',
       }));
     }
@@ -507,7 +508,7 @@ function generateStaticAlerts(
         severity: 'HIGH',
         category: 'deadline',
         title:    'Respondent Written Address Filed — Reply Deadline Running',
-        body:     'The respondent has filed a Written Address. The applicant has 5 days from receipt to file a Reply on Points of Law. If the respondent raised new facts, a Further Affidavit must also be filed within the same window.',
+        body:     getPrompt('frep_5_day_counter_window'),
         action:   'Draft Reply on Points of Law (and Further Affidavit if new facts arose) using Applications Engine → FREP — Reply Bundle. File within 5 days.',
       }));
     }
@@ -518,7 +519,7 @@ function generateStaticAlerts(
         severity: 'MEDIUM',
         category: 'procedural',
         title:    'Hearing Should Be Listed Within 7 Days — Follow Up',
-        body:     'The FREP application has been filed but no hearing date appears in the docket. The procedure requires the matter to be listed within 7 days of filing. Registry follow-up may be needed.',
+        body:     getPrompt('frep_7_day_listing_target'),
         action:   'Write to the registry to obtain a hearing date within the 7-day target. Note the filing date and escalate if not listed promptly.',
       }));
     }

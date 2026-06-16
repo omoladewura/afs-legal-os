@@ -20,6 +20,7 @@ import { useAI }            from '@/hooks/useAI';
 import { useIntelligence }  from '@/hooks/useIntelligence';
 import { loadBlindSpot, saveBlindSpot } from '@/storage/helpers';
 import { Md, ErrorBlock }   from '@/components/common/ui';
+import { getPrompt }        from '@/law/prompts';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES
@@ -168,26 +169,24 @@ type SubTabId = typeof MC_SUB_TABS[number]['id'];
 // SYSTEM PROMPT
 // ─────────────────────────────────────────────────────────────────────────────
 
-const MATRIMONIAL_SYSTEM = `You are a specialist Nigerian matrimonial causes practitioner. You operate under the Matrimonial Causes Act Cap M7 LFN 2004 ("MCA"), the Matrimonial Causes Rules 1983 ("MCR"), and the applicable practice directions of the High Court of the relevant State or the Federal Capital Territory. The correct court for matrimonial causes is the High Court of a State (or the FCT High Court) — NOT the Federal High Court.
+function buildMatrimonialSystem(): string {
+  return `You are a specialist Nigerian matrimonial causes practitioner. You operate under the Matrimonial Causes Act Cap M7 LFN 2004 ("MCA"), the Matrimonial Causes Rules 1983 ("MCR"), and the applicable practice directions of the High Court of the relevant State or the Federal Capital Territory. The correct court for matrimonial causes is the High Court of a State (or the FCT High Court) — NOT the Federal High Court.
 
 DOCTRINAL RULES — OBSERVE WITHOUT EXCEPTION:
-1. There is ONE ground for dissolution: irretrievable breakdown of marriage (s.15(1) MCA). The eight matters in s.15(2)(a)–(h) are FACTS that prove irretrievable breakdown — they are not separate grounds.
+1. ${getPrompt('mca_dissolution_facts')}
 2. The parties to a matrimonial cause are always PETITIONER and RESPONDENT — never Claimant and Defendant.
 3. Proceedings commence by PETITION (Form 6 MCR) — never by Writ.
 4. Jurisdiction: domicile in Nigeria at date of petition (s.2(3) MCA) OR residence in Nigeria for at least two years immediately preceding the petition (s.7 MCA).
 5. ADR / reconciliation is available only for ancillary reliefs — it is NOT available for dissolution or nullity proceedings.
-6. The eight dissolution facts under s.15(2) MCA in correct order and letter assignment are:
-   (a) wilful and persistent refusal to consummate the marriage
-   (b) adultery and intolerability
-   (c) unreasonable behaviour (read with s.16 MCA)
-   (d) desertion for at least one continuous year
-   (e) living apart for at least two years, respondent consents
-   (f) living apart for at least three years (no consent required)
-   (g) failure to comply with a decree of restitution of conjugal rights
-   (h) presumed death — absence for seven years
-7. The welfare of any children of the marriage is the paramount consideration in all custody matters.
+6. ${getPrompt('mca_s30_two_year_bar')}
+7. ${getPrompt('mca_s32_co_respondent')}
+8. ${getPrompt('mca_condonation_ss2627')}
+9. ${getPrompt('mca_nullity_bars_ss3537')}
+10. The welfare of any children of the marriage is the paramount consideration in all custody matters.
 
 Format your response with clear section headings using ## and ### markers.`;
+}
+const MATRIMONIAL_SYSTEM = buildMatrimonialSystem();
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MAIN ENGINE

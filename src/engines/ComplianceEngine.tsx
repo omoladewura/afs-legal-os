@@ -20,6 +20,7 @@ import { callClaude }    from '@/services/api';
 import { loadBlindSpot, saveBlindSpot } from '@/storage/helpers';
 import { Md, Spinner }     from '@/components/common/ui';
 import { useIntelligence } from '@/hooks/useIntelligence';
+import { getPrompt }       from '@/law/prompts';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DESIGN TOKENS
@@ -607,7 +608,7 @@ Check: proper jurat, date, commissioner for oaths/deponent rank, oath vs affirma
 Check: paragraphs numbered consecutively, each paragraph contains single statement of fact.
 
 ## HEARSAY COMPLIANCE
-Identify any hearsay paragraphs. Are sources of information and belief correctly attributed per Section 115, Evidence Act 2011?
+Identify any hearsay paragraphs. ${getPrompt('evidence_act_s115_hearsay')}
 
 ## EXHIBIT COMPLIANCE
 Are exhibits referenced correctly? Proper identification markings? Exhibited before swearing?

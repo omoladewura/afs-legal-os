@@ -27,6 +27,7 @@ import { useIntelligence } from '@/hooks/useIntelligence';
 import { loadBlindSpot, saveBlindSpot } from '@/storage/helpers';
 import { Md, ErrorBlock } from '@/components/common/ui';
 import { COUNSEL_ROLE_COLORS } from '@/types';
+import { getPrompt } from '@/law/prompts';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES
@@ -273,7 +274,7 @@ function OpeningAddressTab({
 
   const generate = useCallback(async () => {
     const r = await call({
-      system: `You are a Nigerian prosecution counsel drafting an opening address for a criminal trial. Apply ACJA 2015 and Evidence Act 2011. The opening address introduces the prosecution's case to the court.` + fullContext,
+      system: `You are a Nigerian prosecution counsel drafting an opening address for a criminal trial. ${getPrompt('acja_no_case_standard')} Apply Evidence Act 2011. The opening address introduces the prosecution's case to the court.` + fullContext,
       userMsg: `Draft a prosecution opening address for the matter: ${activeCase.caseName} — ${activeCase.court}.
 
 Additional context / charges:
@@ -378,7 +379,7 @@ function WitnessScheduleTab({
     ).join('\n\n');
 
     const r = await call({
-      system: `You are a Nigerian prosecution counsel. Apply ACJA 2015 and Evidence Act 2011.` + fullContext,
+      system: `You are a Nigerian prosecution counsel. Apply ACJA 2015 and Evidence Act 2011. ${getPrompt('evidence_act_s84_electronic')}` + fullContext,
       userMsg: `Witness schedule advice for ${activeCase.caseName}:\n\n${witnessSummary}\n\nCase closed: ${closed ? 'YES' : 'NO'}\n\nAdvise prosecution:\n1. **Witness Order** — is the current order optimal? Should any witnesses be reordered for maximum impact?\n2. **Evidence Gaps** — are there counts without a witness to prove each essential ingredient?\n3. **Overlap / Redundancy** — are any witnesses duplicating evidence? Can any be consolidated?\n4. **ACJA Compliance** — have all witnesses in the proof of evidence been called or accounted for?\n5. **Vulnerable Witnesses** — any witness likely to face aggressive cross-examination? How to protect?\n6. **Close of Case Assessment** — if prosecution is ready to close, what must be confirmed before closing?\n7. **Next Prosecution Action** — based on current status, what should prosecution do next?`,
     });
     if (r) setScheduleAdvice(r);
@@ -543,7 +544,7 @@ function ExhibitRegisterTab({
   const checkAdmissibility = useCallback(async (ex: Exhibit) => {
     setTargetExhibitId(ex.id);
     const r = await call({
-      system: `You are a Nigerian prosecution counsel. Apply the Evidence Act 2011 to assess the admissibility of exhibits.` + fullContext,
+      system: `You are a Nigerian prosecution counsel. Apply the Evidence Act 2011 to assess the admissibility of exhibits. ${getPrompt('evidence_act_s84_electronic')}` + fullContext,
       userMsg: `Admissibility check for ${ex.ref} in ${activeCase.caseName}:\n\nDescription: ${ex.description}\nCount linked: ${ex.countLinked}\nTendered by: ${ex.tenderedBy || 'prosecution'}\nNotes: ${ex.notes || 'none'}\n\nAnalyse admissibility:\n1. **Document type** — what category of evidence is this?\n2. **Primary rule** — which Evidence Act provision governs admission?\n3. **Authentication requirements** — how must this document be authenticated?\n4. **Best evidence** — is this the original or a copy? If a copy, is secondary evidence admissible?\n5. **Hearsay issues** — does this document contain hearsay? Is any exception applicable?\n6. **Confessional statement specific issues** (if applicable) — was the statement made voluntarily? Was ACJA s.15 caution administered?\n7. **Likely defence objection** — what objection is defence likely to raise?\n8. **Prosecution response** — how should prosecution respond to that objection?\n9. **Verdict** — ADMISSIBLE / LIKELY ADMISSIBLE / DISPUTED / INADMISSIBLE`,
     });
     if (r) {
@@ -952,7 +953,7 @@ function NoCaseThresholdTab({
     ).join('\n\n');
 
     const r = await call({
-      system: `You are a Nigerian criminal defence counsel. Apply the no-case submission standard from Ajidagba v. State (1981), Ibeziako v. COP, and ACJA 2015 s.303. The test is whether there is evidence on which a reasonable court could convict — not whether the prosecution has proved its case beyond reasonable doubt.` + fullContext,
+      system: `You are a Nigerian criminal defence counsel. ${getPrompt('acja_no_case_standard')} ${getPrompt('acja_caution_s15')}` + fullContext,
       userMsg: `No-case submission threshold assessment for ${activeCase.caseName}:\n\n${countSummary}\n\nFor each count:\n1. **Essential Ingredients** — confirm or correct the list of essential ingredients prosecution must establish\n2. **Evidence Analysis** — has prosecution led prima facie evidence on each ingredient?\n3. **Critical Gaps** — which ingredients have NO evidence at all? (These are the strongest grounds)\n4. **Threshold Verdict:**\n   - MET: Prosecution has led no evidence on one or more essential ingredients — submission is clearly available\n   - STRONG: Evidence led is so manifestly unreliable or contradicted that no court should act on it\n   - ARGUABLE: Some gaps or weaknesses but court could go either way\n   - NOT MET: Sufficient prima facie case established — submission unlikely to succeed\n5. **Grounds to Include in Submission** — draft the specific grounds for this count\n\nEnd with an overall recommendation: SUBMIT NOW / WAIT FOR MORE WITNESSES / DO NOT SUBMIT ON THIS COUNT`,
     });
     if (r) setOverallAssessment(r);
