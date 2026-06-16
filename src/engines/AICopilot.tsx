@@ -1,20 +1,33 @@
 /**
- * AFS Legal OS V2 — AI Copilot Engine (Phase 5)
+ * AFS Legal OS — AI Copilot Engine (Phase 4 — extended in place)
  *
- * The role-aware AI Copilot. Permanently knows matter_track + counsel_role.
- * Adapts identity, system prompt, suggestions, and output framing to the
- * exact position the lawyer occupies on each matter.
+ * Phase 4 absorbs CommandConsole into this file, adding COMMAND MODE alongside
+ * the existing CHAT MODE. Two modes toggled at the top:
  *
- * Civil Claimant Side   → Claimant Strategy Copilot
- * Civil Defendant Side  → Defence Strategy Copilot
- * Criminal Prosecution  → Prosecution Copilot
- * Criminal Defence      → Defence Copilot
+ *   CHAT MODE    (original Copilot — unchanged)
+ *     Role-aware conversation · Full case context · Suggestions panel
  *
- * Doc12 specification: every Claude invocation must include matter_track + counsel_role.
+ *   COMMAND MODE (CommandConsole merged in)
+ *     Strategic Posture switcher — Aggressive / Defensive /
+ *       Settlement-Seeking / Appellate
+ *     Posture flows into Chat Mode system prompt
+ *     Quick commands palette (12 pre-built commands)
+ *     Two-step routing pipeline: classify → specialist system prompt
+ *     Per-case command log
+ *     "Open Module →" routing to relevant tab
+ *
+ * Posture state is shared between both modes — set it in Command,
+ * Chat inherits it immediately via the shared `posture` state.
+ *
+ * Original engines:
+ *   Civil Claimant Side   → Claimant Strategy Copilot
+ *   Civil Defendant Side  → Defence Strategy Copilot
+ *   Criminal Prosecution  → Prosecution Copilot
+ *   Criminal Defence      → Defence Copilot
  */
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import type { Case, ApiMessage } from '@/types';
+import type { Case, ApiMessage, DashTabId } from '@/types';
 import { T } from '@/constants/tokens';
 import { CLAUDE_MODEL } from '@/services/api';
 import { queryLibrary, deriveQuery } from '@/services/library';
@@ -32,6 +45,10 @@ import {
   MATTER_TRACK_LABELS,
   COUNSEL_ROLE_COLORS,
 } from '@/types';
+import { useAppStore } from '@/state/appStore';
+import { callClaude } from '@/services/api';
+import { loadBlindSpot, saveBlindSpot } from '@/storage/helpers';
+import { buildCaseContext } from '@/utils';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES
@@ -45,6 +62,97 @@ interface CopilotTurn {
 interface Props {
   activeCase: Case | null;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PHASE 4 — COMMAND MODE TYPES & CONSTANTS (merged from CommandConsole)
+// ─────────────────────────────────────────────────────────────────────────────
+
+type CopilotMode = 'chat' | 'command';
+
+type Posture = 'Aggressive' | 'Defensive' | 'Settlement-Seeking' | 'Appellate';
+
+type RouteKey =
+  | 'strategy_rebuild' | 'witness_analysis' | 'cross_exam'
+  | 'evidence_analysis' | 'argument_build' | 'document_generate'
+  | 'compliance_check' | 'risk_assessment' | 'appeal_analysis'
+  | 'settlement' | 'general';
+
+interface HistoryEntry {
+  role:        'user' | 'assistant' | 'system' | 'error';
+  content:     string;
+  ts:          number;
+  route?:      string;
+  routeColor?: string;
+  routeTab?:   DashTabId | null;
+}
+
+const POSTURES: Posture[] = ['Aggressive', 'Defensive', 'Settlement-Seeking', 'Appellate'];
+
+const POSTURE_COLORS: Record<Posture, { bg: string; light: string }> = {
+  'Aggressive':         { bg: '#2a0808', light: '#e05050' },
+  'Defensive':          { bg: '#081428', light: '#5090d0' },
+  'Settlement-Seeking': { bg: '#081a0e', light: '#50c070' },
+  'Appellate':          { bg: '#140828', light: '#9060e0' },
+};
+
+const ROUTE_MAP: Record<RouteKey, { label: string; tab: DashTabId | null; color: string }> = {
+  strategy_rebuild:  { label: 'Strategy Engine',          tab: 'intelligence',       color: '#e0a030' },
+  witness_analysis:  { label: 'Cross-Examination Engine', tab: 'crossexam',          color: '#e05090' },
+  cross_exam:        { label: 'Cross-Examination Engine', tab: 'crossexam',          color: '#e05090' },
+  evidence_analysis: { label: 'Evidence Vault',           tab: 'evidence',           color: '#40b0a0' },
+  argument_build:    { label: 'Written Address Engine',   tab: 'written_address' as DashTabId, color: '#a050d0' },
+  document_generate: { label: 'Document Generator',       tab: null,                 color: '#d09030' },
+  compliance_check:  { label: 'Compliance Engine',        tab: 'case_command' as DashTabId,    color: '#50a0e0' },
+  risk_assessment:   { label: 'Risk Analytics',           tab: 'case_command' as DashTabId,    color: '#e05050' },
+  appeal_analysis:   { label: 'Appeal Engine',            tab: 'appeal',             color: '#60c0a0' },
+  settlement:        { label: 'Case Intelligence',        tab: 'case_intelligence' as DashTabId, color: '#80d060' },
+  general:           { label: 'General Intelligence',     tab: null,                 color: '#b0a080' },
+};
+
+const QUICK_CMDS: Array<{ label: string }> = [
+  { label: 'Rebuild defence theory around alibi' },
+  { label: 'What are my three biggest risks right now?' },
+  { label: 'Generate hostile cross-examination for PW2' },
+  { label: 'Reassess admissibility of electronic evidence under Section 84' },
+  { label: 'Has the limitation period expired?' },
+  { label: 'Rebuild argument around jurisdiction only' },
+  { label: 'Prepare emergency stay of execution application' },
+  { label: 'Update case theory with new witness statement' },
+  { label: 'Identify all appellate issues so far' },
+  { label: 'Analyse prosecution evidence weaknesses' },
+  { label: 'What is our BATNA right now?' },
+  { label: 'Generate no-case submission analysis' },
+];
+
+function buildCommandSystemPrompt(routeKey: RouteKey, posture: Posture, ctx: string): string {
+  const base: Record<RouteKey, string> = {
+    strategy_rebuild:
+      `You are the most experienced litigation strategist in Nigeria. Rebuild and recalibrate the client's litigation theory. Current strategic posture: ${posture}.`,
+    witness_analysis:
+      `You are Nigeria's leading trial counsel specialising in witness management and cross-examination. Current strategic posture: ${posture}.`,
+    cross_exam:
+      `You are a senior Nigerian trial advocate. Generate a full, adversarial, sequenced cross-examination strategy. Current strategic posture: ${posture}.`,
+    evidence_analysis:
+      `You are a Nigerian evidence law specialist. Analyse admissibility, weight, authenticity, Section 84 compliance. Current strategic posture: ${posture}.`,
+    argument_build:
+      `You are a master of Nigerian civil and criminal procedure and legal argumentation. Build the strongest possible legal argument on the identified issue. Current strategic posture: ${posture}.`,
+    document_generate:
+      `You are an expert Nigerian legal drafter. Generate the requested legal document in full, following Nigerian court rules and drafting conventions. Current strategic posture: ${posture}.`,
+    compliance_check:
+      `You are a Nigerian procedural law expert. Check every limitation period, pre-action notice, filing deadline, and procedural step. Current strategic posture: ${posture}.`,
+    risk_assessment:
+      `You are a litigation risk analyst specialising in Nigerian courts. Assess the current risk profile across all dimensions. Current strategic posture: ${posture}.`,
+    appeal_analysis:
+      `You are a leading Nigerian appellate advocate. Identify and analyse all appellate issues. Current strategic posture: ${posture}.`,
+    settlement:
+      `You are an experienced Nigerian dispute resolution counsel. Analyse the settlement landscape, BATNA, and recommended posture. Current strategic posture: ${posture}.`,
+    general:
+      `You are Senior Counsel at AFS Advocates — expert in Nigerian law and litigation strategy across all courts. Current strategic posture: ${posture}.`,
+  };
+  return base[routeKey] + `\n\nFULL CASE CONTEXT:\n${ctx}`;
+}
+
+interface ConsoleBlob { history: HistoryEntry[]; posture: Posture; }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HELPERS
@@ -89,6 +197,13 @@ function buildCaseContext(c: Case): string {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function AICopilot({ activeCase }: Props) {
+  const { setDashTab } = useAppStore();
+
+  // ── Shared mode + posture state ────────────────────────────────────────────
+  const [mode,      setMode]      = useState<CopilotMode>('chat');
+  const [posture,   setPosture]   = useState<Posture>('Aggressive');
+
+  // ── Chat mode state ────────────────────────────────────────────────────────
   const [msgs,      setMsgs]      = useState<CopilotTurn[]>([]);
   const [input,     setInput]     = useState('');
   const [loading,   setLoading]   = useState(false);
@@ -96,12 +211,39 @@ export function AICopilot({ activeCase }: Props) {
   const [useCtx,    setUseCtx]    = useState(true);
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
 
-  const endRef  = useRef<HTMLDivElement>(null);
-  const textRef = useRef<HTMLTextAreaElement>(null);
+  // ── Command mode state ─────────────────────────────────────────────────────
+  const [cmd,          setCmd]          = useState('');
+  const [cmdHistory,   setCmdHistory]   = useState<HistoryEntry[]>([]);
+  const [cmdHistIdx,   setCmdHistIdx]   = useState(-1);
+  const [cmdLoading,   setCmdLoading]   = useState(false);
+  const [paletteOpen,  setPaletteOpen]  = useState(false);
+
+  const endRef    = useRef<HTMLDivElement>(null);
+  const textRef   = useRef<HTMLTextAreaElement>(null);
+  const cmdRef    = useRef<HTMLTextAreaElement>(null);
+  const logEndRef = useRef<HTMLDivElement>(null);
+
+  const caseId = activeCase?.id ?? '';
+
+  // Load command log when case changes
+  useEffect(() => {
+    if (!caseId) return;
+    loadBlindSpot<ConsoleBlob>(caseId, 'console', { history: [], posture: 'Aggressive' })
+      .then(d => {
+        setCmdHistory(d.history ?? []);
+        if (d.posture && POSTURES.includes(d.posture)) setPosture(d.posture);
+      });
+    setCmd('');
+    setCmdHistIdx(-1);
+  }, [caseId]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }, [msgs, loading]);
+
+  useEffect(() => {
+    logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [cmdHistory]);
 
   const counselRole  = activeCase?.counsel_role;
   const matterTrack  = activeCase?.matter_track;
@@ -110,6 +252,104 @@ export function AICopilot({ activeCase }: Props) {
   const suggestions  = copilotSuggestions(matterTrack, counselRole);
   const roleColors   = counselRole ? COUNSEL_ROLE_COLORS[counselRole] : null;
   const { fullContext } = useIntelligence(activeCase);
+
+  // ── Posture switcher (shared) ──────────────────────────────────────────────
+  const switchPosture = useCallback((p: Posture) => {
+    setPosture(p);
+    const notice: HistoryEntry = {
+      role: 'system',
+      content: `Strategic posture switched to: ${p}. All subsequent commands will adapt reasoning to the ${p} posture.`,
+      ts: Date.now(),
+    };
+    setCmdHistory(prev => {
+      const next = [...prev, notice];
+      if (caseId) saveBlindSpot(caseId, 'console', { history: next, posture: p });
+      return next;
+    });
+  }, [caseId]);
+
+  // ── Command mode — send (two-step pipeline) ────────────────────────────────
+  const handleCommandSend = useCallback(async () => {
+    const command = cmd.trim();
+    if (!command || cmdLoading || !activeCase) return;
+    setCmd('');
+    setCmdHistIdx(-1);
+    setCmdLoading(true);
+
+    const userEntry: HistoryEntry = { role: 'user', content: command, ts: Date.now() };
+    const withUser = [...cmdHistory, userEntry];
+    setCmdHistory(withUser);
+
+    const ctx = buildCaseContext(activeCase);
+
+    try {
+      // Step 1: Route
+      const rawKey = (await callClaude({
+        system:
+          'You are a command router for a Nigerian litigation intelligence system. ' +
+          'Classify the user command into EXACTLY ONE of these categories ' +
+          '(return ONLY the category key, nothing else):\n' +
+          'strategy_rebuild | witness_analysis | cross_exam | evidence_analysis | ' +
+          'argument_build | document_generate | compliance_check | risk_assessment | ' +
+          'appeal_analysis | settlement | general' + fullContext,
+        messages: [{
+          role: 'user',
+          content: `Case context:\n${ctx}\n\nUser command: "${command}"\n\nReturn ONLY the category key.`,
+        }],
+        maxTokens: 80,
+      })).trim().toLowerCase().replace(/[^a-z_]/g, '');
+
+      const routeKey: RouteKey = (rawKey in ROUTE_MAP) ? rawKey as RouteKey : 'general';
+      const route = ROUTE_MAP[routeKey];
+
+      // Step 2: Execute
+      const aiText = await callClaude({
+        system:   buildCommandSystemPrompt(routeKey, posture, ctx) + fullContext,
+        userMsg:  command,
+        maxTokens: 2000,
+      });
+
+      const aiEntry: HistoryEntry = {
+        role: 'assistant', content: aiText, ts: Date.now(),
+        route: route.label, routeColor: route.color, routeTab: route.tab,
+      };
+      const finalHist = [...withUser, aiEntry];
+      setCmdHistory(finalHist);
+      if (caseId) saveBlindSpot(caseId, 'console', { history: finalHist, posture });
+    } catch (err) {
+      const errEntry: HistoryEntry = {
+        role: 'error',
+        content: 'Command failed: ' + (err as Error).message,
+        ts: Date.now(),
+      };
+      const finalHist = [...withUser, errEntry];
+      setCmdHistory(finalHist);
+      if (caseId) saveBlindSpot(caseId, 'console', { history: finalHist, posture });
+    } finally {
+      setCmdLoading(false);
+    }
+  }, [cmd, cmdHistory, cmdLoading, activeCase, posture, fullContext, caseId]);
+
+  function handleCmdKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleCommandSend(); return; }
+    const userCmds = cmdHistory.filter(h => h.role === 'user');
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      const idx = cmdHistIdx + 1;
+      if (idx < userCmds.length) { setCmdHistIdx(idx); setCmd(userCmds[userCmds.length - 1 - idx].content); }
+    }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      const idx = cmdHistIdx - 1;
+      if (idx < 0) { setCmdHistIdx(-1); setCmd(''); }
+      else { setCmdHistIdx(idx); setCmd(userCmds[userCmds.length - 1 - idx].content); }
+    }
+  }
+
+  function clearCmdLog() {
+    setCmdHistory([]);
+    if (caseId) saveBlindSpot(caseId, 'console', { history: [], posture });
+  }
 
   // ── Send ──────────────────────────────────────────────────────────────────
 
@@ -134,8 +374,9 @@ export function AICopilot({ activeCase }: Props) {
     }));
     history.push({ role: 'user', content: promptText });
 
-    // Build role-aware system prompt
-    const baseSystem = buildRoleSystemPrompt(matterTrack, counselRole);
+    // Build role-aware system prompt — posture injected from shared state
+    const baseSystem = buildRoleSystemPrompt(matterTrack, counselRole)
+      + `\n\nCURRENT STRATEGIC POSTURE: ${posture}. Frame all recommendations through this posture.`;
 
     // Query library for relevant authorities
     let effectiveSystem = baseSystem + fullContext;
@@ -445,6 +686,220 @@ export function AICopilot({ activeCase }: Props) {
   return (
     <div style={containerS}>
 
+      {/* ── Phase 4: Mode toggle bar ── */}
+      <div style={{
+        display: 'flex', gap: 6, marginBottom: 16, flexShrink: 0,
+        background: T.card, border: `1px solid ${T.bdr}`,
+        borderRadius: 8, padding: '8px 10px',
+      }}>
+        {([
+          { id: 'chat'    as CopilotMode, icon: '✦', label: 'Chat Mode',    desc: 'Role-aware conversation' },
+          { id: 'command' as CopilotMode, icon: '>_', label: 'Command Mode', desc: 'Strategic posture + routing pipeline' },
+        ] as const).map(m => {
+          const active = mode === m.id;
+          return (
+            <button key={m.id} onClick={() => setMode(m.id)} style={{
+              flex: 1, background: active ? `${accent}12` : 'transparent',
+              border: `1px solid ${active ? accent + '55' : T.bdr}`,
+              borderRadius: 6, padding: '8px 14px', cursor: 'pointer',
+              textAlign: 'left', transition: 'all .15s',
+            }}>
+              <span style={{ fontSize: 11, color: active ? accent : T.mute, fontFamily: "'Times New Roman', Times, serif", fontWeight: 700, display: 'block', marginBottom: 2 }}>
+                {m.icon} {m.label}
+              </span>
+              <span style={{ fontSize: 10, color: T.mute, fontFamily: "'Times New Roman', Times, serif" }}>
+                {m.desc}
+              </span>
+            </button>
+          );
+        })}
+
+        {/* Posture badge — always visible, shared between modes */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 5,
+          padding: '6px 12px', borderRadius: 6,
+          background: POSTURE_COLORS[posture].bg,
+          border: `1px solid ${POSTURE_COLORS[posture].light}33`,
+          flexShrink: 0,
+        }}>
+          <span style={{ fontSize: 8, color: POSTURE_COLORS[posture].light, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.1em', textTransform: 'uppercase', fontWeight: 700 }}>
+            Posture
+          </span>
+          <span style={{ fontSize: 10, color: POSTURE_COLORS[posture].light, fontFamily: "'Times New Roman', Times, serif", fontWeight: 600 }}>
+            {posture}
+          </span>
+        </div>
+      </div>
+
+      {/* ── COMMAND MODE ── */}
+      {mode === 'command' && (
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 0, overflow: 'hidden' }}>
+
+          {/* Posture switcher */}
+          <div style={{
+            background: '#08080f', border: `1px solid ${POSTURE_COLORS[posture].bg}`,
+            borderLeft: `3px solid ${POSTURE_COLORS[posture].light}`,
+            borderRadius: '0 6px 6px 0', padding: '10px 14px', marginBottom: 10,
+            display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', flexShrink: 0,
+          }}>
+            <span style={{ fontSize: 10, color: T.dim, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', flexShrink: 0 }}>
+              Strategic Posture
+            </span>
+            <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+              {POSTURES.map(p => {
+                const pc = POSTURE_COLORS[p];
+                const active = posture === p;
+                return (
+                  <button key={p} onClick={() => switchPosture(p)} style={{
+                    background: active ? pc.bg : 'transparent',
+                    border: `1px solid ${active ? pc.light : '#cccccc'}`,
+                    color: active ? pc.light : '#505060',
+                    borderRadius: 4, padding: '4px 12px', fontSize: 10,
+                    fontFamily: "'Times New Roman', Times, serif",
+                    cursor: 'pointer', letterSpacing: '.06em',
+                    textTransform: 'uppercase', fontWeight: 600, transition: 'all .15s',
+                  }}>
+                    {p}
+                  </button>
+                );
+              })}
+            </div>
+            <span style={{ marginLeft: 'auto', fontSize: 10, color: POSTURE_COLORS[posture].light, fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic', opacity: 0.7 }}>
+              Flows into Chat Mode ·  all commands adapt to {posture} posture
+            </span>
+          </div>
+
+          {/* Quick command palette toggle */}
+          <div style={{ marginBottom: 8, flexShrink: 0 }}>
+            <button onClick={() => setPaletteOpen(o => !o)} style={{
+              background: 'transparent', border: '1px solid #1a1a28', color: T.mute,
+              borderRadius: 4, padding: '5px 12px', fontSize: 10,
+              fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer',
+              letterSpacing: '.08em', display: 'flex', alignItems: 'center', gap: 5,
+            }}>
+              <span style={{ fontSize: 8 }}>▶</span>
+              Quick Commands {paletteOpen ? '▲' : '▼'}
+            </button>
+            {paletteOpen && (
+              <div style={{
+                background: '#06060e', border: '1px solid #141420', borderRadius: 6,
+                padding: '12px 14px', marginTop: 6,
+                display: 'flex', flexWrap: 'wrap', gap: 6, animation: 'fadeUp .15s ease',
+              }}>
+                {QUICK_CMDS.map((q, i) => (
+                  <button key={i} onClick={() => { setCmd(q.label); setPaletteOpen(false); setTimeout(() => cmdRef.current?.focus(), 50); }}
+                    style={{
+                      background: '#ffffff', border: '1px solid #1e1e30', color: T.mute,
+                      borderRadius: 4, padding: '4px 10px', fontSize: 10,
+                      fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer',
+                      letterSpacing: '.04em', transition: 'border-color .12s, color .12s',
+                    }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = '#3a3a60'; (e.currentTarget as HTMLElement).style.color = T.text; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = '#1e1e30'; (e.currentTarget as HTMLElement).style.color = T.mute; }}
+                  >
+                    {q.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Command log */}
+          <div style={{
+            flex: 1, background: '#03030a', border: '1px solid #0e0e1e',
+            borderRadius: 6, overflowY: 'auto', padding: '14px',
+            marginBottom: 10, fontFamily: 'monospace', minHeight: 200,
+          }}>
+            {cmdHistory.length === 0 && (
+              <div style={{ textAlign: 'center', padding: '40px 20px' }}>
+                <div style={{ fontSize: 30, opacity: .05, marginBottom: 10 }}>{'>_'}</div>
+                <p style={{ fontSize: 13, color: '#303040', fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic', lineHeight: 1.85 }}>
+                  Issue any litigation command. The system routes it to the correct engine.<br />
+                  Posture set here flows into Chat Mode immediately.
+                </p>
+              </div>
+            )}
+            {cmdHistory.map((entry, i) => (
+              <div key={i} style={{ marginBottom: entry.role === 'assistant' ? 18 : 8 }}>
+                {entry.role === 'user' && (
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 7 }}>
+                    <span style={{ color: '#404060', fontSize: 11, flexShrink: 0, paddingTop: 2, fontFamily: 'monospace' }}>&gt;</span>
+                    <span style={{ color: '#c8c4b8', fontSize: 12, fontFamily: 'monospace', lineHeight: 1.6, wordBreak: 'break-word' }}>{entry.content}</span>
+                  </div>
+                )}
+                {entry.role === 'system' && (
+                  <div style={{ borderLeft: '2px solid #2a2a4a', paddingLeft: 9, marginLeft: 2 }}>
+                    <span style={{ fontSize: 10, color: '#505070', fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic' }}>{entry.content}</span>
+                  </div>
+                )}
+                {entry.role === 'assistant' && (
+                  <div style={{ background: '#ffffff', border: '1px solid #141424', borderRadius: 5, padding: '12px 14px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 10, flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: 9, color: entry.routeColor ?? '#606080', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.1em', textTransform: 'uppercase', border: `1px solid ${(entry.routeColor ?? '#303050') + '55'}`, padding: '2px 6px', borderRadius: 2 }}>
+                        Routed → {entry.route}
+                      </span>
+                      {entry.routeTab && (
+                        <button onClick={() => setDashTab(entry.routeTab as DashTabId)} style={{ background: 'transparent', border: '1px solid #1e2030', color: '#405060', borderRadius: 3, padding: '2px 7px', fontSize: 9, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', letterSpacing: '.06em', transition: 'all .15s' }}
+                          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = entry.routeColor ?? '#3a4050'; (e.currentTarget as HTMLElement).style.color = entry.routeColor ?? '#8090a0'; }}
+                          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = '#1e2030'; (e.currentTarget as HTMLElement).style.color = '#405060'; }}
+                        >
+                          Open Module →
+                        </button>
+                      )}
+                      <span style={{ marginLeft: 'auto', fontSize: 9, color: '#cccccc', fontFamily: 'monospace' }}>
+                        {new Date(entry.ts).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 13, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.75, wordBreak: 'break-word' }}>
+                      <Md text={entry.content} />
+                    </div>
+                  </div>
+                )}
+                {entry.role === 'error' && (
+                  <div style={{ borderLeft: '2px solid #6a1a1a', paddingLeft: 9, marginLeft: 2 }}>
+                    <span style={{ fontSize: 11, color: '#c05050', fontFamily: 'monospace' }}>{entry.content}</span>
+                  </div>
+                )}
+              </div>
+            ))}
+            {cmdLoading && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 0' }}>
+                <span style={{ color: '#303048', fontSize: 11, fontFamily: 'monospace' }}>&gt;</span>
+                <span style={{ color: '#303048', fontSize: 11, fontFamily: 'monospace', animation: 'pulse 1.2s ease infinite' }}>
+                  Routing command… executing…
+                </span>
+              </div>
+            )}
+            <div ref={logEndRef} />
+          </div>
+
+          {/* Command input */}
+          <div style={{ background: '#06060f', border: '1px solid #1a1a30', borderRadius: 6, display: 'flex', alignItems: 'flex-end', flexShrink: 0 }}>
+            <span style={{ color: '#404060', fontSize: 13, padding: '10px 8px 12px 12px', fontFamily: 'monospace', flexShrink: 0 }}>&gt;</span>
+            <textarea ref={cmdRef} value={cmd} onChange={e => setCmd(e.target.value)} onKeyDown={handleCmdKeyDown}
+              placeholder='Issue a litigation command…  e.g. "What are my three biggest risks?" or "Prepare emergency stay"'
+              rows={2} disabled={cmdLoading}
+              style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: '#d0ccbe', fontSize: 12, fontFamily: 'monospace', lineHeight: 1.65, padding: '10px 6px', resize: 'none', minHeight: 44 }}
+            />
+            <button onClick={handleCommandSend} disabled={cmdLoading || !cmd.trim()}
+              style={{ background: cmdLoading || !cmd.trim() ? 'transparent' : '#12121f', border: 'none', borderLeft: '1px solid #1a1a30', color: cmdLoading || !cmd.trim() ? '#252535' : '#c4a030', padding: '10px 14px', cursor: cmdLoading || !cmd.trim() ? 'default' : 'pointer', fontSize: 14, borderRadius: '0 6px 6px 0', alignSelf: 'stretch', transition: 'all .15s', flexShrink: 0 }}>
+              {cmdLoading ? '…' : '⏎'}
+            </button>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
+            <p style={{ fontSize: 10, color: '#202030', fontFamily: "'Times New Roman', Times, serif", margin: 0, letterSpacing: '.04em' }}>
+              Enter to send · Shift+Enter for new line · ↑↓ to recall history
+            </p>
+            <button onClick={clearCmdLog} style={{ background: 'transparent', border: 'none', color: '#604040', fontSize: 10, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', letterSpacing: '.04em' }}>
+              ↺ Clear Log
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── CHAT MODE (original — unchanged below) ── */}
+      {mode === 'chat' && (<>
+
       {/* ── Header ── */}
       <div style={headerS}>
         <div style={iconS}>
@@ -623,6 +1078,7 @@ export function AICopilot({ activeCase }: Props) {
           </div>
         </div>
       </div>
+      </>)}
 
     </div>
   );
