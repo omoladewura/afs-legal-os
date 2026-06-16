@@ -612,7 +612,11 @@ export type DashTabId =
   | 'synthesis'
   // Phase 9 — Matrimonial sub-tabs
   | 'petition_answer' | 'forms_documents' | 'custody' | 'maintenance'
-  | 'property' | 'ancillary_applications' | 'decree_enforcement';
+  | 'property' | 'ancillary_applications' | 'decree_enforcement'
+  // Master Plan — Four Merged Engines (Phases 1–4)
+  | 'case_command'       // Phase 1 — replaces overview
+  | 'case_intelligence'  // Phase 2 — new tab
+  | 'written_address';   // Phase 3 — replaces builder + final_address
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ORIGINATING PROCESS
