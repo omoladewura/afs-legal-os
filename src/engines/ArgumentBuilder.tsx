@@ -35,23 +35,101 @@ import {
 import { getPartyLabels } from '@/utils/getPartyLabels';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ARGUMENT TYPES
+// ARGUMENT TYPES — Three tracks: Applications | Trial | Appeal
 // ─────────────────────────────────────────────────────────────────────────────
 
+type Track = 'applications' | 'trial' | 'appeal';
+
 const AB_ARG_TYPES = [
-  { id: 'written_address_trial',     label: 'Written Address (Trial)',           icon: '⚖',  hint: 'Issue-based argument at trial — law, facts, conclusion. IRAC structure throughout.' },
-  { id: 'written_address_interlocu', label: 'Written Address (Interlocutory)',   icon: '⚡',  hint: 'In support of or opposition to a motion — three-step: law, facts, prayer.' },
-  { id: 'final_address',             label: 'Final Written Address',             icon: '📜',  hint: 'Closing address at end of trial — evidence summarised, judgment made inevitable.' },
-  { id: 'appellants_brief',          label: "Appellant's Brief Section",         icon: '↑',   hint: 'Issue-based appellate argument — error of law or fact, why judgment must be set aside.' },
-  { id: 'respondents_brief',         label: "Respondent's Brief Section",        icon: '↓',   hint: 'Defend the judgment below — uphold findings, distinguish errors, address every ground.' },
-  { id: 'legal_arguments',           label: 'Legal Arguments (Pleadings)',       icon: '§',   hint: 'Structured legal arguments underpinning pleadings — elements, burden, authority.' },
-  { id: 'opening_statement',         label: 'Opening Statement',                 icon: '◉',   hint: 'Roadmap for the court — what the case is about, what we will prove, and how.' },
-  { id: 'objection_argument',        label: 'Objection / Preliminary Objection', icon: '✗',   hint: 'Jurisdictional or threshold objection — before the substance is heard.' },
-  { id: 'reply_address',             label: 'Reply on Points of Law',            icon: '↩',   hint: "Responding only to new legal points raised in opposing counsel's address — no new facts." },
-  { id: 'strategy_argument',         label: 'Case Strategy Argument',            icon: '◈',   hint: 'Internal strategic brief — options, probability, recommended approach and approach.' },
+
+  // ── APPLICATIONS ───────────────────────────────────────────────────────────
+  // Motion → Affidavit → Written Address → Reply on Points of Law
+  {
+    id:    'motion_on_notice',
+    label: 'Motion on Notice',
+    icon:  '📋',
+    track: 'applications' as Track,
+    hint:  'Formal application with notice to the other side — grounds, supporting affidavit, and reliefs sought.',
+  },
+  {
+    id:    'motion_ex_parte',
+    label: 'Motion Ex Parte',
+    icon:  '⚡',
+    track: 'applications' as Track,
+    hint:  'Urgent application without notice — used where giving notice would defeat the purpose or cause irreparable harm.',
+  },
+  {
+    id:    'affidavit',
+    label: 'Affidavit / Counter-Affidavit / Further & Better',
+    icon:  '✍',
+    track: 'applications' as Track,
+    hint:  'Sworn statement in support of or in opposition to a motion. Specify which type in the focus field below.',
+  },
+  {
+    id:    'written_address_application',
+    label: 'Written Address (Application)',
+    icon:  '⚖',
+    track: 'applications' as Track,
+    hint:  'Argument in support of or in opposition to a motion — law, facts, prayer. Three-step structure throughout.',
+  },
+  {
+    id:    'reply_address_application',
+    label: 'Reply on Points of Law (Application)',
+    icon:  '↩',
+    track: 'applications' as Track,
+    hint:  "Reply filed after opposing counsel's written address on the motion — new legal points only, no new facts.",
+  },
+
+  // ── TRIAL ──────────────────────────────────────────────────────────────────
+  // Final Written Address → Reply on Points of Law
+  {
+    id:    'final_address',
+    label: 'Final Written Address',
+    icon:  '📜',
+    track: 'trial' as Track,
+    hint:  'Closing address at the end of trial — summarise every piece of evidence, resolve every issue, make judgment inevitable.',
+  },
+  {
+    id:    'reply_address_trial',
+    label: 'Reply on Points of Law (Trial)',
+    icon:  '↩',
+    track: 'trial' as Track,
+    hint:  "Reply to new legal points raised in the opposing party's Final Written Address — no new facts, law only.",
+  },
+
+  // ── APPEAL ─────────────────────────────────────────────────────────────────
+  // Appellant's Brief → Respondent's Brief → Reply Brief
+  {
+    id:    'appellants_brief',
+    label: "Appellant's Brief Section",
+    icon:  '↑',
+    track: 'appeal' as Track,
+    hint:  'Issue-based appellate argument — identify the error of law or fact, argue why the judgment below must be set aside.',
+  },
+  {
+    id:    'respondents_brief',
+    label: "Respondent's Brief Section",
+    icon:  '↓',
+    track: 'appeal' as Track,
+    hint:  'Defend the judgment below — uphold findings, distinguish alleged errors, address every ground of appeal.',
+  },
+  {
+    id:    'reply_address_appeal',
+    label: "Reply on Points of Law (Appeal)",
+    icon:  '↩',
+    track: 'appeal' as Track,
+    hint:  "Reply brief responding only to new legal points raised in the Respondent's Brief — no new facts or grounds.",
+  },
+
 ] as const;
 
 type ArgTypeId = typeof AB_ARG_TYPES[number]['id'];
+
+const TRACKS: { id: Track; label: string; description: string }[] = [
+  { id: 'applications', label: 'Applications', description: 'Motion · Affidavit · Written Address · Reply' },
+  { id: 'trial',        label: 'Trial',         description: 'Final Written Address · Reply on Points of Law' },
+  { id: 'appeal',       label: 'Appeal',        description: "Appellant's Brief · Respondent's Brief · Reply Brief" },
+];
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PROPS & LOCAL TYPES
@@ -168,6 +246,7 @@ export function ArgumentBuilder({ activeCase }: Props) {
   const [extraCtx,    setExtraCtx]    = useState('');
 
   // ── Build config ──────────────────────────────────────────────────────────
+  const [activeTrack, setActiveTrack] = useState<Track>('applications');
   const [argType,  setArgType]  = useState<ArgTypeId | ''>('');
   const [argIssue, setArgIssue] = useState('');
   const [driveRAG, setDriveRAG] = useState(false);
@@ -615,21 +694,56 @@ Now produce the ${typeObj?.label || argType}:`;
             Argument Configuration
           </p>
 
-          {/* Argument type grid */}
+          {/* Argument type — track tabs + type cards */}
           <div style={{ marginBottom: 22 }}>
             <label style={{ ...lbS, marginBottom: 10 }}>Argument Type <span style={{ color: '#b06060' }}>*</span></label>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-              {AB_ARG_TYPES.map(t => (
+
+            {/* Track selector */}
+            <div style={{ display: 'flex', gap: 0, marginBottom: 14, background: '#050508', border: '1px solid #111120', borderRadius: 6, padding: 3 }}>
+              {TRACKS.map(tr => (
+                <button
+                  key={tr.id}
+                  onClick={() => { setActiveTrack(tr.id); setArgType(''); }}
+                  style={{
+                    flex: 1,
+                    background: activeTrack === tr.id ? '#0d0d1c' : 'transparent',
+                    border: `1px solid ${activeTrack === tr.id ? T.text + '55' : 'transparent'}`,
+                    color: activeTrack === tr.id ? T.text : T.mute,
+                    borderRadius: 4, padding: '8px 6px',
+                    fontSize: 11, fontFamily: "'Times New Roman', Times, serif",
+                    cursor: 'pointer', fontWeight: activeTrack === tr.id ? 700 : 400,
+                    letterSpacing: '.04em', transition: 'all .15s',
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+                  }}
+                >
+                  <span style={{ fontSize: 11 }}>{tr.label}</span>
+                  <span style={{ fontSize: 8, color: activeTrack === tr.id ? T.dim : '#2a2a42', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.02em' }}>{tr.description}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* Type cards for active track */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {AB_ARG_TYPES.filter(t => t.track === activeTrack).map(t => (
                 <button
                   key={t.id}
                   onClick={() => setArgType(t.id)}
-                  style={{ background: argType === t.id ? '#0d0d1c' : '#080808', border: `1px solid ${argType === t.id ? T.text : '#181828'}`, borderRadius: 7, padding: '11px 14px', textAlign: 'left', cursor: 'pointer', transition: 'all .15s' }}
+                  style={{
+                    background: argType === t.id ? '#0d0d1c' : '#080808',
+                    border: `1px solid ${argType === t.id ? T.text : '#181828'}`,
+                    borderRadius: 7, padding: '12px 16px',
+                    textAlign: 'left', cursor: 'pointer', transition: 'all .15s',
+                    display: 'flex', alignItems: 'flex-start', gap: 12,
+                  }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                    <span style={{ fontSize: 14, opacity: argType === t.id ? 1 : .6 }}>{t.icon}</span>
-                    <span style={{ fontSize: 12, color: argType === t.id ? T.text : T.mute, fontFamily: "'Times New Roman', Times, serif", fontWeight: 600, lineHeight: 1.2 }}>{t.label}</span>
+                  <span style={{ fontSize: 18, opacity: argType === t.id ? 1 : .5, flexShrink: 0, marginTop: 1 }}>{t.icon}</span>
+                  <div style={{ flex: 1 }}>
+                    <span style={{ fontSize: 13, color: argType === t.id ? T.text : T.mute, fontFamily: "'Times New Roman', Times, serif", fontWeight: 600, lineHeight: 1.3, display: 'block', marginBottom: 4 }}>{t.label}</span>
+                    <p style={{ fontSize: 10, color: argType === t.id ? T.dim : '#2a2a42', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.55, margin: 0 }}>{t.hint}</p>
                   </div>
-                  <p style={{ fontSize: 9, color: argType === t.id ? T.dim : '#2a2a42', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.5, margin: 0 }}>{t.hint}</p>
+                  {argType === t.id && (
+                    <span style={{ fontSize: 12, color: T.text, flexShrink: 0, marginTop: 2 }}>✓</span>
+                  )}
                 </button>
               ))}
             </div>
