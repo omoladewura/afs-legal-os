@@ -1,7 +1,18 @@
 /**
  * AFS Advocates — Dashboard Tabs
- * Defines every tab available inside a case dashboard.
- * Each entry maps to a lazy-loaded engine component.
+ * Master Plan Phase 5 — Four tab sets rewritten with merged engines slotted in.
+ *
+ * New tabs added:
+ *   case_command      — Phase 1 (replaces overview)
+ *   case_intelligence — Phase 2 (new tab)
+ *   written_address   — Phase 3 (replaces builder + final_address)
+ *   copilot           — Phase 4 (now includes Command Console)
+ *
+ * Tab counts after merge:
+ *   Civil        17 → 11
+ *   Criminal     17 → 15
+ *   FREP         12 →  9
+ *   Matrimonial  16 → 11
  */
 
 export interface DashTab {
@@ -12,57 +23,212 @@ export interface DashTab {
   step:  number | null;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// MASTER TAB REGISTRY
+// All tabs that exist anywhere in the system. Tab sets reference these by id.
+// ─────────────────────────────────────────────────────────────────────────────
+
 export const DASH_TABS: DashTab[] = [
-  { id: 'overview',     icon: '◉',  label: 'Overview',            desc: null,                step: null },
-  { id: 'intelligence', icon: '⚡', label: 'Intelligence Engine', desc: 'AI-powered 5-step intake pipeline — raw facts through structured Intelligence Package. Facts, disputes, missing evidence, legal issues, claims, and risks. Role-aware throughout.', step: null },
-  { id: 'appeal',       icon: '↑',  label: 'Appeal Engine',       desc: null,                step: null },
-  { id: 'builder',      icon: '✍',  label: 'Argument Builder',    desc: null,                step: null },
-  { id: 'docket',       icon: '⚖',  label: 'Docket',              desc: null,                step: null },
-  { id: 'evidence',     icon: '📁', label: 'Evidence Vault',      desc: 'Upload and categorise every case document — contracts, affidavits, receipts, chats, audio, photos, court orders, expert reports. Timestamped, previewable, and linked to intelligence outputs.', step: 7 },
-  { id: 'filings',      icon: '📋', label: 'Filings',             desc: 'Track every filed process — status, service, response deadlines.', step: null },
-  { id: 'timeline',     icon: '⏳', label: 'Timeline',            desc: 'Visual chronological view of the entire case.', step: null },
-  { id: 'research',     icon: '🔍', label: 'Research',            desc: 'Case law research tied directly to this matter — Nigerian authorities, statute analysis.', step: null },
-  { id: 'san',          icon: '⭐', label: 'SAN Mode',            desc: "Your AI Senior Advocate — accepts text and images, returns structured Option A / B / C paths, relevant Nigerian and international authorities, landmines on each path, and SAN's recommendation.", step: null },
-  { id: 'briefme',      icon: '🎯', label: 'Brief Me',            desc: "One-click pre-hearing briefing. Pulls from docket, filings, evidence, and intelligence.", step: 9 },
-  { id: 'inheritance',  icon: '⟳',  label: 'Inheritance Mode',    desc: 'Mid-case handover intelligence. Upload everything from the previous lawyer — AI runs a forensic State-of-Case Audit.', step: null },
-  { id: 'blindspots',   icon: '◈',  label: 'Blind Spots',         desc: 'Seven intelligence modules: Conflict of Interest · Witness Management · Opposing Counsel Profiler · Judge/Court Tendencies · Settlement Tracker + BATNA · Client Communication Log · Interlocutory Tracker.', step: null },
-  { id: 'crossexam',    icon: '⚔',  label: 'Cross-Examination',   desc: 'Build and execute comprehensive cross-examination strategies. Witness profiler, impeachment planner, contradiction mapper, question sequencer, and live courtroom mode.', step: null },
-  { id: 'compliance',   icon: '⚙',  label: 'Compliance Engine',   desc: 'Procedural compliance audit for every stage of Nigerian litigation.', step: null },
-  { id: 'authority',    icon: '§',  label: 'Authority Validator',  desc: 'Validate case authorities before filing — verify binding strength, detect overruled cases.', step: null },
-  { id: 'risk',         icon: '■',  label: 'Risk Analytics',       desc: 'Numerical risk scoring across eight strategic dimensions.', step: null },
-  { id: 'warroom',      icon: '⬛', label: 'War Room',             desc: 'The strategic cockpit. Aggregates every module into one operational view.', step: null },
-  { id: 'console',      icon: '>',  label: 'Command Console',      desc: 'The Litigation OS Terminal. Issue any natural-language command.', step: null },
-  { id: 'criminal',     icon: '⚖', label: 'Criminal Defence',     desc: 'Dedicated criminal defence intelligence. Charge analysis, arrest legality, prosecution evidence attack.', step: null },
-  { id: 'matrimonial',  icon: '⚖', label: 'Matrimonial Causes',   desc: 'Standalone matrimonial causes intelligence under the Matrimonial Causes Act Cap M7 LFN 2004.', step: null },
-  { id: 'copilot',      icon: '✦',  label: 'AI Copilot',           desc: 'Role-aware AI litigation copilot. Every response is framed from your exact position on this matter — claimant, defendant, prosecution, or defence.', step: null },
-  // ── Phase 6A — Criminal Procedural Engines ──────────────────────────────────
-  { id: 'charge_arraignment', icon: '⚖', label: 'Charge & Arraignment', desc: 'Prosecution: build and validate counts. Defence: analyse charge defects and generate preliminary objection grounds. Both roles: record arraignment proceedings.', step: null },
-  { id: 'plea',               icon: '⚖', label: 'Plea',                 desc: 'Prosecution: record plea per count and generate routing analysis. Defence: plea advice, plea bargain analysis, and routing confirmation.', step: null },
-  // ── Phase 6B — Core Trial Engines ───────────────────────────────────────────
-  { id: 'prosecution_case',   icon: '⚖', label: 'Prosecution Case',     desc: 'Prosecution: opening address, witness schedule, exhibit register, and evidence sufficiency audit. Defence: prosecution witness tracker, no-case threshold meter per count, objection log, and cross-examination preparation.', step: null },
-  { id: 'no_case',            icon: '⚖', label: 'No-Case Submission',   desc: 'Defence: draft submission per count (Ajidagba/Ibeziako standard), build authorities, and track ruling. Prosecution: draft response, build per-count evidence summary, and route from ruling outcome.', step: null },
-  // ── Phase 6C — Sentencing Engine ────────────────────────────────────────────
-  { id: 'sentencing',         icon: '⚖', label: 'Sentencing',            desc: 'Prosecution: aggravating factors builder, sentencing address drafter, and appeal assessment. Defence: allocutus drafter, mitigation address (Ogundipe factors), and ACJA appeal deadline countdown.', step: null },
-  // ── Phase 7 — Civil Engines ──────────────────────────────────────────────
-  { id: 'pleadings',    icon: '📜', label: 'Pleadings',    desc: 'Civil pleadings engine. Claimant: draft Statement of Claim, monitor SoD, flag default judgment opportunity, respond to counterclaim. Defendant: draft Statement of Defence, build counterclaim, identify preliminary objection grounds.', step: null },
-  { id: 'motions',      icon: '⚖',  label: 'Motions',      desc: 'Civil motions and applications engine. Claimant: default judgment, summary judgment, injunction. Defendant: preliminary objection, strike out, stay of proceedings, security for costs. Track all applications.', step: null },
-  { id: 'enforcement',  icon: '→',  label: 'Enforcement',  desc: 'Civil enforcement engine. Claimant: select enforcement mechanism, draft Writ of FIFA or Garnishee Order Nisi, track recovery. Defendant: seek stay of execution, track compliance obligations, develop appeal grounds.', step: null },
-  // ── Phase 7 Automation — Role-specific Alerts ───────────────────────────────
-  { id: 'alerts', icon: '🔔', label: 'Alerts', desc: 'Role-specific automated alert system. Monitors matter state, deadlines, and docket entries to surface precisely targeted alerts from your exact position — claimant, defendant, prosecution, or defence. Static rule-based alerts plus AI-generated intelligence alerts from docket narrative.', step: null },
-  // ── Phase A — Missing Criminal Engines ──────────────────────────────────────
-  { id: 'defence_case',  icon: '⚖', label: 'Defence Case',    desc: 'Dual-role. Defence: election (call witnesses or rest), register defence witnesses (DW1, DW2…), examination-in-chief drafter, and close of defence. Prosecution: cross-examination tracker per defence witness, defence evidence monitor (admissibility), and record close of defence.', step: null },
-  { id: 'final_address', icon: '✍', label: 'Final Address',   desc: 'Dual-role. Draft, file, and track the final written address after close of evidence. Prosecution: built from proved counts, witnesses, exhibits. Defence: built from prosecution gaps, credibility failures, surviving no-case grounds. Both sides: reply on points of law.', step: null },
-  // ── Phase B — Applications Engine ────────────────────────────────────────────
-  { id: 'applications', icon: '⚡', label: 'Applications', desc: 'Universal applications drafter — Civil and Criminal. Intent-driven four-step workflow: describe what you need → AI classifies → confirm package → generate complete documents. Supports motions ex parte/on notice, opposition, bail, preliminary objection, stay of proceedings, extension of time, stay of execution, and regularisation of records.', step: null },
-  // ── Phase D — Synthesis Engine ───────────────────────────────────────────────
-  { id: 'synthesis',    icon: '◎', label: 'Case Theory',  desc: 'Master Case Theory. Reads all engine outputs — Intelligence, Risk Analytics, CrossExam, WarRoom, Argument Builder — and finds the single coherent theory that reconciles them. Three modes: Civil Master Case Theory, Criminal Master Defence Theory, Appeal Master Theory. Always the last tab. Contradictions surfaced explicitly, never silently resolved.', step: null },
+
+  // ── Legacy tabs (retained for backward compat + engines not yet removed) ──
+  { id: 'overview',     icon: '◉',  label: 'Overview',            desc: null, step: null },
+  { id: 'builder',      icon: '✍',  label: 'Argument Builder',    desc: null, step: null },
+  { id: 'final_address',icon: '✍',  label: 'Final Address',       desc: null, step: null },
+  { id: 'blindspots',   icon: '◈',  label: 'Blind Spots',         desc: null, step: null },
+  { id: 'warroom',      icon: '⬛', label: 'War Room',             desc: null, step: null },
+  { id: 'briefme',      icon: '🎯', label: 'Brief Me',            desc: null, step: null },
+  { id: 'console',      icon: '>',  label: 'Command Console',     desc: null, step: null },
+  { id: 'risk',         icon: '■',  label: 'Risk Analytics',      desc: null, step: null },
+  { id: 'compliance',   icon: '⚙',  label: 'Compliance Engine',   desc: null, step: null },
+  { id: 'timeline',     icon: '⏳', label: 'Timeline',            desc: null, step: null },
+  { id: 'alerts',       icon: '🔔', label: 'Alerts',              desc: null, step: null },
+  { id: 'authority',    icon: '§',  label: 'Authority Validator', desc: null, step: null },
+  { id: 'synthesis',    icon: '◎',  label: 'Case Theory',         desc: null, step: null },
+  { id: 'research',     icon: '🔍', label: 'Research',            desc: null, step: null },
+  { id: 'filings',      icon: '📋', label: 'Filings',             desc: null, step: null },
+  { id: 'san',          icon: '⭐', label: 'SAN Mode',            desc: null, step: null },
+  { id: 'criminal',     icon: '⚖', label: 'Criminal Defence',    desc: null, step: null },
+  { id: 'matrimonial',  icon: '⚖', label: 'Matrimonial Causes',  desc: null, step: null },
+  { id: 'motions',      icon: '⚖', label: 'Motions',             desc: null, step: null },
+
+  // ── Phase 1 — Case Command (replaces overview) ────────────────────────────
+  {
+    id:    'case_command',
+    icon:  '◈',
+    label: 'Case Command',
+    desc:  'Single scrollable command centre. Position strip · Next Action · Stage Timeline · Compliance Audit · Risk Score · Alerts · Quick Actions. Everything that answers: where does this case stand right now.',
+    step:  null,
+  },
+
+  // ── Phase 2 — Case Intelligence (new tab) ────────────────────────────────
+  {
+    id:    'case_intelligence',
+    icon:  '⬛',
+    label: 'Case Intelligence',
+    desc:  'Three-mode intelligence centre. Mode 1 — Intelligence Layer (Conflict, Judge, Counsel, Settlement, Comms, Witnesses, Interlocutory). Mode 2 — Strategic Cockpit (Case Theory, Posture, Witness Map, Contradictions, Appellate). Mode 3 — Brief Me (one-click pre-hearing brief).',
+    step:  null,
+  },
+
+  // ── Phase 3 — Written Address (replaces builder + final_address) ─────────
+  {
+    id:    'written_address',
+    icon:  '✍',
+    label: 'Written Address',
+    desc:  'Four-stage pipeline. Stage 1 — Draft (ArgumentBuilder for civil/FREP; FinalAddressEngine for criminal). Stage 2 — Research (ResearchResolver). Stage 3 — Validate (AuthorityValidator). Stage 4 — Synthesise (SynthesisEngine → Master Case Theory).',
+    step:  null,
+  },
+
+  // ── Shared engines (unchanged, present across multiple tab sets) ──────────
+  {
+    id:    'intelligence',
+    icon:  '⚡',
+    label: 'Intelligence Engine',
+    desc:  'AI-powered 5-step intake pipeline — raw facts through structured Intelligence Package. Facts, disputes, missing evidence, legal issues, claims, and risks. Role-aware throughout.',
+    step:  null,
+  },
+  {
+    id:    'inheritance',
+    icon:  '⟳',
+    label: 'Inheritance Mode',
+    desc:  'Mid-case handover intelligence. Upload everything from the previous lawyer — AI runs a forensic State-of-Case Audit.',
+    step:  null,
+  },
+  {
+    id:    'pleadings',
+    icon:  '📜',
+    label: 'Pleadings',
+    desc:  'Civil pleadings engine. Claimant: draft Statement of Claim, monitor SoD, flag default judgment opportunity. Defendant: draft Statement of Defence, build counterclaim, identify preliminary objection grounds.',
+    step:  null,
+  },
+  {
+    id:    'applications',
+    icon:  '⚡',
+    label: 'Applications',
+    desc:  'Universal applications drafter — Civil and Criminal. Intent-driven four-step workflow: describe what you need → AI classifies → confirm package → generate complete documents.',
+    step:  null,
+  },
+  {
+    id:    'evidence',
+    icon:  '📁',
+    label: 'Evidence Vault',
+    desc:  'Upload and categorise every case document — contracts, affidavits, receipts, chats, audio, photos, court orders, expert reports. Timestamped, previewable, and linked to intelligence outputs.',
+    step:  7,
+  },
+  {
+    id:    'crossexam',
+    icon:  '⚔',
+    label: 'Cross-Examination',
+    desc:  'Build and execute comprehensive cross-examination strategies. Witness profiler, impeachment planner, contradiction mapper, question sequencer, and live courtroom mode.',
+    step:  null,
+  },
+  {
+    id:    'enforcement',
+    icon:  '→',
+    label: 'Enforcement',
+    desc:  'Civil enforcement engine. Select enforcement mechanism, draft Writ of FIFA or Garnishee Order Nisi, track recovery, seek stay of execution.',
+    step:  null,
+  },
+  {
+    id:    'appeal',
+    icon:  '↑',
+    label: 'Appeal Engine',
+    desc:  'Appellate intelligence. Grounds of appeal, brief sections, and cross-appeal strategy.',
+    step:  null,
+  },
+  {
+    id:    'copilot',
+    icon:  '✦',
+    label: 'AI Copilot',
+    desc:  'Role-aware AI litigation copilot. Chat Mode: role-aware conversation with full case context. Command Mode: strategic posture switcher + routing pipeline (12 quick commands, two-step classify→execute, per-case log).',
+    step:  null,
+  },
+  {
+    id:    'docket',
+    icon:  '⚖',
+    label: 'Docket',
+    desc:  'Case docket — log every filing, order, and hearing. Anchor for computed statutory deadlines.',
+    step:  null,
+  },
+
+  // ── Criminal procedural engines ───────────────────────────────────────────
+  {
+    id:    'charge_arraignment',
+    icon:  '⚖',
+    label: 'Charge & Arraignment',
+    desc:  'Prosecution: build and validate counts. Defence: analyse charge defects and generate preliminary objection grounds.',
+    step:  null,
+  },
+  {
+    id:    'plea',
+    icon:  '⚖',
+    label: 'Plea',
+    desc:  'Prosecution: record plea per count and generate routing analysis. Defence: plea advice, plea bargain analysis, and routing confirmation.',
+    step:  null,
+  },
+  {
+    id:    'prosecution_case',
+    icon:  '⚖',
+    label: 'Prosecution Case',
+    desc:  'Prosecution: opening address, witness schedule, exhibit register, evidence sufficiency audit. Defence: prosecution witness tracker, no-case threshold meter, objection log, cross-examination preparation.',
+    step:  null,
+  },
+  {
+    id:    'no_case',
+    icon:  '⚖',
+    label: 'No-Case Submission',
+    desc:  'Defence: draft submission per count (Ajidagba/Ibeziako standard), build authorities, track ruling. Prosecution: draft response, build per-count evidence summary.',
+    step:  null,
+  },
+  {
+    id:    'defence_case',
+    icon:  '⚖',
+    label: 'Defence Case',
+    desc:  'Defence: election, register defence witnesses, examination-in-chief drafter, close of defence. Prosecution: cross-examination tracker per defence witness.',
+    step:  null,
+  },
+  {
+    id:    'sentencing',
+    icon:  '⚖',
+    label: 'Sentencing',
+    desc:  'Prosecution: aggravating factors builder, sentencing address drafter. Defence: allocutus drafter, mitigation address (Ogundipe factors), ACJA appeal deadline countdown.',
+    step:  null,
+  },
+
+  // ── Matrimonial engines ───────────────────────────────────────────────────
+  {
+    id:    'petition_answer',
+    icon:  '📜',
+    label: 'Petition & Answer',
+    desc:  'Matrimonial petition drafting and answer engine under the Matrimonial Causes Act.',
+    step:  null,
+  },
+  {
+    id:    'matrimonial_engine',
+    icon:  '⚖',
+    label: 'Matrimonial Engine',
+    desc:  'Full matrimonial engine — custody, maintenance, property, ancillary relief, compulsory conference.',
+    step:  null,
+  },
+  {
+    id:    'forms_documents',
+    icon:  '📋',
+    label: 'Forms & Documents',
+    desc:  'Matrimonial Causes Rules forms — Form 6 (Petition), Form 8/8A (Notice), Form 11 (AoS), Form 15 (Answer), Form 17 (Reply), Form 30 (Discretion Statement), Form 31/32 (Set Down).',
+    step:  null,
+  },
+  {
+    id:    'decree_enforcement',
+    icon:  '→',
+    label: 'Decree & Enforcement',
+    desc:  'Decree nisi to absolute pipeline. Ancillary relief enforcement. Maintenance enforcement. Post-decree compliance monitoring.',
+    step:  null,
+  },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Tab sets per originating process
+// HELPER — pull DashTab objects by id, preserving order
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Helper — pull DashTab objects by id, preserving the given order. */
 function tabs(...ids: string[]): DashTab[] {
   return ids.map(id => {
     const t = DASH_TABS.find(t => t.id === id);
@@ -71,57 +237,37 @@ function tabs(...ids: string[]): DashTab[] {
   });
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// PHASE 5 — FOUR REWRITTEN TAB SETS
+// ─────────────────────────────────────────────────────────────────────────────
+
 /**
- * Writ of Summons (existing full civil set — unchanged).
- * Used for: writ_of_summons, petition_election, originating_summons,
- * and any other civil/special process not explicitly mapped below.
+ * CIVIL — 11 tabs (was 17)
+ * Writ of Summons, Originating Summons, Originating Motion,
+ * petition_election, and any other civil process not explicitly mapped.
  */
 export const TABS_WRIT: DashTab[] = tabs(
-  'overview',
+  'case_command',       // Phase 1 — replaces overview
   'intelligence',
+  'inheritance',
   'pleadings',
-  'motions',
+  'applications',
+  'evidence',
   'crossexam',
-  'evidence',
-  'builder',
-  'appeal',
-  'risk',
-  'blindspots',
+  'case_intelligence',  // Phase 2
+  'written_address',    // Phase 3
   'enforcement',
-  'timeline',
-  'alerts',
-  'applications',
-  'research',
-  'warroom',
-  'copilot',
+  'appeal',
+  'copilot',            // Phase 4 — now includes Command Console
 );
 
 /**
- * FREP — Fundamental Rights Enforcement Proceedings.
- * Applicant / Respondent. No Pleadings. No criminal engines.
- * No matrimonial engine.
- */
-export const TABS_FREP: DashTab[] = tabs(
-  'overview',
-  'intelligence',
-  'applications',
-  'evidence',
-  'builder',
-  'final_address',
-  'risk',
-  'blindspots',
-  'alerts',        // 5-day / 7-day FREP deadline alerts
-  'timeline',      // visual tracking of 5-day / 7-day procedural windows
-  'research',
-  'copilot',
-);
-
-/**
- * Criminal — all criminal matters (unchanged).
+ * CRIMINAL — 15 tabs (was 17)
  */
 export const TABS_CRIMINAL: DashTab[] = tabs(
-  'overview',
+  'case_command',       // Phase 1
   'intelligence',
+  'inheritance',
   'charge_arraignment',
   'plea',
   'prosecution_case',
@@ -129,22 +275,59 @@ export const TABS_CRIMINAL: DashTab[] = tabs(
   'defence_case',
   'crossexam',
   'evidence',
-  'final_address',
+  'applications',
+  'case_intelligence',  // Phase 2
+  'written_address',    // Phase 3
   'sentencing',
   'appeal',
-  'applications',
-  'risk',
-  'blindspots',
-  'research',
-  'copilot',
+  'copilot',            // Phase 4
 );
 
 /**
- * Returns the correct tab set for a given originating_process value
- * (or undefined for criminal matters).
- *
- * Falls back to TABS_WRIT for any civil/special process not explicitly
- * mapped, so existing matters are never broken by adding new processes.
+ * FREP — 9 tabs (was 12)
+ * Fundamental Rights Enforcement Proceedings.
+ */
+export const TABS_FREP: DashTab[] = tabs(
+  'case_command',       // Phase 1
+  'intelligence',
+  'inheritance',
+  'applications',
+  'evidence',
+  'case_intelligence',  // Phase 2
+  'written_address',    // Phase 3
+  'appeal',
+  'copilot',            // Phase 4
+);
+
+/**
+ * MATRIMONIAL — 11 tabs (was 16)
+ * petition_matrimonial → MatrimonialDashboard in App.tsx.
+ * This set is used as the reference for MatrimonialDashboard's own tab wiring
+ * (Phase 7 updates mTabs.ts separately).
+ */
+export const TABS_MATRIMONIAL: DashTab[] = tabs(
+  'case_command',       // Phase 1
+  'intelligence',
+  'inheritance',
+  'petition_answer',
+  'matrimonial_engine',
+  'applications',
+  'forms_documents',
+  'evidence',
+  'case_intelligence',  // Phase 2
+  'decree_enforcement',
+  'appeal',
+  'copilot',            // Phase 4
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ROUTER — returns correct tab set for a given originating_process
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Returns the correct tab set for a given originating_process value.
+ * Falls back to TABS_WRIT for any civil/special process not explicitly mapped.
+ * Criminal matters (no originating_process) → TABS_CRIMINAL.
  */
 export function getTabsForOriginatingProcess(
   originating_process: string | undefined,
@@ -154,7 +337,7 @@ export function getTabsForOriginatingProcess(
   switch (originating_process) {
     case 'frep':
       return TABS_FREP;
-    // petition_matrimonial → routed to MatrimonialDashboard in App.tsx; never reaches CaseDashboard
+    // petition_matrimonial → routed to MatrimonialDashboard in App.tsx
     default:
       return TABS_WRIT;
   }
