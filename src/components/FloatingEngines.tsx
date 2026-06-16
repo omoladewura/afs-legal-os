@@ -2,7 +2,8 @@
  * AFS Legal OS — Floating Engine Buttons
  *
  * AICopilot + ApplicationsEngine as floating action buttons
- * visible on every page. Click to open as sliding panel overlay.
+ * visible only inside case workspaces (engine + matrimonial views).
+ * Hidden on home, gate, san, settings, resolver.
  */
 
 import { useState, useCallback } from 'react';
@@ -15,7 +16,10 @@ type OpenPanel = 'copilot' | 'applications' | null;
 
 export function FloatingEngines() {
   const [open, setOpen] = useState<OpenPanel>(null);
-  const { activeCase } = useAppStore();
+  const { activeCase, view } = useAppStore();
+
+  // Restrict to case workspace views only
+  if (view !== 'engine' && view !== 'matrimonial') return null;
 
   const toggle = useCallback((panel: OpenPanel) => {
     setOpen(prev => (prev === panel ? null : panel));
