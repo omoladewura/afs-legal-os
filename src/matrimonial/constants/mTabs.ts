@@ -1,35 +1,35 @@
 /**
  * AFS Advocates — Matrimonial Dashboard Tab Constants
  *
- * 16 top-level tabs for the MatrimonialDashboard.
+ * Phase 7 (Engine consolidation): 16 → 11 tabs.
  * Matrimonial cases NEVER use the civil CaseDashboard tab set.
  *
- * Tabs 3, 5, 6, 7 are engines promoted from MatrimonialEngine sub-tabs.
- * Tabs 9, 10, 15, 16 are shared engines wired directly.
- * Tabs 1, 2, 4, 8, 11, 12, 13, 14 are new matrimonial-specific engines
- * built in Phases 5 and 6 — rendered as clearly-labelled placeholders
- * until those phases land.
+ * Removed tab IDs: custody, maintenance, property (now inside MatrimonialEngine),
+ *                  risk (absorbed into CaseCommand), research (absorbed into
+ *                  WrittenAddressEngine), builder (absorbed into WrittenAddressEngine).
+ * Added tab IDs:   case_command, case_intelligence, written_address, inheritance.
+ *
+ * New tab order matches Master Plan Phase 5 matrimonial tab set:
+ *   Case Command → Intelligence → Inheritance → Petition & Answer
+ *   → Matrimonial Engine → Applications → Forms & Documents
+ *   → Evidence Vault → Case Intelligence → Decree & Enforcement → Appeal → Copilot
  *
  * MCA = Matrimonial Causes Act, Cap M7, LFN 2004
  * MCR = Matrimonial Causes Rules 1983
  */
 
 export type MTabId =
-  | 'overview'
+  | 'case_command'
   | 'intelligence'
+  | 'inheritance'
   | 'petition_answer'
-  | 'forms_documents'
-  | 'custody'
-  | 'maintenance'
-  | 'property'
+  | 'matrimonial'
   | 'ancillary_applications'
-  | 'crossexam'
+  | 'forms_documents'
   | 'evidence'
-  | 'builder'
-  | 'risk'
+  | 'case_intelligence'
   | 'decree_enforcement'
   | 'appeal'
-  | 'research'
   | 'copilot';
 
 export interface MTab {
@@ -37,18 +37,18 @@ export interface MTab {
   icon:        string;
   label:       string;
   /** Which phase builds this engine. 'ready' = available now. */
-  phase:       'ready' | 5 | 6;
+  phase:       'ready' | 5 | 6 | 7;
   /** Short description shown in placeholder panels. */
   description: string;
 }
 
 export const MATRIMONIAL_TABS: MTab[] = [
   {
-    id:          'overview',
+    id:          'case_command',
     icon:        '⊕',
-    label:       'Overview',
+    label:       'Case Command',
     phase:       'ready',
-    description: 'Case overview — parties, marriage particulars, relief type, two-year bar status, procedural stage, and risk register summary.',
+    description: 'Position strip, next action, stage timeline, compliance audit, risk score, alerts, and quick actions — all in one scrollable view.',
   },
   {
     id:          'intelligence',
@@ -58,6 +58,13 @@ export const MATRIMONIAL_TABS: MTab[] = [
     description: 'MIntelligence — 5-step MCA-specific extraction: marriage timeline, s.15(2) facts in play, two-year bar, children, financial picture, condonation risk, co-respondent, decree stage, gaps and risks.',
   },
   {
+    id:          'inheritance',
+    icon:        '⌖',
+    label:       'Inheritance',
+    phase:       'ready',
+    description: 'InheritanceMode — shared engine, as-is.',
+  },
+  {
     id:          'petition_answer',
     icon:        '§',
     label:       'Petition / Answer',
@@ -65,32 +72,11 @@ export const MATRIMONIAL_TABS: MTab[] = [
     description: 'Petition Builder and Respondent Defence — promoted from MatrimonialEngine sub-tabs.',
   },
   {
-    id:          'forms_documents',
-    icon:        '📄',
-    label:       'Forms & Documents',
-    phase:       'ready',
-    description: 'MFormsEngine — all 14 MCR statutory forms generated to filing standard: Form 3A, 6, 7, 8/8A, 11, 15, 15A, 17, 30, 31, 32, 33, 42/43, 60.',
-  },
-  {
-    id:          'custody',
-    icon:        '👶',
-    label:       'Custody',
-    phase:       'ready',
-    description: 'Custody & Guardianship — welfare-of-child paramount principle, interim orders, contact arrangements.',
-  },
-  {
-    id:          'maintenance',
+    id:          'matrimonial',
     icon:        '⚖',
-    label:       'Maintenance',
+    label:       'Matrimonial Engine',
     phase:       'ready',
-    description: 'Maintenance — pendente lite, periodical payments, lump sum, children maintenance.',
-  },
-  {
-    id:          'property',
-    icon:        '🏛',
-    label:       'Property',
-    phase:       'ready',
-    description: 'Property Settlement — title-follows-ownership, contributions, settlement zone.',
+    description: 'MatrimonialEngine — 8 sub-tabs: custody, maintenance, property, and ancillary relief. Untouched.',
   },
   {
     id:          'ancillary_applications',
@@ -100,11 +86,11 @@ export const MATRIMONIAL_TABS: MTab[] = [
     description: 'Ancillary applications — maintenance pendente lite, interim custody, leave under s.30 MCA.',
   },
   {
-    id:          'crossexam',
-    icon:        '✦',
-    label:       'Cross-Exam',
+    id:          'forms_documents',
+    icon:        '📄',
+    label:       'Forms & Documents',
     phase:       'ready',
-    description: 'CrossExamEngine — shared engine extended in Phase 3 with matrimonial-specific prompts for petitioner_side and respondent_side.',
+    description: 'MFormsEngine — all 14 MCR statutory forms generated to filing standard: Form 3A, 6, 7, 8/8A, 11, 15, 15A, 17, 30, 31, 32, 33, 42/43, 60.',
   },
   {
     id:          'evidence',
@@ -114,18 +100,11 @@ export const MATRIMONIAL_TABS: MTab[] = [
     description: 'EvidenceVault — shared engine, as-is.',
   },
   {
-    id:          'builder',
-    icon:        '✍',
-    label:       'Argument Builder',
+    id:          'case_intelligence',
+    icon:        '◉',
+    label:       'Case Intelligence',
     phase:       'ready',
-    description: 'MArgumentBuilder — verifying affidavit, leave affidavit, written address, pre-populated from MIntelligence.',
-  },
-  {
-    id:          'risk',
-    icon:        '⚠',
-    label:       'Risk',
-    phase:       'ready',
-    description: 'MRisk — 8-dimension risk register, pre-populated from MIntelligence extraction.',
+    description: 'CaseIntelligence — three modes: Intelligence Layer (BlindSpots), Strategic Cockpit (WarRoom), Brief Me.',
   },
   {
     id:          'decree_enforcement',
@@ -140,13 +119,6 @@ export const MATRIMONIAL_TABS: MTab[] = [
     label:       'Appeal',
     phase:       'ready',
     description: 'MAppeal — hard block on appealing decree absolute (s.241(2) CFRN). As-of-right appeal against decree nisi (s.241(1)(f)(iv) CFRN). Court of Appeal matrimonial division procedure.',
-  },
-  {
-    id:          'research',
-    icon:        '◎',
-    label:       'Research',
-    phase:       'ready',
-    description: 'CaseResearch — shared engine, as-is.',
   },
   {
     id:          'copilot',
