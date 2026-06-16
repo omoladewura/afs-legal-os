@@ -28,6 +28,7 @@ import { loadBlindSpot, saveBlindSpot, saveDeadline } from '@/storage/helpers';
 import { Md, ErrorBlock } from '@/components/common/ui';
 import { COUNSEL_ROLE_COLORS } from '@/types';
 import { useIntelligence } from '@/hooks/useIntelligence';
+import { getLawSync } from '@/law/registry';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES
@@ -997,14 +998,15 @@ function AppealDeadlinePanel({
   const deadlineNote = data.appealDeadlineNote ?? '';
   const saved        = data.appealDeadlineSaved ?? false;
 
-  // Auto-compute 30-day appeal deadline from sentence date
+  // Auto-compute appeal deadline from sentence date (days sourced from Law Registry)
   const sentDate = data.sentenceDate ?? data.judgmentDate ?? '';
+  const CRIMINAL_APPEAL_DAYS = parseInt(getLawSync('criminal_appeal_conviction_hc'), 10) || 30;
   const autoDeadline = React.useMemo(() => {
     if (!sentDate) return '';
     const d = new Date(sentDate);
-    d.setDate(d.getDate() + 30);
+    d.setDate(d.getDate() + CRIMINAL_APPEAL_DAYS);
     return d.toISOString().split('T')[0];
-  }, [sentDate]);
+  }, [sentDate, CRIMINAL_APPEAL_DAYS]);
 
   const [aiResult, setAiResult] = React.useState('');
 
@@ -1067,7 +1069,7 @@ Advise the defence on:
             {autoDeadline}
           </div>
           <div style={{ fontSize: 12, color: T.mute, fontFamily: "'Times New Roman', Times, serif", marginTop: 4 }}>
-            30 days from sentence date ({sentDate})
+            {CRIMINAL_APPEAL_DAYS} days from sentence date ({sentDate})
           </div>
         </div>
       )}
@@ -1126,7 +1128,7 @@ Advise the defence on:
         </div>
         {[
           'Advise client of conviction and sentence immediately',
-          'Calculate appeal deadline from today — 30 days under ACJA',
+          'Calculate appeal deadline from today — ' + CRIMINAL_APPEAL_DAYS + ' days under ACJA',
           'File Notice of Appeal within time — do not let deadline lapse',
           'Apply for bail pending appeal — grounds: arguable grounds of appeal + custodial sentence',
           'Compile records for appeal — charge, proceedings, judgment, sentence ruling',
