@@ -4,9 +4,17 @@
  * First-class workspace for matrimonial causes matters.
  * Matrimonial cases NEVER touch CaseDashboard.
  *
- * Phase 1: Skeleton (replaced here)
- * Phase 4: Full 16-tab bar, own header (Petitioner v Respondent, suit number,
+ * Phase 4: Full tab bar, own header (Petitioner v Respondent, suit number,
  *           court, MCA citation strip, relief-type badge), own engine router.
+ * Phase 7 (Engine consolidation): 16 → 11 tabs.
+ *   - Added lazy imports: CaseCommand, CaseIntelligence, WrittenAddressEngine,
+ *     InheritanceMode.
+ *   - Added router cases: case_command, case_intelligence, written_address,
+ *     inheritance.
+ *   - Removed router cases and lazy imports: MRisk, MArgumentBuilder,
+ *     CaseResearch (research), standalone custody/maintenance/property
+ *     (now inside MatrimonialEngine sub-tabs), CrossExamEngine (crossexam),
+ *     MOverview (overview).
  * Phase 9E: Intelligence Status Bar — always visible, shows last run date,
  *           version, top-line risk summary. Anchors MIntelligence as first step.
  *
@@ -20,11 +28,26 @@ import { useAppStore } from '@/state/appStore';
 import { T } from '@/constants/tokens';
 import { MATRIMONIAL_TABS, type MTabId } from '@/matrimonial/constants/mTabs';
 import type { MatrimonialCaseData } from '@/matrimonial/types';
-import { loadMatrimonialData } from '@/storage/helpers';
+import { loadMatrimonialData, saveCase } from '@/storage/helpers';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { LoadingBlock } from '@/components/common/ui';
 
-// ── Promoted engines (from MatrimonialEngine sub-tabs) ───────────────────────
+// ── Phase 7 — New consolidated engine shells (shared) ───────────────────────
+
+const CaseCommand = lazy(() =>
+  import('@/engines/CaseCommand').then(m => ({ default: m.CaseCommand }))
+);
+const CaseIntelligence = lazy(() =>
+  import('@/engines/CaseIntelligence').then(m => ({ default: m.CaseIntelligence }))
+);
+const WrittenAddressEngine = lazy(() =>
+  import('@/engines/WrittenAddressEngine').then(m => ({ default: m.WrittenAddressEngine }))
+);
+const InheritanceMode = lazy(() =>
+  import('@/engines/InheritanceMode').then(m => ({ default: m.InheritanceMode }))
+);
+
+// ── Matrimonial-specific engines (retained) ──────────────────────────────────
 
 const MatrimonialEngine = lazy(() =>
   import('@/engines/MatrimonialEngine').then(m => ({ default: m.MatrimonialEngine }))
@@ -32,9 +55,6 @@ const MatrimonialEngine = lazy(() =>
 
 // ── Phase 5 engines ───────────────────────────────────────────────────────────
 
-const MOverview = lazy(() =>
-  import('@/matrimonial/engines/MOverview').then(m => ({ default: m.MOverview }))
-);
 const MIntelligence = lazy(() =>
   import('@/matrimonial/engines/MIntelligence').then(m => ({ default: m.MIntelligence }))
 );
@@ -53,23 +73,11 @@ const MAppeal = lazy(() =>
 const MApplications = lazy(() =>
   import('@/matrimonial/engines/MApplications').then(m => ({ default: m.MApplications }))
 );
-const MRisk = lazy(() =>
-  import('@/matrimonial/engines/MRisk').then(m => ({ default: m.MRisk }))
-);
-const MArgumentBuilder = lazy(() =>
-  import('@/matrimonial/engines/MArgumentBuilder').then(m => ({ default: m.MArgumentBuilder }))
-);
 
 // ── Shared engines (as-is) ───────────────────────────────────────────────────
 
-const CrossExamEngine = lazy(() =>
-  import('@/engines/CrossExamEngine').then(m => ({ default: m.CrossExamEngine }))
-);
 const EvidenceVault = lazy(() =>
   import('@/engines/EvidenceVault').then(m => ({ default: m.EvidenceVault }))
-);
-const CaseResearch = lazy(() =>
-  import('@/engines/CaseResearch').then(m => ({ default: m.CaseResearch }))
 );
 const AICopilot = lazy(() =>
   import('@/engines/AICopilot').then(m => ({ default: m.AICopilot }))
@@ -90,15 +98,8 @@ const RELIEF_LABELS: Record<string, { label: string; col: string; bg: string; bd
   jactitation:          { label: 'Jactitation',           col: '#5a4a1a', bg: '#fbf7ed', bdr: '#e8dab8' },
 };
 
-// Tab IDs that promote directly into MatrimonialEngine sub-tabs
-type PromotedSubTab = 'petition_answer' | 'custody' | 'maintenance' | 'property';
-
-const PROMOTED_SUB_TAB_MAP: Record<PromotedSubTab, string> = {
-  petition_answer: 'petition',
-  custody:         'custody',
-  maintenance:     'maintenance',
-  property:        'property',
-};
+// Tab IDs that route directly into MatrimonialEngine (the full sub-tab engine)
+type MatrimonialEngineTab = 'petition_answer' | 'matrimonial';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // INTELLIGENCE STATUS BAR — Phase 9E
@@ -251,7 +252,7 @@ function IntelligenceStatusBar({
 
 function PlaceholderPanel({
   tabId, phase, description,
-}: { tabId: MTabId; phase: 5 | 6; description: string }) {
+}: { tabId: MTabId; phase: 5 | 6 | 7; description: string }) {
   return (
     <div style={{
       border: '1px dashed #cccccc', borderRadius: 6,
@@ -284,22 +285,12 @@ function PlaceholderPanel({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// MATRIMONIAL ENGINE WRAPPER
-// ─────────────────────────────────────────────────────────────────────────────
-
-function MatrimonialEngineSubTab({
-  activeCase,
-}: { activeCase: Case }) {
-  return <MatrimonialEngine activeCase={activeCase} />;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // MAIN DASHBOARD
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function MatrimonialDashboard() {
-  const { activeCase, setView } = useAppStore();
-  const [activeTab, setActiveTab] = useState<MTabId>('petition_answer');
+  const { activeCase, setView, updateActiveCase } = useAppStore();
+  const [activeTab, setActiveTab] = useState<MTabId>('case_command');
   const [mData, setMData] = useState<MatrimonialCaseData | null>(null);
 
   useEffect(() => {
@@ -310,6 +301,15 @@ export function MatrimonialDashboard() {
   }, [activeCase?.id]);
 
   const handleTabChange = useCallback((id: MTabId) => setActiveTab(id), []);
+
+  // ── Persist helpers ───────────────────────────────────────────────────────
+
+  const onSaveInherit = useCallback(async (data: unknown) => {
+    if (!activeCase) return;
+    const patch = { inheritance_data: data as Case['inheritance_data'] };
+    updateActiveCase(patch);
+    await saveCase({ ...activeCase, ...patch });
+  }, [activeCase, updateActiveCase]);
 
   // ── Derived display values ────────────────────────────────────────────────
 
@@ -365,7 +365,7 @@ export function MatrimonialDashboard() {
       return (
         <PlaceholderPanel
           tabId={tab.id}
-          phase={tab.phase as 5 | 6}
+          phase={tab.phase as 5 | 6 | 7}
           description={tab.description}
         />
       );
@@ -374,23 +374,50 @@ export function MatrimonialDashboard() {
     const fallback = <LoadingBlock label="Loading engine…" />;
 
     switch (activeTab) {
-      case 'petition_answer':
-      case 'custody':
-      case 'maintenance':
-      case 'property':
+      // Phase 7 — Consolidated engine shells
+      case 'case_command':
         return (
-          <ErrorBoundary name={activeTab}>
+          <ErrorBoundary name="case_command">
             <Suspense fallback={fallback}>
-              <MatrimonialEngineSubTab activeCase={activeCase} />
+              <CaseCommand activeCase={activeCase} onSetDashTab={(tab) => setActiveTab(tab as MTabId)} />
             </Suspense>
           </ErrorBoundary>
         );
 
-      case 'overview':
+      case 'case_intelligence':
         return (
-          <ErrorBoundary name="overview">
+          <ErrorBoundary name="case_intelligence">
             <Suspense fallback={fallback}>
-              <MOverview activeCase={activeCase} />
+              <CaseIntelligence activeCase={activeCase} />
+            </Suspense>
+          </ErrorBoundary>
+        );
+
+      case 'written_address':
+        return (
+          <ErrorBoundary name="written_address">
+            <Suspense fallback={fallback}>
+              <WrittenAddressEngine activeCase={activeCase} />
+            </Suspense>
+          </ErrorBoundary>
+        );
+
+      case 'inheritance':
+        return (
+          <ErrorBoundary name="inheritance">
+            <Suspense fallback={fallback}>
+              <InheritanceMode activeCase={activeCase} onSave={onSaveInherit} />
+            </Suspense>
+          </ErrorBoundary>
+        );
+
+      // MatrimonialEngine handles petition/answer + all 8 sub-tabs
+      case 'petition_answer':
+      case 'matrimonial':
+        return (
+          <ErrorBoundary name={activeTab}>
+            <Suspense fallback={fallback}>
+              <MatrimonialEngine activeCase={activeCase} />
             </Suspense>
           </ErrorBoundary>
         );
@@ -440,47 +467,11 @@ export function MatrimonialDashboard() {
           </ErrorBoundary>
         );
 
-      case 'builder':
-        return (
-          <ErrorBoundary name="builder">
-            <Suspense fallback={fallback}>
-              <MArgumentBuilder activeCase={activeCase} />
-            </Suspense>
-          </ErrorBoundary>
-        );
-
-      case 'risk':
-        return (
-          <ErrorBoundary name="risk">
-            <Suspense fallback={fallback}>
-              <MRisk activeCase={activeCase} />
-            </Suspense>
-          </ErrorBoundary>
-        );
-
-      case 'crossexam':
-        return (
-          <ErrorBoundary name="crossexam">
-            <Suspense fallback={fallback}>
-              <CrossExamEngine activeCase={activeCase} />
-            </Suspense>
-          </ErrorBoundary>
-        );
-
       case 'evidence':
         return (
           <ErrorBoundary name="evidence">
             <Suspense fallback={fallback}>
               <EvidenceVault activeCase={activeCase} />
-            </Suspense>
-          </ErrorBoundary>
-        );
-
-      case 'research':
-        return (
-          <ErrorBoundary name="research">
-            <Suspense fallback={fallback}>
-              <CaseResearch activeCase={activeCase} />
             </Suspense>
           </ErrorBoundary>
         );
