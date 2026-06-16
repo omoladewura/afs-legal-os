@@ -83,8 +83,8 @@ export function App() {
 
       {docketOpen && <CaseDocket />}
 
-      {/* Floating AI Copilot + Applications Engine — visible on every view */}
-      {view !== 'gate' && <FloatingEngines />}
+      {/* Floating AI Copilot + Applications Engine — case workspaces only */}
+      {(view === 'engine' || view === 'matrimonial') && <FloatingEngines />}
     </>
   );
 }
