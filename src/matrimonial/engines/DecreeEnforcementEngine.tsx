@@ -26,6 +26,8 @@ import { useAI } from '@/hooks/useAI';
 import { Md, ErrorBlock } from '@/components/common/ui';
 import { loadMatrimonialData, saveMatrimonialData } from '@/storage/helpers';
 import type { MatrimonialCaseData, MExtractionResult } from '@/matrimonial/types';
+import { getLawSync } from '@/law/registry';
+import { getPrompt } from '@/law/prompts';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CONSTANTS
@@ -33,14 +35,19 @@ import type { MatrimonialCaseData, MExtractionResult } from '@/matrimonial/types
 
 const SERIF = "'Times New Roman', Times, serif";
 
+// SYSTEM prompt — legal assertions sourced from Law Registry prompts
+// (getPrompt() is synchronous; called at module level so the string is stable)
 const SYSTEM = `You are a specialist Nigerian matrimonial causes practitioner dealing with decree nisi, decree absolute, and post-decree enforcement under the Matrimonial Causes Act Cap M7 LFN 2004 (MCA) and Matrimonial Causes Rules 1983 (MCR).
 
 ABSOLUTE RULES:
-- s.57 MCA: Where a children welfare arrangement order was made at decree nisi, the petitioner CANNOT apply to make the decree absolute until 28 days after the nisi OR until the court is satisfied as to the children's welfare — whichever is later.
-- s.58 MCA: Where NO children welfare arrangement order was made, the petitioner may apply after 3 months from the date of decree nisi.
-- NEVER confuse s.57 (28 days) and s.58 (3 months). The distinction depends entirely on whether a children order was made.
-- s.241(2) CFRN: There is NO right of appeal against a decree absolute. This is a hard constitutional bar with no exceptions.
-- Maintenance orders may be enforced by the Magistrate Court: s.2(1)(b) MCA.
+${getPrompt('mca_s57_absolute_rule')}
+
+${getPrompt('mca_s58_absolute_rule')}
+
+${getPrompt('cfrn_s241_2_appeal_absolute_bar')}
+
+${getPrompt('mca_maintenance_magistrate')}
+
 - Post-absolute enforcement options: attachment of earnings, sequestration O.17 r.4 MCR, contempt proceedings, committal.
 
 Format responses with clear ## section headings.`;
@@ -146,8 +153,8 @@ function IntelligenceBanner({
           </p>
           <p style={{ fontSize: 11, fontFamily: SERIF, color: '#2d7a52', lineHeight: 1.6 }}>
             {ex?.children && ex.children.length > 0
-              ? `Children detected (${ex.children.length}) — s.57 path pre-selected (28 days). Verify whether a welfare order was actually made at nisi.`
-              : 'No children recorded — s.58 path pre-selected (3 months). Confirm with decree nisi order.'}
+              ? `Children detected (${ex.children.length}) — s.57 path pre-selected (${S57_DAYS} days). Verify whether a welfare order was actually made at nisi.`
+              : `No children recorded — s.58 path pre-selected (${S58_MONTHS} months). Confirm with decree nisi order.`}
             {ex?.decree_stage
               ? <span> Decree stage: <em>{ex.decree_stage}</em>.</span>
               : null}
@@ -325,11 +332,15 @@ export function DecreeEnforcementEngine({ activeCase }: { activeCase: Case }) {
     });
   }, [activeCase?.id]);
 
+  // Deadline periods sourced from Law Registry (overridable without deploy)
+  const S57_DAYS   = parseInt(getLawSync('mca_s57_absolute_days'),   10) || 28;
+  const S58_MONTHS = parseInt(getLawSync('mca_s58_absolute_months'), 10) || 3;
+
   // Compute deadline
   const deadline = nisiDate && childrenOrder
     ? childrenOrder === 'yes'
-      ? addDays(nisiDate, 28)
-      : addMonths(nisiDate, 3)
+      ? addDays(nisiDate, S57_DAYS)
+      : addMonths(nisiDate, S58_MONTHS)
     : null;
 
   const countdown = deadline ? daysUntil(deadline) : null;
@@ -348,7 +359,7 @@ export function DecreeEnforcementEngine({ activeCase }: { activeCase: Case }) {
 
   async function draftAbsolute() {
     if (!nisiDate || !childrenOrder) return;
-    const path = childrenOrder === 'yes' ? 's.57 MCA (28-day path — children welfare order made)' : 's.58 MCA (3-month path — no children welfare order)';
+    const path = childrenOrder === 'yes' ? `s.57 MCA (${S57_DAYS}-day path — children welfare order made)` : `s.58 MCA (${S58_MONTHS}-month path — no children welfare order)`;
     const intelligenceContext = intelligencePackage
       ? `\n\nCASE INTELLIGENCE SUMMARY (from MIntelligence):\n${intelligencePackage.slice(0, 1200)}`
       : '';
@@ -386,7 +397,7 @@ State the applicable statutory provision clearly (${childrenOrder === 'yes' ? 's
           Decree & Enforcement Engine
         </h2>
         <p style={{ fontSize: 12, fontFamily: SERIF, color: '#888888' }}>
-          s.57 MCA (28 days, children order) · s.58 MCA (3 months, no children order) · Post-decree enforcement
+          s.57 MCA ({S57_DAYS} days, children order) · s.58 MCA ({S58_MONTHS} months, no children order) · Post-decree enforcement
         </p>
       </div>
 
@@ -439,7 +450,7 @@ State the applicable statutory provision clearly (${childrenOrder === 'yes' ? 's
               <div>
                 <label style={lbS}>Was a Children's Welfare Arrangement Order made at decree nisi? <span style={{ color: '#cc3333' }}>*</span></label>
                 <p style={{ fontSize: 11, fontFamily: SERIF, color: '#888888', marginBottom: 8, lineHeight: 1.6 }}>
-                  This determines whether s.57 (28 days) or s.58 (3 months) applies. The wrong answer produces the wrong deadline.
+                  This determines whether s.57 ({S57_DAYS} days) or s.58 ({S58_MONTHS} months) applies. The wrong answer produces the wrong deadline.
                 </p>
                 {hasIntelligence && !intelligenceCleared && childrenOrder && !mData?.decree_absolute_path && (
                   <p style={{ fontSize: 10, fontFamily: SERIF, color: '#1a5a38', background: '#edfaf3', border: '1px solid #b8e8cc', borderRadius: 4, padding: '5px 10px', marginBottom: 8 }}>
@@ -455,7 +466,7 @@ State the applicable statutory provision clearly (${childrenOrder === 'yes' ? 's
                       borderRadius: 5, padding: '8px 20px', fontSize: 13, fontFamily: SERIF,
                       fontWeight: 600, cursor: 'pointer',
                     }}>
-                      {v === 'yes' ? '✓ Yes — s.57 (28 days)' : '✗ No — s.58 (3 months)'}
+                      {v === 'yes' ? `✓ Yes — s.57 (${S57_DAYS} days)` : `✗ No — s.58 (${S58_MONTHS} months)`}
                     </button>
                   ))}
                 </div>
