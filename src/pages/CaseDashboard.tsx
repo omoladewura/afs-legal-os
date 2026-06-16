@@ -8,13 +8,17 @@
  * - Quick Action bar shows role-specific action buttons
  * - Engine router unchanged — all engines still accessible
  *
- * Phase 5 (FREP & Matrimonial integration):
- * - Tab set now driven by activeCase.originating_process via
- *   getTabsForOriginatingProcess() rather than the role-based ROLE_TABS map.
- * - FREP cases render TABS_FREP; criminal (no originating_process) → TABS_CRIMINAL;
- *   criminal (no originating_process) → TABS_CRIMINAL; all others → TABS_WRIT.
- * - ROLE_TABS is retained for quick-action bar and position config lookups;
- *   it no longer controls which tabs are visible.
+ * Phase 6 (Engine consolidation):
+ * - Removed lazy imports for absorbed engines: CaseOverview, RiskAnalytics,
+ *   AlertsEngine, ProceduralTimeline, ComplianceEngine, WarRoom, BlindSpots,
+ *   BriefMe, ArgumentBuilder, FinalAddressEngine, AuthorityValidator,
+ *   ResearchResolver (CaseResearch), SynthesisEngine, CommandConsole,
+ *   FilingsTracker, CriminalDefence, SanMode.
+ * - Added lazy imports for: CaseCommand, CaseIntelligence, WrittenAddressEngine.
+ * - Engine router updated: `overview` → case_command, `blindspots`/`warroom`/
+ *   `briefme` → case_intelligence, `builder`/`final_address`/`authority`/
+ *   `research`/`synthesis` → written_address, `console` → copilot (AICopilot).
+ * - `Timeline →` shortcut in Next Action strip rerouted to `case_command`.
  */
 
 import { Suspense, lazy, useCallback, useState, useEffect } from 'react';
@@ -45,26 +49,18 @@ import {
 
 // ── Lazy engine imports ───────────────────────────────────────────────────────
 
-const CaseOverview       = lazy(() => import('@/engines/CaseOverview').then(m => ({ default: m.CaseOverview })));
+// Phase 6 — New consolidated engine shells
+const CaseCommand        = lazy(() => import('@/engines/CaseCommand').then(m => ({ default: m.CaseCommand })));
+const CaseIntelligence   = lazy(() => import('@/engines/CaseIntelligence').then(m => ({ default: m.CaseIntelligence })));
+const WrittenAddressEngine = lazy(() => import('@/engines/WrittenAddressEngine').then(m => ({ default: m.WrittenAddressEngine })));
+
+// Retained engines — untouched
 const IntelligenceEngine = lazy(() => import('@/engines/IntelligenceEngine').then(m => ({ default: m.IntelligenceEngine })));
 const AppealEngine       = lazy(() => import('@/engines/AppealEngine').then(m => ({ default: m.AppealEngine })));
-const ArgumentBuilder    = lazy(() => import('@/engines/ArgumentBuilder').then(m => ({ default: m.ArgumentBuilder })));
 const CaseDocketTab      = lazy(() => import('@/engines/CaseDocketTab').then(m => ({ default: m.CaseDocketTab })));
 const EvidenceVault      = lazy(() => import('@/engines/EvidenceVault').then(m => ({ default: m.EvidenceVault })));
-const FilingsTracker     = lazy(() => import('@/engines/FilingsTracker').then(m => ({ default: m.FilingsTracker })));
-const ProceduralTimeline = lazy(() => import('@/engines/ProceduralTimeline').then(m => ({ default: m.ProceduralTimeline })));
-const CaseResearch       = lazy(() => import('@/engines/CaseResearch').then(m => ({ default: m.CaseResearch })));
-const SanMode            = lazy(() => import('@/engines/SanMode').then(m => ({ default: m.SanMode })));
-const BriefMe            = lazy(() => import('@/engines/BriefMe').then(m => ({ default: m.BriefMe })));
 const InheritanceMode    = lazy(() => import('@/engines/InheritanceMode').then(m => ({ default: m.InheritanceMode })));
-const BlindSpots         = lazy(() => import('@/engines/BlindSpots').then(m => ({ default: m.BlindSpots })));
 const CrossExamEngine    = lazy(() => import('@/engines/CrossExamEngine').then(m => ({ default: m.CrossExamEngine })));
-const ComplianceEngine   = lazy(() => import('@/engines/ComplianceEngine').then(m => ({ default: m.ComplianceEngine })));
-const AuthorityValidator = lazy(() => import('@/engines/AuthorityValidator').then(m => ({ default: m.AuthorityValidator })));
-const RiskAnalytics      = lazy(() => import('@/engines/RiskAnalytics').then(m => ({ default: m.RiskAnalytics })));
-const WarRoom            = lazy(() => import('@/engines/WarRoom').then(m => ({ default: m.WarRoom })));
-const CommandConsole     = lazy(() => import('@/engines/CommandConsole').then(m => ({ default: m.CommandConsole })));
-const CriminalDefence    = lazy(() => import('@/engines/CriminalDefence').then(m => ({ default: m.CriminalDefence })));
 const MatrimonialEngine  = lazy(() => import('@/engines/MatrimonialEngine').then(m => ({ default: m.MatrimonialEngine })));
 const AICopilot          = lazy(() => import('@/engines/AICopilot').then(m => ({ default: m.AICopilot })));
 // Phase 6A — Criminal Procedural Engines
@@ -76,18 +72,11 @@ const NoCaseSubmission   = lazy(() => import('@/engines/NoCaseSubmission').then(
 // Phase 6C — Sentencing Engine
 const SentencingEngine   = lazy(() => import('@/engines/SentencingEngine').then(m => ({ default: m.SentencingEngine })));
 // Phase 7 — Civil Engines
-const PleadingsEngine   = lazy(() => import('@/engines/PleadingsEngine').then(m => ({ default: m.PleadingsEngine })));
+const PleadingsEngine    = lazy(() => import('@/engines/PleadingsEngine').then(m => ({ default: m.PleadingsEngine })));
 const MotionEngine       = lazy(() => import('@/engines/MotionEngine').then(m => ({ default: m.MotionEngine })));
 const EnforcementEngine  = lazy(() => import('@/engines/EnforcementEngine').then(m => ({ default: m.EnforcementEngine })));
-// Phase 7 Automation — Alerts Engine
-const AlertsEngine       = lazy(() => import('@/engines/AlertsEngine').then(m => ({ default: m.AlertsEngine })));
-// Phase A — Missing Criminal Engines
-const DefenceCaseEngine  = lazy(() => import('@/engines/DefenceCaseEngine').then(m => ({ default: m.DefenceCaseEngine })));
-const FinalAddressEngine = lazy(() => import('@/engines/FinalAddressEngine').then(m => ({ default: m.FinalAddressEngine })));
 // Phase B — Applications Engine
 const ApplicationsEngine = lazy(() => import('@/engines/ApplicationsEngine').then(m => ({ default: m.ApplicationsEngine })));
-// Phase D — Synthesis Engine
-const SynthesisEngine    = lazy(() => import('@/engines/SynthesisEngine').then(m => ({ default: m.SynthesisEngine })));
 
 // ── Engine router ─────────────────────────────────────────────────────────────
 
@@ -109,26 +98,17 @@ function EngineContent({
   onSetDashTab,
 }: EngineContentProps) {
   switch (tabId) {
-    case 'overview':     return <CaseOverview       activeCase={activeCase} />;
+    // Phase 6 — New consolidated engine shells
+    case 'case_command':      return <CaseCommand          activeCase={activeCase} onSetDashTab={onSetDashTab} />;
+    case 'case_intelligence': return <CaseIntelligence     activeCase={activeCase} />;
+    case 'written_address':   return <WrittenAddressEngine activeCase={activeCase} />;
+    // Retained engines — untouched
     case 'intelligence': return <IntelligenceEngine activeCase={activeCase} onSave={onSaveIntel} />;
     case 'appeal':       return <AppealEngine       activeCase={activeCase} onSave={onSaveAppeal} />;
-    case 'builder':      return <ArgumentBuilder    activeCase={activeCase} />;
     case 'docket':       return <CaseDocketTab      activeCase={activeCase} />;
     case 'evidence':     return <EvidenceVault      activeCase={activeCase} />;
-    case 'filings':      return <FilingsTracker     activeCase={activeCase} />;
-    case 'timeline':     return <ProceduralTimeline activeCase={activeCase} />;
-    case 'research':     return <CaseResearch       activeCase={activeCase} />;
-    case 'san':          return <SanMode            activeCase={activeCase} />;
-    case 'briefme':      return <BriefMe            activeCase={activeCase} />;
     case 'inheritance':  return <InheritanceMode    activeCase={activeCase} onSave={onSaveInherit} />;
-    case 'blindspots':   return <BlindSpots         activeCase={activeCase} />;
     case 'crossexam':    return <CrossExamEngine    activeCase={activeCase} />;
-    case 'compliance':   return <ComplianceEngine   activeCase={activeCase} />;
-    case 'authority':    return <AuthorityValidator activeCase={activeCase} />;
-    case 'risk':         return <RiskAnalytics      activeCase={activeCase} />;
-    case 'warroom':      return <WarRoom            activeCase={activeCase} />;
-    case 'console':      return <CommandConsole     activeCase={activeCase} setDashTab={onSetDashTab} />;
-    case 'criminal':     return <CriminalDefence    activeCase={activeCase} />;
     case 'matrimonial':  return <MatrimonialEngine  activeCase={activeCase} />;
     case 'copilot':      return <AICopilot          activeCase={activeCase} />;
     // Phase 6A — Criminal Procedural Engines
@@ -143,15 +123,8 @@ function EngineContent({
     case 'pleadings':          return <PleadingsEngine    activeCase={activeCase} />;
     case 'motions':            return <MotionEngine        activeCase={activeCase} />;
     case 'enforcement':        return <EnforcementEngine   activeCase={activeCase} />;
-    // Phase 7 Automation — Alerts Engine
-    case 'alerts':             return <AlertsEngine        activeCase={activeCase} />;
-    // Phase A — Missing Criminal Engines
-    case 'defence_case':       return <DefenceCaseEngine   activeCase={activeCase} />;
-    case 'final_address':      return <FinalAddressEngine  activeCase={activeCase} />;
     // Phase B — Applications Engine
     case 'applications':       return <ApplicationsEngine  activeCase={activeCase} />;
-    // Phase D — Synthesis Engine
-    case 'synthesis':          return <SynthesisEngine     activeCase={activeCase} onNavigate={(tab) => onSetDashTab(tab as import('@/types').DashTabId)} />;
     default:             return null;
   }
 }
@@ -369,7 +342,7 @@ export function CaseDashboard() {
             </div>
             {/* Timeline shortcut */}
             <button
-              onClick={() => setDashTab('timeline')}
+              onClick={() => setDashTab('case_command')}
               title="View procedural timeline"
               style={{
                 background: '#ffffff',
