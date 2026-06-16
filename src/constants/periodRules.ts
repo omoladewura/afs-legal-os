@@ -378,3 +378,32 @@ export function getRulesForContext(
 export function getRuleById(id: string): PeriodRule | undefined {
   return PERIOD_RULES.find(r => r.id === id);
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LAW REGISTRY — RUNTIME OVERRIDE PATCHER (Phase: Law Change Risk Mitigation)
+// ─────────────────────────────────────────────────────────────────────────────
+
+import { getAllOverrides } from '@/law/registry';
+
+/**
+ * Patches PERIOD_RULES[].days in place with any values stored in the Law Registry.
+ * Must be called once on app mount (via App.tsx useEffect) before any engine reads
+ * the rules. The period computer (periodComputer.ts) reads PERIOD_RULES identically
+ * — the patched .days values are transparent to it.
+ *
+ * Non-fatal: if IndexedDB is unavailable, compiled defaults stand.
+ */
+export async function applyLawOverrides(): Promise<void> {
+  try {
+    const overrides = await getAllOverrides();
+    for (const rule of PERIOD_RULES) {
+      const ov = overrides.get(rule.id);
+      if (ov !== undefined) {
+        const n = parseInt(ov, 10);
+        if (!isNaN(n)) rule.days = n;
+      }
+    }
+  } catch {
+    // Non-fatal — compiled defaults stand
+  }
+}
