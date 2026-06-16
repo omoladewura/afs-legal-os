@@ -13,6 +13,7 @@
 import { useState } from 'react';
 import { useAppStore } from '@/state/appStore';
 import { T, S } from '@/constants/tokens';
+import { LawRegistry } from '@/components/LawRegistry';
 
 const WORKER_URL  = 'https://afs-legal-rag.sobamboadeshupo.workers.dev';
 const MONITOR_URL = 'https://afs-monitor-worker.sobamboadeshupo.workers.dev';
@@ -76,6 +77,7 @@ export function SettingsPanel() {
   const [monError,       setMonError]       = useState('');
   const [monActionId,    setMonActionId]    = useState('');  // alert id with pending action
   const [monExpanded,    setMonExpanded]    = useState(false);
+  const [lawExpanded,    setLawExpanded]    = useState(false);
 
   async function runIngest() {
     setIngesting(true);
@@ -606,6 +608,39 @@ export function SettingsPanel() {
             </div>
           </>
         )}
+      </section>
+
+      {/* ── Law Registry ── */}
+      <section style={{
+        background: T.card, border: `1px solid ${T.bdr}`,
+        borderRadius: 8, padding: 24, marginTop: 24,
+      }}>
+        {/* Header row */}
+        <div style={{
+          display: 'flex', alignItems: 'center',
+          justifyContent: 'space-between', marginBottom: 12,
+        }}>
+          <h2 style={{ ...S.h2, marginTop: 0, marginBottom: 0 }}>Law Registry</h2>
+          <button
+            onClick={() => setLawExpanded(v => !v)}
+            style={{
+              background: 'none', border: `1px solid ${T.bdr}`,
+              borderRadius: 4, padding: '5px 14px',
+              fontSize: 12, cursor: 'pointer', color: T.dim,
+              fontFamily: "'Times New Roman', Times, serif",
+            }}
+          >
+            {lawExpanded ? '▾ Hide' : '▸ Show'}
+          </button>
+        </div>
+
+        <p style={{ ...S.hint, marginBottom: lawExpanded ? 20 : 0 }}>
+          All procedural deadlines and legal assertions in one place. Override any
+          period without a deploy — changes take effect immediately in IndexedDB.
+          Every change is logged with a mandatory reason.
+        </p>
+
+        {lawExpanded && <LawRegistry />}
       </section>
 
       {/* ── System Info ── */}
