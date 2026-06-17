@@ -42,6 +42,113 @@ export const DEADLINE_TYPES: string[] = [
   'Court Date', 'Limitation Deadline', 'Payment Deadline', 'Other',
 ];
 
+// ─────────────────────────────────────────────────────────────────────────────
+// FINAL WRITTEN ADDRESS — PROCEDURAL CONSTANTS
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * s.36 CFRN 1999 — Fair Hearing Reference
+ *
+ * Used in the FinalWrittenAddressEngine procedural-compliance banner and the
+ * Adoption Denied fair-hearing alert. Cited cases are illustrative starting
+ * points: VERIFY each citation before relying on it in a live submission.
+ *
+ * Library Rule: all citations below carry an explicit "verify" caveat per the
+ * app's citation handling policy.
+ */
+export const FAIR_HEARING_REFERENCE = {
+  provision:   's.36(1) Constitution of the Federal Republic of Nigeria 1999 (as amended)',
+  principle:   'Every person is entitled to a fair hearing within a reasonable time by a court or other tribunal. Denying a party the opportunity to file or adopt their Final Written Address may constitute a breach of the right to fair hearing.',
+  cases: [
+    {
+      citation: 'Bosah v. Oji (2002) 6 NWLR (Pt. 763) 345 (CA) — VERIFY CITATION',
+      point:    'Refusal to hear an address before delivering judgment can render the judgment a nullity for breach of fair hearing.',
+    },
+    {
+      citation: 'Obodo v. Olomu (1987) 3 NWLR (Pt. 59) 111 (SC) — VERIFY CITATION',
+      point:    'The right to be heard is fundamental; a party must be given a reasonable opportunity to present its case including written submissions.',
+    },
+  ],
+  caveat: 'CITATION VERIFICATION REQUIRED — confirm case names, volumes, and holdings in LawPavilion or equivalent before filing.',
+} as const;
+
+/**
+ * CIVIL_FWA_SEQUENCE — ordered filing steps for civil Final Written Address.
+ *
+ * This is a sequence (not a day-count), so it lives here rather than in
+ * LAW_REGISTRY. Day-counts for each step live in LAW_REGISTRY under
+ * civil_fwa_defendant_days / civil_fwa_claimant_days / civil_fwa_reply_days.
+ *
+ * Source: Standard civil High Court practice (Order 35, FCT High Court Civil
+ * Procedure Rules; Federal High Court (Civil Procedure) Rules 2009 — verify
+ * against the specific rules of the court seised).
+ */
+export const CIVIL_FWA_SEQUENCE: readonly {
+  step:    number;
+  party:   string;
+  action:  string;
+  note:    string;
+}[] = [
+  {
+    step:   1,
+    party:  'Defendant / Respondent',
+    action: 'Files Final Written Address',
+    note:   'Defendant files first after close of evidence. Day-count: see civil_fwa_defendant_days in Law Registry.',
+  },
+  {
+    step:   2,
+    party:  'Claimant / Plaintiff',
+    action: 'Files Final Written Address',
+    note:   "Claimant files after receiving Defendant's address. Day-count: see civil_fwa_claimant_days in Law Registry.",
+  },
+  {
+    step:   3,
+    party:  'Defendant / Respondent',
+    action: 'Files Reply on Points of Law (if any)',
+    note:   "Optional but strategic. Restricted to new points of law in Claimant's address only — no new facts, no re-argument. Day-count: see civil_fwa_reply_days in Law Registry.",
+  },
+  {
+    step:   4,
+    party:  'Both parties',
+    action: 'Adoption / Oral Address (if directed by court)',
+    note:   'Court may direct oral adoption. Denial of adoption opportunity may ground a fair hearing objection — see FAIR_HEARING_REFERENCE.',
+  },
+] as const;
+
+/**
+ * CRIMINAL_FWA_SEQUENCE — ordered filing steps for criminal Final Written Address.
+ *
+ * Source: ACJA 2015 ss.293–294 and equivalent regional ACJL provisions.
+ * Verify exact day-counts and sequence against the court's practice direction.
+ */
+export const CRIMINAL_FWA_SEQUENCE: readonly {
+  step:    number;
+  party:   string;
+  action:  string;
+  note:    string;
+}[] = [
+  {
+    step:   1,
+    party:  'Defence / Accused',
+    action: 'Files Final Written Address',
+    note:   'Defence files first once the case for the defence is formally closed.',
+  },
+  {
+    step:   2,
+    party:  'Prosecution',
+    action: 'Files Final Written Address in Response',
+    note:   "Prosecution responds after receiving Defence address. Day-count: see criminal_fwa_prosecution_days in Law Registry (commonly 14–21 days — verify locally).",
+  },
+  {
+    step:   3,
+    party:  'Both parties',
+    action: 'Adoption / Oral Address (if directed by court)',
+    note:   'Court may direct oral adoption. Right to adopt is protected under s.36 CFRN 1999 — see FAIR_HEARING_REFERENCE.',
+  },
+] as const;
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 export const STATUS_C: Record<string, { bg: string; bdr: string; col: string }> = {
   'Filed':    { col: '#4a7ed0', bg: '#080e1a', bdr: '#1a2a4a' },
   'Active':   { col: '#40a868', bg: '#081810', bdr: '#1a4028' },

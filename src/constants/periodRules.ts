@@ -338,6 +338,83 @@ export const PERIOD_RULES: PeriodRule[] = [
     notes:           'Notice of Appeal from a Court of Appeal criminal judgment to the Supreme Court must be filed within 90 days.',
   },
 
+  // ── CIVIL — FINAL WRITTEN ADDRESS ────────────────────────────────────────
+
+  {
+    id:              'civil_fwa_defendant_days',
+    label:           'File Final Written Address — Defendant (after close of evidence)',
+    track:           'civil',
+    role:            'defendant_side',
+    triggerEvent:    'close_of_evidence',
+    triggerKeywords: [
+      'close of evidence', 'evidence closed', 'defendant closes case',
+      'defence closes case', 'evidence concluded', 'final written address ordered',
+      'parties to file written address', 'address ordered',
+    ],
+    days:            21,
+    authority:       'High Court Civil Procedure Rules (e.g. Order 35, FCT High Court Civil Procedure Rules; Federal High Court Rules) — verify local rule',
+    court_levels:    ['High Court', 'Federal High Court'],
+    fatal:           false,
+    notes:           'Defendant files first. Denying a party the right to file or adopt an address raises a fair hearing concern under s.36 CFRN 1999. Verify the exact day-count against the practice direction of the court seised.',
+  },
+
+  {
+    id:              'civil_fwa_claimant_days',
+    label:           "File Final Written Address — Claimant (after service of Defendant's address)",
+    track:           'civil',
+    role:            'claimant_side',
+    triggerEvent:    'defendant_fwa_served',
+    triggerKeywords: [
+      "defendant's written address served", 'defendant written address filed',
+      'defendant address served', 'written address served on claimant',
+      'service of defendant written address',
+    ],
+    days:            21,
+    authority:       'High Court Civil Procedure Rules (e.g. Order 35, FCT High Court Civil Procedure Rules; Federal High Court Rules) — verify local rule',
+    court_levels:    ['High Court', 'Federal High Court'],
+    fatal:           false,
+    notes:           "Claimant files within 21 days of receiving the Defendant's Final Written Address. Verify the exact day-count against the practice direction of the court seised.",
+  },
+
+  {
+    id:              'civil_fwa_reply_days',
+    label:           "File Reply on Points of Law — Defendant (after service of Claimant's address)",
+    track:           'civil',
+    role:            'defendant_side',
+    triggerEvent:    'claimant_fwa_served',
+    triggerKeywords: [
+      "claimant's written address served", 'claimant written address filed',
+      'claimant address served', 'written address served on defendant',
+      'service of claimant written address', 'reply on points of law ordered',
+    ],
+    days:            7,
+    authority:       'High Court Civil Procedure Rules (e.g. Order 35, FCT High Court Civil Procedure Rules; Federal High Court Rules) — verify local rule',
+    court_levels:    ['High Court', 'Federal High Court'],
+    fatal:           false,
+    notes:           "Confined strictly to new points of law raised in the Claimant's address — no new facts, no re-argument of evidence.",
+  },
+
+  // ── CRIMINAL — FINAL WRITTEN ADDRESS (ACJA / ACJL) ───────────────────────
+
+  {
+    id:              'criminal_fwa_prosecution_days',
+    label:           "File Final Written Address — Prosecution (after Defence address)",
+    track:           'criminal',
+    role:            'prosecution',
+    triggerEvent:    'defence_fwa_served',
+    triggerKeywords: [
+      "defence written address filed", 'defence address served',
+      "defendant's written address served", 'written address served on prosecution',
+      'service of defence written address', 'criminal written address ordered',
+      'parties to file written address',
+    ],
+    days:            21,
+    authority:       's.293–294 Administration of Criminal Justice Act 2015 (or equivalent regional ACJL) — exact window is practice-direction specific, commonly 14–21 days',
+    court_levels:    ['High Court', 'Federal High Court', 'Magistrate Court'],
+    fatal:           false,
+    notes:           "Defence files first once the case for the defence is closed. Prosecution's window commonly ranges 14–21 days depending on the court's practice direction — 21 days is the conservative upper-bound default; verify locally.",
+  },
+
   // ── CRIMINAL — PROSECUTION TIMELINE MANAGEMENT ───────────────────────────
 
   {
