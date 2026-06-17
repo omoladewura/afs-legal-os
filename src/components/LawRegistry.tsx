@@ -151,6 +151,8 @@ function PeriodRulesPanel({ onOverrideChange }: { onOverrideChange: () => void }
     { label: 'Civil — Interlocutory', entries: LAW_REGISTRY.filter(e => e.id === 'civil_interlocutory_appeal') },
     { label: 'Criminal — Custody & Arraignment', entries: LAW_REGISTRY.filter(e => e.id.startsWith('criminal_arraignment') || e.id.startsWith('criminal_remand') || e.id.startsWith('criminal_trial') || e.id.startsWith('criminal_prosecution')) },
     { label: 'Criminal — Appeals',  entries: LAW_REGISTRY.filter(e => e.id.startsWith('criminal_appeal')) },
+    { label: 'Civil — Final Written Address',    entries: LAW_REGISTRY.filter(e => e.id.startsWith('civil_fwa_')) },
+    { label: 'Criminal — Final Written Address', entries: LAW_REGISTRY.filter(e => e.id.startsWith('criminal_fwa_')) },
     { label: 'Matrimonial',         entries: LAW_REGISTRY.filter(e => e.id.startsWith('mca_')) },
     { label: 'FREP',                entries: LAW_REGISTRY.filter(e => e.id.startsWith('frep_')) },
   ].filter(g => g.entries.length > 0);
