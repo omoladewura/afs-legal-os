@@ -9,6 +9,7 @@ export function PasswordGate() {
   const [pw,      setPw]      = useState('');
   const [error,   setError]   = useState('');
   const [shaking, setShaking] = useState(false);
+  const [showPw,  setShowPw]  = useState(false);
 
   function handleSubmit() {
     if (pw !== PASSWORD) {
@@ -57,15 +58,31 @@ export function PasswordGate() {
 
         <div style={{ marginBottom: 20 }}>
           <label style={S.label}>Access Password</label>
-          <input
-            type="password"
-            value={pw}
-            onChange={e => { setPw(e.target.value); setError(''); }}
-            onKeyDown={handleKeyDown}
-            placeholder="Enter password"
-            style={S.inp}
-            autoFocus
-          />
+          <div style={{ position: 'relative' }}>
+            <input
+              type={showPw ? 'text' : 'password'}
+              value={pw}
+              onChange={e => { setPw(e.target.value); setError(''); }}
+              onKeyDown={handleKeyDown}
+              placeholder="Enter password"
+              style={{ ...S.inp, paddingRight: 44 }}
+              autoFocus
+            />
+            <button
+              type="button"
+              onClick={() => setShowPw(v => !v)}
+              tabIndex={-1}
+              style={{
+                position: 'absolute', right: 12, top: '50%',
+                transform: 'translateY(-50%)',
+                background: 'none', border: 'none', cursor: 'pointer',
+                color: '#888888', fontSize: 13, padding: 0, lineHeight: 1,
+                fontFamily: "'Times New Roman', Times, serif",
+              }}
+            >
+              {showPw ? 'hide' : 'show'}
+            </button>
+          </div>
         </div>
 
         {error && (
