@@ -27,6 +27,7 @@ import { T } from '@/constants/tokens';
 import { CASE_DOC_TYPES, CASE_STATUSES, STATUS_COLORS } from '@/constants/dashboard';
 import { DeadlineEngine, HearingCalendar } from '@/engines/DeadlineCalendarTrackers';
 import type { Case, DocketEntry, Deadline } from '@/types';
+import { TypeDeleteModal } from '@/components/common/ui';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // LOCAL STYLE CONSTANTS
@@ -139,6 +140,9 @@ export function CaseDocketTab({ activeCase }: Props) {
   // ── Sub-tab ───────────────────────────────────────────────────────────────
   const [subTab, setSubTab] = useState<'entries' | 'deadlines' | 'calendar'>('entries');
 
+  // ── Delete confirmation modal ─────────────────────────────────────────────
+  const [deleteModal, setDeleteModal] = useState<{ id: string; label: string } | null>(null);
+
   // ── Entries state ─────────────────────────────────────────────────────────
   const [entries,  setEntries]  = useState<DocketEntry[]>([]);
   const [loading,  setLoading]  = useState(true);
@@ -215,9 +219,13 @@ export function CaseDocketTab({ activeCase }: Props) {
 
   // ── Delete entry ──────────────────────────────────────────────────────────
   async function removeEntry(id: string) {
-    if (!window.confirm('Remove this entry from the docket?')) return;
+    setDeleteModal({ id, label: 'docket entry' });
+  }
+
+  async function confirmRemoveEntry(id: string) {
     await dbDeleteEntry(id);
     setEntries(prev => prev.filter(e => e.id !== id));
+    setDeleteModal(null);
   }
 
   // ── Attachment handler ────────────────────────────────────────────────────
@@ -411,6 +419,15 @@ Provide a structured briefing:
 
   return (
     <div style={{ animation: 'fadeUp .3s ease' }}>
+
+      {/* ── Delete confirmation modal ── */}
+      {deleteModal && (
+        <TypeDeleteModal
+          label={deleteModal.label}
+          onConfirm={() => confirmRemoveEntry(deleteModal.id)}
+          onCancel={() => setDeleteModal(null)}
+        />
+      )}
 
       {/* ── Sub-tab navigation ── */}
       <div style={{ display: 'flex', gap: 3, marginBottom: 20, background: '#050508', border: '1px solid #111120', borderRadius: 7, padding: 3 }}>

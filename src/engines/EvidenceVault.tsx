@@ -24,7 +24,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import type { Case, EvidenceItem }                          from '@/types';
 import { T }                                               from '@/constants/tokens';
 import { queryLibrary, deriveQuery }                       from '@/services/library';
-import { Md }                                              from '@/components/common/ui';
+import { Md, TypeDeleteModal }                             from '@/components/common/ui';
 import { uid }                                             from '@/utils';
 import {
   loadEvidenceMeta,
@@ -407,6 +407,7 @@ export function EvidenceVault({ activeCase }: Props) {
   const [previewB64, setPreviewB64] = useState<string | null>(null);
   const [aiAnalysis, setAiAnalysis] = useState<Record<string, string>>({});
   const [aiLoading,  setAiLoading]  = useState<Record<string, boolean>>({});
+  const [deleteModal,setDeleteModal]= useState<string | null>(null);
 
   // ── Load evidence metadata on mount ──────────────────────────────────────────
   useEffect(() => {
@@ -438,12 +439,16 @@ export function EvidenceVault({ activeCase }: Props) {
 
   // ── Delete ────────────────────────────────────────────────────────────────────
   async function deleteItem(id: string) {
-    if (!window.confirm('Delete this document from the Vault? This cannot be undone.')) return;
+    setDeleteModal(id);
+  }
+
+  async function confirmDeleteItem(id: string) {
     await deleteEvidenceFile(id, caseId);
     const updated = items.filter(i => i.id !== id);
     await saveEvidenceMeta(updated);
     setItems(updated);
     if (previewMeta?.id === id) setView('list');
+    setDeleteModal(null);
   }
 
   // ── Open preview ──────────────────────────────────────────────────────────────
