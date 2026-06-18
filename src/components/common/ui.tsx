@@ -342,3 +342,85 @@ export function Label({ children }: LabelProps) {
     </span>
   );
 }
+
+// ── TypeDeleteModal ───────────────────────────────────────────────────────────
+// Replaces window.confirm for destructive delete actions.
+// User must type "delete" exactly before the action fires.
+
+import { useState as _useState } from 'react';
+
+interface TypeDeleteModalProps {
+  label:     string;           // what is being deleted, e.g. "docket entry" or "case file"
+  onConfirm: () => void;
+  onCancel:  () => void;
+}
+
+export function TypeDeleteModal({ label, onConfirm, onCancel }: TypeDeleteModalProps) {
+  const [typed, setTyped] = _useState('');
+  const ready = typed.trim().toLowerCase() === 'delete';
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 9999,
+      background: 'rgba(0,0,0,0.72)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+    }}>
+      <div style={{
+        background: '#0a0a14', border: '2px solid #c04040',
+        borderRadius: 10, padding: '28px 30px', maxWidth: 380, width: '90%',
+        boxShadow: '0 8px 40px rgba(0,0,0,0.7)',
+      }}>
+        <p style={{
+          fontSize: 10, color: '#c04040', fontFamily: "'Times New Roman', Times, serif",
+          letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 12,
+        }}>
+          ⚠ Confirm Deletion
+        </p>
+        <p style={{
+          fontSize: 14, color: '#e0dcd0', fontFamily: "'Times New Roman', Times, serif",
+          lineHeight: 1.6, marginBottom: 18,
+        }}>
+          You are about to permanently delete this <strong>{label}</strong>. This cannot be undone.
+        </p>
+        <p style={{
+          fontSize: 12, color: '#888888', fontFamily: "'Times New Roman', Times, serif",
+          marginBottom: 10,
+        }}>
+          Type <strong style={{ color: '#c04040' }}>delete</strong> to confirm:
+        </p>
+        <input
+          autoFocus
+          value={typed}
+          onChange={e => setTyped(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter' && ready) onConfirm(); if (e.key === 'Escape') onCancel(); }}
+          placeholder="delete"
+          style={{
+            width: '100%', background: '#070710', border: `1px solid ${ready ? '#c04040' : '#2a2a3a'}`,
+            borderRadius: 5, color: '#e0dcd0', padding: '10px 14px', fontSize: 14,
+            fontFamily: "'Times New Roman', Times, serif", outline: 'none',
+            boxSizing: 'border-box', marginBottom: 18, transition: 'border-color .15s',
+          }}
+        />
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <button onClick={onCancel} style={{
+            background: 'transparent', border: '1px solid #2a2a3a', color: '#888888',
+            borderRadius: 5, padding: '8px 20px', fontSize: 12,
+            fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer',
+          }}>
+            Cancel
+          </button>
+          <button onClick={onConfirm} disabled={!ready} style={{
+            background: ready ? '#3a0808' : '#1a1a1a',
+            border: `1px solid ${ready ? '#c04040' : '#2a2a3a'}`,
+            color: ready ? '#e08080' : '#3a3a3a',
+            borderRadius: 5, padding: '8px 20px', fontSize: 12,
+            fontFamily: "'Times New Roman', Times, serif",
+            cursor: ready ? 'pointer' : 'not-allowed', fontWeight: 600,
+            transition: 'all .15s',
+          }}>
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
