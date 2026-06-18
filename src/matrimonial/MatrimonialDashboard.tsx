@@ -41,7 +41,7 @@ const CaseIntelligence = lazy(() =>
   import('@/engines/CaseIntelligence').then(m => ({ default: m.CaseIntelligence }))
 );
 const WrittenAddressEngine = lazy(() =>
-  import('@/engines/WrittenAddressEngine').then(m => ({ default: m.WrittenAddressEngine }))
+  import('@/engines/FinalWrittenAddressEngine').then(m => ({ default: m.FinalWrittenAddressEngine }))
 );
 const InheritanceMode = lazy(() =>
   import('@/engines/InheritanceMode').then(m => ({ default: m.InheritanceMode }))
