@@ -20,6 +20,9 @@ import { T }              from '@/constants/tokens';
 import { callClaude }   from '@/services/api';
 import { loadBlindSpot, saveBlindSpot } from '@/storage/helpers';
 import { Md }             from '@/components/common/ui';
+import { useIntelligence } from '@/hooks/useIntelligence';
+import { buildRoleSystemPrompt } from '@/utils/rolePrompt';
+import { uid } from '@/utils';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CONSTANTS
@@ -205,6 +208,24 @@ function ErrBanner({ error }: { error: string }) {
 
 type AppealDocTab = 'brief_of_argument' | 'reply_brief' | 'respondents_notice';
 
+interface BriefIssueEntry {
+  id:          string;
+  /** Ground / Error of Law or Fact (Appellant) · Ground Being Attacked (Respondent) */
+  ground:      string;
+  /** Rule / Principle Violated (Appellant) · Supporting Rule / Authority (Respondent) */
+  rule:        string;
+  /** Application to Lower Court Record (Appellant) · Why the Lower Court Was Correct (Respondent) */
+  application: string;
+  /** Relief Sought (Appellant) · Why Appellant's Argument Fails (Respondent) */
+  outcome:     string;
+}
+
+interface ReplyIssueEntry {
+  id:       string;
+  /** New point in the Respondent's Brief only — never a re-argument of an existing ground */
+  newPoint: string;
+}
+
 interface AppealDocData {
   briefContext?:            string;
   briefDraft?:              string;
@@ -232,6 +253,8 @@ function AppealDocDrafters({
   const [loading, setLoading]           = useState(false);
   const [error, setError]               = useState('');
 
+  const { fullContext, hasIntel } = useIntelligence(activeCase);
+
   const docTabs: { id: AppealDocTab; label: string }[] = [
     { id: 'brief_of_argument',  label: 'Brief of Argument' },
     { id: 'reply_brief',        label: 'Reply Brief' },
@@ -239,6 +262,45 @@ function AppealDocDrafters({
   ];
 
   const isAppellant = appealRole === 'Appellant';
+
+  // ── Brief of Argument — ground-by-ground issue builder ─────────────────────
+  const [briefIssues, setBriefIssues] = useState<BriefIssueEntry[]>(() => {
+    if (extraction?.grounds_identified?.length) {
+      return extraction.grounds_identified.map(g => ({
+        id: uid(), ground: g.ground, rule: '', application: g.basis, outcome: '',
+      }));
+    }
+    return [{ id: uid(), ground: '', rule: '', application: '', outcome: '' }];
+  });
+
+  function addBriefIssue() {
+    setBriefIssues(prev => [...prev, { id: uid(), ground: '', rule: '', application: '', outcome: '' }]);
+  }
+  function removeBriefIssue(id: string) {
+    setBriefIssues(prev => prev.filter(i => i.id !== id));
+  }
+  function updateBriefIssue(id: string, field: keyof BriefIssueEntry, val: string) {
+    setBriefIssues(prev => prev.map(i => i.id === id ? { ...i, [field]: val } : i));
+  }
+  function importGroundsFromExtraction() {
+    if (!extraction?.grounds_identified?.length) return;
+    setBriefIssues(extraction.grounds_identified.map(g => ({
+      id: uid(), ground: g.ground, rule: '', application: g.basis, outcome: '',
+    })));
+  }
+
+  // ── Reply Brief — restricted new-points-only builder ────────────────────────
+  const [replyIssues, setReplyIssues] = useState<ReplyIssueEntry[]>([{ id: uid(), newPoint: '' }]);
+
+  function addReplyIssue() {
+    setReplyIssues(prev => [...prev, { id: uid(), newPoint: '' }]);
+  }
+  function removeReplyIssue(id: string) {
+    setReplyIssues(prev => prev.filter(i => i.id !== id));
+  }
+  function updateReplyIssue(id: string, val: string) {
+    setReplyIssues(prev => prev.map(i => i.id === id ? { ...i, newPoint: val } : i));
+  }
 
   async function draftBrief() {
     setLoading(true); setError('');
@@ -248,6 +310,14 @@ function AppealDocDrafters({
 
     const issuesList = extraction?.issues_for_determination?.join('\n') ?? '';
 
+    const validBriefIssues = briefIssues.filter(i => i.ground.trim());
+    const issueFrameworkText = validBriefIssues.length
+      ? validBriefIssues.map((bi, i) => isAppellant
+          ? `GROUND ${i + 1}: ${bi.ground}\nRule / Principle Violated: ${bi.rule || '[counsel to supply]'}\nApplication to Lower Court Record: ${bi.application || '[counsel to supply]'}\nRelief Sought: ${bi.outcome || '[counsel to supply]'}`
+          : `GROUND BEING ATTACKED ${i + 1}: ${bi.ground}\nWhy the Lower Court Was Correct: ${bi.application || '[counsel to supply]'}\nSupporting Rule / Authority: ${bi.rule || '[counsel to supply]'}\nWhy Appellant's Argument Fails: ${bi.outcome || '[counsel to supply]'}`
+        ).join('\n\n')
+      : 'Counsel has not yet built a ground-by-ground framework — draft from the extracted grounds and intelligence package below.';
+
     const prompt = `You are a Senior Appellate Counsel at AFS Advocates drafting the ${isAppellant ? "Appellant's" : "Respondent's"} Brief of Argument.
 
 Case: ${activeCase.caseName}
@@ -256,17 +326,20 @@ Our Role: ${appealRole}
 Matter Track: ${activeCase.matter_track ?? 'civil'}
 Trial Role: ${activeCase.counsel_role ?? 'claimant_side'}
 
-Extracted Grounds of Appeal:
+Counsel's Ground-by-Ground Argument Framework:
+${issueFrameworkText}
+
+All Extracted Grounds of Appeal (for reference/completeness):
 ${groundsList}
 
-Issues for Determination:
+Issues for Determination (from extraction):
 ${issuesList}
 
 Appellate Intelligence Package (summary):
 ${intPkg ? intPkg.substring(0, 2000) : 'Not yet generated.'}
 
-Counsel's additional instructions and specific arguments:
-${docData.briefContext || 'None provided — draft from extracted intelligence.'}
+Counsel's Additional Notes (optional, supplementary to the framework above):
+${docData.briefContext || 'None provided.'}
 
 Draft the complete ${isAppellant ? "Appellant's" : "Respondent's"} Brief of Argument in Nigerian appellate practice form.
 
@@ -339,7 +412,8 @@ Nigerian brief-writing rules:
 Return the complete draft brief.`;
 
     try {
-      const result = await callClaude({ userMsg: prompt, maxTokens: 4500,
+      const system = `${buildRoleSystemPrompt(activeCase.matter_track, activeCase.counsel_role)} You are drafting a Nigerian ${isAppellant ? "Appellant's" : "Respondent's"} Brief of Argument before the ${appealCourt || 'appellate court'}, applying the ${appealCourt === 'Supreme Court' ? 'Supreme Court Rules 2014' : 'Court of Appeal Rules 2021'}. NEVER fabricate case citations, names, years, volumes, or law reports — where an authority cannot be verified, flag it clearly with [AUTHORITY TO VERIFY] rather than inventing one.` + fullContext;
+      const result = await callClaude({ system, userMsg: prompt, maxTokens: 4500,
         matter_track: activeCase.matter_track, counsel_role: activeCase.counsel_role });
       if (result) setDocData(p => ({ ...p, briefDraft: result }));
     } catch (e: unknown) {
@@ -349,19 +423,24 @@ Return the complete draft brief.`;
 
   async function draftReplyBrief() {
     setLoading(true); setError('');
+    const validPoints = replyIssues.filter(i => i.newPoint.trim());
+    const pointsText = validPoints.length
+      ? validPoints.map((p, i) => `${i + 1}. ${p.newPoint}`).join('\n')
+      : 'Counsel has not yet identified specific new points — draft a template structure with placeholders.';
+
     const prompt = `You are a Senior Appellate Counsel at AFS Advocates drafting a Reply Brief.
 
 Case: ${activeCase.caseName}
 Appeal Court: ${appealCourt}
 Our Role: ${appealRole}
 
-Appellant's Brief of Argument / new points raised by opposing side:
-${docData.replyBriefContext || 'Counsel has not yet pasted the opposing brief — draft a template structure with placeholders.'}
+New Points of Law Raised in the Respondent's Brief (counsel-identified, one per entry — each must be a genuinely new point not already in the Appellant's main Brief):
+${pointsText}
 
-Instructions from counsel:
-(Generate from whatever context is provided above.)
+Supplementary notes from counsel:
+${docData.replyBriefContext || 'None provided.'}
 
-Draft the Reply Brief in Nigerian appellate practice form.
+Before drafting, review the listed points above. If any entry appears to restate an issue already argued rather than raise a genuinely new point of law, flag it at the very top of your output — before the cover page — under a heading "SCOPE CHECK", quoting the entry and explaining why it looks like a re-argument. If every entry is a properly new point, state "SCOPE CHECK: All entries confirmed as new points of law." Then proceed to draft the Reply Brief in Nigerian appellate practice form.
 
 MANDATORY STRUCTURE:
 
@@ -387,7 +466,8 @@ CONCLUSION: Brief prayer restating the relief from the main Brief.
 Return the complete draft Reply Brief.`;
 
     try {
-      const result = await callClaude({ userMsg: prompt, maxTokens: 3000,
+      const system = `${buildRoleSystemPrompt(activeCase.matter_track, activeCase.counsel_role)} CRITICAL RESTRICTION: A Reply Brief may only respond to new points raised by the Respondent that were not in the Appellant's Brief. It cannot introduce new grounds of appeal or re-argue issues already addressed. NEVER fabricate case citations — flag any authority that cannot be verified with [AUTHORITY TO VERIFY].` + fullContext;
+      const result = await callClaude({ system, userMsg: prompt, maxTokens: 3000,
         matter_track: activeCase.matter_track, counsel_role: activeCase.counsel_role });
       if (result) setDocData(p => ({ ...p, replyBriefDraft: result }));
     } catch (e: unknown) {
@@ -479,16 +559,84 @@ Return the complete draft Respondent's Notice.`;
           <div style={{ fontSize: 11, color: ACC, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 14, borderBottom: `1px solid ${ACC}20`, paddingBottom: 8 }}>
             {isAppellant ? "Appellant's" : "Respondent's"} Brief of Argument
           </div>
-          <p style={{ fontSize: 13, color: T.sub, fontFamily: "'Times New Roman', Times, serif", marginBottom: 16, lineHeight: 1.6 }}>
-            The AI will draft the complete {isAppellant ? "Appellant's" : "Respondent's"} Brief using the extracted grounds, issues, and intelligence package. Add any specific arguments or instructions below.
+          <p style={{ fontSize: 13, color: T.sub, fontFamily: "'Times New Roman', Times, serif", marginBottom: 8, lineHeight: 1.6 }}>
+            Build the argument ground by ground, then the AI drafts the complete {isAppellant ? "Appellant's" : "Respondent's"} Brief using this framework plus the extracted intelligence package.
           </p>
+          {hasIntel && (
+            <div style={{ marginBottom: 14, background: '#071810', border: '1px solid #1a4028', borderRadius: 5, padding: '7px 12px' }}>
+              <p style={{ fontSize: 10, color: '#40b068', fontFamily: "'Times New Roman', Times, serif", margin: 0, fontWeight: 700, letterSpacing: '.06em' }}>
+                ✓ Trial Intelligence Package detected — will be injected into the draft
+              </p>
+            </div>
+          )}
+
+          {briefIssues.map((bi, idx) => (
+            <div key={bi.id} style={{ background: '#08080e', border: '1px solid #1e1e30', borderRadius: 7, padding: '16px 18px', marginBottom: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <span style={{ fontSize: 10, color: ACC, fontFamily: "'Times New Roman', Times, serif", fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase' }}>
+                  {isAppellant ? `Ground ${idx + 1}` : `Ground Attacked ${idx + 1}`}
+                </span>
+                {briefIssues.length > 1 && (
+                  <button onClick={() => removeBriefIssue(bi.id)} style={{ background: 'transparent', border: '1px solid #3a1a1a', color: '#804040', borderRadius: 3, padding: '3px 8px', cursor: 'pointer', fontSize: 10, fontFamily: "'Times New Roman', Times, serif" }}>
+                    remove
+                  </button>
+                )}
+              </div>
+              <div style={{ display: 'grid', gap: 10 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: 10, color: T.mute, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.06em', textTransform: 'uppercase', marginBottom: 5 }}>
+                    {isAppellant ? 'Ground / Error of Law or Fact' : 'Ground Being Attacked'}
+                  </label>
+                  <textarea value={bi.ground} onChange={e => updateBriefIssue(bi.id, 'ground', e.target.value)} rows={2}
+                    placeholder={isAppellant ? 'State the specific error of law or fact the lower court made.' : "State the Appellant's ground exactly as you expect it to be argued."}
+                    style={{ width: '100%', background: '#0a0a12', border: '1px solid #cccccc', borderRadius: 5, padding: '9px 12px', color: T.fg, fontSize: 13, fontFamily: "'Times New Roman', Times, serif", resize: 'vertical', boxSizing: 'border-box', outline: 'none' }} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: 10, color: T.mute, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.06em', textTransform: 'uppercase', marginBottom: 5 }}>
+                    {isAppellant ? 'Rule / Principle Violated' : 'Supporting Rule / Authority'}
+                  </label>
+                  <textarea value={bi.rule} onChange={e => updateBriefIssue(bi.id, 'rule', e.target.value)} rows={2}
+                    placeholder={isAppellant ? 'The legal rule, principle, or statutory provision the lower court got wrong.' : 'The rule or authority that supports the lower court being correct.'}
+                    style={{ width: '100%', background: '#0a0a12', border: '1px solid #cccccc', borderRadius: 5, padding: '9px 12px', color: T.fg, fontSize: 13, fontFamily: "'Times New Roman', Times, serif", resize: 'vertical', boxSizing: 'border-box', outline: 'none' }} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: 10, color: T.mute, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.06em', textTransform: 'uppercase', marginBottom: 5 }}>
+                    {isAppellant ? 'Application to Lower Court Record' : 'Why the Lower Court Was Correct'}
+                  </label>
+                  <textarea value={bi.application} onChange={e => updateBriefIssue(bi.id, 'application', e.target.value)} rows={3}
+                    placeholder={isAppellant ? 'Apply the rule to the specific facts in the record — cite the relevant pages/exhibits.' : 'Explain why the decision below was right on the facts and the law, with record references.'}
+                    style={{ width: '100%', background: '#0a0a12', border: '1px solid #cccccc', borderRadius: 5, padding: '9px 12px', color: T.fg, fontSize: 13, fontFamily: "'Times New Roman', Times, serif", resize: 'vertical', boxSizing: 'border-box', outline: 'none' }} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: 10, color: T.mute, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.06em', textTransform: 'uppercase', marginBottom: 5 }}>
+                    {isAppellant ? 'Relief Sought' : "Why Appellant's Argument Fails"}
+                  </label>
+                  <textarea value={bi.outcome} onChange={e => updateBriefIssue(bi.id, 'outcome', e.target.value)} rows={2}
+                    placeholder={isAppellant ? 'What should the appellate court do on this ground — set aside, vary, remit?' : "State precisely why the Appellant's ground cannot succeed."}
+                    style={{ width: '100%', background: '#0a0a12', border: '1px solid #cccccc', borderRadius: 5, padding: '9px 12px', color: T.fg, fontSize: 13, fontFamily: "'Times New Roman', Times, serif", resize: 'vertical', boxSizing: 'border-box', outline: 'none' }} />
+                </div>
+              </div>
+            </div>
+          ))}
+
+          <div style={{ display: 'flex', gap: 10, marginBottom: 18, flexWrap: 'wrap' }}>
+            <button onClick={addBriefIssue} style={{ background: 'transparent', border: `1px dashed ${ACC}50`, color: ACC, borderRadius: 5, padding: '7px 18px', fontSize: 11, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer' }}>
+              + Add Ground
+            </button>
+            {!!extraction?.grounds_identified?.length && (
+              <button onClick={importGroundsFromExtraction} style={{ background: 'transparent', border: '1px solid #cccccc', color: T.mute, borderRadius: 5, padding: '7px 18px', fontSize: 11, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer' }}>
+                ↺ Re-import Grounds from Extraction
+              </button>
+            )}
+          </div>
+
           <div style={{ marginBottom: 16 }}>
-            <label style={{ display: 'block', fontSize: 11, color: T.mute, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.08em', textTransform: 'uppercase', marginBottom: 6 }}>Additional Arguments & Instructions (Optional)</label>
+            <label style={{ display: 'block', fontSize: 11, color: T.mute, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.08em', textTransform: 'uppercase', marginBottom: 6 }}>Additional Notes (Optional)</label>
             <textarea
               value={docData.briefContext ?? ''}
               onChange={e => setDocData(p => ({ ...p, briefContext: e.target.value }))}
-              rows={5}
-              placeholder="Any specific arguments, particular points to emphasise, authorities you want relied on, or issues you want the brief to lead with. Leave blank to generate purely from the extracted intelligence."
+              rows={3}
+              placeholder="Anything not captured above — particular emphasis, authorities you want relied on, or strategic notes."
               style={{ width: '100%', background: '#08080e', border: '1px solid #cccccc', borderRadius: 6, padding: '10px 14px', color: T.fg, fontSize: 13, fontFamily: "'Times New Roman', Times, serif", resize: 'vertical', boxSizing: 'border-box', outline: 'none' }}
             />
           </div>
@@ -524,20 +672,40 @@ Return the complete draft Respondent's Notice.`;
             Reply Brief
           </div>
           <p style={{ fontSize: 13, color: T.sub, fontFamily: "'Times New Roman', Times, serif", marginBottom: 8, lineHeight: 1.6 }}>
-            A Reply Brief responds only to new points of law raised in the Respondent's Brief that were not covered in the Appellant's Brief. Paste the opposing brief's key new arguments below.
+            A Reply Brief responds only to new points of law raised in the Respondent's Brief that were not covered in the Appellant's Brief. List each new point as a separate entry below.
           </p>
-          <div style={{ marginBottom: 8, background: '#1a1000', border: '1px solid #3a2800', borderRadius: 6, padding: '10px 14px' }}>
+          <div style={{ marginBottom: 14, background: '#1a1000', border: '1px solid #3a2800', borderRadius: 6, padding: '10px 14px' }}>
             <p style={{ fontSize: 11, color: '#c08030', fontFamily: "'Times New Roman', Times, serif", margin: 0, lineHeight: 1.6 }}>
-              ⚠ A Reply Brief cannot introduce new grounds or arguments not in the main Brief. The engine will flag any such issues.
+              ⚠ A Reply Brief cannot introduce new grounds or re-argue points already in the main Brief. The AI will run a scope check on every entry before drafting and flag anything that looks like a re-argument.
             </p>
           </div>
+
+          {replyIssues.map((ri, idx) => (
+            <div key={ri.id} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginBottom: 10 }}>
+              <span style={{ fontSize: 11, color: ACC, fontFamily: "'Times New Roman', Times, serif", fontWeight: 700, minWidth: 22, marginTop: 10 }}>{idx + 1}.</span>
+              <textarea
+                value={ri.newPoint}
+                onChange={e => updateReplyIssue(ri.id, e.target.value)}
+                rows={3}
+                placeholder="State one new point of law raised in the Respondent's Brief that was not already addressed in the Appellant's main Brief."
+                style={{ flex: 1, background: '#08080e', border: '1px solid #cccccc', borderRadius: 6, padding: '10px 14px', color: T.fg, fontSize: 13, fontFamily: "'Times New Roman', Times, serif", resize: 'vertical', boxSizing: 'border-box', outline: 'none' }}
+              />
+              {replyIssues.length > 1 && (
+                <button onClick={() => removeReplyIssue(ri.id)} style={{ background: 'transparent', border: '1px solid #3a1a1a', color: '#804040', borderRadius: 3, padding: '8px 10px', cursor: 'pointer', fontSize: 10, fontFamily: "'Times New Roman', Times, serif", marginTop: 2 }}>×</button>
+              )}
+            </div>
+          ))}
+          <button onClick={addReplyIssue} style={{ background: 'transparent', border: `1px dashed ${ACC}50`, color: ACC, borderRadius: 5, padding: '7px 18px', fontSize: 11, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', marginBottom: 16, display: 'block' }}>
+            + Add New Point
+          </button>
+
           <div style={{ marginBottom: 16 }}>
-            <label style={{ display: 'block', fontSize: 11, color: T.mute, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.08em', textTransform: 'uppercase', marginBottom: 6 }}>New Points Raised in Respondent's Brief</label>
+            <label style={{ display: 'block', fontSize: 11, color: T.mute, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.08em', textTransform: 'uppercase', marginBottom: 6 }}>Supplementary Notes (Optional)</label>
             <textarea
               value={docData.replyBriefContext ?? ''}
               onChange={e => setDocData(p => ({ ...p, replyBriefContext: e.target.value }))}
-              rows={7}
-              placeholder="Paste or summarise the new legal arguments in the Respondent's Brief that require a reply. Identify each point clearly. Leave blank to generate a template structure."
+              rows={3}
+              placeholder="Anything not captured above — e.g. specific authorities to distinguish."
               style={{ width: '100%', background: '#08080e', border: '1px solid #cccccc', borderRadius: 6, padding: '10px 14px', color: T.fg, fontSize: 13, fontFamily: "'Times New Roman', Times, serif", resize: 'vertical', boxSizing: 'border-box', outline: 'none' }}
             />
           </div>
@@ -617,6 +785,8 @@ Return the complete draft Respondent's Notice.`;
 
 
 export function AppealEngine({ activeCase, onSave }: Props) {
+  const { fullContext, hasIntel } = useIntelligence(activeCase);
+
   const saved = (activeCase.appeal_data ?? {}) as Record<string, unknown>;
 
   const [stage,           setStage]          = useState<number>((saved.aStage as number) || 1);
