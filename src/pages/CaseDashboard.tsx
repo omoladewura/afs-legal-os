@@ -52,7 +52,7 @@ import {
 // Phase 6 — New consolidated engine shells
 const CaseCommand        = lazy(() => import('@/engines/CaseCommand').then(m => ({ default: m.CaseCommand })));
 const CaseIntelligence   = lazy(() => import('@/engines/CaseIntelligence').then(m => ({ default: m.CaseIntelligence })));
-const WrittenAddressEngine = lazy(() => import('@/engines/WrittenAddressEngine').then(m => ({ default: m.WrittenAddressEngine })));
+const WrittenAddressEngine = lazy(() => import('@/engines/FinalWrittenAddressEngine').then(m => ({ default: m.FinalWrittenAddressEngine })));
 
 // Retained engines — untouched
 const IntelligenceEngine = lazy(() => import('@/engines/IntelligenceEngine').then(m => ({ default: m.IntelligenceEngine })));
