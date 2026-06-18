@@ -62,8 +62,8 @@ export const useAppStore = create<AppState>((set) => ({
     try { localStorage.setItem('afs_auth', '1'); } catch { }
     set({ isAuthenticated: true, view: 'home' });
   },
-  // ── Navigation ────────────────────────────────────────────────────────────
-  view:    'gate',
+  // ── Navigation — initialise from persisted auth so hard-refresh lands on home ──
+  view: (() => { try { return localStorage.getItem('afs_auth') === '1' ? 'home' : 'gate'; } catch { return 'gate'; } })() as AppView,
   setView: (v) => set({ view: v }),
 
   // ── Active case ───────────────────────────────────────────────────────────
