@@ -594,6 +594,14 @@ export interface ApiRequestOptions {
    */
   matter_track?: MatterTrack;
   counsel_role?: CounselRole;
+  /**
+   * Set true for background calls the user is not actively waiting on
+   * (e.g. silent auto-compress). Suppresses the toast notification that
+   * useAI() fires on failure — the caller's own silent catch handles it.
+   * Foreground calls (the default) toast on failure so a stalled spinner
+   * is never the only signal the user gets.
+   */
+  silent?: boolean;
 }
 
 export interface ApiUsage {
