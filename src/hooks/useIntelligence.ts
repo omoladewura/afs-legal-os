@@ -9,6 +9,28 @@
  *   - hasIntel    : whether any intelligence data exists
  *   - counselBlock: formatted counsel instructions (if set)
  *   - fullContext : intelBlock + counselBlock combined — pass to AI calls
+ *
+ * Phase 3 — Scoped Intelligence
+ * ──────────────────────────────
+ * Pass `scope` to limit how much intelligence context is sent:
+ *
+ *   'facts'   → established_facts + rawFacts/intPkg header only.
+ *               Use for procedural applications (extensions, adjournments,
+ *               compliance checks, alerts, enforcement) where the AI only
+ *               needs to know what happened, not the full legal analysis.
+ *
+ *   'issues'  → facts + legal_issues + disputed_areas.
+ *               Use for research tasks (CaseResearch, ResearchResolver,
+ *               AuthorityValidator) that need legal framing but not the
+ *               full risk register or timeline.
+ *
+ *   'full'    → everything (default — backwards-compatible).
+ *               Use for substantive drafting: arguments, briefs, addresses,
+ *               cross-exam, plea, sentencing, WarRoom, AICopilot.
+ *
+ * Scope is applied to intelBlock only. counselBlock is always included in
+ * full and issues; omitted in facts (counsel strategy is not needed for
+ * procedural tasks).
  */
 
 import type { Case } from '@/types';
@@ -23,6 +45,8 @@ interface IntelligenceData {
   initial_risks?:    Array<{ risk: string; severity: string }>;
   timeline?:         Array<{ date: string; event: string; significance?: string }>;
 }
+
+export type IntelligenceScope = 'facts' | 'issues' | 'full';
 
 export interface IntelOutput {
   /** Whether any vetted intelligence exists for this case */
@@ -46,10 +70,19 @@ export interface IntelOutput {
  * plus counsel instructions from activeCase.counsel_instructions.
  *
  * Usage:
+ *   // Full context (default — drafting engines):
  *   const { fullContext, hasIntel } = useIntelligence(activeCase);
- *   await ask({ system: buildRoleSystemPrompt(...) + fullContext, userMsg: '...' });
+ *
+ *   // Facts only (procedural engines):
+ *   const { fullContext } = useIntelligence(activeCase, 'facts');
+ *
+ *   // Facts + legal issues (research engines):
+ *   const { fullContext } = useIntelligence(activeCase, 'issues');
  */
-export function useIntelligence(activeCase: Case | null): IntelOutput {
+export function useIntelligence(
+  activeCase: Case | null,
+  scope: IntelligenceScope = 'full',
+): IntelOutput {
   const intel = (activeCase?.intelligence_data || {}) as IntelligenceData;
   const instructions = (activeCase as any)?.counsel_instructions as string | undefined;
 
@@ -71,6 +104,7 @@ export function useIntelligence(activeCase: Case | null): IntelOutput {
     parts.push('');
   }
 
+  // ── 'facts' scope: core package + established facts only ─────────────────
   if (intel.intPkg) {
     parts.push('── INTELLIGENCE PACKAGE ──');
     parts.push(intel.intPkg);
@@ -83,30 +117,6 @@ export function useIntelligence(activeCase: Case | null): IntelOutput {
     parts.push('');
   }
 
-  if (intel.disputed_areas?.length) {
-    parts.push('── DISPUTED AREAS ──');
-    intel.disputed_areas.forEach(d => parts.push(`• ${d}`));
-    parts.push('');
-  }
-
-  if (intel.legal_issues?.length) {
-    parts.push('── LEGAL ISSUES ──');
-    intel.legal_issues.forEach(i => parts.push(`• ${i}`));
-    parts.push('');
-  }
-
-  if (intel.gaps_identified?.length) {
-    parts.push('── IDENTIFIED GAPS ──');
-    intel.gaps_identified.forEach(g => parts.push(`• ${g}`));
-    parts.push('');
-  }
-
-  if (intel.initial_risks?.length) {
-    parts.push('── RISK REGISTER ──');
-    intel.initial_risks.forEach(r => parts.push(`• [${r.severity}] ${r.risk}`));
-    parts.push('');
-  }
-
   if (intel.rawFacts && !intel.intPkg) {
     // Only show rawFacts if no processed package yet
     parts.push('── RAW FACTS (unprocessed — treat as client narration) ──');
@@ -114,11 +124,42 @@ export function useIntelligence(activeCase: Case | null): IntelOutput {
     parts.push('');
   }
 
+  // ── 'issues' scope: adds legal framing ───────────────────────────────────
+  if (scope === 'issues' || scope === 'full') {
+    if (intel.disputed_areas?.length) {
+      parts.push('── DISPUTED AREAS ──');
+      intel.disputed_areas.forEach(d => parts.push(`• ${d}`));
+      parts.push('');
+    }
+
+    if (intel.legal_issues?.length) {
+      parts.push('── LEGAL ISSUES ──');
+      intel.legal_issues.forEach(i => parts.push(`• ${i}`));
+      parts.push('');
+    }
+  }
+
+  // ── 'full' scope: adds gaps, risks, timeline ─────────────────────────────
+  if (scope === 'full') {
+    if (intel.gaps_identified?.length) {
+      parts.push('── IDENTIFIED GAPS ──');
+      intel.gaps_identified.forEach(g => parts.push(`• ${g}`));
+      parts.push('');
+    }
+
+    if (intel.initial_risks?.length) {
+      parts.push('── RISK REGISTER ──');
+      intel.initial_risks.forEach(r => parts.push(`• [${r.severity}] ${r.risk}`));
+      parts.push('');
+    }
+  }
+
   const intelBlock = parts.join('\n');
 
   // ── Counsel Instructions Block ────────────────────────────────────────────
+  // Omitted for 'facts' scope — procedural tasks don't need strategy notes.
   let counselBlock = '';
-  if (instructions?.trim()) {
+  if (scope !== 'facts' && instructions?.trim()) {
     counselBlock = [
       '',
       '═══════════════════════════════════════',
