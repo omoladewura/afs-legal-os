@@ -57,13 +57,13 @@ interface AppState {
 
 export const useAppStore = create<AppState>((set) => ({
   // ── Auth ──────────────────────────────────────────────────────────────────
-  isAuthenticated: (() => { try { return localStorage.getItem('afs_auth') === '1'; } catch { return false; } })(),
+  isAuthenticated: (() => { try { return sessionStorage.getItem('afs_auth') === '1'; } catch { return false; } })(),
   authenticate: () => {
-    try { localStorage.setItem('afs_auth', '1'); } catch { }
+    try { sessionStorage.setItem('afs_auth', '1'); } catch { }
     set({ isAuthenticated: true, view: 'home' });
   },
   // ── Navigation — initialise from persisted auth so hard-refresh lands on home ──
-  view: (() => { try { return localStorage.getItem('afs_auth') === '1' ? 'home' : 'gate'; } catch { return 'gate'; } })() as AppView,
+  view: (() => { try { return sessionStorage.getItem('afs_auth') === '1' ? 'home' : 'gate'; } catch { return 'gate'; } })() as AppView,
   setView: (v) => set({ view: v }),
 
   // ── Active case ───────────────────────────────────────────────────────────
