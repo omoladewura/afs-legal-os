@@ -27,6 +27,7 @@ export async function callClaude(opts: ApiRequestOptions): Promise<string> {
     messages,
     maxTokens    = 1500,
     mcpDrive     = false,
+    skipLibrary  = false,
     libraryOpts  = {},
     matter_track,
     counsel_role,
@@ -43,19 +44,37 @@ export async function callClaude(opts: ApiRequestOptions): Promise<string> {
     model:      CLAUDE_MODEL,
     max_tokens: maxTokens,
     messages:   msgs,
-    engine:     libraryOpts.queryHint || 'unknown',
   };
 
-  if (system)       body.system       = system;
+  if (skipLibrary) {
+    // Tell the worker to bypass RAG entirely — no embed call, no Vectorize
+    // query, no R2 fetches, no irrelevant library text injected into system.
+    body.skip_library = true;
+  } else {
+    body.engine = libraryOpts.queryHint || 'unknown';
+    if (libraryOpts.namespace)  body.jurisdiction  = libraryOpts.namespace;
+    if (libraryOpts.filter)     body.rag_filter    = libraryOpts.filter;
+    if (libraryOpts.topK)       body.rag_top_k     = libraryOpts.topK;
+    if (libraryOpts.threshold)  body.rag_threshold = libraryOpts.threshold;
+  }
+
+  if (system) {
+    // Mark the system prompt as cacheable. By convention every call site
+    // builds `system` from buildRoleSystemPrompt() + case intelligence
+    // context (fullContext) — content that repeats byte-for-byte across many
+    // calls in a session. The volatile part (current draft / instruction)
+    // already lives in `messages` below, which is sent fresh and untouched.
+    // cache_control flags this block so Anthropic serves repeats from cache
+    // at ~10% of base input price instead of full price every call.
+    body.system = [
+      { type: 'text', text: system, cache_control: { type: 'ephemeral' } },
+    ];
+  }
   if (mcpDrive)     body.mcp_servers = [{
     type: 'url',
     url:  'https://drivemcp.googleapis.com/mcp/v1',
     name: 'google-drive',
   }];
-  if (libraryOpts.namespace)  body.jurisdiction  = libraryOpts.namespace;
-  if (libraryOpts.filter)     body.rag_filter    = libraryOpts.filter;
-  if (libraryOpts.topK)       body.rag_top_k     = libraryOpts.topK;
-  if (libraryOpts.threshold)  body.rag_threshold = libraryOpts.threshold;
   // Role context — sent to Worker for role-aware retrieval and logging
   if (counsel_role)   body.counsel_role  = counsel_role;
   if (matter_track)   body.matter_track  = matter_track;
