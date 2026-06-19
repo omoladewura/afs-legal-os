@@ -243,6 +243,9 @@ export function CommandConsole({ activeCase, setDashTab }: Props) {
 
     try {
       // ── Step 1: Route ─────────────────────────────────────────────────────
+      // Phase 4: fullContext removed from the routing call. The router only
+      // needs to classify the command — it doesn't need case facts for that.
+      // Saves ~1 000–3 000 tokens on every command at zero quality cost.
       const rawKey = (await callClaude({
         system:
           'You are a command router for a Nigerian litigation intelligence system. ' +
@@ -250,10 +253,10 @@ export function CommandConsole({ activeCase, setDashTab }: Props) {
           '(return ONLY the category key, nothing else):\n' +
           'strategy_rebuild | witness_analysis | cross_exam | evidence_analysis | ' +
           'argument_build | document_generate | compliance_check | risk_assessment | ' +
-          'appeal_analysis | settlement | general' + fullContext,
+          'appeal_analysis | settlement | general',
         messages: [{
           role:    'user',
-          content: `Case context:\n${ctx}\n\nUser command: "${command}"\n\nReturn ONLY the category key.`,
+          content: `User command: "${command}"\n\nReturn ONLY the category key.`,
         }],
         maxTokens: 80,
       })).trim().toLowerCase().replace(/[^a-z_]/g, '');
@@ -265,6 +268,9 @@ export function CommandConsole({ activeCase, setDashTab }: Props) {
       const route = ROUTE_MAP[routeKey];
 
       // ── Step 2: Execute ───────────────────────────────────────────────────
+      // Phase 4: fullContext injected here (once, in system prompt) not
+      // duplicated into both calls. ctx (case header) stays in the user
+      // message so the specialist prompt stays clean.
       const aiText = await callClaude({
         system:    buildSystemPrompt(routeKey, posture, ctx) + fullContext,
         userMsg:   command,

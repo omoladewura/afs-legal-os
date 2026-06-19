@@ -27,7 +27,7 @@
  */
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import type { Case, ApiMessage, DashTabId } from '@/types';
+import type { Case, DashTabId } from '@/types';
 import { T } from '@/constants/tokens';
 import { CLAUDE_MODEL } from '@/services/api';
 import { queryLibrary, deriveQuery } from '@/services/library';
@@ -40,6 +40,7 @@ import {
   copilotSuggestions,
 } from '@/utils/rolePrompt';
 import { useIntelligence } from '@/hooks/useIntelligence';
+import { useChatSession } from '@/hooks/useChatSession';
 import {
   COUNSEL_ROLE_LABELS,
   MATTER_TRACK_LABELS,
@@ -48,16 +49,10 @@ import {
 import { useAppStore } from '@/state/appStore';
 import { callClaude } from '@/services/api';
 import { loadBlindSpot, saveBlindSpot } from '@/storage/helpers';
-import { buildCaseContext } from '@/utils';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES
 // ─────────────────────────────────────────────────────────────────────────────
-
-interface CopilotTurn {
-  role:    'user' | 'assistant';
-  text:    string;
-}
 
 interface Props {
   activeCase: Case | null;
@@ -204,7 +199,9 @@ export function AICopilot({ activeCase }: Props) {
   const [posture,   setPosture]   = useState<Posture>('Aggressive');
 
   // ── Chat mode state ────────────────────────────────────────────────────────
-  const [msgs,      setMsgs]      = useState<CopilotTurn[]>([]);
+  // Phase 4: history managed by useChatSession (caps at HISTORY_WINDOW turns,
+  // folds overflow into a running summary instead of resending verbatim).
+  const { turns: msgs, appendTurns, windowedApiMessages, clearSession } = useChatSession();
   const [input,     setInput]     = useState('');
   const [loading,   setLoading]   = useState(false);
   const [error,     setError]     = useState('');
@@ -284,6 +281,8 @@ export function AICopilot({ activeCase }: Props) {
 
     try {
       // Step 1: Route
+      // Phase 4: fullContext removed from the routing call — the router only
+      // needs to classify the command, not read case facts.
       const rawKey = (await callClaude({
         system:
           'You are a command router for a Nigerian litigation intelligence system. ' +
@@ -291,10 +290,10 @@ export function AICopilot({ activeCase }: Props) {
           '(return ONLY the category key, nothing else):\n' +
           'strategy_rebuild | witness_analysis | cross_exam | evidence_analysis | ' +
           'argument_build | document_generate | compliance_check | risk_assessment | ' +
-          'appeal_analysis | settlement | general' + fullContext,
+          'appeal_analysis | settlement | general',
         messages: [{
           role: 'user',
-          content: `Case context:\n${ctx}\n\nUser command: "${command}"\n\nReturn ONLY the category key.`,
+          content: `User command: "${command}"\n\nReturn ONLY the category key.`,
         }],
         maxTokens: 80,
       })).trim().toLowerCase().replace(/[^a-z_]/g, '');
@@ -302,7 +301,7 @@ export function AICopilot({ activeCase }: Props) {
       const routeKey: RouteKey = (rawKey in ROUTE_MAP) ? rawKey as RouteKey : 'general';
       const route = ROUTE_MAP[routeKey];
 
-      // Step 2: Execute
+      // Step 2: Execute — fullContext injected once here in system prompt
       const aiText = await callClaude({
         system:   buildCommandSystemPrompt(routeKey, posture, ctx) + fullContext,
         userMsg:  command,
@@ -360,30 +359,29 @@ export function AICopilot({ activeCase }: Props) {
     setLoading(true);
     setError('');
 
-    // Build user message with optional case context
-    let promptText = txt;
-    if (useCtx && activeCase) {
-      const ctx = buildCaseContext(activeCase);
-      promptText = `${ctx}\n\n---\nQUESTION FROM COUNSEL:\n${txt}`;
-    }
+    // Phase 4: case context lives in the system prompt (via fullContext from
+    // useIntelligence), NOT prepended to each user message. This eliminates
+    // the ~200-token context block being duplicated across every turn.
+    const promptText = txt;
 
-    // Assemble history
-    const history: ApiMessage[] = msgs.map(m => ({
-      role:    m.role,
-      content: m.text,
-    }));
+    // Phase 4: windowed history — last HISTORY_WINDOW turns only, older turns
+    // folded into a running summary by useChatSession.
+    const history = windowedApiMessages();
     history.push({ role: 'user', content: promptText });
 
-    // Build role-aware system prompt — posture injected from shared state
+    // Build role-aware system prompt — posture + fullContext injected once here.
+    // When useCtx is on, fullContext (from useIntelligence) provides the case
+    // facts. When off, just the role prompt is used.
+    const caseCtxBlock = (useCtx && activeCase) ? fullContext : '';
     const baseSystem = buildRoleSystemPrompt(matterTrack, counselRole)
-      + `\n\nCURRENT STRATEGIC POSTURE: ${posture}. Frame all recommendations through this posture.`;
+      + `\n\nCURRENT STRATEGIC POSTURE: ${posture}. Frame all recommendations through this posture.`
+      + caseCtxBlock;
 
     // Query library for relevant authorities
-    let effectiveSystem = baseSystem + fullContext;
+    let effectiveSystem = baseSystem;
     try {
       const query = deriveQuery(baseSystem, txt);
       if (query.trim()) {
-        // Role-aware retrieval: filter Vectorize to role-appropriate materials
         const roleLibOpts = buildRoleLibraryOpts(matterTrack, counselRole, txt.slice(0, 150));
         const lib = await queryLibrary(query, roleLibOpts);
         if (lib.ok && lib.block) {
@@ -399,7 +397,6 @@ export function AICopilot({ activeCase }: Props) {
       max_tokens:   2500,
       system:       effectiveSystem,
       messages:     history,
-      // Role context — enables Worker-side role-aware retrieval
       counsel_role: counselRole  ?? undefined,
       matter_track: matterTrack  ?? undefined,
       engine:       counselRole  ? `copilot_${counselRole}` : 'copilot',
@@ -422,18 +419,17 @@ export function AICopilot({ activeCase }: Props) {
         .map(b => b.text ?? '')
         .join('');
 
-      setMsgs(prev => [
-        ...prev,
-        { role: 'user',      text: txt },
+      appendTurns(
+        { role: 'user',      text: txt   },
         { role: 'assistant', text: reply },
-      ]);
+      );
       setInput('');
     } catch (e) {
       setError((e as Error).message || 'Copilot is unavailable. Please try again.');
     } finally {
       setLoading(false);
     }
-  }, [input, msgs, loading, useCtx, activeCase, matterTrack, counselRole]);
+  }, [input, msgs, loading, useCtx, activeCase, matterTrack, counselRole, posture, fullContext, windowedApiMessages, appendTurns]);
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>): void {
     if (e.key === 'Enter' && !e.shiftKey && input.trim()) {
@@ -449,7 +445,7 @@ export function AICopilot({ activeCase }: Props) {
   }
 
   function clearConversation(): void {
-    setMsgs([]);
+    clearSession();
     setError('');
     setInput('');
   }
