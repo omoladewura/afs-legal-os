@@ -596,6 +596,19 @@ export interface ApiRequestOptions {
   counsel_role?: CounselRole;
 }
 
+export interface ApiUsage {
+  input_tokens:                number;
+  output_tokens:               number;
+  cache_read_input_tokens?:    number;
+  cache_creation_input_tokens?: number;
+}
+
+export interface TokenLogEntry {
+  ts:     string;
+  engine: string;
+  usage:  ApiUsage;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // UI STATE
 // ─────────────────────────────────────────────────────────────────────────────
