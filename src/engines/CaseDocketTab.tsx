@@ -23,6 +23,7 @@ import {
 } from '@/storage/helpers';
 import { uid } from '@/utils';
 import { callClaude } from '@/services/api';
+import { indexCaseChunk } from '@/services/caseRag';
 import { T } from '@/constants/tokens';
 import { CASE_DOC_TYPES, CASE_STATUSES, STATUS_COLORS } from '@/constants/dashboard';
 import { DeadlineEngine, HearingCalendar } from '@/engines/DeadlineCalendarTrackers';
@@ -347,6 +348,15 @@ Provide a structured briefing:
       }
       await Promise.all(toCompress.map(e => dbDeleteEntry(e.id)));
       setEntries(keep);
+
+      // Phase 6: index the compressed docket chunk so case history RAG can
+      // retrieve it. Fire-and-forget — indexCaseChunk never throws.
+      indexCaseChunk({
+        caseId:  activeCase.id,
+        chunkId: `docket-compress-${Date.now()}`,
+        text:    summary,
+        type:    'docket_summary',
+      });
     } catch { /* silent */ }
   }
 
