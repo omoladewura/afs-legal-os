@@ -411,7 +411,12 @@ export function EvidenceVault({ activeCase }: Props) {
 
   // ── Load evidence metadata on mount ──────────────────────────────────────────
   useEffect(() => {
-    loadEvidenceMeta(caseId).then(setItems);
+    loadEvidenceMeta(caseId).then(loaded => {
+      setItems(loaded);
+      const cached: Record<string, string> = {};
+      loaded.forEach(it => { if (it.aiAnalysis) cached[it.id] = it.aiAnalysis; });
+      setAiAnalysis(cached);
+    });
   }, [caseId]);
 
   // ── Category counts ───────────────────────────────────────────────────────────
@@ -508,6 +513,12 @@ export function EvidenceVault({ activeCase }: Props) {
       if (data.error) throw new Error(data.error.message);
       const text = (data.content ?? []).filter(b => b.type === 'text').map(b => b.text ?? '').join('\n');
       setAiAnalysis(a => ({ ...a, [meta.id]: text }));
+
+      // Persist to evidence_meta so the analysis survives reloads and the
+      // file bytes never need to be re-sent just to re-display it.
+      const updatedItems = items.map(it => it.id === meta.id ? { ...it, aiAnalysis: text } : it);
+      setItems(updatedItems);
+      saveEvidenceMeta(updatedItems).catch(() => { /* non-fatal — UI already reflects result */ });
     } catch (e: unknown) {
       setAiAnalysis(a => ({ ...a, [meta.id]: 'Analysis failed: ' + (e instanceof Error ? e.message : 'Unknown error') }));
     }

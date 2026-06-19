@@ -172,7 +172,7 @@ Rules:
 - Use single quotes or rephrase if quoting speech — never raw double quotes inside JSON strings.
 - Output ONLY the JSON object. Nothing before it, nothing after it.`,
         userMsg: `RAW FACTS / CLIENT NARRATION:\n\n${rawFacts}`,
-        maxTokens: 50000,
+        maxTokens: 5000,
         skipLibrary: true,
       });
 
@@ -208,7 +208,7 @@ Rules:
       const raw = await callClaude({
         system: `You are a trial intelligence engine for Nigerian litigation. Generate precise gap-filling follow-up questions. Role: ${role}. Output ONLY valid JSON — no markdown, no preamble. Exactly this structure: {"questions":[{"id":"q1","question":"...","purpose":"..."}]}`,
         userMsg: `${caseCtx}\n\nEXTRACTED INTELLIGENCE:\n${JSON.stringify(extraction, null, 2)}\n\nGenerate 6 targeted follow-up questions addressing the most critical gaps.`,
-        maxTokens: 50000,
+        maxTokens: 5000,
         skipLibrary: true,
       });
 
@@ -252,7 +252,7 @@ Rules:
       const raw = await callClaude({
         system: `You are a trial evidence strategist for Nigerian litigation. Map required evidence to facts and legal issues. Role of client: ${role}. Output ONLY valid JSON — no markdown, no preamble. Exactly this structure: {"evidence_map":[{"issue":"...","evidence_needed":["..."],"evidence_available":["..."],"evidence_missing":["..."],"priority":"CRITICAL|HIGH|MEDIUM|LOW","notes":"..."}]}`,
         userMsg: `${caseCtx}\n\nEXTRACTED INTELLIGENCE:\n${JSON.stringify(extraction, null, 2)}\n\nFOLLOW-UP ANSWERS:\n${qaText}\n\nBuild the evidence matrix.`,
-        maxTokens: 50000,
+        maxTokens: 5000,
         skipLibrary: true,
       });
 
@@ -293,7 +293,7 @@ Rules:
       const pkg = await callClaude({
         system: `You are a Senior Advocate at the Nigerian Bar with 30 years of trial experience. You produce trial intelligence packages of exceptional depth and precision. Role-aware, outcome-focused, and honest. Your analysis changes how lawyers approach cases.`,
         userMsg: `${caseCtx}\n\nRAW FACTS:\n${rawFacts}\n\nEXTRACTED INTELLIGENCE:\n${JSON.stringify(extraction, null, 2)}\n\nFOLLOW-UP ANSWERS:\n${qaText}\n\nEVIDENCE MATRIX:\n${JSON.stringify(evidenceM, null, 2)}\n\nGenerate the full Trial Intelligence Package. Format as structured markdown:\n\n# ESTABLISHED FACTS\n[Undisputed facts with basis]\n\n# DISPUTED FACTS\n[Contested facts and likely nature of dispute]\n\n# MISSING EVIDENCE\n[Critical gaps — what must be obtained and how]\n\n# LEGAL ISSUES\n[Each issue distilled — element by element where applicable]\n\n# ${claimsHead}\n[Role-specific: causes of action / grounds of defence, elements, burden of proof, what must be proved]\n\n# RISK REGISTER\n[Every material risk — severity HIGH/MEDIUM/LOW, impact, mitigation]\n\n# IMMEDIATE ACTION ITEMS\n[Specific, time-sensitive steps the lawyer must take NOW]\n\nWrite with the precision of a Senior Advocate who has analysed every document and seen every angle. Be direct, specific, and unflinchingly honest.`,
-        maxTokens: 50000,
+        maxTokens: 5000,
         skipLibrary: true,
       });
       setIntPkg(pkg);
