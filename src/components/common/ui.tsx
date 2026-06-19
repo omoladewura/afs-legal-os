@@ -83,6 +83,100 @@ export function ErrorBlock({ message, onDismiss }: ErrorBlockProps) {
   );
 }
 
+// ── Toast ─────────────────────────────────────────────────────────────────────
+// Stateless, event-emitter-driven toast notifications. Any file can call
+// toast.error(msg) / toast.warn(msg) / toast.info(msg) without prop-drilling.
+// <ToastHost /> is mounted once at the app root and renders whatever is queued.
+
+type ToastLevel = 'error' | 'warn' | 'info';
+
+interface ToastMessage {
+  id:      string;
+  message: string;
+  level:   ToastLevel;
+}
+
+let toastQueue: ToastMessage[] = [];
+const toastListeners = new Set<(toasts: ToastMessage[]) => void>();
+
+function emitToasts() {
+  toastListeners.forEach(listener => listener(toastQueue));
+}
+
+function pushToast(message: string, level: ToastLevel) {
+  if (!message) return;
+  const id = `t_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  toastQueue = [...toastQueue, { id, message, level }];
+  emitToasts();
+  setTimeout(() => dismissToast(id), 6000);
+}
+
+function dismissToast(id: string) {
+  toastQueue = toastQueue.filter(t => t.id !== id);
+  emitToasts();
+}
+
+export const toast = {
+  error: (message: string) => pushToast(message, 'error'),
+  warn:  (message: string) => pushToast(message, 'warn'),
+  info:  (message: string) => pushToast(message, 'info'),
+};
+
+const TOAST_STYLES: Record<ToastLevel, { bg: string; bdr: string; col: string; icon: string }> = {
+  error: { bg: '#fff8f8', bdr: '#e8c0c0', col: T.err,  icon: '⚠' },
+  warn:  { bg: '#fffaf2', bdr: '#e8d4a8', col: T.warn, icon: '!' },
+  info:  { bg: '#f5f8fc', bdr: '#c0d0e8', col: T.info, icon: 'ⓘ' },
+};
+
+/** Mount once at the app root. Renders queued toasts bottom-right, auto-dismissing after 6s. */
+export function ToastHost() {
+  const [toasts, setToasts] = React.useState<ToastMessage[]>(toastQueue);
+
+  React.useEffect(() => {
+    const listener = (t: ToastMessage[]) => setToasts(t);
+    toastListeners.add(listener);
+    return () => { toastListeners.delete(listener); };
+  }, []);
+
+  if (toasts.length === 0) return null;
+
+  return (
+    <div style={{
+      position: 'fixed', bottom: 20, right: 20, zIndex: 99999,
+      display: 'flex', flexDirection: 'column', gap: 8,
+      maxWidth: 360, width: 'calc(100vw - 40px)',
+    }}>
+      {toasts.map(t => {
+        const s = TOAST_STYLES[t.level];
+        return (
+          <div key={t.id} style={{
+            background: s.bg, border: `1px solid ${s.bdr}`,
+            borderRadius: 5, padding: '12px 14px',
+            boxShadow: '0 4px 18px rgba(0,0,0,0.15)',
+            display: 'flex', alignItems: 'flex-start', gap: 10,
+            animation: 'fadeUp .25s ease',
+          }}>
+            <span style={{ color: s.col, fontSize: 14, lineHeight: 1.4, flexShrink: 0 }}>{s.icon}</span>
+            <p style={{
+              fontSize: 13, color: s.col, flex: 1, margin: 0,
+              fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.5,
+            }}>
+              {t.message}
+            </p>
+            <button
+              onClick={() => dismissToast(t.id)}
+              style={{
+                background: 'transparent', border: 'none', cursor: 'pointer',
+                color: s.col, fontSize: 14, padding: 0, flexShrink: 0, lineHeight: 1,
+              }}
+            >×</button>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ── Md — Markdown-like renderer ───────────────────────────────────────────────
 
 interface MdProps {
