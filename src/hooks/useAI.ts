@@ -30,6 +30,7 @@ import { callClaude, ApiError } from '@/services/api';
 import { buildRoleSystemPrompt } from '@/utils/rolePrompt';
 import { buildRoleLibraryOpts, deriveRoleHint } from '@/utils/roleLibrary';
 import { appendTokenLog } from '@/storage/helpers';
+import { toast } from '@/components/common/ui';
 import type { ApiRequestOptions, Case } from '@/types';
 
 interface UseAIReturn {
@@ -102,6 +103,11 @@ export function useAI(activeCase?: Case): UseAIReturn {
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : (e as Error).message ?? 'Unknown error';
       setError(msg);
+      // Surface foreground failures as a toast — a spinner that just stops
+      // with no explanation is the worse failure mode. Background calls
+      // (silentCompress, indexCaseChunk, etc.) pass { silent: true } to
+      // opt out, since they have their own quiet catch handling.
+      if (!opts.silent) toast.error(msg);
       return null;
     } finally {
       setLoading(false);
