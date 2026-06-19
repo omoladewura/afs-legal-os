@@ -7,6 +7,12 @@
  *   queries Vectorize with a role-scoped filter, injects the retrieved
  *   library block into the system prompt, then calls Claude.
  *
+ *   Prompt caching: client `system` content (callClaude) arrives as a
+ *   content-block array with cache_control on the cacheable block (role
+ *   prompt + case intelligence context). The library block from RAG is
+ *   query-dependent, so it's appended AFTER that block, uncached — see
+ *   handleChat() for why the order matters for cache hits.
+ *
  *   /ingest now tags every vector with counsel_role + matter_track
  *   derived from the R2 key path:
  *     NG/civil_claimant/HighCourtRules.pdf        → counsel_role: claimant_side,    matter_track: civil
@@ -579,6 +585,7 @@ async function handleChat(req: Request, env: Env): Promise<Response> {
   const body = await req.json() as Record<string, unknown>;
 
   // ── Extract role fields sent by api.ts ────────────────────────────────────
+  const skipLibrary  = body.skip_library === true;
   const counselRole   = body.counsel_role  as CounselRole | undefined;
   const matterTrack   = body.matter_track  as MatterTrack | undefined;
   const ragFilter     = body.rag_filter    as Record<string, unknown> | undefined;
@@ -593,7 +600,11 @@ async function handleChat(req: Request, env: Env): Promise<Response> {
 
   const queryText = [queryHint, lastUserMsg].filter(Boolean).join(' ').slice(0, 600);
 
-  if (queryText.trim()) {
+  // skip_library bypasses this entire block — no embed call, no Vectorize
+  // query, no R2 fetches. Used by calls (e.g. structured JSON extraction
+  // from facts the user already typed in) that have no use for retrieved
+  // legal materials and shouldn't pay for or risk being derailed by them.
+  if (!skipLibrary && queryText.trim()) {
     try {
       // 1. Embed the query
       const embedResult = await env.AI.run('@cf/baai/bge-base-en-v1.5', {
@@ -654,13 +665,40 @@ async function handleChat(req: Request, env: Env): Promise<Response> {
     }
   }
 
-  // ── Build system prompt — inject library block before role system ─────────
-  const baseSystem   = body.system as string | undefined ?? '';
-  const effectiveSystem = libraryBlock
-    ? `${libraryBlock}\n\n${baseSystem}`
-    : baseSystem;
+  // ── Build system prompt ──────────────────────────────────────────────────
+  // body.system arrives as either:
+  //   - a plain string   — legacy direct /chat callers (AICopilot, EvidenceVault,
+  //     SanMode, InheritanceMode, BillionsVoiceWidget) that don't go through
+  //     callClaude. Behaviour for these is unchanged.
+  //   - a content-block array with cache_control on the cacheable block —
+  //     sent by callClaude (src/services/api.ts) since prompt caching.
+  //
+  // The RAG library block is query-dependent (it's derived from the live
+  // user message) and therefore changes nearly every call. Anthropic's
+  // prompt cache is a PREFIX cache: a cache_control breakpoint only hits if
+  // every token before it is byte-identical to a previous request. Putting
+  // the volatile library block before the cacheable client block — as this
+  // worker used to — meant the client's stable role+intelligence content
+  // never actually got a cache hit, because the bytes in front of it kept
+  // changing. So the library block must be appended AFTER the cacheable
+  // block, never before, and never itself carries cache_control.
+  const rawSystem = body.system as string | Array<{ type: string; text: string; cache_control?: unknown }> | undefined;
+
+  let effectiveSystem: typeof rawSystem;
+  if (Array.isArray(rawSystem)) {
+    effectiveSystem = libraryBlock
+      ? [...rawSystem, { type: 'text', text: libraryBlock }]
+      : rawSystem;
+  } else {
+    const baseSystem = rawSystem ?? '';
+    effectiveSystem = libraryBlock
+      ? `${libraryBlock}\n\n${baseSystem}`
+      : (baseSystem || undefined);
+  }
 
   // ── Call Anthropic ────────────────────────────────────────────────────────
+  // No anthropic-beta header needed — prompt caching is GA; cache_control
+  // on a content block is sufficient on its own.
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -671,7 +709,7 @@ async function handleChat(req: Request, env: Env): Promise<Response> {
     body: JSON.stringify({
       model:      body.model      ?? 'claude-sonnet-4-6',
       max_tokens: body.max_tokens ?? 1500,
-      system:     effectiveSystem || undefined,
+      system:     effectiveSystem,
       messages:   body.messages,
     }),
   });
