@@ -529,7 +529,54 @@ export async function loadCaseWithMatrimonialData(
 }
 
 /**
- * Phase 9A — Write MIntelligence extraction output into matrimonial_data.
+ * Phase 8B — Token Telemetry
+ *
+ * Appends a token usage entry for a given case/engine call to IndexedDB.
+ * Capped at 500 entries per case (oldest dropped first) so it never bloats.
+ * Fire-and-forget — never throws to the caller.
+ */
+const TOKEN_LOG_CAP = 500;
+
+export async function appendTokenLog(
+  caseId: string,
+  engine: string,
+  usage: import('@/types').ApiUsage,
+): Promise<void> {
+  try {
+    const key = `token_log_${caseId}`;
+    const rec = await db.blind_spots.get(key);
+    const existing: import('@/types').TokenLogEntry[] =
+      Array.isArray((rec?.data as any)) ? (rec!.data as import('@/types').TokenLogEntry[]) : [];
+
+    const entry: import('@/types').TokenLogEntry = {
+      ts: new Date().toISOString(),
+      engine,
+      usage,
+    };
+
+    const updated = [...existing, entry].slice(-TOKEN_LOG_CAP);
+
+    await db.blind_spots.put({
+      id: key,
+      caseId,
+      module: 'token_log',
+      data: updated,
+    });
+  } catch {
+    // Always silent — telemetry must never surface errors to the user
+  }
+}
+
+export async function loadTokenLog(caseId: string): Promise<import('@/types').TokenLogEntry[]> {
+  try {
+    const key = `token_log_${caseId}`;
+    const rec = await db.blind_spots.get(key);
+    return Array.isArray(rec?.data) ? (rec!.data as import('@/types').TokenLogEntry[]) : [];
+  } catch {
+    return [];
+  }
+}
+
  *
  * Merges the intelligence fields into any existing MatrimonialCaseData without
  * overwriting structural fields (marriage_date, relief_type, children, etc.).
