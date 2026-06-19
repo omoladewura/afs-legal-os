@@ -49,7 +49,6 @@ export const DASH_TABS: DashTab[] = [
   { id: 'san',          icon: '⭐', label: 'SAN Mode',            desc: null, step: null },
   { id: 'criminal',     icon: '⚖', label: 'Criminal Defence',    desc: null, step: null },
   { id: 'matrimonial',  icon: '⚖', label: 'Matrimonial Causes',  desc: null, step: null },
-  { id: 'motions',      icon: '⚖', label: 'Motions',             desc: null, step: null },
 
   // ── Phase 1 — Case Command (replaces overview) ────────────────────────────
   {

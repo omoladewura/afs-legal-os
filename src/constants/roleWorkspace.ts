@@ -169,14 +169,14 @@ export interface QuickAction {
 export const ROLE_QUICK_ACTIONS: Record<CounselRole, QuickAction[]> = {
   claimant_side: [
     { label: 'File Pleading',     icon: '✍', tab: 'pleadings',    accent: '#4090d0', hint: 'SoC, Reply, or Counterclaim Response' },
-    { label: 'Create Motion',     icon: '⚖', tab: 'motions',      accent: '#4090d0', hint: 'Default, Summary, Injunction' },
+    { label: 'Create Motion',     icon: '⚖', tab: 'applications', accent: '#4090d0', hint: 'Default, Summary, Injunction' },
     { label: 'Evidence',          icon: '📁', tab: 'evidence',     accent: '#4090d0', hint: 'Upload & organise proof' },
     { label: 'Intelligence',      icon: '⚡', tab: 'intelligence', accent: '#4090d0', hint: 'AI case analysis' },
     { label: 'Start Enforcement', icon: '→',  tab: 'enforcement',  accent: '#4090d0', hint: 'Execute judgment' },
   ],
   defendant_side: [
     { label: 'File Defence',     icon: '🛡', tab: 'pleadings',    accent: '#c06060', hint: 'SoD, Counterclaim, Preliminary Objection' },
-    { label: 'File Objection',   icon: '✗',  tab: 'motions',      accent: '#c06060', hint: 'Preliminary objection, Strike out, Stay' },
+    { label: 'File Objection',   icon: '✗',  tab: 'applications', accent: '#c06060', hint: 'Preliminary objection, Strike out, Stay' },
     { label: 'Evidence',         icon: '📁', tab: 'evidence',     accent: '#c06060', hint: 'Upload & organise defence' },
     { label: 'Intelligence',     icon: '⚡', tab: 'intelligence', accent: '#c06060', hint: 'AI case analysis' },
     { label: 'Seek Stay',        icon: '⏸', tab: 'enforcement',  accent: '#c06060', hint: 'Stay of execution pending appeal' },
@@ -591,7 +591,7 @@ export interface RoleModule {
 export const ROLE_MODULES: Record<CounselRole, RoleModule[]> = {
   claimant_side: [
     { id: 'pleadings',       icon: '📜', label: 'Pleadings',       desc: 'Draft SoC, monitor SoD, flag default judgment opportunity' },
-    { id: 'motions',         icon: '⚖',  label: 'Motions',         desc: 'Default, summary judgment, injunction applications' },
+    { id: 'applications',        icon: '⚖',  label: 'Applications',    desc: 'Default judgment, summary judgment, injunction, and other applications' },
     { id: 'enforcement',     icon: '→',  label: 'Enforcement',     desc: 'Writ of FIFA, garnishee, recovery tracking' },
     { id: 'intelligence',    icon: '⚡', label: 'Intelligence',    desc: 'Claim strength analysis and evidence gaps' },
     { id: 'evidence',        icon: '📁', label: 'Evidence',        desc: 'Evidence proving each head of claim' },
@@ -601,7 +601,7 @@ export const ROLE_MODULES: Record<CounselRole, RoleModule[]> = {
   ],
   defendant_side: [
     { id: 'pleadings',       icon: '📜', label: 'Pleadings',       desc: 'Draft SoD, build counterclaim, preliminary objection grounds' },
-    { id: 'motions',         icon: '⚖',  label: 'Applications',    desc: 'Strike out, stay, preliminary objection, security for costs' },
+    { id: 'applications',        icon: '⚖',  label: 'Applications',    desc: 'Strike out, stay, preliminary objection, security for costs, and summary judgment defence' },
     { id: 'enforcement',     icon: '→',  label: 'Enforcement',     desc: 'Stay of execution, compliance tracking, appeal grounds' },
     { id: 'intelligence',    icon: '⚡', label: 'Intelligence',    desc: 'Defence strength and available objections' },
     { id: 'evidence',        icon: '📁', label: 'Evidence',        desc: 'Evidence answering each cause of action' },
