@@ -207,7 +207,7 @@ function PleaRecordTab({
   activeCase: Case;
 }) {
   const { call, loading, error } = useAI();
-  const { fullContext } = useIntelligence(activeCase);
+  const { fullContext } = useIntelligence(activeCase, 'facts');
 
   const addCount = () =>
     setCountPleas(p => [...p, { id: Date.now(), count: `Count ${p.length + 1}`, offence: '', plea: '', notes: '' }]);
@@ -367,7 +367,7 @@ function PleaBargainProsTab({
   activeCase: Case;
 }) {
   const { call, loading, error } = useAI();
-  const { fullContext } = useIntelligence(activeCase);
+  const { fullContext } = useIntelligence(activeCase, 'facts');
   const set = (k: keyof PleaBargainTerms, v: string) => setTerms({ ...terms, [k]: v });
 
   const generateDraft = useCallback(async () => {
@@ -479,7 +479,7 @@ function PleaAdviceTab({
   activeCase: Case;
 }) {
   const { call, loading, error } = useAI();
-  const { fullContext } = useIntelligence(activeCase);
+  const { fullContext } = useIntelligence(activeCase, 'facts');
   const [chargesText, setChargesText]   = useState('');
   const [evidenceSummary, setEvidence]  = useState('');
   const [instructions, setInstructions] = useState('');
@@ -585,7 +585,7 @@ function PleaBargainDefTab({
   activeCase: Case;
 }) {
   const { call, loading, error } = useAI();
-  const { fullContext } = useIntelligence(activeCase);
+  const { fullContext } = useIntelligence(activeCase, 'facts');
   const set = (k: keyof PleaBargainTerms, v: string) => setTerms({ ...terms, [k]: v });
   const [prosOffer, setProsOffer] = useState('');
 
@@ -690,7 +690,7 @@ function RoutingConfirmTab({
   activeCase: Case;
 }) {
   const { call, loading, error } = useAI();
-  const { fullContext } = useIntelligence(activeCase);
+  const { fullContext } = useIntelligence(activeCase, 'facts');
   const [routingAnalysis, setRoutingAnalysis] = useState('');
 
   const update = (id: number, field: keyof CountPlea, value: string) =>
@@ -823,7 +823,7 @@ const defaultCount = (): CountPlea =>
   ({ id: Date.now(), count: 'Count 1', offence: '', plea: '', notes: '' });
 
 export function PleaEngine({ activeCase }: Props) {
-  const { fullContext } = useIntelligence(activeCase);
+  const { fullContext } = useIntelligence(activeCase, 'facts');
   const role   = activeCase.counsel_role ?? 'defence';
   const isPros = role === 'prosecution';
   const accent = COUNSEL_ROLE_COLORS[role]?.col ?? '#c09030';

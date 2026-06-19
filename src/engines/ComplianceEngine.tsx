@@ -776,7 +776,7 @@ interface Props {
 export function ComplianceEngine({ activeCase }: Props) {
   const caseId = activeCase.id;
   const [sub, setSub] = useState<SubTab>('audit');
-  const { fullContext } = useIntelligence(activeCase);
+  const { fullContext } = useIntelligence(activeCase, 'facts');
 
   const SUB_TABS: Array<{ id: SubTab; icon: string; label: string }> = [
     { id: 'audit',      icon: '⚙',  label: 'Full Compliance Audit' },

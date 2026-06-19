@@ -1545,7 +1545,7 @@ function ApplicationsTracker({ caseId }: { caseId: string }) {
 
 export function ApplicationsEngine({ activeCase }: Props) {
   const { ask, loading, error, clearError } = useAI(activeCase);
-  const { fullContext } = useIntelligence(activeCase);
+  const { fullContext } = useIntelligence(activeCase, 'facts');
   const systemCtx = buildRoleSystemPrompt(activeCase.matter_track, activeCase.counsel_role) + fullContext;
 
   const [mainTab,     setMainTab]     = useState<MainTab>('new');

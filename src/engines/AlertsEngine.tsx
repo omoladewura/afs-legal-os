@@ -1058,7 +1058,7 @@ interface AlertsEngineProps {
 }
 
 export function AlertsEngine({ activeCase }: AlertsEngineProps) {
-  const { fullContext } = useIntelligence(activeCase);
+  const { fullContext } = useIntelligence(activeCase, 'facts');
   const role      = activeCase.counsel_role as CounselRole | undefined;
   const roleColor = role ? COUNSEL_ROLE_COLORS[role].col : '#888888';
   const roleBg    = role ? COUNSEL_ROLE_COLORS[role].bg  : '#ffffff';

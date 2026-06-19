@@ -998,7 +998,7 @@ type SubTab = typeof SUB_TABS[number]['id'];
 export function BlindSpots({ activeCase }: Props) {
   const [sub, setSub] = useState<SubTab>('conflict');
   const caseId = activeCase.id;
-  const { fullContext } = useIntelligence(activeCase);
+  const { fullContext } = useIntelligence(activeCase, 'issues');
 
   return (
     <div style={{ padding: '0 0 40px' }}>

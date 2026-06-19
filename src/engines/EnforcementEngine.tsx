@@ -280,7 +280,7 @@ export function EnforcementEngine({ activeCase }: Props) {
   const [newObligation, setNewObligation] = useState<Omit<ComplianceStep, 'id'>>({ date: '', obligation: '', done: false });
 
   const { ask, loading, error } = useAI(activeCase);
-  const { fullContext } = useIntelligence(activeCase);
+  const { fullContext } = useIntelligence(activeCase, 'facts');
 
   // ── Load saved data ────────────────────────────────────────────────────────
   useEffect(() => {

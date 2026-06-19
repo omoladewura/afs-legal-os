@@ -583,7 +583,7 @@ function Resolver({ fullContext }: { fullContext: string }) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function ResearchResolver({ onBack, activeCase }: Props) {
-  const { fullContext } = useIntelligence(activeCase);
+  const { fullContext } = useIntelligence(activeCase, 'issues');
   const [activeTab, setActiveTab] = useState<'finder' | 'resolver'>('finder');
 
   return (

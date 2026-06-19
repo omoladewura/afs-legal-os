@@ -200,7 +200,7 @@ interface Props {
 
 export function RiskAnalytics({ activeCase }: Props) {
   const caseId = activeCase?.id || 'unknown';
-  const { fullContext } = useIntelligence(activeCase);
+  const { fullContext } = useIntelligence(activeCase, 'issues');
 
   // ── State ──────────────────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<'dashboard' | 'scenarios' | 'register'>('dashboard');

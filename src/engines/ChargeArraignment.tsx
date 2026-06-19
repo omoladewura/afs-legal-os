@@ -298,7 +298,7 @@ function CountValidatorTab({
   activeCase: Case;
 }) {
   const { call, loading, error } = useAI();
-  const { fullContext } = useIntelligence(activeCase);
+  const { fullContext } = useIntelligence(activeCase, 'facts');
   const [result, setResult] = useState('');
 
   const validate = useCallback(async () => {
@@ -385,7 +385,7 @@ function ArraignmentRecordPros({
   activeCase: Case;
 }) {
   const { call, loading, error } = useAI();
-  const { fullContext } = useIntelligence(activeCase);
+  const { fullContext } = useIntelligence(activeCase, 'facts');
 
   const setField = (k: keyof ArraignmentPros, v: string) =>
     setData({ ...data, [k]: v });
@@ -491,7 +491,7 @@ function ChargeDefectAnalyserTab({
   activeCase: Case;
 }) {
   const { call, loading, error } = useAI();
-  const { fullContext } = useIntelligence(activeCase);
+  const { fullContext } = useIntelligence(activeCase, 'facts');
 
   const analyse = useCallback(async () => {
     if (!chargeText.trim()) return;
@@ -573,7 +573,7 @@ function PreliminaryObjectionTab({
   activeCase: Case;
 }) {
   const { call, loading, error } = useAI();
-  const { fullContext } = useIntelligence(activeCase);
+  const { fullContext } = useIntelligence(activeCase, 'facts');
 
   const generateGrounds = useCallback(async () => {
     const r = await call({
@@ -705,7 +705,7 @@ function ArraignmentTrackerDef({
   activeCase: Case;
 }) {
   const { call, loading, error } = useAI();
-  const { fullContext } = useIntelligence(activeCase);
+  const { fullContext } = useIntelligence(activeCase, 'facts');
   const [analysis, setAnalysis] = useState('');
 
   const setField = (k: keyof ArraignmentDef, v: string) =>
@@ -821,7 +821,7 @@ const DEFAULT_DEF_DATA: ArraignmentDef = {
 };
 
 export function ChargeArraignment({ activeCase }: Props) {
-  const { fullContext } = useIntelligence(activeCase);
+  const { fullContext } = useIntelligence(activeCase, 'facts');
   const role   = activeCase.counsel_role ?? 'defence';
   const isPros = role === 'prosecution';
   const accent = COUNSEL_ROLE_COLORS[role]?.col ?? '#c09030';

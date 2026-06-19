@@ -582,7 +582,7 @@ type SubTab = 'topic' | 'statute' | 'saved';
 
 export function CaseResearch({ activeCase }: Props) {
   const caseId = activeCase.id;
-  const { fullContext } = useIntelligence(activeCase);
+  const { fullContext } = useIntelligence(activeCase, 'issues');
 
   const [sub,     setSub]     = useState<SubTab>('topic');
   const [records, setRecords] = useState<ResearchRecord[]>([]);
