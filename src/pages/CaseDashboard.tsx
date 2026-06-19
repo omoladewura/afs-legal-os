@@ -74,7 +74,6 @@ const NoCaseSubmission   = lazy(() => import('@/engines/NoCaseSubmission').then(
 const SentencingEngine   = lazy(() => import('@/engines/SentencingEngine').then(m => ({ default: m.SentencingEngine })));
 // Phase 7 — Civil Engines
 const PleadingsEngine    = lazy(() => import('@/engines/PleadingsEngine').then(m => ({ default: m.PleadingsEngine })));
-const MotionEngine       = lazy(() => import('@/engines/MotionEngine').then(m => ({ default: m.MotionEngine })));
 const EnforcementEngine  = lazy(() => import('@/engines/EnforcementEngine').then(m => ({ default: m.EnforcementEngine })));
 // Phase B — Applications Engine
 const ApplicationsEngine = lazy(() => import('@/engines/ApplicationsEngine').then(m => ({ default: m.ApplicationsEngine })));
@@ -122,7 +121,6 @@ function EngineContent({
     case 'sentencing':         return <SentencingEngine   activeCase={activeCase} />;
     // Phase 7 — Civil Engines
     case 'pleadings':          return <PleadingsEngine    activeCase={activeCase} />;
-    case 'motions':            return <MotionEngine        activeCase={activeCase} />;
     case 'enforcement':        return <EnforcementEngine   activeCase={activeCase} />;
     // Phase B — Applications Engine
     case 'applications':       return <ApplicationsEngine  activeCase={activeCase} />;
