@@ -623,7 +623,7 @@ export type DashTabId =
   // Phase 6C — Sentencing Engine
   | 'sentencing'
   // Phase 7 — Civil Engines
-  | 'pleadings' | 'motions' | 'enforcement'
+  | 'pleadings' | 'enforcement'
   // Phase 7 Automation — Role-specific Alerts
   | 'alerts'
   // Phase A — Missing Criminal Engines
