@@ -1,4 +1,4 @@
-import type { ApiMessage, ApiRequestOptions } from '@/types';
+import type { ApiMessage, ApiRequestOptions, ApiUsage } from '@/types';
 
 export const CLAUDE_MODEL = 'claude-sonnet-4-5';
 
@@ -20,7 +20,15 @@ export class ApiError extends Error {
   }
 }
 
-export async function callClaude(opts: ApiRequestOptions): Promise<string> {
+/**
+ * Convenience wrapper for callers that only need the text and don't
+ * participate in token telemetry (direct callers outside useAI).
+ * Usage: replace `await callClaude(opts)` with `await callClaudeText(opts)`.
+ */
+export async function callClaudeText(opts: ApiRequestOptions): Promise<string> {
+  const { text } = await callClaude(opts);
+  return text;
+}
   const {
     system,
     userMsg,
@@ -100,8 +108,17 @@ export async function callClaude(opts: ApiRequestOptions): Promise<string> {
     throw new ApiError(msg, res.status);
   }
 
-  return ((data as any).content as Array<{ type: string; text?: string }>)
+  const text = ((data as any).content as Array<{ type: string; text?: string }>)
     .filter(b => b.type === 'text')
     .map(b => b.text ?? '')
     .join('');
+
+  const usage: ApiUsage = {
+    input_tokens:                (data as any).usage?.input_tokens                ?? 0,
+    output_tokens:               (data as any).usage?.output_tokens               ?? 0,
+    cache_read_input_tokens:     (data as any).usage?.cache_read_input_tokens,
+    cache_creation_input_tokens: (data as any).usage?.cache_creation_input_tokens,
+  };
+
+  return { text, usage };
 }
