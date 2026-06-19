@@ -29,6 +29,8 @@ export async function callClaudeText(opts: ApiRequestOptions): Promise<string> {
   const { text } = await callClaude(opts);
   return text;
 }
+
+export async function callClaude(opts: ApiRequestOptions): Promise<{ text: string; usage: ApiUsage }> {
   const {
     system,
     userMsg,
