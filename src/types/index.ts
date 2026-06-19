@@ -401,14 +401,15 @@ export interface FrepData {
 
 
 export interface EvidenceItem {
-  id:        string;
-  caseId:    string;
-  category:  string;
-  filename:  string;
-  fileType:  string;
-  fileSize:  number;
-  notes:     string;
-  timestamp: string;
+  id:         string;
+  caseId:     string;
+  category:   string;
+  filename:   string;
+  fileType:   string;
+  fileSize:   number;
+  notes:      string;
+  timestamp:  string;
+  aiAnalysis?: string; // cached SAN analysis output — avoids re-sending file bytes once analysed
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
