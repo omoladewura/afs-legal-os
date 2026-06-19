@@ -2039,7 +2039,7 @@ function Stage4Synthesise({ activeCase, onNavigateToStage }: {
   onNavigateToStage: (stage: StageId) => void;
 }) {
   const { fullContext } = useCaseContext(activeCase, { query: activeCase?.caseName ?? '', engine: 'FinalWrittenAddress' });
-  const { ask, loading: aiLoading } = useAI(activeCase);
+  const { ask, loading: aiLoading, error: aiError } = useAI(activeCase);
 
   const mode      = detectSynthMode(activeCase);
   const readiness = checkSynthReadiness(activeCase, mode);
@@ -2168,6 +2168,8 @@ Output only the sections. No preamble. No disclaimer.`;
             Complete the checklist above before generating.
           </p>
         )}
+
+        {aiError && <ErrorBlock message={aiError} />}
       </div>
 
       {result && (
