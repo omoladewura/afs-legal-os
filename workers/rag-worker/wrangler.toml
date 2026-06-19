@@ -9,6 +9,13 @@ binding = "AI"
 binding = "VECTORIZE"
 index_name = "afs-legal-library"
 
+# Phase 6 — Case History RAG
+# Create this index before deploying:
+#   npx wrangler vectorize create afs-case-history --dimensions=768 --metric=cosine
+[[vectorize]]
+binding = "CASE_HISTORY"
+index_name = "afs-case-history"
+
 [[d1_databases]]
 binding = "DB"
 database_name = "afs-legal-meta"
