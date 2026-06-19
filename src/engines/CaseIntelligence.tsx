@@ -24,9 +24,10 @@
  * Engine logic is untouched — components imported and rendered inside new shell.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { T } from '@/constants/tokens';
-import type { Case } from '@/types';
+import type { Case, TokenLogEntry } from '@/types';
+import { loadTokenLog } from '@/storage/helpers';
 
 // Absorbed engines — logic untouched, rendered inside new shell
 import { BlindSpots } from '@/engines/BlindSpots';
@@ -296,6 +297,123 @@ function ModeHeader({ mode }: { mode: ModeConfig }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// TOKEN USAGE PANEL — Phase 8B
+// ─────────────────────────────────────────────────────────────────────────────
+
+function TokenUsagePanel({ caseId }: { caseId: string }) {
+  const [open,    setOpen]    = useState(false);
+  const [entries, setEntries] = useState<TokenLogEntry[]>([]);
+
+  useEffect(() => {
+    if (!open) return;
+    loadTokenLog(caseId).then(setEntries);
+  }, [open, caseId]);
+
+  const recent = entries.slice(-10).reverse();
+
+  const totals = entries.reduce(
+    (acc, e) => ({
+      input:      acc.input  + e.usage.input_tokens,
+      output:     acc.output + e.usage.output_tokens,
+      cacheRead:  acc.cacheRead  + (e.usage.cache_read_input_tokens  ?? 0),
+      cacheWrite: acc.cacheWrite + (e.usage.cache_creation_input_tokens ?? 0),
+    }),
+    { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+  );
+
+  const cacheHitPct = totals.input > 0
+    ? Math.round((totals.cacheRead / totals.input) * 100)
+    : 0;
+
+  return (
+    <div style={{ marginTop: 12, marginBottom: 4 }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{
+          background:  'none',
+          border:      `1px solid ${T.border}`,
+          borderRadius: 4,
+          color:        T.mute,
+          cursor:       'pointer',
+          fontSize:     10,
+          fontFamily:   "'Times New Roman', Times, serif",
+          letterSpacing:'.1em',
+          padding:      '3px 10px',
+          textTransform:'uppercase',
+        }}
+      >
+        {open ? '▲' : '▼'} Token Usage
+      </button>
+
+      {open && (
+        <div style={{
+          background:   T.surface,
+          border:       `1px solid ${T.border}`,
+          borderRadius: 4,
+          marginTop:    6,
+          padding:      '10px 14px',
+          fontSize:     11,
+          fontFamily:   "'Times New Roman', Times, serif",
+          color:        T.fg,
+        }}>
+          {/* Session totals */}
+          <div style={{ display: 'flex', gap: 24, marginBottom: 10, flexWrap: 'wrap' }}>
+            {[
+              { label: 'Total Input',    value: totals.input.toLocaleString() },
+              { label: 'Total Output',   value: totals.output.toLocaleString() },
+              { label: 'Cache Reads',    value: totals.cacheRead.toLocaleString() },
+              { label: 'Cache Hit %',    value: `${cacheHitPct}%` },
+              { label: 'Calls Logged',   value: entries.length.toString() },
+            ].map(({ label, value }) => (
+              <div key={label} style={{ minWidth: 90 }}>
+                <div style={{ color: T.mute, fontSize: 9, textTransform: 'uppercase', letterSpacing: '.1em' }}>{label}</div>
+                <div style={{ fontWeight: 700, fontSize: 13, marginTop: 2 }}>{value}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Last 10 calls */}
+          {recent.length === 0 ? (
+            <div style={{ color: T.mute, fontSize: 10 }}>No calls logged yet for this case.</div>
+          ) : (
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10 }}>
+              <thead>
+                <tr style={{ color: T.mute, textTransform: 'uppercase', letterSpacing: '.08em' }}>
+                  <th style={{ textAlign: 'left', paddingBottom: 4, fontWeight: 400 }}>Time</th>
+                  <th style={{ textAlign: 'left', paddingBottom: 4, fontWeight: 400 }}>Engine</th>
+                  <th style={{ textAlign: 'right', paddingBottom: 4, fontWeight: 400 }}>In</th>
+                  <th style={{ textAlign: 'right', paddingBottom: 4, fontWeight: 400 }}>Out</th>
+                  <th style={{ textAlign: 'right', paddingBottom: 4, fontWeight: 400 }}>Cache↑</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recent.map((e, i) => (
+                  <tr key={i} style={{ borderTop: `1px solid ${T.border}` }}>
+                    <td style={{ padding: '3px 0', color: T.mute }}>
+                      {new Date(e.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </td>
+                    <td style={{ padding: '3px 8px 3px 0', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {e.engine}
+                    </td>
+                    <td style={{ textAlign: 'right', padding: '3px 0' }}>{e.usage.input_tokens.toLocaleString()}</td>
+                    <td style={{ textAlign: 'right', padding: '3px 0 3px 8px' }}>{e.usage.output_tokens.toLocaleString()}</td>
+                    <td style={{ textAlign: 'right', padding: '3px 0 3px 8px', color: (e.usage.cache_read_input_tokens ?? 0) > 0 ? '#4a9' : T.mute }}>
+                      {(e.usage.cache_read_input_tokens ?? 0) > 0
+                        ? (e.usage.cache_read_input_tokens!).toLocaleString()
+                        : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // MAIN COMPONENT — CaseIntelligence
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -311,6 +429,9 @@ export function CaseIntelligence({ activeCase }: Props) {
 
       {/* ── Mode toggle ───────────────────────────────────────────────────── */}
       <ModeToggle activeMode={activeMode} onChange={setActiveMode} />
+
+      {/* ── Token usage panel ─────────────────────────────────────────────── */}
+      <TokenUsagePanel caseId={activeCase.id} />
 
       {/* ── Mode header ───────────────────────────────────────────────────── */}
       <ModeHeader mode={currentMode} />
