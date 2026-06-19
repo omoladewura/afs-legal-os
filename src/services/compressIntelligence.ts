@@ -34,6 +34,7 @@
 
 import type { Case, IntelligenceData } from '@/types';
 import { callClaude } from '@/services/api';
+import { indexCaseChunk } from '@/services/caseRag';
 
 // Re-compress at most once per 24 hours, even if stage stays at 5.
 const DIGEST_TTL_MS = 24 * 60 * 60 * 1000;
@@ -138,16 +139,28 @@ export async function compressIntelligence(
 
     if (!digest?.trim()) return;
 
+    const now = new Date().toISOString();
     const patch: Partial<Case> = {
       intelligence_data: {
         ...intel,
         digest:    digest.trim(),
-        digest_at: new Date().toISOString(),
+        digest_at: now,
       },
     };
 
     updateActiveCase(patch);
     await saveCase({ ...activeCase, ...patch });
+
+    // Phase 6 — Index this digest snapshot into the case history RAG index
+    // so it can be retrieved by engines when the case grows beyond the digest
+    // threshold. Fire-and-forget; indexCaseChunk() never throws.
+    indexCaseChunk({
+      caseId:    activeCase.id,
+      chunkId:   `digest-${now.slice(0, 10)}`,
+      type:      'digest',
+      text:      digest.trim(),
+      createdAt: now,
+    });
   } catch {
     // Compression is best-effort — never surface errors to the user.
     // The case will simply continue serving raw arrays via useIntelligence.
