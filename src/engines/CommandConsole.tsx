@@ -25,6 +25,7 @@ import type { Case, DashTabId }                      from '@/types';
 import { T }                                          from '@/constants/tokens';
 import { callClaude }                                from '@/services/api';
 import { useIntelligence }                           from '@/hooks/useIntelligence';
+import { useCaseContext } from '@/hooks/useCaseContext';
 import { loadBlindSpot, saveBlindSpot }               from '@/storage/helpers';
 import { buildCaseContext }                           from '@/utils';
 import { Md }                                         from '@/components/common/ui';
@@ -148,7 +149,7 @@ interface ConsoleBlob { history: HistoryEntry[]; posture: Posture; }
 
 export function CommandConsole({ activeCase, setDashTab }: Props) {
   const caseId = activeCase.id;
-  const { fullContext } = useIntelligence(activeCase);
+  const { fullContext } = useCaseContext(activeCase, { query: activeCase?.caseName ?? '', engine: 'CommandConsole' });
 
   const [cmd,          setCmd]          = useState('');
   const [history,      setHistory]      = useState<HistoryEntry[]>([]);

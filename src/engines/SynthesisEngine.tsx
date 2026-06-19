@@ -18,6 +18,7 @@ import type { Case, RiskResult } from '@/types';
 import { T, S } from '@/constants/tokens';
 import { useAI } from '@/hooks/useAI';
 import { useIntelligence } from '@/hooks/useIntelligence';
+import { useCaseContext } from '@/hooks/useCaseContext';
 import { Spinner, Md } from '@/components/common/ui';
 import { loadBlindSpot, saveBlindSpot } from '@/storage/helpers';
 import { copyToClipboard } from '@/utils';
@@ -464,7 +465,7 @@ export function SynthesisEngine({ activeCase, onNavigate }: Props) {
   const caseId = activeCase.id;
   const ai     = useAI(activeCase);
   const mode   = detectMode(activeCase);
-  const { fullContext } = useIntelligence(activeCase);
+  const { fullContext } = useCaseContext(activeCase, { query: activeCase?.caseName ?? '', engine: 'SynthesisEngine' });
 
   const [inputs,    setInputs]    = useState<AllInputs | null>(null);
   const [result,    setResult]    = useState<SynthesisResult | null>(null);

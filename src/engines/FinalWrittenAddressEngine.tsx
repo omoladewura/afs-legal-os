@@ -4,6 +4,7 @@ import type { ArgumentVersion } from '@/types';
 import { T } from '@/constants/tokens';
 import { useAI } from '@/hooks/useAI';
 import { useIntelligence } from '@/hooks/useIntelligence';
+import { useCaseContext } from '@/hooks/useCaseContext';
 import { buildRoleSystemPrompt } from '@/utils/rolePrompt';
 import { getPartyLabels } from '@/utils/getPartyLabels';
 import { queryStatutes, isRagConfigured } from '@/services/statuteRag';
@@ -251,7 +252,7 @@ NEVER invent a case name, citation, year, volume, or law report. If in doubt, ou
 // ─────────────────────────────────────────────────────────────────────────────
 
 function IntelTab({ activeCase }: { activeCase: Case }) {
-  const { hasIntel, fullContext } = useIntelligence(activeCase);
+  const { hasIntel, fullContext } = useCaseContext(activeCase, { query: activeCase?.caseName ?? '', engine: 'FinalWrittenAddress' });
   return (
     <div>
       {!hasIntel && (
@@ -376,7 +377,7 @@ function CivilDrafterTab({ activeCase, onDraftSaved }: {
   onDraftSaved: (draft: string) => void;
 }) {
   const { ask, loading, error } = useAI(activeCase);
-  const { fullContext } = useIntelligence(activeCase);
+  const { fullContext } = useCaseContext(activeCase, { query: activeCase?.caseName ?? '', engine: 'FinalWrittenAddress' });
   const labels = getPartyLabels(activeCase);
 
   const [issues,      setIssues]      = useState<IssueEntry[]>([
@@ -593,7 +594,7 @@ function CriminalDrafterTab({ activeCase, onDraftSaved }: {
   onDraftSaved: (draft: string) => void;
 }) {
   const { ask, loading, error } = useAI(activeCase);
-  const { fullContext } = useIntelligence(activeCase);
+  const { fullContext } = useCaseContext(activeCase, { query: activeCase?.caseName ?? '', engine: 'FinalWrittenAddress' });
   const isPros = activeCase.counsel_role === 'prosecution';
   const accent = isPros ? '#c04040' : '#4a7ed0';
 
@@ -728,7 +729,7 @@ ${RESEARCH_BLOCK_INSTRUCTION}`;
 
 function ReplyTab({ activeCase }: { activeCase: Case }) {
   const { ask, loading, error } = useAI(activeCase);
-  const { fullContext } = useIntelligence(activeCase);
+  const { fullContext } = useCaseContext(activeCase, { query: activeCase?.caseName ?? '', engine: 'FinalWrittenAddress' });
   const isPros     = activeCase.counsel_role === 'prosecution';
   const isCriminal = activeCase.matter_track === 'criminal';
   const accent     = isCriminal
@@ -1084,7 +1085,7 @@ function parseResearchBlock(raw: string): ParsedBlock | null {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function Stage2Research({ activeCase }: { activeCase: Case }) {
-  const { fullContext } = useIntelligence(activeCase);
+  const { fullContext } = useCaseContext(activeCase, { query: activeCase?.caseName ?? '', engine: 'FinalWrittenAddress' });
   const [resTab,        setResTab]        = useState<'finder' | 'resolver'>('finder');
 
   // Finder state
@@ -1486,7 +1487,7 @@ const QUICK_SYSTEM = `You are a Nigerian legal research assistant. You provide r
 // ─────────────────────────────────────────────────────────────────────────────
 
 function Stage3Validate({ activeCase }: { activeCase: Case }) {
-  const { fullContext } = useIntelligence(activeCase);
+  const { fullContext } = useCaseContext(activeCase, { query: activeCase?.caseName ?? '', engine: 'FinalWrittenAddress' });
   const [valTab, setValTab] = useState<'library' | 'conflicts' | 'quick'>('library');
 
   // ── Authority Library state ────────────────────────────────────────────────
@@ -2037,7 +2038,7 @@ function Stage4Synthesise({ activeCase, onNavigateToStage }: {
   activeCase: Case;
   onNavigateToStage: (stage: StageId) => void;
 }) {
-  const { fullContext } = useIntelligence(activeCase);
+  const { fullContext } = useCaseContext(activeCase, { query: activeCase?.caseName ?? '', engine: 'FinalWrittenAddress' });
   const { ask, loading: aiLoading } = useAI(activeCase);
 
   const mode      = detectSynthMode(activeCase);

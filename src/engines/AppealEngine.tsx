@@ -21,6 +21,7 @@ import { callClaude }   from '@/services/api';
 import { loadBlindSpot, saveBlindSpot } from '@/storage/helpers';
 import { Md }             from '@/components/common/ui';
 import { useIntelligence } from '@/hooks/useIntelligence';
+import { useCaseContext } from '@/hooks/useCaseContext';
 import { buildRoleSystemPrompt } from '@/utils/rolePrompt';
 import { uid } from '@/utils';
 
@@ -253,7 +254,7 @@ function AppealDocDrafters({
   const [loading, setLoading]           = useState(false);
   const [error, setError]               = useState('');
 
-  const { fullContext, hasIntel } = useIntelligence(activeCase);
+  const { fullContext, hasIntel } = useCaseContext(activeCase, { query: activeCase?.caseName ?? '', engine: 'AppealEngine' });
 
   const docTabs: { id: AppealDocTab; label: string }[] = [
     { id: 'brief_of_argument',  label: 'Brief of Argument' },
@@ -785,7 +786,7 @@ Return the complete draft Respondent's Notice.`;
 
 
 export function AppealEngine({ activeCase, onSave }: Props) {
-  const { fullContext, hasIntel } = useIntelligence(activeCase);
+  const { fullContext, hasIntel } = useCaseContext(activeCase, { query: activeCase?.caseName ?? '', engine: 'AppealEngine' });
 
   const saved = (activeCase.appeal_data ?? {}) as Record<string, unknown>;
 

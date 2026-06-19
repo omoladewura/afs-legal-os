@@ -25,6 +25,7 @@ import type { Case } from '@/types';
 import { T } from '@/constants/tokens';
 import { useAI } from '@/hooks/useAI';
 import { useIntelligence } from '@/hooks/useIntelligence';
+import { useCaseContext } from '@/hooks/useCaseContext';
 import { buildRoleSystemPrompt } from '@/utils/rolePrompt';
 import { getPartyLabels } from '@/utils/getPartyLabels';
 import { loadBlindSpot, saveBlindSpot } from '@/storage/helpers';
@@ -1335,7 +1336,7 @@ export function PleadingsEngine({ activeCase }: Props) {
   const [data, setData]       = useState<SavedData>(DEFAULT_DATA);
   const [loaded, setLoaded]   = useState(false);
   const ai                    = useAI(activeCase);
-  const { fullContext } = useIntelligence(activeCase);
+  const { fullContext } = useCaseContext(activeCase, { query: activeCase?.caseName ?? '', engine: 'PleadingsEngine' });
   const systemCtx = buildRoleSystemPrompt(activeCase.matter_track, activeCase.counsel_role) + fullContext;
 
   // ── Load persisted data ────────────────────────────────────────────────────

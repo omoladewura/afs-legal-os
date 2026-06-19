@@ -21,7 +21,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import type { Case, ArgumentVersion } from '@/types';
 import { T } from '@/constants/tokens';
 import { callClaude } from '@/services/api';
-import { useIntelligence } from '@/hooks/useIntelligence';
+import { useCaseContext } from '@/hooks/useCaseContext';
 import { Spinner, RoleBadge, Md, TypeDeleteModal } from '@/components/common/ui';
 import { copyToClipboard, uid } from '@/utils';
 import { loadArgVersions, saveArgVersion, deleteArgVersion } from '@/storage/helpers';
@@ -225,7 +225,12 @@ function StatuteChunksPanel({ chunks, error }: { chunks: StatuteChunk[]; error?:
 
 export function ArgumentBuilder({ activeCase }: Props) {
   const caseId = activeCase.id;
-  const { fullContext } = useIntelligence(activeCase);
+  const [argType,  setArgType]  = useState<ArgTypeId | ''>('');
+  const [argIssue, setArgIssue] = useState('');
+  const { fullContext } = useCaseContext(activeCase, {
+    query:  argIssue,
+    engine: 'ArgumentBuilder',
+  });
   const intel   = activeCase.intelligence_data as unknown as {
     rawFacts?: string;
     intPkg?:   string;
@@ -247,8 +252,6 @@ export function ArgumentBuilder({ activeCase }: Props) {
 
   // ── Build config ──────────────────────────────────────────────────────────
   const [activeTrack, setActiveTrack] = useState<Track>('applications');
-  const [argType,  setArgType]  = useState<ArgTypeId | ''>('');
-  const [argIssue, setArgIssue] = useState('');
   const [driveRAG, setDriveRAG] = useState(false);
 
   // ── Statute RAG state ─────────────────────────────────────────────────────

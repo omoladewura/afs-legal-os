@@ -17,6 +17,7 @@ import type { Case } from '@/types';
 import { T } from '@/constants/tokens';
 import { callClaude } from '@/services/api';
 import { useIntelligence } from '@/hooks/useIntelligence';
+import { useCaseContext } from '@/hooks/useCaseContext';
 import { loadBlindSpot, saveBlindSpot, uid } from '@/storage/helpers';
 import { getPartyLabels } from '@/utils/getPartyLabels';
 
@@ -855,7 +856,7 @@ interface Props {
 }
 
 export function CrossExamEngine({ activeCase }: Props) {
-  const { fullContext } = useIntelligence(activeCase);
+  const { fullContext } = useCaseContext(activeCase, { query: activeCase?.caseName ?? '', engine: 'CrossExamEngine' });
   const caseId = activeCase.id;
   type SubTab = 'profiler' | 'contradictions' | 'sequencer' | 'impeachment' | 'live';
   const [sub, setSub] = useState<SubTab>('profiler');

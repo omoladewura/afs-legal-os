@@ -27,6 +27,7 @@ import { loadBlindSpot, loadEvidenceMeta } from '@/storage/helpers';
 import type { Case, DashTabId, EvidenceItem } from '@/types';
 import { buildRoleSystemPrompt } from '@/utils/rolePrompt';
 import { useIntelligence } from '@/hooks/useIntelligence';
+import { useCaseContext } from '@/hooks/useCaseContext';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -301,7 +302,7 @@ export function WarRoom({ activeCase }: Props) {
 
   const ctx = buildCtx(activeCase);
   // Role-aware system prompt — used as base for all WarRoom AI panels
-  const { fullContext } = useIntelligence(activeCase);
+  const { fullContext } = useCaseContext(activeCase, { query: activeCase?.caseName ?? '', engine: 'WarRoom' });
   const roleSystem = buildRoleSystemPrompt(activeCase.matter_track, activeCase.counsel_role) + fullContext;
 
   // ─────────────────────────────────────────────────────────────────────────
