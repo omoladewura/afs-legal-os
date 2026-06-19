@@ -40,6 +40,9 @@
  *   POST /query    — query Vectorize with an embedding vector
  *   POST /ingest   — process PDFs from R2 into Vectorize with role tags
  *
+ *   POST /case-embed   — Phase 6: embed one case history chunk into afs-case-history
+ *   POST /case-query   — Phase 6: retrieve relevant chunks for this case + query
+ *
  *   GET  /cases                     — load all cases from D1
  *   PUT  /case                      — upsert a case in D1
  *   DELETE /case?id=x               — delete a case and all related records
@@ -65,6 +68,8 @@
 
 export interface Env {
   VECTORIZE:          Vectorize;
+  /** Phase 6 — Case History RAG index (afs-case-history) */
+  CASE_HISTORY:       Vectorize;
   AI:                 Ai;
   DB:                 D1Database;
   R2:                 R2Bucket;
@@ -753,6 +758,141 @@ async function handleQuery(req: Request, env: Env): Promise<Response> {
   return json({ matches: results.matches }, 200, origin);
 }
 
+// ── Case History RAG (Phase 6) ────────────────────────────────────────────────
+//
+// Two routes that mirror /embed and /query but operate on the CASE_HISTORY
+// Vectorize index (afs-case-history) instead of the statute library.
+//
+// Every vector is tagged with { caseId } in metadata so retrievals are always
+// scoped to a single case — one case can never surface another's history.
+//
+// Ingestion (/case-embed):
+//   Called by the client (caseRag.ts → indexCaseChunk) after:
+//   - compressIntelligence() writes a new digest snapshot
+//   - CaseDocketTab.silentCompress() folds docket entries
+//   - EvidenceVault persists an AI analysis result
+//
+// Retrieval (/case-query):
+//   Called by the client (caseRag.ts → queryCaseHistory) when
+//   shouldUseCaseRag() returns true for this case.
+
+async function handleCaseEmbed(req: Request, env: Env): Promise<Response> {
+  const origin = req.headers.get('Origin') || '*';
+
+  if (!env.CASE_HISTORY) {
+    return json({ error: 'CASE_HISTORY Vectorize binding not configured — add [[vectorize]] block to wrangler.toml' }, 503, origin);
+  }
+
+  const body = await req.json() as {
+    caseId?:    string;
+    chunkId?:   string;
+    text?:      string;
+    type?:      string;
+    createdAt?: string;
+  };
+
+  if (!body.caseId || !body.chunkId || !body.text?.trim()) {
+    return json({ error: 'caseId, chunkId, and text are required' }, 400, origin);
+  }
+
+  try {
+    // 1. Embed the chunk text
+    const embedResult = await env.AI.run('@cf/baai/bge-base-en-v1.5', {
+      text: [body.text.slice(0, 2048)],
+    }) as { data: number[][] };
+
+    const embedding = embedResult.data[0];
+    if (!embedding || embedding.length === 0) {
+      return json({ error: 'Embedding failed — no vector returned' }, 500, origin);
+    }
+
+    // 2. Upsert into CASE_HISTORY — vector ID is "caseId:chunkId" to allow
+    //    safe re-indexing (upsert overwrites the same ID on re-run).
+    const vectorId = `${body.caseId}:${body.chunkId}`.slice(0, 96).replace(/[^a-zA-Z0-9:_-]/g, '_');
+
+    await env.CASE_HISTORY.upsert([{
+      id:       vectorId,
+      values:   embedding,
+      metadata: {
+        caseId:    body.caseId,
+        chunkId:   body.chunkId,
+        type:      body.type ?? 'digest',
+        createdAt: body.createdAt ?? new Date().toISOString(),
+        // Store the text itself in metadata (max 10KB) so we don't need R2
+        // for case chunks. Case chunks are much smaller than statute PDFs.
+        text:      body.text.slice(0, 8192),
+      },
+    }]);
+
+    return json({ ok: true, vectorId }, 200, origin);
+
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Unknown error';
+    return json({ ok: false, error: msg }, 500, origin);
+  }
+}
+
+async function handleCaseQuery(req: Request, env: Env): Promise<Response> {
+  const origin = req.headers.get('Origin') || '*';
+
+  if (!env.CASE_HISTORY) {
+    return json({ error: 'CASE_HISTORY Vectorize binding not configured' }, 503, origin);
+  }
+
+  const body = await req.json() as {
+    caseId?: string;
+    query?:  string;
+    topK?:   number;
+    type?:   string;  // optional CaseChunkType filter
+  };
+
+  if (!body.caseId || !body.query?.trim()) {
+    return json({ error: 'caseId and query are required' }, 400, origin);
+  }
+
+  try {
+    // 1. Embed the query
+    const embedResult = await env.AI.run('@cf/baai/bge-base-en-v1.5', {
+      text: [body.query.slice(0, 2048)],
+    }) as { data: number[][] };
+
+    const embedding = embedResult.data[0];
+    if (!embedding || embedding.length === 0) {
+      return json({ results: [] }, 200, origin);
+    }
+
+    // 2. Query CASE_HISTORY scoped to this case
+    const filter: Record<string, unknown> = { caseId: body.caseId };
+    if (body.type) filter.type = body.type;
+
+    const queryOpts: VectorizeQueryOptions = {
+      topK:           Math.min(body.topK ?? 5, 10),
+      returnMetadata: 'all',
+      filter:         filter as VectorizeVectorMetadataFilter,
+    };
+
+    const results = await env.CASE_HISTORY.query(embedding, queryOpts);
+
+    // 3. Shape into CaseChunk[] — text is stored directly in metadata
+    const chunks = (results.matches || [])
+      .filter(m => (m.score ?? 0) > 0.50 && m.metadata?.text)
+      .map(m => ({
+        chunkId:   m.metadata!.chunkId as string,
+        caseId:    m.metadata!.caseId  as string,
+        type:      m.metadata!.type    as string,
+        text:      m.metadata!.text    as string,
+        createdAt: m.metadata!.createdAt as string,
+        score:     m.score ?? 0,
+      }));
+
+    return json({ results: chunks }, 200, origin);
+
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Unknown error';
+    return json({ results: [], error: msg }, 500, origin);
+  }
+}
+
 // ── Cases ─────────────────────────────────────────────────────────────────────
 
 async function handleGetCases(req: Request, env: Env): Promise<Response> {
@@ -1012,10 +1152,13 @@ export default {
     const path   = url.pathname;
     const method = req.method;
 
-    if (method === 'POST' && path === '/chat')   return handleChat(req, env);
-    if (method === 'POST' && path === '/embed')  return handleEmbed(req, env);
-    if (method === 'POST' && path === '/query')  return handleQuery(req, env);
-    if (method === 'POST' && path === '/ingest') return handleIngest(req, env);
+    if (method === 'POST' && path === '/chat')        return handleChat(req, env);
+    if (method === 'POST' && path === '/embed')       return handleEmbed(req, env);
+    if (method === 'POST' && path === '/query')       return handleQuery(req, env);
+    if (method === 'POST' && path === '/ingest')      return handleIngest(req, env);
+    // Phase 6 — Case History RAG
+    if (method === 'POST' && path === '/case-embed')  return handleCaseEmbed(req, env);
+    if (method === 'POST' && path === '/case-query')  return handleCaseQuery(req, env);
 
     if (method === 'GET'    && path === '/cases')     return handleGetCases(req, env);
     if (method === 'PUT'    && path === '/case')      return handlePutCase(req, env);
