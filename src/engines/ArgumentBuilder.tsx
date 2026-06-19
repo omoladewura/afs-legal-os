@@ -22,7 +22,7 @@ import type { Case, ArgumentVersion } from '@/types';
 import { T } from '@/constants/tokens';
 import { callClaude } from '@/services/api';
 import { useIntelligence } from '@/hooks/useIntelligence';
-import { Spinner, RoleBadge, Md } from '@/components/common/ui';
+import { Spinner, RoleBadge, Md, TypeDeleteModal } from '@/components/common/ui';
 import { copyToClipboard, uid } from '@/utils';
 import { loadArgVersions, saveArgVersion, deleteArgVersion } from '@/storage/helpers';
 import {
@@ -269,6 +269,9 @@ export function ArgumentBuilder({ activeCase }: Props) {
   // ── Copy ──────────────────────────────────────────────────────────────────
   const [copied, setCopied] = useState(false);
 
+  // ── Delete confirmation ──────────────────────────────────────────────────
+  const [deleteModal, setDeleteModal] = useState<string | null>(null);
+
   // Load versions on mount
   useEffect(() => {
     loadArgVersions(caseId).then(v => { setVersions(v); setVersLoading(false); });
@@ -436,11 +439,17 @@ Now produce the ${typeObj?.label || argType}:`;
     }
   }
 
-  async function handleDeleteVersion(id: string) {
-    if (!window.confirm('Delete this version? This cannot be recovered.')) return;
+  function handleDeleteVersion(id: string) {
+    setDeleteModal(id);
+  }
+
+  async function confirmDeleteVersion() {
+    if (!deleteModal) return;
+    const id = deleteModal;
     await deleteArgVersion(id);
     setVersions(prev => prev.filter(v => v.id !== id));
     if (viewVer?.id === id) setViewVer(null);
+    setDeleteModal(null);
   }
 
   async function handleCopy(text: string) {
@@ -490,6 +499,14 @@ Now produce the ${typeObj?.label || argType}:`;
   // ─────────────────────────────────────────────────────────────────────────
   return (
     <div style={{ animation: 'fadeUp .3s ease' }}>
+
+      {deleteModal && (
+        <TypeDeleteModal
+          label="argument version"
+          onConfirm={confirmDeleteVersion}
+          onCancel={() => setDeleteModal(null)}
+        />
+      )}
 
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, marginBottom: 22, paddingBottom: 20, borderBottom: `1px solid ${T.bdr}` }}>

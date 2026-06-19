@@ -76,6 +76,32 @@ import {
 } from '@/utils/periodComputer';
 
 // ─────────────────────────────────────────────────────────────────────────────
+// PHONE NOTIFICATIONS — service worker registration + push notify helper
+// ─────────────────────────────────────────────────────────────────────────────
+async function registerSW() {
+  if (!('serviceWorker' in navigator) || !('Notification' in window)) return null;
+  try {
+    const reg = await navigator.serviceWorker.register('/sw.js');
+    return reg;
+  } catch { return null; }
+}
+
+async function requestAndNotify(title: string, body: string) {
+  if (!('Notification' in window)) return;
+  if (Notification.permission === 'denied') return;
+  if (Notification.permission !== 'granted') {
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') return;
+  }
+  const reg = await registerSW();
+  if (reg) {
+    reg.showNotification(title, { body, icon: '/favicon.ico', tag: 'afs-alert', renotify: true });
+  } else {
+    new Notification(title, { body });
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // TYPES
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -866,7 +892,18 @@ function AlertCard({
               {alert.title}
             </p>
           </div>
-          {/* Dismiss button */}
+          {/* Notify + Dismiss buttons */}
+          <button
+            onClick={() => requestAndNotify(alert.title, alert.body)}
+            title="Send phone notification"
+            style={{
+              background: 'transparent', border: 'none',
+              color: '#3a3a4a', cursor: 'pointer',
+              fontSize: 13, padding: '0 4px', lineHeight: 1, flexShrink: 0,
+            }}
+          >
+            🔔
+          </button>
           <button
             onClick={() => onDismiss(alert.id)}
             title="Dismiss alert"
@@ -1041,6 +1078,9 @@ export function AlertsEngine({ activeCase }: AlertsEngineProps) {
   const [aiGenerated,  setAIGenerated]  = useState(false);
   const [filter,       setFilter]       = useState<AlertSeverity | 'ALL'>('ALL');
   const [showDismissed, setShowDismissed] = useState(false);
+
+  // ── Register service worker for phone notifications ─────────────────────
+  useEffect(() => { registerSW(); }, []);
 
   // ── Load docket data ──────────────────────────────────────────────────────
   useEffect(() => {

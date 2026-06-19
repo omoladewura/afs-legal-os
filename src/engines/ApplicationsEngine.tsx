@@ -22,7 +22,7 @@ import { useAI } from '@/hooks/useAI';
 import { useIntelligence } from '@/hooks/useIntelligence';
 import { buildRoleSystemPrompt } from '@/utils/rolePrompt';
 import { loadBlindSpot, saveBlindSpot, uid } from '@/storage/helpers';
-import { Md, ErrorBlock } from '@/components/common/ui';
+import { Md, ErrorBlock, TypeDeleteModal } from '@/components/common/ui';
 import { COUNSEL_ROLE_COLORS, MATTER_TRACK_COLORS } from '@/types';
 import {
   queryStatutes,
@@ -426,6 +426,7 @@ function IssueBuilder({
   const [statuteChunks,   setStatuteChunks]   = useState<StatuteChunk[]>([]);
   const [statuteRagError, setStatuteRagError] = useState('');
   const [ragFetching,     setRagFetching]     = useState(false);
+  const [deleteModal,     setDeleteModal]     = useState<string | null>(null);
 
   const sideLabel = side === 'support' ? 'Written Address in Support' : 'Written Address in Opposition';
 
@@ -436,8 +437,12 @@ function IssueBuilder({
   function startEdit(iss: ArgumentIssue) { setDraftIssue({ ...iss }); setEditingId(iss.id); }
   function cancelEdit() { setDraftIssue(null); setEditingId(null); clearError(); }
   function removeIssue(id: string) {
-    if (!confirm('Remove this issue?')) return;
-    onIssuesChange(issues.filter(i => i.id !== id));
+    setDeleteModal(id);
+  }
+  function confirmRemoveIssue() {
+    if (!deleteModal) return;
+    onIssuesChange(issues.filter(i => i.id !== deleteModal));
+    setDeleteModal(null);
   }
 
   async function generateIssue() {
@@ -545,6 +550,14 @@ ${facts.keyFacts ? 'Key Facts: ' + facts.keyFacts : ''}
 
   return (
     <div>
+      {deleteModal && (
+        <TypeDeleteModal
+          label="issue"
+          onConfirm={confirmRemoveIssue}
+          onCancel={() => setDeleteModal(null)}
+        />
+      )}
+
       <div style={{ fontSize: 12, color: '#808098', marginBottom: 18, lineHeight: 1.6 }}>
         Build the {sideLabel} issue by issue. Each issue uses IRAC — Issue → Rule → Application → Conclusion.
         Statute RAG fires automatically. When all issues are ready, assemble into the full Written Address.
