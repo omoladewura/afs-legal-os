@@ -38,6 +38,7 @@ import { LoadingBlock } from '@/components/common/ui';
 import { PartyLabelsProvider } from '@/components/PartyLabelsContext';
 import { T } from '@/constants/tokens';
 import { saveCase } from '@/storage/helpers';
+import { maybeCompressIntelligence } from '@/services/compressIntelligence';
 import type { Case, DashTabId } from '@/types';
 import {
   MATTER_TRACK_LABELS,
@@ -141,7 +142,11 @@ export function CaseDashboard() {
   const onSaveIntel = useCallback(async (data: unknown) => {
     const patch = { intelligence_data: data as Case['intelligence_data'] };
     updateActiveCase(patch);
-    await saveCase({ ...activeCase, ...patch });
+    const saved = { ...activeCase, ...patch };
+    await saveCase(saved);
+    // Phase 5: trigger digest compression once intPkg is generated (stage 5).
+    // maybeCompressIntelligence is a no-op until shouldCompress() returns true.
+    await maybeCompressIntelligence(saved, saveCase, updateActiveCase);
   }, [activeCase, updateActiveCase]);
 
   const onSaveAppeal = useCallback(async (data: unknown) => {
