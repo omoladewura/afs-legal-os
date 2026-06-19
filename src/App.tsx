@@ -26,6 +26,7 @@ import { CaseDashboard } from '@/pages/CaseDashboard';
 import { ResearchResolver } from '@/engines/ResearchResolver';
 import { SettingsPanel } from '@/pages/SettingsPanel';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
+import { ToastHost } from '@/components/common/ui';
 import { FloatingEngines } from '@/components/FloatingEngines';
 import { MatrimonialDashboard } from '@/matrimonial/MatrimonialDashboard';
 import { T } from '@/constants/tokens';
@@ -87,6 +88,8 @@ export function App() {
 
       {/* Floating AI Copilot + Applications Engine — case workspaces only */}
       {(view === 'engine' || view === 'matrimonial') && <FloatingEngines />}
+
+      <ToastHost />
     </>
   );
 }
