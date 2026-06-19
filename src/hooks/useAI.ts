@@ -29,6 +29,7 @@ import { useState, useCallback } from 'react';
 import { callClaude, ApiError } from '@/services/api';
 import { buildRoleSystemPrompt } from '@/utils/rolePrompt';
 import { buildRoleLibraryOpts, deriveRoleHint } from '@/utils/roleLibrary';
+import { appendTokenLog } from '@/storage/helpers';
 import type { ApiRequestOptions, Case } from '@/types';
 
 interface UseAIReturn {
@@ -89,8 +90,15 @@ export function useAI(activeCase?: Case): UseAIReturn {
         };
       }
 
-      const result = await callClaude(finalOpts);
-      return result;
+      const { text, usage } = await callClaude(finalOpts);
+
+      // Fire-and-forget token telemetry — never blocks the caller
+      if (activeCase?.id) {
+        const engineHint = finalOpts.libraryOpts?.queryHint ?? 'unknown';
+        appendTokenLog(activeCase.id, engineHint, usage);
+      }
+
+      return text;
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : (e as Error).message ?? 'Unknown error';
       setError(msg);
