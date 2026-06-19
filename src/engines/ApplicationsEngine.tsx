@@ -178,6 +178,9 @@ const APP_TYPES: AppTypeConfig[] = [
   { id: 'civil_extension_time', label: 'Extension of Time', icon: '⏰', track: 'civil',
     package: ['Motion on Notice', 'Affidavit Explaining Delay', 'Written Address in Support', 'List of Authorities'],
     hint: 'Extension of time — account for every day of delay; apply Bowaje v Adediwura two-condition test.' },
+  { id: 'civil_summary_judgment', label: 'Summary Judgment', icon: '⚖', track: 'civil',
+    package: ['Motion on Notice', 'Supporting Affidavit', 'Written Address in Support', 'List of Authorities'],
+    hint: 'Summary judgment where defendant has no real or bona fide defence — Ord 11 or equivalent. Address each purported defence and why it fails.' },
   // Criminal
   { id: 'crim_bail', label: 'Bail Application', icon: '🔓', track: 'criminal',
     package: ['Formal Application', 'Affidavit in Support', 'Written Address', 'Proposed Bail Conditions', 'List of Authorities'],
