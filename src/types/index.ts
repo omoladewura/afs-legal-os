@@ -197,6 +197,124 @@ export interface IntelligenceData {
    * Prevents redundant re-compression on every stage-5 save.
    */
   digest_at?: string;
+
+  // ── Phase 1B — Engine output fields ──────────────────────────────────────
+  // Populated by Intelligence Engine steps; read by CaseCommand + StrategyHub.
+  // Each field is optional so pre-existing cases without the data degrade
+  // gracefully (engines treat undefined as "not yet run").
+
+  /**
+   * Commencement Audit — persisted by Intelligence Step 2b.
+   * Ports ComplianceEngine (Full Compliance Audit + Limitation Calculator +
+   * Service Validator) into the pipeline.
+   */
+  commencement_audit?: {
+    /** ISO timestamp of last run */
+    run_at:       string;
+    /** Structured findings from the AI audit (markdown string) */
+    findings:     string;
+    /** Limitation period: calculated expiry date (ISO) or descriptive string */
+    limitation_expiry?: string;
+    /** Service validity conclusion */
+    service_valid?: boolean;
+    /** Short verdict surfaced in Case Command: 'CLEAR' | 'RISK' | 'DEFECTIVE' */
+    status:       'CLEAR' | 'RISK' | 'DEFECTIVE';
+    /** One-line summary for Case Command position strip */
+    summary:      string;
+  };
+
+  /**
+   * Risk Verdict — persisted by Intelligence Step 5b.
+   * Ports RiskAnalytics (8-dimension scoring + FILE/NEGOTIATE/SETTLE/WALK_AWAY)
+   * and merges WarRoom's Appellate Vulnerabilities narrative into
+   * appeal_survivability rather than scoring it twice.
+   */
+  risk_verdict?: {
+    /** ISO timestamp of last run */
+    run_at:       string;
+    /** Scores 0–100 across each dimension */
+    scores: {
+      procedural:              number;
+      evidential:              number;
+      witness_vulnerability:   number;
+      jurisdictional_risk:     number;
+      burden_satisfaction:     number;
+      settlement_advisability: number;
+      /** Includes merged appellate vulnerabilities narrative */
+      appeal_survivability:    number;
+      opponent_threat:         number;
+    };
+    /** One-line reasoning per dimension */
+    reasoning: {
+      procedural:              string;
+      evidential:              string;
+      witness_vulnerability:   string;
+      jurisdictional_risk:     string;
+      burden_satisfaction:     string;
+      settlement_advisability: string;
+      appeal_survivability:    string;
+      opponent_threat:         string;
+    };
+    /** 2–3 sentence strategic recommendation */
+    recommendation: string;
+    /** Top-level strategic verdict */
+    verdict:        'FILE' | 'NEGOTIATE' | 'SETTLE' | 'WALK_AWAY';
+    /**
+     * BATNA notes folded in from BlindSpots Settlement Tracker (Phase 4B).
+     * Stored here so CaseCommand can show the full strategic picture from one field.
+     */
+    batna_notes?:   string;
+  };
+
+  /**
+   * Conflict Scan — persisted by Phase 4.
+   * Built from a query across the cases table (parties + subject matter).
+   * Replaces the standalone Conflict Checker module in BlindSpots.
+   */
+  conflict_scan?: {
+    /** ISO timestamp of last run */
+    run_at:       string;
+    /** true = no conflict detected; false = at least one conflicting case found */
+    clear:        boolean;
+    /** List of case IDs that triggered a conflict flag */
+    conflicts:    Array<{
+      case_id:    string;
+      case_ref:   string;
+      overlap:    string;   // description of the overlapping party / subject
+    }>;
+    /** One-line summary for Case Command position strip */
+    summary:      string;
+  };
+
+  /**
+   * Counterclaim Detected — persisted by Intelligence Step 2 extraction (Phase 6A).
+   * Written when the extraction prompt detects counterclaim facts in the raw narrative.
+   * Read by PleadingsEngine to auto-suggest a counterclaim section.
+   */
+  counterclaim_detected?: {
+    /** Whether the extraction found credible counterclaim facts */
+    flag:         boolean;
+    /** Brief description of the detected counterclaim basis (if flag is true) */
+    summary?:     string;
+  };
+
+  /**
+   * Authority Grounding — persisted by Intelligence Step 5 (Phase 5).
+   * Ports hierarchy-mapping and overruled/conflicting-authority detection
+   * from AuthorityValidator into the pipeline package.
+   */
+  authority_grounding?: {
+    /** ISO timestamp of last run */
+    run_at:       string;
+    /** Narrative: court hierarchy mapping + binding/persuasive analysis (markdown) */
+    hierarchy_map:          string;
+    /** Narrative: overruled or conflicting authorities flagged (markdown) */
+    conflict_flags:         string;
+    /** Overall grounding status for Case Command display */
+    status:       'GROUNDED' | 'GAPS' | 'CONFLICTS';
+    /** One-line summary for Case Command position strip */
+    summary:      string;
+  };
 }
 
 export interface AppealData {
@@ -790,7 +908,7 @@ export type DashTabId =
   | 'property' | 'ancillary_applications' | 'decree_enforcement'
   // Master Plan — Four Merged Engines (Phases 1–4)
   | 'case_command'       // Phase 1 — replaces overview
-  | 'case_intelligence'  // Phase 2 — new tab
+  | 'strategy_hub'       // Phase 1A rename of case_intelligence
   | 'written_address'    // Phase 3 — replaces builder + final_address
   // Trial Engine Consolidation (Build Plan v2, Phase 3)
   | 'trial';             // unified trial engine — replaces crossexam
