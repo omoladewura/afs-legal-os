@@ -1549,6 +1549,18 @@ function ArgumentBuilderStage({ activeCase, appType, facts, stage3, onStage3, sy
   // 2D-ii — badge shown when a template was used in the last IssueBuilder draft call
   const [templateBadge, setTemplateBadge] = useState<{ appType: string; jurisdiction: string } | null>(null);
 
+  // Fix (Phase 10F-i smoke test): these MUST be declared before the early
+  // `return` below, unconditionally on every render. They were previously
+  // declared after the early return, which meant they were skipped entirely
+  // on the role-selector render (stage3.applicationRole === null) and only
+  // called once a role was picked — a different hook count between renders,
+  // which is a Rules-of-Hooks violation and throws React error #310 the
+  // instant the user selects Mover or Respondent.
+  const [moverTab,     setMoverTab]     = useState<MoverSubTab>('written_address');
+  const [respondentTab, setRespondentTab] = useState<RespondentSubTab>('counter_affidavit');
+  const [editPara,    setEditPara]    = useState<AffidavitParaResponse | null>(null);
+  const [editParaId,  setEditParaId]  = useState<string | null>(null);
+
   // ── Role selection — who are we in THIS application?
   if (!stage3.applicationRole) {
     return (
@@ -1613,12 +1625,7 @@ function ArgumentBuilderStage({ activeCase, appType, facts, stage3, onStage3, sy
     { id: 'further_better_resp',  label: '✍ Further & Better Affidavit' },
   ];
 
-  const [moverTab,     setMoverTab]     = useState<MoverSubTab>('written_address');
-  const [respondentTab, setRespondentTab] = useState<RespondentSubTab>('counter_affidavit');
-
   // ── Counter-Affidavit builder state (Respondent track)
-  const [editPara,    setEditPara]    = useState<AffidavitParaResponse | null>(null);
-  const [editParaId,  setEditParaId]  = useState<string | null>(null);
 
   function startNewPara() {
     setEditPara({ id: uid(), paraNum: '', paraText: '', stance: 'deny', response: '' });
