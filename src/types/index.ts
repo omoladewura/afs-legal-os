@@ -400,6 +400,54 @@ export interface CaseTheoryHistoryEntry {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// CLONE / CASE SELECTOR HELPERS — TRIAL ENGINE CONSOLIDATION (PHASE 10D)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Lightweight case summary for dropdowns and selectors.
+ * Never loads the full Case record — only the fields needed to identify
+ * and label a case in the Clone Draft modal and any future case-picker UI.
+ * Populated by loadAllCases() in helpers.ts (local IndexedDB only — no D1
+ * round trip needed for a selector list).
+ */
+export interface CaseSummary {
+  id:            string;
+  caseName:      string;
+  matter_track?: MatterTrack;
+  counsel_role?: CounselRole;
+  /** Derived from Case.court — closest proxy for jurisdiction on the Case record. */
+  jurisdiction?: string;
+  createdAt:     string;
+}
+
+/**
+ * Minimal structural shape of an ApplicationsEngine record needed for clone
+ * operations. The full ApplicationRecord (with ArgumentIssue[], Stage3Data,
+ * AffidavitParaResponse[], etc.) is defined locally inside
+ * ApplicationsEngine.tsx and is not exported. This interface captures only
+ * the fields the clone helper in helpers.ts reads and writes.
+ *
+ * ApplicationRecord satisfies this interface by structural typing — no
+ * refactor of the engine's local type is required. The cast at the call site
+ * is `record as unknown as CloneableApplicationRecord`.
+ *
+ * facts is typed as Record<string, string> rather than AppFacts so the clone
+ * helper can iterate its keys generically and inject _clone_notice without
+ * knowing AppFacts's exact shape. stage3 is Record<string, unknown> because
+ * the clone operation clears it entirely — its internal structure is
+ * irrelevant to the helper.
+ */
+export interface CloneableApplicationRecord {
+  id:        string;
+  caseId:    string;
+  appType:   string;
+  facts:     Record<string, string>;
+  stage3:    Record<string, unknown>;
+  documents: string;
+  createdAt: string;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // FREP — FUNDAMENTAL RIGHTS ENFORCEMENT PROCEEDINGS
 // ─────────────────────────────────────────────────────────────────────────────
 
