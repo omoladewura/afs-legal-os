@@ -22,7 +22,9 @@ import { useAI } from '@/hooks/useAI';
 import { useIntelligence } from '@/hooks/useIntelligence';
 import { buildRoleSystemPrompt } from '@/utils/rolePrompt';
 import { loadBlindSpot, saveBlindSpot, uid } from '@/storage/helpers';
-import { Md, ErrorBlock, TypeDeleteModal } from '@/components/common/ui';
+import { Md, ErrorBlock, TypeDeleteModal, CaseTheoryBanner } from '@/components/common/ui';
+import { useCaseTheory } from '@/hooks/useCaseTheory';
+import type { CaseTheoryRecord } from '@/types';
 import { COUNSEL_ROLE_COLORS, MATTER_TRACK_COLORS } from '@/types';
 import {
   queryStatutes,
@@ -33,6 +35,20 @@ import {
 } from '@/services/statuteRag';
 import { ArgumentTemplateManager } from './ArgumentTemplateManager';
 import { db } from '@/storage/db';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CASE THEORY — Light injection helper (Phase 9D)
+// Core proposition only — lighter than FinalWrittenAddress injection.
+// Used in appTypes where needsCaseTheory: true.
+// ─────────────────────────────────────────────────────────────────────────────
+
+function buildLightTheoryInjection(theory: CaseTheoryRecord): string {
+  return `CASE THEORY CONTEXT (relevant to this application):
+Core Proposition: ${theory.core_proposition}
+This application must be argued in a manner consistent with and advancing this proposition.
+
+`;
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES
@@ -483,6 +499,8 @@ function IssueBuilder({
   templateBadge, onTemplateBadge,
 }: IssueBuilderProps) {
   const { ask, loading, error, clearError } = useAI(activeCase);
+  // Phase 9D — light theory injection when appType.needsCaseTheory is true
+  const { theory: issueTheory, hasTheory: issueHasTheory } = useCaseTheory(activeCase.id);
   const [editingId,       setEditingId]       = useState<string | null>(null);
   const [draftIssue,      setDraftIssue]      = useState<ArgumentIssue | null>(null);
   const [statuteChunks,   setStatuteChunks]   = useState<StatuteChunk[]>([]);
@@ -608,7 +626,9 @@ What the case must decide: [required ratio/holding in one sentence]
 - Begin immediately with the issue heading.`;
 
     // ── Assemble system prompt — skeleton injected after role context if found
+    // Phase 9D: light theory prepended when needsCaseTheory is true and theory is locked
     const systemPrompt =
+      (appType.needsCaseTheory && issueHasTheory && issueTheory ? buildLightTheoryInjection(issueTheory) : '') +
       systemCtx +
       (skeletonBlock ? skeletonBlock : '') +
       '\nYou are drafting one issue of a Written Address for a Nigerian court. NEVER invent case citations. Use [RESEARCH NEEDED] blocks for uncertain authority.';
@@ -749,7 +769,8 @@ ${facts.keyFacts ? 'Key Facts: ' + facts.keyFacts : ''}
 - Begin with the INTRODUCTION heading.`;
 
     const result = await ask({
-      system: systemCtx, userMsg: prompt, maxTokens: 3500,
+      system: (appType.needsCaseTheory && issueHasTheory && issueTheory ? buildLightTheoryInjection(issueTheory) : '') + systemCtx,
+      userMsg: prompt, maxTokens: 3500,
       libraryOpts: { queryHint: `${appType.label} written address Nigerian court procedure`, topK: 8 },
     });
     if (result) onAddressChange(result.trim());
@@ -1301,6 +1322,8 @@ interface ArgBuilderProps {
 
 function ArgumentBuilderStage({ activeCase, appType, facts, stage3, onStage3, systemCtx }: ArgBuilderProps) {
   const { ask, loading, error } = useAI(activeCase);
+  // Phase 9D — light theory injection for generateReplyLaw when needsCaseTheory is true
+  const { theory: replyTheory, hasTheory: replyHasTheory } = useCaseTheory(activeCase.id);
 
   // 2D-ii — badge shown when a template was used in the last IssueBuilder draft call
   const [templateBadge, setTemplateBadge] = useState<{ appType: string; jurisdiction: string } | null>(null);
@@ -1460,7 +1483,7 @@ STRICT RULES FOR A REPLY ON POINTS OF LAW — MANDATORY:
 Draft the Reply on Points of Law now:`;
 
     const result = await ask({
-      system: systemCtx + '\nYou are drafting a Reply on Points of Law — a strictly limited document responding only to new legal points raised by opposing counsel. No new facts. No new arguments beyond what opposing counsel provoked. NEVER invent case citations.',
+      system: (appType.needsCaseTheory && replyHasTheory && replyTheory ? buildLightTheoryInjection(replyTheory) : '') + systemCtx + '\nYou are drafting a Reply on Points of Law — a strictly limited document responding only to new legal points raised by opposing counsel. No new facts. No new arguments beyond what opposing counsel provoked. NEVER invent case citations.',
       userMsg: prompt, maxTokens: 2000,
       libraryOpts: { queryHint: `reply points of law ${appType.label} Nigerian court`, topK: 5 },
     });
@@ -1981,6 +2004,9 @@ export function ApplicationsEngine({ activeCase }: Props) {
   const { fullContext } = useIntelligence(activeCase, 'facts');
   const systemCtx = buildRoleSystemPrompt(activeCase.matter_track, activeCase.counsel_role) + fullContext;
 
+  // Phase 9D — locked Case Theory for needsCaseTheory appTypes
+  const { theory, locked, score, hasTheory, loading: theoryLoading } = useCaseTheory(activeCase.id);
+
   const [mainTab,     setMainTab]     = useState<MainTab>('new');
   const [stage,       setStage]       = useState<Stage>(1);
   const [trackFilter, setTrackFilter] = useState<TrackFilter>('all');
@@ -2136,7 +2162,7 @@ ASSEMBLY RULES — MANDATORY:
 Begin with the first document heading now:`;
 
     const result = await ask({
-      system: systemCtx,
+      system: (selectedType?.needsCaseTheory && hasTheory && theory ? buildLightTheoryInjection(theory) : '') + systemCtx,
       userMsg: prompt,
       maxTokens: 4500,
       libraryOpts: { queryHint: `${selectedType.label} Nigerian court applications procedure`, topK: 10 },
@@ -2250,6 +2276,17 @@ Begin with the first document heading now:`;
               </React.Fragment>
             ))}
           </div>
+
+          {/* Phase 9D — Case Theory banner, shown from Stage 2 onward for needsCaseTheory appTypes */}
+          {selectedType?.needsCaseTheory && stage >= 2 && (
+            <CaseTheoryBanner
+              theory={theory}
+              locked={locked}
+              score={score}
+              hasTheory={hasTheory}
+              loading={theoryLoading}
+            />
+          )}
 
           {error && <ErrorBlock message={error} />}
 

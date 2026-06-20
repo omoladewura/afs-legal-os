@@ -1,17 +1,18 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import type { Case } from '@/types';
-import type { ArgumentVersion } from '@/types';
+import type { ArgumentVersion, CaseTheoryRecord } from '@/types';
 import { T } from '@/constants/tokens';
 import { useAI } from '@/hooks/useAI';
 import { useIntelligence } from '@/hooks/useIntelligence';
 import { useCaseContext } from '@/hooks/useCaseContext';
+import { useCaseTheory } from '@/hooks/useCaseTheory';
 import { buildRoleSystemPrompt } from '@/utils/rolePrompt';
 import { getPartyLabels } from '@/utils/getPartyLabels';
 import { queryStatutes, isRagConfigured } from '@/services/statuteRag';
 import { callClaude } from '@/services/api';
 import { loadArgVersions, saveArgVersion, deleteArgVersion } from '@/storage/helpers';
 import { getLawSync } from '@/law/registry';
-import { Md, Spinner, ErrorBlock } from '@/components/common/ui';
+import { Md, Spinner, ErrorBlock, CaseTheoryBanner } from '@/components/common/ui';
 import { copyToClipboard, uid } from '@/utils';
 import {
   FAIR_HEARING_REFERENCE,
@@ -48,6 +49,31 @@ const dimS: React.CSSProperties = {
 };
 
 const ACC = '#4a7ed0';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CASE THEORY INJECTION — Trial Engine Consolidation, Phase 9A
+//
+// Final Written Address is flagged needsCaseTheory: true (always) in the
+// build plan's Decision 1 table. Every draft call below (civil, criminal,
+// reply) prepends this block to the system prompt whenever a locked theory
+// exists. Lighter, narrative-style context (just the core proposition) is
+// used elsewhere (ApplicationsEngine, Phase 9D); the full structured record
+// is appropriate here because the Final Address is the document the theory
+// is most directly built to win.
+// ─────────────────────────────────────────────────────────────────────────────
+
+function buildTheoryInjection(theory: CaseTheoryRecord): string {
+  return `LOCKED CASE THEORY:
+Core Proposition: ${theory.core_proposition}
+Elements to Establish: ${theory.elements.map(e => e.element).join('; ')}
+Opposing Theory: ${theory.opposing_theory}
+Theory Killer: ${theory.theory_killer}
+Narrative Theme: ${theory.narrative_theme}
+
+Every issue argued in this Final Written Address must advance the Core Proposition or defeat the Opposing Theory. Do not raise issues that are neutral to this theory. Every submission must serve the verdict we are driving toward.
+
+`;
+}
 
 function Btn({ onClick, loading, disabled, label, accent = '#40a860' }: {
   onClick: () => void; loading: boolean; disabled?: boolean; label: string; accent?: string;
@@ -380,6 +406,10 @@ function CivilDrafterTab({ activeCase, onDraftSaved }: {
   const { fullContext } = useCaseContext(activeCase, { query: activeCase?.caseName ?? '', engine: 'FinalWrittenAddress' });
   const labels = getPartyLabels(activeCase);
 
+  // Phase 9A — locked Case Theory, read locally so this tab can inject and
+  // run the Theory Consistency Check independently of the engine shell.
+  const { theory, locked, score, hasTheory, loading: theoryLoading } = useCaseTheory(activeCase.id);
+
   const [issues,      setIssues]      = useState<IssueEntry[]>([
     { id: uid(), issue: '', rule: '', application: '', conclusion: '' },
   ]);
@@ -387,6 +417,33 @@ function CivilDrafterTab({ activeCase, onDraftSaved }: {
   const [draft,       setDraft]       = useState('');
   const [ragFetching, setRagFetching] = useState(false);
   const [ragError,    setRagError]    = useState('');
+
+  // Phase 9A — Theory Consistency Check result for the assembled draft
+  const [checkRunning, setCheckRunning] = useState(false);
+  const [checkResult,  setCheckResult]  = useState('');
+  const { ask: checkAsk } = useAI(activeCase);
+
+  async function runTheoryCheck() {
+    if (!theory || !draft.trim()) return;
+    setCheckRunning(true);
+    setCheckResult('');
+    const result = await checkAsk({
+      system: 'You are a senior Nigerian advocate reviewing a completed Final Written Address against the locked Case Theory for drift. Be specific and surgical.',
+      userMsg: `LOCKED CASE THEORY:
+Core Proposition: ${theory.core_proposition}
+Elements to Establish: ${theory.elements.map(e => e.element).join('; ')}
+Opposing Theory: ${theory.opposing_theory}
+Theory Killer: ${theory.theory_killer}
+
+DRAFT FINAL WRITTEN ADDRESS:
+${draft}
+
+For each issue or major submission in the draft, state whether it advances the Core Proposition, defeats the Opposing Theory, or is neutral to the theory. Flag every submission that is neutral or drifts off-theory with a specific note on how to fix it — name the issue, explain the gap, and suggest the precise addition or reframing needed. If every issue is theory-consistent, say so plainly. Be concise — a short flagged list, not a rewritten draft.`,
+      maxTokens: 1200,
+    });
+    setCheckRunning(false);
+    if (result) setCheckResult(result.trim());
+  }
 
   function addIssue() {
     setIssues(prev => [...prev, { id: uid(), issue: '', rule: '', application: '', conclusion: '' }]);
@@ -454,7 +511,7 @@ FORMAT:
 Produce the complete Final Written Address now.`;
 
     const result = await ask({
-      system: FWA_SENIOR_COUNSEL_SYSTEM + fullContext,
+      system: (hasTheory && theory ? buildTheoryInjection(theory) : '') + FWA_SENIOR_COUNSEL_SYSTEM + fullContext,
       userMsg,
       maxTokens: 4000,
       matter_track: activeCase.matter_track,
@@ -464,11 +521,19 @@ Produce the complete Final Written Address now.`;
     if (result) {
       setDraft(result.trim());
       onDraftSaved(result.trim());
+      setCheckResult('');
     }
   }
 
   return (
     <div>
+      <CaseTheoryBanner
+        theory={theory}
+        locked={locked}
+        score={score}
+        hasTheory={hasTheory}
+        loading={theoryLoading}
+      />
       <div style={cardS}>
         <h3 style={hS}>Civil / FREP — Final Written Address</h3>
         <p style={dimS}>
@@ -579,6 +644,36 @@ Produce the complete Final Written Address now.`;
               clear draft ×
             </button>
           </div>
+          {hasTheory && (
+            <div style={{ marginTop: 12 }}>
+              <button
+                onClick={runTheoryCheck}
+                disabled={checkRunning || !draft}
+                style={{
+                  background: 'transparent', border: `1px solid ${ACC}50`,
+                  color: ACC, borderRadius: 5, padding: '6px 16px', fontSize: 11,
+                  fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer',
+                }}
+              >
+                {checkRunning ? 'Checking…' : 'Theory Consistency Check'}
+              </button>
+            </div>
+          )}
+          {checkResult && (
+            <div style={{
+              marginTop: 14, padding: '14px 16px',
+              background: '#070714', border: `1px solid ${ACC}30`,
+              borderRadius: 6,
+            }}>
+              <div style={{
+                fontSize: 10, color: ACC, fontFamily: "'Times New Roman', Times, serif",
+                fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 8,
+              }}>
+                Theory Consistency Check
+              </div>
+              <Md text={checkResult} />
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -594,14 +689,42 @@ function CriminalDrafterTab({ activeCase, onDraftSaved }: {
   onDraftSaved: (draft: string) => void;
 }) {
   const { ask, loading, error } = useAI(activeCase);
+  const { ask: checkAsk }       = useAI(activeCase);
   const { fullContext } = useCaseContext(activeCase, { query: activeCase?.caseName ?? '', engine: 'FinalWrittenAddress' });
   const isPros = activeCase.counsel_role === 'prosecution';
   const accent = isPros ? '#c04040' : '#4a7ed0';
 
-  const [context, setContext] = useState('');
-  const [draft,   setDraft]   = useState('');
+  // Phase 9A — locked Case Theory
+  const { theory, locked, score, hasTheory, loading: theoryLoading } = useCaseTheory(activeCase.id);
+
+  const [context,      setContext]      = useState('');
+  const [draft,        setDraft]        = useState('');
+  const [checkRunning, setCheckRunning] = useState(false);
+  const [checkResult,  setCheckResult]  = useState('');
 
   const intPkg = (activeCase as any).intelligence_data?.intPkg ?? '';
+
+  async function runTheoryCheck() {
+    if (!theory || !draft.trim()) return;
+    setCheckRunning(true);
+    setCheckResult('');
+    const result = await checkAsk({
+      system: 'You are a senior Nigerian advocate reviewing a completed Final Written Address against the locked Case Theory for drift. Be specific and surgical.',
+      userMsg: `LOCKED CASE THEORY:
+Core Proposition: ${theory.core_proposition}
+Elements to Establish: ${theory.elements.map(e => e.element).join('; ')}
+Opposing Theory: ${theory.opposing_theory}
+Theory Killer: ${theory.theory_killer}
+
+DRAFT FINAL WRITTEN ADDRESS:
+${draft}
+
+For each issue or major submission in the draft, state whether it advances the Core Proposition, defeats the Opposing Theory, or is neutral to the theory. Flag every neutral or off-theory submission with a specific note: name the issue, explain the gap, and suggest the precise fix. If every issue is theory-consistent, say so plainly. Concise flagged list, not a rewritten draft.`,
+      maxTokens: 1200,
+    });
+    setCheckRunning(false);
+    if (result) setCheckResult(result.trim());
+  }
 
   async function generate() {
     const userMsg = isPros
@@ -646,7 +769,7 @@ Structure:
 ${RESEARCH_BLOCK_INSTRUCTION}`;
 
     const result = await ask({
-      system: `You are a Nigerian ${isPros ? 'prosecution' : 'criminal defence'} counsel drafting a final written address for filing at the close of a criminal trial. Apply ACJA 2015, Evidence Act 2011, and the criminal procedure of the relevant court. Use formal Nigerian court drafting.` + FWA_SENIOR_COUNSEL_SYSTEM + fullContext,
+      system: (hasTheory && theory ? buildTheoryInjection(theory) : '') + `You are a Nigerian ${isPros ? 'prosecution' : 'criminal defence'} counsel drafting a final written address for filing at the close of a criminal trial. Apply ACJA 2015, Evidence Act 2011, and the criminal procedure of the relevant court. Use formal Nigerian court drafting.` + FWA_SENIOR_COUNSEL_SYSTEM + fullContext,
       userMsg,
       maxTokens: 4000,
       matter_track: activeCase.matter_track,
@@ -656,11 +779,19 @@ ${RESEARCH_BLOCK_INSTRUCTION}`;
     if (result) {
       setDraft(result.trim());
       onDraftSaved(result.trim());
+      setCheckResult('');
     }
   }
 
   return (
     <div>
+      <CaseTheoryBanner
+        theory={theory}
+        locked={locked}
+        score={score}
+        hasTheory={hasTheory}
+        loading={theoryLoading}
+      />
       <div style={cardS}>
         <h3 style={hS}>{isPros ? 'Prosecution' : 'Defence'} Final Written Address</h3>
         <div style={{
@@ -717,6 +848,36 @@ ${RESEARCH_BLOCK_INSTRUCTION}`;
               fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer',
             }}>clear ×</button>
           </div>
+          {hasTheory && (
+            <div style={{ marginTop: 12 }}>
+              <button
+                onClick={runTheoryCheck}
+                disabled={checkRunning || !draft}
+                style={{
+                  background: 'transparent', border: `1px solid ${accent}50`,
+                  color: accent, borderRadius: 5, padding: '6px 16px', fontSize: 11,
+                  fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer',
+                }}
+              >
+                {checkRunning ? 'Checking…' : 'Theory Consistency Check'}
+              </button>
+            </div>
+          )}
+          {checkResult && (
+            <div style={{
+              marginTop: 14, padding: '14px 16px',
+              background: '#070714', border: `1px solid ${accent}30`,
+              borderRadius: 6,
+            }}>
+              <div style={{
+                fontSize: 10, color: accent, fontFamily: "'Times New Roman', Times, serif",
+                fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 8,
+              }}>
+                Theory Consistency Check
+              </div>
+              <Md text={checkResult} />
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -736,13 +897,18 @@ function ReplyTab({ activeCase }: { activeCase: Case }) {
     ? (isPros ? '#c04040' : '#4a7ed0')
     : ACC;
 
+  // Phase 9A — light theory injection (core proposition only)
+  const { theory, hasTheory } = useCaseTheory(activeCase.id);
+
   const [replyContext, setReplyContext] = useState('');
   const [replyDraft,   setReplyDraft]   = useState('');
 
   async function generate() {
     if (!replyContext.trim()) return;
     const result = await ask({
-      system: `You are a Nigerian advocate drafting a Reply on Points of Law. A reply is strictly limited to new points of law raised by the opposing side in their Final Written Address. You cannot re-argue the case, introduce new facts, or repeat your original address. Be precise and cite authority.` + fullContext,
+      system: (hasTheory && theory
+        ? `CASE THEORY CONTEXT:\nCore Proposition: ${theory.core_proposition}\nThis Reply must not undermine the Core Proposition.\n\n`
+        : '') + `You are a Nigerian advocate drafting a Reply on Points of Law. A reply is strictly limited to new points of law raised by the opposing side in their Final Written Address. You cannot re-argue the case, introduce new facts, or repeat your original address. Be precise and cite authority.` + fullContext,
       userMsg: `Draft a Reply on Points of Law for: ${activeCase.caseName}.
 
 New points of law raised by the ${isCriminal ? (isPros ? 'defence' : 'prosecution') : 'opposing party'} (paste or summarise each point):
@@ -2220,6 +2386,9 @@ export function FinalWrittenAddressEngine({ activeCase }: Props) {
 
   const isCriminal = activeCase.matter_track === 'criminal';
 
+  // Phase 9A — top-level theory banner, visible across all stages
+  const { theory, locked, score, hasTheory, loading: theoryLoading } = useCaseTheory(activeCase.id);
+
   // Persist draft for Stage 4 to read
   function handleDraftSaved(draft: string) {
     setCurrentDraft(draft);
@@ -2245,6 +2414,15 @@ export function FinalWrittenAddressEngine({ activeCase }: Props) {
 
       {/* Pipeline bar */}
       <PipelineBar activeStage={activeStage} onStageClick={setActiveStage} />
+
+      {/* Phase 9A — Case Theory banner, always visible across all stages */}
+      <CaseTheoryBanner
+        theory={theory}
+        locked={locked}
+        score={score}
+        hasTheory={hasTheory}
+        loading={theoryLoading}
+      />
 
       {/* Stage nav */}
       <div style={{

@@ -22,7 +22,8 @@ import type { Case, ArgumentVersion } from '@/types';
 import { T } from '@/constants/tokens';
 import { callClaude } from '@/services/api';
 import { useCaseContext } from '@/hooks/useCaseContext';
-import { Spinner, RoleBadge, Md, TypeDeleteModal } from '@/components/common/ui';
+import { Spinner, RoleBadge, Md, TypeDeleteModal, CaseTheoryBanner } from '@/components/common/ui';
+import { useCaseTheory } from '@/hooks/useCaseTheory';
 import { copyToClipboard, uid } from '@/utils';
 import { loadArgVersions, saveArgVersion, deleteArgVersion } from '@/storage/helpers';
 import {
@@ -33,6 +34,26 @@ import {
   type StatuteChunk,
 } from '@/services/statuteRag';
 import { getPartyLabels } from '@/utils/getPartyLabels';
+import type { CaseTheoryRecord } from '@/types';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CASE THEORY INJECTION — Phase 9B
+// Injected into generate() when activeTrack === 'trial' and theory is locked.
+// Duplicated from FinalWrittenAddressEngine — no shared util created intentionally.
+// ─────────────────────────────────────────────────────────────────────────────
+
+function buildTheoryInjection(theory: CaseTheoryRecord): string {
+  return `LOCKED CASE THEORY:
+Core Proposition: ${theory.core_proposition}
+Elements to Establish: ${theory.elements.map(e => e.element).join('; ')}
+Opposing Theory: ${theory.opposing_theory}
+Theory Killer: ${theory.theory_killer}
+Narrative Theme: ${theory.narrative_theme}
+
+Every argument produced must advance the Core Proposition or defeat the Opposing Theory. Do not raise arguments that are neutral to this theory. Every submission must serve the verdict we are driving toward.
+
+`;
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ARGUMENT TYPES — Three tracks: Applications | Trial | Appeal
@@ -225,6 +246,8 @@ function StatuteChunksPanel({ chunks, error }: { chunks: StatuteChunk[]; error?:
 
 export function ArgumentBuilder({ activeCase }: Props) {
   const caseId = activeCase.id;
+  // Phase 9B — locked Case Theory for trial track injection
+  const { theory, locked, score, hasTheory, loading: theoryLoading } = useCaseTheory(caseId);
   const [argType,  setArgType]  = useState<ArgTypeId | ''>('');
   const [argIssue, setArgIssue] = useState('');
   const { fullContext } = useCaseContext(activeCase, {
@@ -404,7 +427,7 @@ Now produce the ${typeObj?.label || argType}:`;
 
     try {
       const text = await callClaude({
-        system: 'You are Senior Counsel at AFS Advocates, a Nigerian litigation firm. You produce court-ready legal arguments grounded in Nigerian law, procedure, and practice. You NEVER invent case citations, names, years, volumes, or law reports — fabricating authorities is a professional disciplinary offence. Where you need a case authority, you output a structured [RESEARCH NEEDED]...[/RESEARCH NEEDED] block with the exact LawPavilion search terms specified in the instruction. Where statute sections are provided from the firm verified library, you cite them directly. You write with the authority and precision of a silk addressing a superior court. You always structure arguments with clear headings, IRAC logic, and a definitive conclusion.' + fullContext,
+        system: (activeTrack === 'trial' && hasTheory && theory ? buildTheoryInjection(theory) : '') + 'You are Senior Counsel at AFS Advocates, a Nigerian litigation firm. You produce court-ready legal arguments grounded in Nigerian law, procedure, and practice. You NEVER invent case citations, names, years, volumes, or law reports — fabricating authorities is a professional disciplinary offence. Where you need a case authority, you output a structured [RESEARCH NEEDED]...[/RESEARCH NEEDED] block with the exact LawPavilion search terms specified in the instruction. Where statute sections are provided from the firm verified library, you cite them directly. You write with the authority and precision of a silk addressing a superior court. You always structure arguments with clear headings, IRAC logic, and a definitive conclusion.' + fullContext,
         userMsg: prompt,
         maxTokens: 4000,
         mcpDrive: driveRAG,
@@ -714,6 +737,17 @@ Now produce the ${typeObj?.label || argType}:`;
             Argument Configuration
           </p>
 
+          {/* Phase 9B — Case Theory banner, trial track only */}
+          {activeTrack === 'trial' && (
+            <CaseTheoryBanner
+              theory={theory}
+              locked={locked}
+              score={score}
+              hasTheory={hasTheory}
+              loading={theoryLoading}
+            />
+          )}
+
           {/* Argument type — track tabs + type cards */}
           <div style={{ marginBottom: 22 }}>
             <label style={{ ...lbS, marginBottom: 10 }}>Argument Type <span style={{ color: '#b06060' }}>*</span></label>
@@ -916,6 +950,30 @@ Now produce the ${typeObj?.label || argType}:`;
               <div style={{ background: '#ffffff', border: `1px solid ${T.bdr}`, borderRadius: 10, padding: '24px 28px' }}>
                 <Md text={draft} />
               </div>
+
+              {/* Phase 9B — Theory Anchor: visible beside draft for trial track when theory locked */}
+              {activeTrack === 'trial' && hasTheory && theory && (
+                <div style={{
+                  marginTop: 16, padding: '16px 18px',
+                  background: '#070714', border: '1px solid #2a2a4a',
+                  borderRadius: 6,
+                }}>
+                  <div style={{
+                    fontSize: 10, color: '#4a7ed0', fontWeight: 700,
+                    fontFamily: "'Times New Roman', Times, serif",
+                    letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 10,
+                  }}>
+                    Theory Anchor — Verify alignment while reviewing
+                  </div>
+                  <div style={{ fontSize: 12, color: T.sub, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.75 }}>
+                    <strong>Core Proposition:</strong> {theory.core_proposition}<br />
+                    <strong>Elements:</strong> {theory.elements.map(e => e.element).join(' · ')}<br />
+                    <strong>Opposing Theory:</strong> {theory.opposing_theory}<br />
+                    <strong>Theory Killer:</strong> {theory.theory_killer}<br />
+                    <strong>Narrative Theme:</strong> {theory.narrative_theme}
+                  </div>
+                </div>
+              )}
 
               <p style={{ fontSize: 10, color: T.bdr, fontFamily: "'Times New Roman', Times, serif", marginTop: 10, textAlign: 'center', lineHeight: 1.7 }}>
                 Statutes: from your verified library. Cases: every [RESEARCH NEEDED] block has ready-made LawPavilion queries — use Research Resolver to plug them in. Never file without confirmed authorities.
