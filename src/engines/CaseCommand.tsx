@@ -3,6 +3,11 @@
  *
  * Single scrollable command centre for every case.
  * Absorbs: CaseOverview · RiskAnalytics · AlertsEngine · ProceduralTimeline · ComplianceEngine
+ *   (Compliance Audit §4 now reads intelligence_data.commencement_audit,
+ *    produced by Intelligence Engine Step 2b — see Phase 2. ComplianceEngine.tsx
+ *    itself was deleted Phase 2C; its Affidavit Checker sub-module — which
+ *    doesn't fit the auto-run-once pipeline pattern — lives on standalone
+ *    in AffidavitChecker.tsx, mounted below the audit display.)
  * Replaces tab: `overview`
  *
  * Seven sections rendered top-to-bottom (no sub-tabs):
@@ -36,6 +41,7 @@ import {
 import { computeNextAction } from '@/utils/nextAction';
 import { extractAnchors } from '@/utils/dateExtractor';
 import { computePeriods, periodStatusConfig, type ComputedPeriod } from '@/utils/periodComputer';
+import { Md } from '@/components/common/ui';
 import type { Case, DocketEntry, Deadline, EvidenceItem, ArgumentVersion, CounselRole } from '@/types';
 import type { DashTabId } from '@/types';
 import {
@@ -49,7 +55,7 @@ import {
 import { RiskAnalytics }       from '@/engines/RiskAnalytics';
 import { AlertsEngine }        from '@/engines/AlertsEngine';
 import { ProceduralTimeline }  from '@/engines/ProceduralTimeline';
-import { ComplianceEngine }    from '@/engines/ComplianceEngine';
+import { AffidavitChecker }    from '@/engines/AffidavitChecker';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DESIGN TOKENS (local)
@@ -244,7 +250,97 @@ function Empty({ label, action }: { label: string; action?: { label: string; onC
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SECTION NAVIGATOR (sticky jump-bar)
+// COMMENCEMENT AUDIT DISPLAY (Phase 2C)
+// Read-only render of intelligence_data.commencement_audit — the audit itself
+// runs in IntelligenceEngine Step 2b (auto-fires after extraction). This panel
+// just surfaces the persisted result; it never calls the AI itself. Mirrors
+// the visual pattern of IntelligenceEngine's own CommencementAuditPanel.
+// ─────────────────────────────────────────────────────────────────────────────
+
+function CommencementAuditDisplay({
+  activeCase,
+  onRunIntelligence,
+}: {
+  activeCase: Case;
+  onRunIntelligence: () => void;
+}) {
+  const audit = activeCase.intelligence_data?.commencement_audit;
+
+  if (!audit) {
+    return (
+      <Empty
+        label="No commencement audit yet — runs automatically after Intelligence Engine extraction (Step 2b)."
+        action={{ label: 'Run Intelligence →', onClick: onRunIntelligence }}
+      />
+    );
+  }
+
+  const statusCfg = {
+    CLEAR:     { bg: '#071810', bdr: '#1a4028', col: '#40b068', icon: '✓' },
+    RISK:      { bg: '#1a1000', bdr: '#3a2800', col: '#c08030', icon: '⚠' },
+    DEFECTIVE: { bg: '#1a0808', bdr: '#401818', col: '#c05050', icon: '✗' },
+  } as const;
+  const sc = statusCfg[audit.status];
+
+  return (
+    <div style={{
+      background: '#0a0a14', border: `1px solid ${sc.bdr}`,
+      borderRadius: 8, padding: '16px 20px',
+      borderLeft: `3px solid ${sc.col}`,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+        <span style={{ fontSize: 9, color: T.mute, fontFamily: SERIF, letterSpacing: '.1em' }}>
+          Last run {fmtDate(audit.run_at)}
+        </span>
+        <span style={{
+          marginLeft: 'auto', background: sc.bg, border: `1px solid ${sc.bdr}`, color: sc.col,
+          fontSize: 8, padding: '2px 8px', borderRadius: 2, fontFamily: SERIF,
+          letterSpacing: '.1em', fontWeight: 700,
+        }}>
+          {sc.icon} {audit.status}
+        </span>
+      </div>
+
+      <p style={{ fontSize: 13, color: sc.col, fontFamily: SERIF, lineHeight: 1.6, marginBottom: 10 }}>
+        {audit.summary}
+      </p>
+
+      {(audit.limitation_expiry || audit.service_valid !== undefined) && (
+        <div style={{ display: 'flex', gap: 16, marginBottom: 12, flexWrap: 'wrap' }}>
+          {audit.limitation_expiry && (
+            <div style={{ background: '#0d0d18', border: '1px solid #1a1a28', borderRadius: 5, padding: '7px 12px' }}>
+              <span style={{ fontSize: 8, color: T.mute, fontFamily: SERIF, letterSpacing: '.1em', textTransform: 'uppercase', display: 'block', marginBottom: 2 }}>
+                Limitation Expiry
+              </span>
+              <span style={{ fontSize: 12, color: '#d0d0e0', fontFamily: SERIF }}>
+                {audit.limitation_expiry}
+              </span>
+            </div>
+          )}
+          {audit.service_valid !== undefined && (
+            <div style={{ background: '#0d0d18', border: '1px solid #1a1a28', borderRadius: 5, padding: '7px 12px' }}>
+              <span style={{ fontSize: 8, color: T.mute, fontFamily: SERIF, letterSpacing: '.1em', textTransform: 'uppercase', display: 'block', marginBottom: 2 }}>
+                Service Valid
+              </span>
+              <span style={{ fontSize: 12, color: audit.service_valid ? '#40b068' : '#c05050', fontFamily: SERIF }}>
+                {audit.service_valid ? 'Yes' : 'No / Unclear'}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+
+      <details style={{ cursor: 'pointer' }}>
+        <summary style={{ fontSize: 10, color: T.mute, fontFamily: SERIF, letterSpacing: '.08em', userSelect: 'none', outline: 'none', listStyle: 'none', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span>▸</span> View full audit findings
+        </summary>
+        <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #131320' }}>
+          <Md text={audit.findings} />
+        </div>
+      </details>
+    </div>
+  );
+}
 // ─────────────────────────────────────────────────────────────────────────────
 
 function SectionNav({ activeSection, onJump }: { activeSection: SectionId; onJump: (id: SectionId) => void }) {
@@ -813,10 +909,14 @@ export function CaseCommand({ activeCase }: Props) {
         <ProceduralTimeline activeCase={activeCase} />
       </Card>
 
-      {/* ── §4 Compliance Audit (ComplianceEngine absorbed) ─────────────── */}
+      {/* ── §4 Compliance Audit (commencement_audit display + AffidavitChecker) ── */}
       <Card id="compliance">
         <SectionLabel id="compliance" icon="⚙" title="Compliance Audit" />
-        <ComplianceEngine activeCase={activeCase} />
+        <CommencementAuditDisplay
+          activeCase={activeCase}
+          onRunIntelligence={() => navigate('intelligence')}
+        />
+        <AffidavitChecker activeCase={activeCase} />
       </Card>
 
       {/* ── §5 Risk Score (RiskAnalytics absorbed) ───────────────────────── */}
