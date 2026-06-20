@@ -1,7 +1,7 @@
 /**
  * AFS Legal OS — Law Registry (Law Change Risk Mitigation)
  *
- * 22 entries covering every hard-coded day count found in the codebase.
+ * 21 entries covering every hard-coded day count found in the codebase.
  * Resolver checks IndexedDB override first, compiled default second.
  *
  * API:
@@ -323,8 +323,24 @@ async function _ensureCache(): Promise<void> {
   _cacheReady = true;
 }
 
+const _warnedMissingIds = new Set<string>();
+
 function _defaultFor(id: string): string {
   const entry = LAW_REGISTRY.find(e => e.id === id);
+  if (!entry && !_warnedMissingIds.has(id)) {
+    _warnedMissingIds.add(id);
+    // AUDIT FINDING (Phase 10A): FinalWrittenAddressEngine.tsx calls
+    // getLawSync('civil_fwa_defendant_days'), 'civil_fwa_claimant_days',
+    // 'civil_fwa_reply_days', and 'criminal_fwa_prosecution_days' — none of
+    // which exist in LAW_REGISTRY (21 entries total, no 'fwa' ids). Those
+    // calls have always silently returned '' with no fallback at the call
+    // site (unlike DecreeEnforcementEngine.tsx and SentencingEngine.tsx,
+    // which guard with `|| 28`, `|| 3`, `|| 30`). This warning surfaces
+    // that gap instead of failing silently. Fixing the call site or adding
+    // the missing registry entries is outside Phase 10A's scope
+    // (src/law/registry.ts only) — flagged here for a follow-up phase.
+    console.warn(`[law/registry] getLawSync/getLaw called with unknown id "${id}" — no LAW_REGISTRY entry exists. Returning ''. Check the call site for a stale or misspelled id.`);
+  }
   return entry ? entry.default : '';
 }
 
@@ -466,6 +482,20 @@ interface JurisdictionProfile {
   departures:        string[];
   /** Division-level practice directions (if any) */
   division_notes:    string[];
+  /**
+   * The exact `LawEntry.jurisdiction` tag in LAW_REGISTRY that this profile's
+   * day-count rules belong to (e.g. 'Lagos'). LAW_REGISTRY currently only
+   * carries structured day-count entries tagged 'Lagos' or 'Federal' — there
+   * are no Delta/Rivers/FCT/Kano/Enugu-specific day-count entries yet, even
+   * though those states have their own ACJL/Rules (captured only as prose in
+   * `departures` / `division_notes`). Leave undefined for any profile that
+   * has no matching structured entries — 'Federal' entries still surface
+   * universally regardless of this tag. See `resolveRelevantRules` audit
+   * note (Phase 10A) — this field exists specifically to stop Lagos-tagged
+   * day counts (e.g. "8 days to enter appearance") from being shown as if
+   * they applied in Delta, Rivers, FCT, Kano, or Enugu courts.
+   */
+  registryTag?:      string;
 }
 
 const JURISDICTION_PROFILES: Record<string, JurisdictionProfile> = {
@@ -476,12 +506,14 @@ const JURISDICTION_PROFILES: Record<string, JurisdictionProfile> = {
     bail_provision:   'ss.158–168 ACJA 2015',
     departures:       [],
     division_notes:   [],
+    registryTag:      'Federal',
   },
   lagos: {
     name:             'Lagos State',
     criminal_statute: 'Administration of Criminal Justice Law (ACJL) Lagos 2015',
     civil_rules:      'Lagos High Court Civil Procedure Rules 2019',
     bail_provision:   'ss.13–20 ACJL Lagos 2015',
+    registryTag:      'Lagos',
     departures: [
       'ACJL Lagos 2015 governs — not ACJA 2015. Provisions differ on remand periods (s.50 ACJL vs s.296 ACJA).',
       'Bail application under s.13 ACJL is addressed to the High Court directly if Magistrate declines.',
@@ -662,8 +694,29 @@ function resolveJurisdictionProfile(courtOrJurisdiction: string): JurisdictionPr
  * Returns all matching entries from LAW_REGISTRY — including current
  * override values from the in-memory cache so the delta reflects any
  * counsel-set overrides, not just compiled defaults.
+ *
+ * AUDIT FINDING (Phase 10A): this function previously filtered ONLY by
+ * appType keyword, never by jurisdiction, despite its own docstring
+ * claiming otherwise. That meant Lagos-tagged day counts (e.g. "8 days to
+ * enter appearance", Order 9 Rule 1) were surfaced in the "Applicable
+ * Procedural Timelines" section for every jurisdiction's delta — including
+ * Delta, Rivers, FCT, Kano, and Enugu, where Order 9 Lagos does not apply.
+ * Confirmed via the Injunction × FCT test case, which returned Lagos
+ * appearance/pleading timelines under an FCT delta with no indication they
+ * were Lagos-specific beyond a small inline "Jurisdiction: Lagos" tag easy
+ * to miss in a wall of prompt text.
+ *
+ * Fixed: a `LawEntry` is now only included if it is tagged 'Federal'
+ * (universal — ACJA/federal statutes apply across federal courts) or if
+ * its `jurisdiction` tag matches the resolved profile's `registryTag`.
+ * When the jurisdiction profile is unresolved (`profile` is null), only
+ * 'Federal' entries are included — never state-specific ones — since we
+ * have no basis to assume a Lagos/Delta/etc. rule applies.
  */
-function resolveRelevantRules(appTypeLabel: string): Array<LawEntry & { currentValue: string }> {
+function resolveRelevantRules(
+  appTypeLabel: string,
+  profile: JurisdictionProfile | null,
+): Array<LawEntry & { currentValue: string }> {
   const lower = appTypeLabel.trim().toLowerCase();
   const matchedIds = new Set<string>();
 
@@ -677,6 +730,7 @@ function resolveRelevantRules(appTypeLabel: string): Array<LawEntry & { currentV
 
   return LAW_REGISTRY
     .filter(e => matchedIds.has(e.id))
+    .filter(e => e.jurisdiction === 'Federal' || (!!profile?.registryTag && e.jurisdiction === profile.registryTag))
     .map(e => ({
       ...e,
       currentValue: getLawSync(e.id) || e.default,
@@ -684,7 +738,7 @@ function resolveRelevantRules(appTypeLabel: string): Array<LawEntry & { currentV
 }
 
 /**
- * **Phase 2B — `getJurisdictionDelta`**
+ * **Phase 2B — `getJurisdictionDelta`** (hardened — Phase 10A)
  *
  * Returns a formatted, prompt-ready string describing the jurisdiction-specific
  * procedural position for a given `(appType, courtOrJurisdiction)` combination.
@@ -699,6 +753,19 @@ function resolveRelevantRules(appTypeLabel: string): Array<LawEntry & { currentV
  * This function is synchronous (reads the in-memory cache, not IndexedDB)
  * so it is safe to call inside render paths and before async operations.
  *
+ * CONTRACT (unchanged by the Phase 10A audit — do not change without
+ * checking call sites first): this function returns the empty string `''`
+ * when neither the appType nor the jurisdiction resolves to anything
+ * useful. `ArgumentTemplateManager.tsx` relies on this exact falsy-empty
+ * behaviour (`if (!delta) { toast.show('No jurisdiction-specific rules
+ * found...') }`) to decide whether to warn the user and skip saving a
+ * delta onto a template. Making this always return non-empty text (as a
+ * literal reading of "add a fallback string" might suggest) would silently
+ * break that warning and start saving a generic disclaimer sentence into
+ * every template's `law_delta` field. For prompt-injection call sites that
+ * need a guaranteed non-empty, prompt-safe string instead (Phase 10B/10C),
+ * use `getJurisdictionDeltaSync` below.
+ *
  * @param appType          — The `AppTypeConfig.label` string (e.g. "Bail Application")
  * @param courtOrJurisdiction — The `Case.court` value (e.g. "Delta State High Court, Asaba Division")
  * @returns A markdown-formatted string for direct injection into a system prompt,
@@ -708,7 +775,7 @@ function resolveRelevantRules(appTypeLabel: string): Array<LawEntry & { currentV
  */
 export function getJurisdictionDelta(appType: string, courtOrJurisdiction: string): string {
   const profile = resolveJurisdictionProfile(courtOrJurisdiction || '');
-  const rules   = resolveRelevantRules(appType || '');
+  const rules   = resolveRelevantRules(appType || '', profile);
 
   // If we know nothing about either, return empty — caller falls back to RAG
   if (!profile && rules.length === 0) return '';
@@ -719,6 +786,21 @@ export function getJurisdictionDelta(appType: string, courtOrJurisdiction: strin
   lines.push('');
   lines.push('The following jurisdiction-specific rules apply to this draft. These OVERRIDE any generic Nigerian law defaults you would otherwise apply. Where a rule below conflicts with general practice, the rule below prevails.');
   lines.push('');
+
+  // ── AUDIT FIX (Phase 10A): unresolved-jurisdiction caveat ─────────────────
+  // Previously, if `courtOrJurisdiction` didn't match any known profile but
+  // the appType still matched Federal-tagged rules (e.g. "Bail Application"
+  // in "Imo State" — a state with no profile entry), the output presented
+  // those Federal/ACJA values with full confidence and no indication that
+  // the specific state's own ACJL was never checked. Imo, like Delta and
+  // Enugu, may have its own ACJL with different values — silently showing
+  // only the federal default risks misleading counsel into citing the
+  // wrong instrument. Surface that gap explicitly instead of hiding it.
+  if (!profile) {
+    lines.push(`### ⚠ Jurisdiction Not Recognised`);
+    lines.push(`"${courtOrJurisdiction || '(none provided)'}" did not match any jurisdiction profile in the registry (currently: Lagos, Delta, Rivers, FCT/Abuja, Kano, Enugu, Federal). Only universal Federal/ACJA rules are shown below where applicable. This jurisdiction may have its own State ACJL or Rules of Court not yet captured in this registry — verify independently before relying on the timelines below.`);
+    lines.push('');
+  }
 
   // ── Governing Statute ─────────────────────────────────────────────────────
   if (profile) {
@@ -786,4 +868,59 @@ export function getJurisdictionDelta(appType: string, courtOrJurisdiction: strin
   lines.push('*This delta was generated from the AFS Law Registry. Any override values set by counsel are reflected above. Verify against current instruments before filing.*');
 
   return lines.join('\n');
+}
+
+/**
+ * **`getJurisdictionDeltaSync`** — Phase 10A hardened variant for prompt
+ * injection call sites.
+ *
+ * Both this function and `getJurisdictionDelta` are synchronous today —
+ * "Sync" here signals a contract guarantee, not async-vs-sync mechanics:
+ * this variant NEVER returns an empty string. Where `getJurisdictionDelta`
+ * would return `''` (nothing resolved — a deliberate, relied-upon signal
+ * for UI callers like `ArgumentTemplateManager.tsx`), this wrapper returns
+ * an explicit fallback sentence instead, so a system prompt built from it
+ * is never silently missing a jurisdiction-delta section.
+ *
+ * Use this — not `getJurisdictionDelta` — for system-prompt construction
+ * in `buildDraftSystemPrompt` (Phase 10B) and any other call site whose
+ * job is to feed an AI call, not to drive UI branching.
+ *
+ * `TrialEngine.tsx`'s existing `pullLegalFoundation` call already
+ * hand-rolls this same fallback inline (`jurisdelta || 'No jurisdiction-
+ * specific delta available...'`) — that call site can be left as-is or
+ * migrated to call this function instead; either is safe, they now produce
+ * equivalent results.
+ */
+export function getJurisdictionDeltaSync(appType: string, courtOrJurisdiction: string): string {
+  const delta = getJurisdictionDelta(appType, courtOrJurisdiction);
+  if (delta) return delta;
+  return `No jurisdiction-specific delta found for "${appType}" in "${courtOrJurisdiction}". Applying general Nigerian procedure.`;
+}
+
+/**
+ * Dev-only console test helper. Call from the browser devtools console
+ * (or via `window.testDeltaOutput(...)` if attached below) to inspect
+ * `getJurisdictionDelta` output for any appType/jurisdiction pair without
+ * triggering a full draft / AI call.
+ *
+ * Example (browser console):
+ *   testDeltaOutput('Bail Application', 'Delta State High Court, Asaba Division')
+ */
+export function testDeltaOutput(appType: string, courtOrJurisdiction: string): string {
+  const result = getJurisdictionDelta(appType, courtOrJurisdiction);
+  // eslint-disable-next-line no-console
+  console.log(
+    `[testDeltaOutput] appType="${appType}" jurisdiction="${courtOrJurisdiction}"\n` +
+    (result || '(empty string — nothing resolved; getJurisdictionDeltaSync would return the fallback sentence here)'),
+  );
+  return result;
+}
+
+if (typeof window !== 'undefined') {
+  // Attach for ad-hoc console testing during development. Harmless in
+  // production — just an extra property on window, no behaviour change.
+  (window as any).testDeltaOutput = testDeltaOutput;
+  (window as any).getJurisdictionDelta = getJurisdictionDelta;
+  (window as any).getJurisdictionDeltaSync = getJurisdictionDeltaSync;
 }
