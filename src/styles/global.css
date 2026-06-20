@@ -257,10 +257,68 @@ hr {
   body       { padding-top: 0; }
 }
 
-/* ── Responsive ── */
-@media (max-width: 640px) {
-  #root      { padding: 20px 16px 60px; }
-  .mode-grid { grid-template-columns: 1fr; }
-  .nav-tag   { display: none; }
-  body       { padding-top: 52px; }
+/* ── Responsive — Mobile & Desktop Adaptive ── */
+
+/* ── Desktop default (> 768px) ── */
+@media (min-width: 769px) {
+  #root {
+    max-width: 880px;
+    margin:    0 auto;
+    padding:   36px 28px 80px;
+  }
+  .site-nav {
+    padding: 0 28px;
+  }
+  .nav-tag { display: block; }
 }
+
+/* ── Tablet (481px – 768px) ── */
+@media (max-width: 768px) {
+  #root {
+    max-width:  100%;
+    padding:    24px 18px 72px;
+  }
+  .site-nav {
+    padding: 0 16px;
+    height:  50px;
+  }
+  body { padding-top: 50px; }
+  .nav-tag { display: none; }
+  .mode-grid { grid-template-columns: 1fr; }
+  /* Tab bar — larger touch targets on tablet */
+  .tab-scroll > button {
+    padding: 9px 14px;
+    font-size: 12px;
+  }
+}
+
+/* ── Mobile (≤ 480px) ── */
+@media (max-width: 480px) {
+  #root {
+    padding: 16px 12px 80px;
+  }
+  .site-nav {
+    padding: 0 12px;
+    height:  48px;
+  }
+  body { padding-top: 48px; }
+  .nav-tag    { display: none; }
+  .nav-logo   { font-size: 15px; letter-spacing: 0.04em; }
+  .nav-btn    { font-size: 11px; padding: 4px 10px; }
+  .mode-grid  { grid-template-columns: 1fr; }
+  .pw-gate    { padding: 16px; align-items: flex-start; padding-top: 48px; }
+  /* Tab bar — full-width scroll, large touch targets */
+  .tab-scroll {
+    margin: 14px -12px 20px;
+    padding: 0 12px 2px;
+    gap: 2px;
+  }
+  .tab-scroll > button {
+    padding:   9px 12px;
+    font-size: 12px;
+    min-height: 38px;  /* 38px minimum touch target */
+  }
+  /* Cards — remove side padding on very small screens */
+  .card { padding: 16px 14px; }
+}
+
