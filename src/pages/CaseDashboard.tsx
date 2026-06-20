@@ -77,6 +77,8 @@ const PleadingsEngine    = lazy(() => import('@/engines/PleadingsEngine').then(m
 const EnforcementEngine  = lazy(() => import('@/engines/EnforcementEngine').then(m => ({ default: m.EnforcementEngine })));
 // Phase B — Applications Engine
 const ApplicationsEngine = lazy(() => import('@/engines/ApplicationsEngine').then(m => ({ default: m.ApplicationsEngine })));
+// Phase 2 — Argument Template Manager
+const ArgumentTemplateManager = lazy(() => import('@/engines/ArgumentTemplateManager').then(m => ({ default: m.ArgumentTemplateManager })));
 
 // ── Engine router ─────────────────────────────────────────────────────────────
 
@@ -124,6 +126,7 @@ function EngineContent({
     case 'enforcement':        return <EnforcementEngine   activeCase={activeCase} />;
     // Phase B — Applications Engine
     case 'applications':       return <ApplicationsEngine  activeCase={activeCase} />;
+    case 'arg_templates':      return <ArgumentTemplateManager activeCase={activeCase} />;
     default:             return null;
   }
 }
