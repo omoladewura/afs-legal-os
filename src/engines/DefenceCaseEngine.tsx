@@ -1017,10 +1017,24 @@ export function DefenceCaseEngine({ activeCase }: Props) {
         />
       )}
       {isDefence && subTab === 'exam_in_chief' && (
-        <ExamInChiefTab
-          witnesses={witnesses} setWitnesses={setWitnesses}
-          accent={accent} activeCase={activeCase} fullContext={fullContext}
-        />
+        <div style={{
+          padding: '32px 24px',
+          textAlign: 'center',
+          border: '1px dashed #cccccc',
+          borderRadius: 6,
+          fontFamily: "'Times New Roman', Times, serif",
+        }}>
+          <p style={{ fontSize: 15, color: '#333333', fontWeight: 700, marginBottom: 8 }}>
+            Examination-in-Chief has moved to the Trial Engine tab.
+          </p>
+          <p style={{ fontSize: 13, color: '#777777', margin: 0 }}>
+            Open the <strong>⚔ Trial Engine</strong> tab and select
+            <strong> Examination-in-Chief</strong>. The three-sided Witness
+            Preparation Bundle (counsel script · witness study pack ·
+            anticipated cross prep) is available there. All witness records
+            added here carry forward.
+          </p>
+        </div>
       )}
       {isDefence && subTab === 'close_def' && (
         <CloseOfDefenceTab

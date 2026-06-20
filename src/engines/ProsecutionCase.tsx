@@ -1541,12 +1541,24 @@ export function ProsecutionCase({ activeCase }: Props) {
         />
       )}
       {!isPros && subTab === 'cross_prep' && (
-        <CrossPrepTab
-          defWitnesses={defWitnesses}
-          witnessInput={crossPrepWitness}   setWitnessInput={setCrossPrepWitness}
-          crossPrepResult={crossPrepResult} setCrossPrepResult={setCrossPrepResult}
-          accent={accent} activeCase={activeCase} fullContext={fullContext}
-        />
+        <div style={{
+          padding: '32px 24px',
+          textAlign: 'center',
+          border: '1px dashed #cccccc',
+          borderRadius: 6,
+          fontFamily: "'Times New Roman', Times, serif",
+        }}>
+          <p style={{ fontSize: 15, color: '#333333', fontWeight: 700, marginBottom: 8 }}>
+            Cross-Examination has moved to the Trial Engine tab.
+          </p>
+          <p style={{ fontSize: 13, color: '#777777', margin: 0 }}>
+            Open the <strong>⚔ Trial Engine</strong> tab and select
+            <strong> Cross-Examination</strong>. The full statement audit,
+            theory-breach question generator, contradiction mapper, impeachment
+            arsenal, and live courtroom mode are available there.
+            All previously saved cross-examination data is preserved.
+          </p>
+        </div>
       )}
     </div>
   );

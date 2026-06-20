@@ -855,58 +855,30 @@ interface Props {
   activeCase: Case;
 }
 
-export function CrossExamEngine({ activeCase }: Props) {
-  const { fullContext } = useCaseContext(activeCase, { query: activeCase?.caseName ?? '', engine: 'CrossExamEngine' });
-  const caseId = activeCase.id;
-  type SubTab = 'profiler' | 'contradictions' | 'sequencer' | 'impeachment' | 'live';
-  const [sub, setSub] = useState<SubTab>('profiler');
-
-  const SUB_TABS: Array<{ id: SubTab; icon: string; label: string }> = [
-    { id: 'profiler',       icon: '◈', label: 'Witness Profiler' },
-    { id: 'contradictions', icon: '⚡', label: 'Contradiction Mapper' },
-    { id: 'sequencer',      icon: '§', label: 'Question Sequencer' },
-    { id: 'impeachment',    icon: '⚔', label: 'Impeachment Arsenal' },
-    { id: 'live',           icon: '●', label: 'Live Courtroom Mode' },
-  ];
-
+// @deprecated — Build Plan v2, Phase 3.
+// Absorbed into TrialEngine (src/engines/TrialEngine.tsx).
+// This file is retained for reference only. Do not add new features here.
+// All cx_ prefixed storage keys remain readable from TrialEngine — no migration needed.
+// Delete only after production confirmation (Build Plan v2, Phase 10+).
+export function CrossExamEngine({ activeCase: _activeCase }: Props) {
   return (
-    <div style={{ padding: '0 0 40px', animation: 'fadeUp .3s ease' }}>
-      {/* Engine header */}
-      <div style={{ background: '#0d0608', border: `1px solid ${CX_ACCENT}33`, borderRadius: 8, padding: '16px 20px', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 14 }}>
-        <span style={{ fontSize: 24, opacity: .7 }}>⚔</span>
-        <div>
-          <p style={{ fontSize: 9, color: CX_ACCENT, fontFamily: 'Inter,sans-serif', letterSpacing: '.18em', textTransform: 'uppercase' as const, fontWeight: 700, marginBottom: 3 }}>Cross-Examination Engine · Step 13</p>
-          <p style={{ fontSize: 13, color: T.mute, fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic', margin: 0 }}>The most dangerous room in litigation. Build, execute, and survive cross-examination.</p>
-        </div>
-      </div>
-
-      {/* Sub-tab strip */}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 20, flexWrap: 'wrap' }}>
-        {SUB_TABS.map(t => (
-          <button key={t.id} onClick={() => setSub(t.id)} style={{
-            background: sub === t.id ? '#150808' : 'transparent',
-            border: `1px solid ${sub === t.id ? CX_ACCENT : '#cccccc'}`,
-            color: sub === t.id ? CX_LIGHT : T.mute,
-            borderRadius: 5, padding: '8px 14px', fontSize: 11,
-            fontFamily: 'Inter,sans-serif', cursor: 'pointer',
-            letterSpacing: '.06em', textTransform: 'uppercase' as const, fontWeight: 600,
-            display: 'flex', alignItems: 'center', gap: 5, transition: 'all .2s',
-          }}>
-            <span style={{ fontSize: 13 }}>{t.icon}</span>
-            {t.label}
-            {t.id === 'live' && (
-              <span style={{ width: 5, height: 5, background: sub === t.id ? CX_ACCENT : '#fdeaea', borderRadius: '50%', display: 'inline-block', animation: sub === t.id ? 'glow 1.5s ease infinite' : 'none', marginLeft: 3 }} />
-            )}
-          </button>
-        ))}
-      </div>
-
-      {/* Sub-module content */}
-      {sub === 'profiler'       && <CXWitnessProfiler    caseId={caseId} activeCase={activeCase} />}
-      {sub === 'contradictions' && <CXContradictionMapper caseId={caseId} activeCase={activeCase} />}
-      {sub === 'sequencer'      && <CXQuestionSequencer   caseId={caseId} activeCase={activeCase} />}
-      {sub === 'impeachment'    && <CXImpeachmentBank     caseId={caseId} activeCase={activeCase} />}
-      {sub === 'live'           && <CXLiveMode            caseId={caseId} activeCase={activeCase} />}
+    <div style={{
+      padding: '48px 32px',
+      textAlign: 'center',
+      color: '#888888',
+      fontFamily: "'Times New Roman', Times, serif",
+      border: '1px dashed #cccccc',
+      borderRadius: 6,
+      margin: '24px 0',
+    }}>
+      <p style={{ fontSize: 16, marginBottom: 10, color: '#444444', fontWeight: 700 }}>
+        Cross-Examination has moved to the Trial Engine tab.
+      </p>
+      <p style={{ fontSize: 13, color: '#888888', margin: 0 }}>
+        Use the <strong>⚔ Trial Engine</strong> tab to access Witness Profiler,
+        Contradiction Mapper, Question Sequencer, Impeachment Arsenal,
+        and Live Courtroom Mode. All previously saved data is preserved.
+      </p>
     </div>
   );
 }
