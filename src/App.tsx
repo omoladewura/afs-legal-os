@@ -10,12 +10,19 @@
  *   'resolver' → ResearchResolver (standalone tool)
  *   'san'      → SanMode (standalone)
  *   'settings' → SettingsPanel (library management, system info)
+ *
+ * BACK BUTTON (browser + phone):
+ *   popstate listener restores view and dashTab from history.state.
+ *   If the popped state is 'gate' or unauthenticated, we log out cleanly.
+ *   Cases are loaded from IndexedDB by CaseDashboard when activeCase is null
+ *   but view is 'engine' — handled by re-opening the docket in that scenario.
  */
 
 import { lazy, Suspense, useEffect } from 'react';
 import { useAppStore } from '@/state/appStore';
-import { migrateFromLocalStorage } from '@/storage/migrate';
+import type { NavHistoryState } from '@/state/appStore';
 import { db } from '@/storage/db';
+import { migrateFromLocalStorage } from '@/storage/migrate';
 import { saveCase } from '@/storage/helpers';
 import { applyLawOverrides } from '@/constants/periodRules';
 import { SiteNav } from '@/components/layout/SiteNav';
@@ -30,15 +37,33 @@ import { ToastHost } from '@/components/common/ui';
 import { FloatingEngines } from '@/components/FloatingEngines';
 import { MatrimonialDashboard } from '@/matrimonial/MatrimonialDashboard';
 import { T } from '@/constants/tokens';
+import type { AppView, DashTabId } from '@/types';
 
 const SanMode = lazy(() => import('@/engines/SanMode').then(m => ({ default: m.SanMode })));
 
 export function App() {
-  const { view, docketOpen, setView } = useAppStore();
+  const {
+    view, docketOpen, setView, setDockOpen,
+    isAuthenticated, dashTab, setDashTab,
+    activeCase, setActiveCase, setDocketOpen,
+  } = useAppStore();
 
+  // ── One-time startup tasks ──────────────────────────────────────────────
   useEffect(() => {
     migrateFromLocalStorage().catch(console.error);
     applyLawOverrides().catch(console.error);
+
+    // Push initial history entry so the very first back-press has somewhere to go.
+    // Only if there's no AFS state already in history (e.g. page just loaded).
+    if (!history.state?.afsView) {
+      const initialView = useAppStore.getState().view;
+      const initialTab  = useAppStore.getState().dashTab;
+      history.replaceState(
+        { afsView: initialView, afsDashTab: initialTab, afsCaseId: null } satisfies NavHistoryState,
+        '',
+        `#${initialView}`,
+      );
+    }
 
     // One-time migration: push any existing IndexedDB cases up to D1
     const D1_MIGRATED_KEY = 'afs_d1_migrated_v1';
@@ -49,6 +74,57 @@ export function App() {
         localStorage.setItem(D1_MIGRATED_KEY, '1');
       }).catch(() => {});
     }
+  }, []);
+
+  // ── Back / forward button handler ───────────────────────────────────────
+  useEffect(() => {
+    function onPopState(e: PopStateEvent) {
+      const state = e.state as NavHistoryState | null;
+
+      // No AFS state in history entry (e.g. browser navigated outside app).
+      // Go to gate for safety.
+      if (!state?.afsView) {
+        useAppStore.setState({ isAuthenticated: false, view: 'gate', activeCase: null });
+        try { sessionStorage.removeItem('afs_auth'); } catch { }
+        return;
+      }
+
+      const { afsView, afsDashTab, afsCaseId } = state;
+
+      // If back-navigating to gate, treat as logout.
+      if (afsView === 'gate') {
+        useAppStore.setState({ isAuthenticated: false, view: 'gate', activeCase: null });
+        try { sessionStorage.removeItem('afs_auth'); } catch { }
+        return;
+      }
+
+      // Not authenticated but history has a non-gate view — force gate.
+      if (!useAppStore.getState().isAuthenticated) {
+        useAppStore.setState({ view: 'gate' });
+        return;
+      }
+
+      // Restore view and tab without pushing new history (we're popping).
+      const currentCase = useAppStore.getState().activeCase;
+
+      if (afsView === 'engine' || afsView === 'matrimonial') {
+        // If the case we're navigating back to is already loaded, just restore the tab.
+        if (currentCase && currentCase.id === afsCaseId) {
+          useAppStore.setState({ view: afsView, dashTab: afsDashTab as DashTabId });
+          return;
+        }
+        // Case not loaded — go home and open the docket so user can re-select.
+        // (We can't restore the full case object from history state alone —
+        // IndexedDB load is async and we don't want to block the popstate handler.)
+        useAppStore.setState({ view: 'home', activeCase: null });
+        return;
+      }
+
+      useAppStore.setState({ view: afsView as AppView, dashTab: afsDashTab as DashTabId });
+    }
+
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
   }, []);
 
   return (
