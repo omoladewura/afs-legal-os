@@ -7,7 +7,7 @@
  * Removed tab IDs: custody, maintenance, property (now inside MatrimonialEngine),
  *                  risk (absorbed into CaseCommand), research (absorbed into
  *                  WrittenAddressEngine), builder (absorbed into WrittenAddressEngine).
- * Added tab IDs:   case_command, case_intelligence, written_address, inheritance.
+ * Added tab IDs:   case_command, strategy_hub, written_address, inheritance.
  *
  * New tab order matches Master Plan Phase 5 matrimonial tab set:
  *   Case Command → Intelligence → Inheritance → Petition & Answer
@@ -27,7 +27,7 @@ export type MTabId =
   | 'ancillary_applications'
   | 'forms_documents'
   | 'evidence'
-  | 'case_intelligence'
+  | 'strategy_hub'
   | 'decree_enforcement'
   | 'appeal'
   | 'copilot';
@@ -100,11 +100,11 @@ export const MATRIMONIAL_TABS: MTab[] = [
     description: 'EvidenceVault — shared engine, as-is.',
   },
   {
-    id:          'case_intelligence',
+    id:          'strategy_hub',
     icon:        '◉',
-    label:       'Case Intelligence',
+    label:       'Strategy Hub',
     phase:       'ready',
-    description: 'CaseIntelligence — three modes: Intelligence Layer (BlindSpots), Strategic Cockpit (WarRoom), Brief Me.',
+    description: 'StrategyHub — three modes: Intelligence Layer (BlindSpots), Strategic Cockpit (WarRoom), Brief Me.',
   },
   {
     id:          'decree_enforcement',
