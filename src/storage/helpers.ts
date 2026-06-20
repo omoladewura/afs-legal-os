@@ -13,7 +13,7 @@
  */
 
 import { db } from './db';
-import type { Case, DocketEntry, Deadline, EvidenceItem, ArgumentVersion, CaseTheoryRecord, CaseTheoryHistoryEntry } from '@/types';
+import type { Case, DocketEntry, Deadline, EvidenceItem, ArgumentVersion, CaseTheoryRecord, CaseTheoryHistoryEntry, CaseSummary, CloneableApplicationRecord } from '@/types';
 import type { MatrimonialCaseData, MExtractionResult } from '@/matrimonial/types';
 import type { BlindSpotRecord, ResearchRecord, ArgumentTemplate } from './db';
 
@@ -800,5 +800,90 @@ export async function findArgumentTemplate(
     console.error('[Storage] findArgumentTemplate failed', e);
     return null;
   }
+}
+
+// ── Case Summary & Clone Draft ────────────────────────────────────────────────
+// Trial Engine Consolidation, Phase 10D.
+//
+// loadAllCases() — lightweight case list for the Clone Draft target selector.
+// cloneApplicationToCase() — copies an ApplicationRecord to a target case,
+// clearing all case-specific content so counsel fills in only the new facts.
+//
+// Both are local-only (no D1 round trip): the selector doesn't need cross-
+// device sync, and the clone write uses saveBlindSpot which is already local.
+
+/**
+ * Returns a lightweight summary of every case in the local IndexedDB, sorted
+ * most-recently-created first. Used to populate the Clone Draft target
+ * dropdown. No D1 round trip — the selector is a local UI concern.
+ */
+export async function loadAllCases(): Promise<CaseSummary[]> {
+  try {
+    const all = await db.cases.orderBy('createdAt').reverse().toArray();
+    return all.map(c => ({
+      id:            c.id,
+      caseName:      c.caseName,
+      matter_track:  c.matter_track,
+      counsel_role:  c.counsel_role,
+      jurisdiction:  c.court,   // court is the closest proxy for jurisdiction on the Case record
+      createdAt:     c.createdAt,
+    }));
+  } catch (e) {
+    console.error('[Storage] loadAllCases failed', e);
+    return [];
+  }
+}
+
+/**
+ * Deep-copies an ApplicationRecord to a target case's Applications history.
+ *
+ * Preserved:  appType, facts object keys (structure only)
+ * Cleared:    all fact values, stage3 (entirely case-specific), documents
+ * Set:        new id, new caseId, new createdAt, _clone_notice in facts
+ *
+ * Saves via saveBlindSpot under module 'applications_v2' — the same key that
+ * ApplicationsEngine uses (MODULE = 'applications_v2') — so the cloned record
+ * appears in the target case's Saved Drafts panel immediately on next load.
+ *
+ * Returns the cloned record so the caller can reference its id for
+ * navigation / display purposes.
+ */
+export async function cloneApplicationToCase(params: {
+  sourceRecord:   CloneableApplicationRecord;
+  targetCaseId:   string;
+  sourceCaseName: string;
+}): Promise<CloneableApplicationRecord> {
+  const { sourceRecord, targetCaseId, sourceCaseName } = params;
+  const now = new Date().toISOString();
+  const dateLabel = new Date().toLocaleDateString('en-NG', {
+    day: 'numeric', month: 'long', year: 'numeric',
+  });
+
+  // Clear every fact value; preserve the keys so the facts form renders all fields
+  const clearedFacts: Record<string, string> = {};
+  for (const key of Object.keys(sourceRecord.facts)) {
+    clearedFacts[key] = '';
+  }
+  clearedFacts['_clone_notice'] =
+    `Cloned from "${sourceCaseName}" on ${dateLabel} — review and update all facts before drafting.`;
+
+  const cloned: CloneableApplicationRecord = {
+    id:        uid(),
+    caseId:    targetCaseId,
+    appType:   sourceRecord.appType,
+    facts:     clearedFacts,
+    stage3:    {},    // Stage3Data is entirely case-specific — cleared on clone
+    documents: '',    // Generated output is case-specific — never carries over
+    createdAt: now,
+  };
+
+  // Prepend to the target case's existing Applications history
+  const existing = await loadBlindSpot<{ history: CloneableApplicationRecord[] }>(
+    targetCaseId, 'applications_v2', { history: [] },
+  );
+  const updated = { history: [cloned, ...(existing?.history ?? [])] };
+  await saveBlindSpot(targetCaseId, 'applications_v2', updated);
+
+  return cloned;
 }
 
