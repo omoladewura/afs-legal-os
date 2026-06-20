@@ -733,6 +733,8 @@ export type DashTabId =
   | 'defence_case' | 'final_address'
   // Phase B — Applications Engine
   | 'applications'
+  // Phase 2 — Argument Template Manager (Trial Engine Consolidation)
+  | 'arg_templates'
   // Phase D — Synthesis Engine
   | 'synthesis'
   // Phase 9 — Matrimonial sub-tabs
