@@ -79,6 +79,8 @@ const EnforcementEngine  = lazy(() => import('@/engines/EnforcementEngine').then
 const ApplicationsEngine = lazy(() => import('@/engines/ApplicationsEngine').then(m => ({ default: m.ApplicationsEngine })));
 // Phase 2 — Argument Template Manager
 const ArgumentTemplateManager = lazy(() => import('@/engines/ArgumentTemplateManager').then(m => ({ default: m.ArgumentTemplateManager })));
+// Trial Engine Consolidation (Build Plan v2, Phase 3)
+const TrialEngine          = lazy(() => import('@/engines/TrialEngine').then(m => ({ default: m.TrialEngine })));
 
 // ── Engine router ─────────────────────────────────────────────────────────────
 
@@ -127,6 +129,8 @@ function EngineContent({
     // Phase B — Applications Engine
     case 'applications':       return <ApplicationsEngine  activeCase={activeCase} />;
     case 'arg_templates':      return <ArgumentTemplateManager activeCase={activeCase} />;
+    // Trial Engine Consolidation (Build Plan v2, Phase 3)
+    case 'trial':              return <TrialEngine            activeCase={activeCase} />;
     default:             return null;
   }
 }
