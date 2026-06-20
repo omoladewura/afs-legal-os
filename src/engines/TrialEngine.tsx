@@ -27,8 +27,13 @@
  *   purpose) · Theory-Breach Question Generator across four tactical tiers
  *   (Theory Destroyers · Credibility Shakers · Evidence Exclusion · Cleanup).
  *
- *   Tabs 5–7 (Contradiction Mapper, Impeachment Arsenal, Live Courtroom Mode)
- *   remain ComingSoon placeholders — implemented in Phase 8.
+ *
+ * Phase 8 (Build Plan v2):
+ *   Tab 5 — Contradiction Mapper — fully migrated from CrossExamEngine.
+ *   Tab 6 — Impeachment Arsenal — fully migrated from CrossExamEngine.
+ *   Tab 7 — Live Courtroom Mode — fully migrated from CrossExamEngine, enhanced
+ *   with locked Case Theory injection into AI system prompt.
+ *   All cx_ prefixed storage keys load without migration (backward compatible).
  *
  * Role detection: reads activeCase.counsel_role.
  *   prosecution / claimant_side → Prosecution/Claimant mode
@@ -39,7 +44,7 @@
  * @see CrossExamEngine.tsx  — deprecated stub (Phase 3D)
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Case, CaseTheoryRecord } from '@/types';
 import { T, S } from '@/constants/tokens';
 import { CaseTheoryBanner, Md, ErrorBlock } from '@/components/common/ui';
@@ -2755,6 +2760,703 @@ Q[N]. [Exact question text] → Admission secured: [what it locks in]`,
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// PHASE 8 — SHARED DESIGN TOKENS (mirror CX engine accent palette)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const CX_ACCENT = '#d04040';
+const CX_LIGHT  = '#e07070';
+const CX_DIM    = '#8a3030';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PHASE 8 — SHARED SUB-COMPONENTS
+// ─────────────────────────────────────────────────────────────────────────────
+
+function CXSection({ title, children, accent }: { title: string; children: React.ReactNode; accent?: string }) {
+  const col = accent || CX_ACCENT;
+  return (
+    <div style={{ marginBottom: 28 }}>
+      <div style={{ fontSize: 10, color: col, fontFamily: 'Inter,sans-serif', letterSpacing: '.14em', textTransform: 'uppercase' as const, fontWeight: 700, marginBottom: 12, paddingBottom: 7, borderBottom: `1px solid ${col}22` }}>
+        {title}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function CXInput({ label, value, onChange, placeholder, multiline, rows = 3 }: {
+  label?: string; value: string; onChange: (v: string) => void; placeholder?: string; multiline?: boolean; rows?: number;
+}) {
+  const s: React.CSSProperties = { width: '100%', background: T.bg, border: '1px solid #cccccc', borderRadius: 5, color: T.text, padding: '10px 13px', fontSize: 14, fontFamily: "'Times New Roman', Times, serif", outline: 'none', boxSizing: 'border-box' };
+  return (
+    <div style={{ marginBottom: 12 }}>
+      {label && <label style={{ fontSize: 10, color: '#5a5a72', fontFamily: 'Inter,sans-serif', letterSpacing: '.1em', textTransform: 'uppercase' as const, fontWeight: 600, display: 'block', marginBottom: 5 }}>{label}</label>}
+      {multiline
+        ? <textarea value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} rows={rows} style={{ ...s, resize: 'vertical', lineHeight: 1.75 }} />
+        : <input value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} style={s} />}
+    </div>
+  );
+}
+
+function CXBtn({ onClick, disabled, children, variant = 'primary', small }: {
+  onClick?: () => void; disabled?: boolean; children: React.ReactNode; variant?: 'primary' | 'ghost' | 'danger'; small?: boolean;
+}) {
+  const base: React.CSSProperties = { border: 'none', borderRadius: 5, cursor: disabled ? 'not-allowed' : 'pointer', fontFamily: "'Times New Roman', Times, serif", fontWeight: 600, letterSpacing: '.04em', transition: 'opacity .15s', opacity: disabled ? 0.4 : 1 };
+  const vars: Record<string, React.CSSProperties> = {
+    primary: { background: `linear-gradient(135deg,${CX_ACCENT},#a02020)`, color: '#fff8f8', padding: small ? '7px 18px' : '12px 24px', fontSize: small ? 13 : 15 },
+    ghost:   { background: '#0d0d1c', border: '1px solid #cccccc', color: T.mute, padding: small ? '6px 14px' : '10px 20px', fontSize: small ? 12 : 14 },
+    danger:  { background: '#1a0808', border: '1px solid #3a1010', color: '#c05050', padding: small ? '6px 14px' : '10px 20px', fontSize: small ? 12 : 14 },
+  };
+  return <button onClick={disabled ? undefined : onClick} style={{ ...base, ...vars[variant] }}>{children}</button>;
+}
+
+function CXAIBlock({ loading, result, error }: { loading: boolean; result: string; error: string }) {
+  if (loading) return (
+    <div style={{ background: '#0d0608', border: `1px solid ${CX_ACCENT}33`, borderRadius: 6, padding: '24px', textAlign: 'center', marginTop: 14 }}>
+      <div style={{ display: 'inline-block', width: 14, height: 14, border: '2px solid #3a1010', borderTop: `2px solid ${CX_ACCENT}`, borderRadius: '50%', animation: 'spin .8s linear infinite', marginBottom: 10 }} />
+      <p style={{ fontSize: 12, color: CX_DIM, fontFamily: 'Inter,sans-serif', letterSpacing: '.08em', margin: 0 }}>Preparing strategy…</p>
+    </div>
+  );
+  if (error) return <div style={{ background: '#1a0808', border: '1px solid #3a1010', borderRadius: 5, padding: '12px 16px', color: '#c05050', fontFamily: 'Inter,sans-serif', fontSize: 13, marginTop: 12 }}>{error}</div>;
+  if (!result) return null;
+  return (
+    <div style={{ background: '#0d0608', border: `1px solid ${CX_ACCENT}33`, borderRadius: 6, padding: '18px 22px', marginTop: 14 }}>
+      <div style={{ fontSize: 9, color: CX_ACCENT, fontFamily: 'Inter,sans-serif', letterSpacing: '.16em', textTransform: 'uppercase' as const, fontWeight: 700, marginBottom: 10 }}>AI Analysis</div>
+      <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.9, fontFamily: "'Times New Roman', Times, serif", fontSize: 15, color: '#cac6ba' }}>{result}</div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PHASE 8 — CONTRADICTION TYPES (shared with storage)
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface ContradictionRecord {
+  id:       string;
+  witness:  string;
+  stmt1:    string;
+  stmt1Src: string;
+  stmt2:    string;
+  stmt2Src: string;
+  impact:   string;
+  notes:    string;
+}
+
+interface ImpeachmentItem {
+  id:       string;
+  witness:  string;
+  type:     string;
+  weapon:   string;
+  impact:   string;
+  addedAt:  string;
+}
+
+interface LiveAnswer {
+  id:   string;
+  text: string;
+  time: string;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PHASE 8 — STORAGE HOOK (reads/writes cx_ prefixed keys — backward compatible)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function useCxStorage<D>(caseId: string, module: string, fallback: D) {
+  const [data, setDataState] = useState<D>(fallback);
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    loadBlindSpot<D>(caseId, `cx_${module}`, fallback).then(d => {
+      setDataState(d);
+      setReady(true);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [caseId, module]);
+
+  const setData = useCallback((updater: D | ((prev: D) => D)) => {
+    setDataState(prev => {
+      const next = typeof updater === 'function' ? (updater as (p: D) => D)(prev) : updater;
+      saveBlindSpot(caseId, `cx_${module}`, next);
+      return next;
+    });
+  }, [caseId, module]);
+
+  return { data, setData, ready };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PHASE 8A — TAB 5: CONTRADICTION MAPPER
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface ContradictionMapperTabProps {
+  activeCase: Case;
+  role:       TrialRole;
+}
+
+function ContradictionMapperTab({ activeCase }: ContradictionMapperTabProps) {
+  const caseId = activeCase.id;
+  const ai     = useAI(activeCase);
+  const { theory, hasTheory } = useCaseTheory(caseId);
+
+  const { data: maps, setData: setMaps } = useCxStorage<ContradictionRecord[]>(caseId, 'contradictions', []);
+  const [sel,     setSel]     = useState<string | null>(null);
+  const [form,    setForm]    = useState<ContradictionRecord | null>(null);
+  const [aiRes,   setAiRes]   = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error,   setError]   = useState('');
+
+  // Theory block for AI injection
+  function theoryBlock(): string {
+    if (!theory) return '';
+    return `\n\nLOCKED CASE THEORY:\nCore Proposition: ${theory.core_proposition}\nElements: ${theory.elements.map(e => e.element).join(' | ')}\nOpposing Theory: ${theory.opposing_theory}\nTheory Killer: ${theory.theory_killer}`;
+  }
+
+  function addMap() {
+    const m: ContradictionRecord = { id: uid(), witness: '', stmt1: '', stmt1Src: '', stmt2: '', stmt2Src: '', impact: '', notes: '' };
+    setMaps(p => [...p, m]);
+    setForm(m);
+    setSel(m.id);
+    setAiRes('');
+  }
+
+  function updateM(field: keyof ContradictionRecord, val: string) {
+    if (!form) return;
+    const updated = { ...form, [field]: val };
+    setForm(updated);
+    setMaps(p => p.map(m => m.id === form.id ? updated : m));
+  }
+
+  function deleteM(id: string) {
+    setMaps(p => p.filter(m => m.id !== id));
+    setSel(null);
+    setForm(null);
+    setAiRes('');
+  }
+
+  async function analyseContradiction() {
+    if (!form) return;
+    setLoading(true); setError(''); setAiRes('');
+    const result = await ai.ask({
+      system: `You are a Nigerian senior advocate preparing the forensic exploitation of a witness contradiction in cross-examination.
+Apply Evidence Act 2011 ss.209–232 on prior inconsistent statements throughout.
+Be surgical. Every question must close a door. Never confront before confirming both statements.${theoryBlock()}`,
+      userMsg: `CASE: ${activeCase.caseName} | COURT: ${activeCase.court || 'Not specified'}
+
+WITNESS: ${form.witness || 'Unknown'}
+
+STATEMENT 1 — THEIR ORIGINAL POSITION:
+"${form.stmt1 || 'Not provided'}"
+Source: ${form.stmt1Src || 'Not specified'}
+
+STATEMENT 2 — THE CONTRADICTING STATEMENT:
+"${form.stmt2 || 'Not provided'}"
+Source: ${form.stmt2Src || 'Not specified'}
+
+COUNSEL'S ASSESSMENT OF IMPACT: ${form.impact || 'Not assessed'}
+
+Analyse this contradiction:
+
+## 1. NATURE OF THE CONTRADICTION
+Fundamental (destroys core evidence) or peripheral (credibility only)? What does this contradiction mean for the case${hasTheory ? ' in the context of the locked Case Theory' : ''}?
+
+## 2. HOW TO ESTABLISH THE CONTRADICTION IN COURT
+The precise sequence to lock in both statements before springing the contradiction. Never confront before confirming both. Give exact procedural steps under the Evidence Act 2011.
+
+## 3. THE BREAKING SEQUENCE — EXACT QUESTIONS
+The series of questions to: (a) confirm Statement 1, (b) confirm Statement 2, (c) confront with the contradiction. Tight, closed, leaving no escape.
+
+## 4. ANTICIPATED ESCAPE ROUTES
+How will the witness try to explain away the contradiction? Prepare a blocking sequence for each escape route with the exact questions to deploy.
+
+## 5. CLOSING THE LOOP
+How to use this contradiction in the written address. The precise submission on this point.
+
+Be surgical. Every word must count.`,
+    });
+    setLoading(false);
+    if (result) setAiRes(result);
+    else setError('Analysis failed — check connection and retry.');
+  }
+
+  return (
+    <div>
+      <div style={{ marginBottom: 18 }}>
+        <CaseTheoryBanner
+          theory={theory}
+          locked={hasTheory}
+          score={theory?.score_breakdown?.total ?? null}
+          hasTheory={hasTheory}
+          onOpenTheory={() => {}}
+        />
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr', gap: 18, alignItems: 'start' }}>
+        {/* Sidebar — contradiction list */}
+        <div>
+          <CXSection title="Contradiction Map">
+            {maps.length === 0 && (
+              <p style={{ fontSize: 13, color: T.mute, fontFamily: 'Inter,sans-serif', lineHeight: 1.7 }}>
+                No contradictions mapped yet. Add each contradiction between statements, affidavits, or prior proceedings.
+              </p>
+            )}
+            {maps.map(m => (
+              <div
+                key={m.id}
+                onClick={() => { setSel(m.id); setForm({ ...m }); setAiRes(''); setError(''); }}
+                style={{ background: sel === m.id ? '#150808' : '#fafafa', border: `1px solid ${sel === m.id ? CX_ACCENT : '#dddddd'}`, borderRadius: 5, padding: '9px 12px', marginBottom: 6, cursor: 'pointer', transition: 'border-color .15s' }}
+              >
+                <div style={{ fontSize: 12, color: T.text, fontFamily: "'Times New Roman', Times, serif", fontWeight: 500, marginBottom: 2 }}>{m.witness || 'Unnamed Witness'}</div>
+                <div style={{ fontSize: 10, color: T.mute, fontFamily: 'Inter,sans-serif' }}>{m.stmt1 ? m.stmt1.slice(0, 32) + '…' : 'No statement yet'}</div>
+              </div>
+            ))}
+            <div style={{ marginTop: 10 }}>
+              <CXBtn onClick={addMap} small variant="ghost">+ Map Contradiction</CXBtn>
+            </div>
+          </CXSection>
+        </div>
+
+        {/* Main panel */}
+        <div>
+          {!form ? (
+            <div style={{ textAlign: 'center', padding: '70px 24px', color: T.mute, fontFamily: 'Inter,sans-serif', fontSize: 13 }}>
+              <div style={{ fontSize: 36, opacity: .06, marginBottom: 14 }}>⟲</div>
+              Map each contradiction between a witness's statements, affidavit, and prior positions. The AI builds the precise exploitation sequence.
+            </div>
+          ) : (
+            <div>
+              <CXSection title="Contradiction Analysis">
+                <CXInput label="Witness Name" value={form.witness} onChange={v => updateM('witness', v)} placeholder="The witness whose statements contradict" />
+                <div style={{ background: '#060f08', border: '1px solid #1a2e1a', borderRadius: 6, padding: '14px 16px', marginBottom: 12 }}>
+                  <p style={{ fontSize: 9, color: '#5a9a5a', fontFamily: 'Inter,sans-serif', letterSpacing: '.12em', textTransform: 'uppercase' as const, fontWeight: 700, marginBottom: 10 }}>Statement 1 — Their Original Position</p>
+                  <CXInput label="Statement Text" value={form.stmt1} onChange={v => updateM('stmt1', v)} placeholder="What did they say, swear to, or sign? Paste exact text where possible." multiline rows={3} />
+                  <CXInput label="Source (Document, Date, Paragraph)" value={form.stmt1Src} onChange={v => updateM('stmt1Src', v)} placeholder="e.g. Witness Statement dated 1 Jan 2024, para 4" />
+                </div>
+                <div style={{ background: '#1a0808', border: '1px solid #3a1010', borderRadius: 6, padding: '14px 16px', marginBottom: 12 }}>
+                  <p style={{ fontSize: 9, color: CX_ACCENT, fontFamily: 'Inter,sans-serif', letterSpacing: '.12em', textTransform: 'uppercase' as const, fontWeight: 700, marginBottom: 10 }}>Statement 2 — The Contradicting Statement</p>
+                  <CXInput label="Contradicting Statement Text" value={form.stmt2} onChange={v => updateM('stmt2', v)} placeholder="What did they say that contradicts Statement 1? Paste exact text." multiline rows={3} />
+                  <CXInput label="Source (Document, Date, Paragraph)" value={form.stmt2Src} onChange={v => updateM('stmt2Src', v)} placeholder="e.g. Counter-Affidavit of 15 Mar 2024, para 9" />
+                </div>
+                <CXInput label="Counsel's Assessment of Impact" value={form.impact} onChange={v => updateM('impact', v)} placeholder="Does this destroy core evidence or only affect credibility? What does it prove for our theory?" />
+                <CXInput label="Notes" value={form.notes} onChange={v => updateM('notes', v)} placeholder="Context, additional observations, related contradictions…" multiline rows={2} />
+                <div style={{ display: 'flex', gap: 10, marginTop: 14, flexWrap: 'wrap' }}>
+                  <CXBtn onClick={analyseContradiction} disabled={loading || !form.stmt1.trim() || !form.stmt2.trim()}>
+                    ⚡ Analyse &amp; Build Exploitation Strategy
+                  </CXBtn>
+                  <CXBtn onClick={() => deleteM(form.id)} variant="danger" small>Delete</CXBtn>
+                </div>
+              </CXSection>
+              <CXAIBlock loading={loading} result={aiRes} error={error} />
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PHASE 8B — TAB 6: IMPEACHMENT ARSENAL
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface ImpeachmentArsenalTabProps {
+  activeCase: Case;
+  role:       TrialRole;
+}
+
+const IMPEACHMENT_TYPES = [
+  'Prior Inconsistent Statement',
+  'Criminal Record',
+  'Bias / Motive',
+  'Prior Bad Acts',
+  'Expert Qualification Attack',
+  'Document Contradiction',
+  'Relationship / Interest',
+  'Prior Adverse Finding',
+];
+
+function ImpeachmentArsenalTab({ activeCase }: ImpeachmentArsenalTabProps) {
+  const caseId = activeCase.id;
+  const ai     = useAI(activeCase);
+  const { theory, hasTheory } = useCaseTheory(caseId);
+
+  const { data: items, setData: setItems } = useCxStorage<ImpeachmentItem[]>(caseId, 'impeachment', []);
+  const [witFilter, setWitFilter] = useState('All');
+  const [form,      setForm]      = useState({ witness: '', type: '', weapon: '', impact: '' });
+  const [aiRes,     setAiRes]     = useState('');
+  const [loading,   setLoading]   = useState(false);
+  const [error,     setError]     = useState('');
+
+  function theoryBlock(): string {
+    if (!theory) return '';
+    return `\n\nLOCKED CASE THEORY:\nCore Proposition: ${theory.core_proposition}\nElements: ${theory.elements.map(e => e.element).join(' | ')}`;
+  }
+
+  function addItem() {
+    if (!form.witness.trim() || !form.weapon.trim()) return;
+    setItems(p => [...p, { ...form, id: uid(), addedAt: new Date().toISOString() }]);
+    setForm({ witness: '', type: '', weapon: '', impact: '' });
+    setAiRes('');
+  }
+
+  async function analyseWeapon() {
+    if (!form.weapon.trim()) return;
+    setLoading(true); setError(''); setAiRes('');
+    const result = await ai.ask({
+      system: `You are a Nigerian senior advocate advising on the admissibility and deployment of impeachment material in cross-examination.
+Apply the Evidence Act 2011 (particularly ss.177–232) throughout.
+Be specific to Nigerian procedure and evidence law — no generic common law commentary.${theoryBlock()}`,
+      userMsg: `CASE: ${activeCase.caseName} | COURT: ${activeCase.court || 'Not specified'}
+
+WITNESS: ${form.witness || 'Unknown'}
+IMPEACHMENT TYPE: ${form.type || 'Not specified'}
+IMPEACHMENT WEAPON: ${form.weapon}
+ASSESSED IMPACT: ${form.impact || 'Not assessed'}
+
+Advise:
+
+## 1. ADMISSIBILITY
+Is this weapon admissible in Nigerian courts? Which provisions of the Evidence Act 2011 apply? Any procedural steps or notices required?
+
+## 2. HOW TO DEPLOY
+The exact procedural sequence to introduce this material in cross-examination — foundation questions, confrontation technique, and how to avoid objection.
+
+## 3. MAXIMUM IMPACT QUESTIONS
+Write 3–5 exact questions that deploy this weapon for maximum effect. Give the text counsel will read aloud in court.
+
+## 4. ANTICIPATED OBJECTIONS
+What will opposing counsel object to, and how to overcome each objection? Cite the applicable Evidence Act provision in your rebuttal.
+
+## 5. CLOSING SUBMISSION
+How to use this impeachment weapon in the written address. The precise submission on credibility${hasTheory ? ', anchored to the locked Case Theory' : ''}.
+
+Be specific to Nigerian evidence law throughout.`,
+    });
+    setLoading(false);
+    if (result) setAiRes(result);
+    else setError('Analysis failed — check connection and retry.');
+  }
+
+  const witnesses = ['All', ...Array.from(new Set(items.map(i => i.witness).filter(Boolean)))];
+  const filtered  = witFilter === 'All' ? items : items.filter(i => i.witness === witFilter);
+
+  return (
+    <div>
+      <div style={{ marginBottom: 18 }}>
+        <CaseTheoryBanner
+          theory={theory}
+          locked={hasTheory}
+          score={theory?.score_breakdown?.total ?? null}
+          hasTheory={hasTheory}
+          onOpenTheory={() => {}}
+        />
+      </div>
+
+      <CXSection title="Impeachment Arsenal">
+        <p style={{ fontSize: 13, color: T.mute, fontFamily: 'Inter,sans-serif', lineHeight: 1.7, marginBottom: 16 }}>
+          Build and store every impeachment weapon across all witnesses. The AI analyses admissibility under the Evidence Act 2011, drafts deployment questions, and prepares the closing submission on credibility.
+        </p>
+
+        {/* Add weapon panel */}
+        <div style={{ background: '#0d0608', border: `1px solid ${CX_ACCENT}22`, borderRadius: 7, padding: '18px 20px', marginBottom: 24 }}>
+          <p style={{ fontSize: 9, color: CX_ACCENT, fontFamily: 'Inter,sans-serif', letterSpacing: '.14em', textTransform: 'uppercase' as const, fontWeight: 700, marginBottom: 14 }}>Add Impeachment Weapon</p>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+            <CXInput label="Witness Name" value={form.witness} onChange={v => setForm(f => ({ ...f, witness: v }))} placeholder="Witness to impeach" />
+            <div>
+              <label style={{ fontSize: 10, color: '#5a5a72', fontFamily: 'Inter,sans-serif', letterSpacing: '.1em', textTransform: 'uppercase' as const, fontWeight: 600, display: 'block', marginBottom: 5 }}>Impeachment Type</label>
+              <select value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))} style={{ width: '100%', background: T.bg, border: '1px solid #cccccc', borderRadius: 5, color: T.text, padding: '10px 12px', fontSize: 14, fontFamily: "'Times New Roman', Times, serif", outline: 'none' }}>
+                <option value="">Select type…</option>
+                {IMPEACHMENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+          </div>
+          <CXInput
+            label="The Weapon — Describe the Impeachment Material"
+            value={form.weapon}
+            onChange={v => setForm(f => ({ ...f, weapon: v }))}
+            placeholder="e.g. In previous proceedings (Suit No. X) this witness testified under oath that the signature was his. He now denies it in paragraph 7 of his counter-affidavit."
+            multiline rows={3}
+          />
+          <CXInput
+            label="Assessed Impact"
+            value={form.impact}
+            onChange={v => setForm(f => ({ ...f, impact: v }))}
+            placeholder="Fundamental — destroys core evidence / Credibility — damages reliability / Peripheral — reduces weight only"
+          />
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <CXBtn onClick={analyseWeapon} disabled={loading || !form.weapon.trim()}>
+              ⚡ Analyse Weapon
+            </CXBtn>
+            <CXBtn onClick={addItem} disabled={!form.witness.trim() || !form.weapon.trim()} variant="ghost">
+              Save to Arsenal
+            </CXBtn>
+          </div>
+          <CXAIBlock loading={loading} result={aiRes} error={error} />
+        </div>
+
+        {/* Stored weapons */}
+        {items.length > 0 && (
+          <div>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
+              {witnesses.map(w => (
+                <button
+                  key={w}
+                  onClick={() => setWitFilter(w)}
+                  style={{ fontSize: 10, padding: '4px 10px', borderRadius: 3, border: `1px solid ${witFilter === w ? CX_ACCENT : '#cccccc'}`, background: witFilter === w ? '#150808' : 'transparent', color: witFilter === w ? CX_LIGHT : T.mute, cursor: 'pointer', fontFamily: 'Inter,sans-serif', fontWeight: 600, letterSpacing: '.04em' }}
+                >
+                  {w}
+                </button>
+              ))}
+            </div>
+            {filtered.map(item => (
+              <div key={item.id} style={{ background: '#fafafa', border: '1px solid #eeeeee', borderRadius: 5, padding: '14px 18px', marginBottom: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10, marginBottom: 8 }}>
+                  <div>
+                    <span style={{ fontSize: 9, color: CX_ACCENT, fontFamily: 'Inter,sans-serif', fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase' as const, marginRight: 8 }}>{item.witness}</span>
+                    {item.type && <span style={{ fontSize: 9, color: '#3a2a2a', fontFamily: 'Inter,sans-serif', border: '1px solid #2a1a1a', padding: '1px 6px', borderRadius: 2 }}>{item.type}</span>}
+                  </div>
+                  <button onClick={() => setItems(p => p.filter(x => x.id !== item.id))} style={{ background: 'transparent', border: 'none', color: '#2a1a1a', cursor: 'pointer', fontSize: 13, padding: '2px 4px' }}>✕</button>
+                </div>
+                <p style={{ fontSize: 15, color: '#cac6ba', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.8, margin: '0 0 6px' }}>{item.weapon}</p>
+                {item.impact && <p style={{ fontSize: 12, color: CX_DIM, fontFamily: 'Inter,sans-serif', margin: 0 }}>Impact: {item.impact}</p>}
+              </div>
+            ))}
+          </div>
+        )}
+        {items.length === 0 && (
+          <p style={{ fontSize: 13, color: T.mute, fontFamily: 'Inter,sans-serif' }}>No impeachment weapons in the arsenal yet.</p>
+        )}
+      </CXSection>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PHASE 8C — TAB 7: LIVE COURTROOM MODE
+// Enhanced: locked Case Theory injected into AI system prompt.
+// Storage: in-session only (answers not persisted — live ephemeral mode).
+// Backward compatibility: cx_live_ keys from original CrossExamEngine are NOT
+// read here — Live Mode has always been session-only (no persistence in original).
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface LiveCourtroomTabProps {
+  activeCase: Case;
+  role:       TrialRole;
+}
+
+function LiveCourtroomTab({ activeCase }: LiveCourtroomTabProps) {
+  const caseId = activeCase.id;
+  const ai     = useAI(activeCase);
+  const { theory, hasTheory } = useCaseTheory(caseId);
+
+  const [witness, setWitness] = useState('');
+  const [context, setContext] = useState('');
+  const [answers, setAnswers] = useState<LiveAnswer[]>([]);
+  const [input,   setInput]   = useState('');
+  const [aiRes,   setAiRes]   = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error,   setError]   = useState('');
+  const [session, setSession] = useState(false);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Full theory block injected into system prompt — 8C enhancement
+  function theorySystemBlock(): string {
+    if (!theory) return '';
+    return `\n\nLOCKED CASE THEORY (use this to drive every question sequence):\nCore Proposition: ${theory.core_proposition}\nElements to establish: ${theory.elements.map(e => `${e.element} (evidence: ${e.evidence || 'n/a'})`).join(' | ')}\nOpposing Theory: ${theory.opposing_theory}\nTheory Killer: ${theory.theory_killer}\nWeakest Link: ${theory.weakest_link}\n\nIn your Next Three Questions, prioritise questions that advance the Core Proposition or lock in admissions that support it. Flag any answer that directly implicates the Theory Killer.`;
+  }
+
+  function startSession() {
+    if (!witness.trim()) return;
+    setSession(true);
+    setAnswers([]);
+    setAiRes('');
+    setError('');
+  }
+
+  function addAnswer() {
+    if (!input.trim()) return;
+    const entry: LiveAnswer = {
+      id:   uid(),
+      text: input.trim(),
+      time: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+    };
+    setAnswers(a => [...a, entry]);
+    setInput('');
+    setTimeout(() => inputRef.current?.focus(), 50);
+  }
+
+  async function getAdvice() {
+    if (!answers.length) return;
+    setLoading(true); setError(''); setAiRes('');
+    const log = answers.map((a, i) => `Answer ${i + 1} [${a.time}]: ${a.text}`).join('\n\n');
+    const result = await ai.ask({
+      system: `You are a Nigerian senior trial advocate providing real-time cross-examination intelligence from the bar table.
+The witness is in the box. You are watching their answers and advising counsel on next moves.
+Be direct. Be urgent. Every recommendation must be actionable immediately.
+Apply Evidence Act 2011 and Nigerian court procedure throughout.${theorySystemBlock()}`,
+      userMsg: `CASE: ${activeCase.caseName} | COURT: ${activeCase.court || 'Not specified'}
+WITNESS BEING CROSS-EXAMINED: ${witness}
+BACKGROUND CONTEXT AND OBJECTIVES: ${context || 'Not provided'}
+
+WITNESS ANSWERS SO FAR:
+${log}
+
+Provide urgent, real-time cross-examination intelligence:
+
+## CRITICAL OBSERVATIONS
+Flag anything immediately dangerous or useful in the answers given. Has the witness said something unexpected — helpful or harmful?${hasTheory ? ' Does any answer implicate the Theory Killer?' : ''}
+
+## CONTRADICTIONS DETECTED
+Any internal contradictions between the answers, or contradictions with the expected position? Reference the specific answer number.
+
+## NEXT THREE QUESTIONS
+The three best questions to ask RIGHT NOW — based on what the witness just said. Give exact question text and what each achieves${hasTheory ? ', mapped to which Case Theory element it advances' : ''}.
+
+## FOLLOW-UP TARGET
+Which specific answer (by number) should be drilled into further, and exactly how?
+
+## ADMISSION RISK ASSESSMENT
+Has the witness made any admissions? Rate: STRONG / PARTIAL / NONE. If strong or partial, specify the admission and how to lock it in.
+
+## APPELLATE FLAGS
+Anything that should be preserved as an appellate issue? Any objections that should be made now?
+
+Be direct. Be urgent. This is live courtroom intelligence.`,
+    });
+    setLoading(false);
+    if (result) setAiRes(result);
+    else setError('Intelligence request failed — check connection and retry.');
+  }
+
+  if (!session) {
+    return (
+      <div>
+        <div style={{ marginBottom: 18 }}>
+          <CaseTheoryBanner
+            theory={theory}
+            locked={hasTheory}
+            score={theory?.score_breakdown?.total ?? null}
+            hasTheory={hasTheory}
+            onOpenTheory={() => {}}
+          />
+        </div>
+        <div style={{ maxWidth: 580 }}>
+          <CXSection title="Live Courtroom Mode — Setup">
+            <div style={{ background: '#120606', border: `1px solid ${CX_ACCENT}33`, borderRadius: 6, padding: '14px 18px', marginBottom: 20 }}>
+              <p style={{ fontSize: 13, color: CX_LIGHT, fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic', lineHeight: 1.8, margin: 0 }}>
+                Enter the courtroom. As the witness answers your questions, type each answer here. The AI monitors in real time — detecting contradictions, flagging admissions, and generating the next question sequence based on what the witness actually says{hasTheory ? ', anchored to your locked Case Theory' : ''}.
+              </p>
+            </div>
+            {!hasTheory && (
+              <div style={{ background: '#1a1400', border: '1px solid #3a3000', borderRadius: 5, padding: '10px 14px', marginBottom: 16 }}>
+                <p style={{ fontSize: 12, color: '#c0a030', fontFamily: 'Inter,sans-serif', margin: 0 }}>
+                  ⚠ No locked Case Theory — AI will advise without theory context. Lock your theory in Tab 1 for sharper real-time intelligence.
+                </p>
+              </div>
+            )}
+            <CXInput label="Witness Being Cross-Examined" value={witness} onChange={setWitness} placeholder="Full name of witness" />
+            <CXInput
+              label="Background Context (cross-examination objectives, key facts, contradictions to exploit)"
+              value={context}
+              onChange={setContext}
+              placeholder="Brief the AI on what you're trying to achieve and what you know about this witness. More context = more precise real-time intelligence."
+              multiline rows={5}
+            />
+            <CXBtn onClick={startSession} disabled={!witness.trim()}>⚔ Enter Courtroom</CXBtn>
+          </CXSection>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {/* Live session header */}
+      <div style={{ background: '#120606', border: `1px solid ${CX_ACCENT}`, borderRadius: 6, padding: '12px 18px', marginBottom: 18, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ width: 8, height: 8, background: CX_ACCENT, borderRadius: '50%', animation: 'glow 1.5s ease infinite', flexShrink: 0 }} />
+          <span style={{ fontSize: 11, color: CX_LIGHT, fontFamily: 'Inter,sans-serif', fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase' as const }}>
+            LIVE — Cross-Examining: {witness}
+          </span>
+          {hasTheory && (
+            <span style={{ fontSize: 9, color: '#2a6a3a', fontFamily: 'Inter,sans-serif', fontWeight: 700, letterSpacing: '.08em', background: '#0a2010', border: '1px solid #1a4020', borderRadius: 2, padding: '2px 7px', textTransform: 'uppercase' as const }}>
+              Theory Active
+            </span>
+          )}
+        </div>
+        <button
+          onClick={() => { setSession(false); setAnswers([]); setAiRes(''); setError(''); }}
+          style={{ background: 'transparent', border: '1px solid #2a1010', color: CX_DIM, borderRadius: 3, padding: '4px 12px', fontSize: 10, cursor: 'pointer', fontFamily: 'Inter,sans-serif' }}
+        >
+          End Session
+        </button>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 360px', gap: 18, alignItems: 'start' }}>
+        {/* Left — answer log + input */}
+        <div>
+          <CXSection title={`Witness Answers — ${answers.length} recorded`}>
+            {answers.length === 0 && (
+              <p style={{ fontSize: 13, color: T.mute, fontFamily: 'Inter,sans-serif', lineHeight: 1.7 }}>No answers recorded yet. Type each answer the witness gives and press Enter.</p>
+            )}
+            {answers.map((a, i) => (
+              <div key={a.id} style={{ background: '#fafafa', border: '1px solid #eeeeee', borderRadius: 5, padding: '11px 14px', marginBottom: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
+                  <span style={{ fontSize: 9, color: CX_ACCENT, fontFamily: 'Inter,sans-serif', fontWeight: 700 }}>ANSWER {i + 1}</span>
+                  <span style={{ fontSize: 9, color: '#303040', fontFamily: 'Inter,sans-serif' }}>{a.time}</span>
+                </div>
+                <p style={{ fontSize: 15, color: '#cac6ba', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.8, margin: 0 }}>{a.text}</p>
+              </div>
+            ))}
+          </CXSection>
+
+          <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', marginTop: 8 }}>
+            <div style={{ flex: 1 }}>
+              <label style={{ fontSize: 9, color: CX_ACCENT, fontFamily: 'Inter,sans-serif', letterSpacing: '.14em', textTransform: 'uppercase' as const, fontWeight: 700, display: 'block', marginBottom: 5 }}>
+                Type or dictate witness answer →
+              </label>
+              <textarea
+                ref={inputRef}
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addAnswer(); } }}
+                placeholder="Type what the witness just said… (Enter to log)"
+                rows={3}
+                style={{ width: '100%', background: '#0d0608', border: `1px solid ${CX_ACCENT}55`, borderRadius: 5, color: T.text, padding: '11px 14px', fontSize: 14, fontFamily: "'Times New Roman', Times, serif", outline: 'none', resize: 'vertical', lineHeight: 1.75, boxSizing: 'border-box' as const }}
+              />
+            </div>
+            <CXBtn onClick={addAnswer} disabled={!input.trim()} variant="primary" small>Log Answer</CXBtn>
+          </div>
+        </div>
+
+        {/* Right — AI intelligence panel */}
+        <div>
+          <CXSection title="Real-Time AI Intelligence">
+            <CXBtn onClick={getAdvice} disabled={loading || !answers.length}>
+              {loading ? '⟳ Analysing…' : '⚔ Get Next Move'}
+            </CXBtn>
+            {error && (
+              <div style={{ background: '#1a0808', border: '1px solid #3a1010', borderRadius: 5, padding: '10px 14px', color: '#c05050', fontFamily: 'Inter,sans-serif', fontSize: 12, marginTop: 10 }}>
+                {error}
+              </div>
+            )}
+            {loading && (
+              <div style={{ textAlign: 'center', padding: '20px', marginTop: 10 }}>
+                <div style={{ display: 'inline-block', width: 12, height: 12, border: '2px solid #3a1010', borderTop: `2px solid ${CX_ACCENT}`, borderRadius: '50%', animation: 'spin .8s linear infinite' }} />
+                <p style={{ fontSize: 11, color: CX_DIM, fontFamily: 'Inter,sans-serif', marginTop: 8, margin: '8px 0 0' }}>Processing courtroom intelligence…</p>
+              </div>
+            )}
+            {aiRes && !loading && (
+              <div style={{ background: '#0d0608', border: `1px solid ${CX_ACCENT}22`, borderRadius: 6, padding: '16px 18px', marginTop: 12, whiteSpace: 'pre-wrap', lineHeight: 1.85, fontFamily: "'Times New Roman', Times, serif", fontSize: 14, color: '#cac6ba', maxHeight: 520, overflowY: 'auto' }}>
+                {aiRes}
+              </div>
+            )}
+          </CXSection>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // COMING SOON PLACEHOLDER (Phases 5–8)
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -2844,9 +3546,26 @@ function TabContent({ tab, activeCase, role, theoryReload }: TabContentProps) {
         />
       );
     case 'contradiction_mapper':
+      return (
+        <ContradictionMapperTab
+          activeCase={activeCase}
+          role={role}
+        />
+      );
     case 'impeachment_arsenal':
+      return (
+        <ImpeachmentArsenalTab
+          activeCase={activeCase}
+          role={role}
+        />
+      );
     case 'live_courtroom':
-      return <ComingSoon tab={tabDef} phase={8} />;
+      return (
+        <LiveCourtroomTab
+          activeCase={activeCase}
+          role={role}
+        />
+      );
     default:
       return null;
   }

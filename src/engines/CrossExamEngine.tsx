@@ -855,11 +855,19 @@ interface Props {
   activeCase: Case;
 }
 
-// @deprecated — Build Plan v2, Phase 3.
-// Absorbed into TrialEngine (src/engines/TrialEngine.tsx).
-// This file is retained for reference only. Do not add new features here.
-// All cx_ prefixed storage keys remain readable from TrialEngine — no migration needed.
-// Delete only after production confirmation (Build Plan v2, Phase 10+).
+// @deprecated — Build Plan v2, Phases 3 & 8.
+// All five modules (Witness Profiler, Contradiction Mapper, Question Sequencer,
+// Impeachment Arsenal, Live Courtroom Mode) are fully absorbed into TrialEngine
+// (src/engines/TrialEngine.tsx) as of Phase 8.
+//
+// STORAGE BACKWARD COMPATIBILITY:
+//   - cx_witnesses, cx_contradictions, cx_impeachment, cx_live_ prefixed keys
+//     are read directly by TrialEngine via the same loadBlindSpot / saveBlindSpot
+//     calls with the same key strings. No data migration required.
+//
+// DO NOT DELETE this file until Phase 10 is confirmed and the app is live in
+// production and tested (Build Plan v2, Part D, Rule 3).
+// DO NOT add new features here.
 export function CrossExamEngine({ activeCase: _activeCase }: Props) {
   return (
     <div style={{
