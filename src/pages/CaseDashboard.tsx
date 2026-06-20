@@ -145,7 +145,18 @@ export function CaseDashboard() {
   // ── Persist helpers ───────────────────────────────────────────────────────
 
   const onSaveIntel = useCallback(async (data: unknown) => {
-    const patch = { intelligence_data: data as Case['intelligence_data'] };
+    // Merge, not replace — IntelligenceEngine only carries the fields it
+    // owns (stage/rawFacts/extraction/.../commencement_audit) in local
+    // state. A hard replace here would silently wipe sibling fields on
+    // intelligence_data that other writers persist independently:
+    // digest/digest_at (compressIntelligence), and — as later phases land —
+    // risk_verdict, conflict_scan, counterclaim_detected, authority_grounding.
+    const patch = {
+      intelligence_data: {
+        ...activeCase.intelligence_data,
+        ...(data as Case['intelligence_data']),
+      },
+    };
     updateActiveCase(patch);
     const saved = { ...activeCase, ...patch };
     await saveCase(saved);
