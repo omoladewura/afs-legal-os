@@ -4,17 +4,19 @@
  * Centralized state for UI navigation and the active case.
  * Does NOT store case data — that lives in IndexedDB via storage/helpers.
  *
- * WHAT LIVES HERE:
- *   - Authentication state (password gate)
- *   - Current view (gate | home | docket | engine)
- *   - Active case ID and loaded case object
- *   - Active dashboard tab
- *   - Global error/loading indicators
+ * AUTH DESIGN (hard-refresh safe):
+ *   Auth is stored in sessionStorage, BUT cleared on hard refresh via
+ *   PerformanceNavigationTiming detection. Result:
+ *     - In-session navigation (tab switches, view changes): stays logged in
+ *     - Hard refresh (Ctrl+R / reload button): clears auth → password gate
+ *     - New tab: sessionStorage is per-tab → password gate
+ *     - Mobile: killing the app and reopening → password gate
  *
- * WHAT DOES NOT LIVE HERE:
- *   - Case data (IndexedDB)
- *   - AI responses (component state)
- *   - Form fields (component state)
+ * BACK BUTTON DESIGN:
+ *   Every view + dashTab change pushes a history.pushState entry.
+ *   App.tsx listens to popstate and restores view/tab from the popped state.
+ *   This makes the browser back button and phone back button work at every
+ *   navigation level: gate → home → engine → tab.
  */
 
 import { create } from 'zustand';
@@ -23,52 +25,110 @@ import type { Case, AppView, DashTabId } from '@/types';
 // ── Docket filter type ─────────────────────────────────────────────────────
 export type DocketFilter = 'all' | 'frep' | 'matrimonial';
 
+// ─────────────────────────────────────────────────────────────────────────────
+// HARD-REFRESH DETECTION
+// Runs before the store initialises so the initial auth read is correct.
+// ─────────────────────────────────────────────────────────────────────────────
+
+(function clearAuthOnHardRefresh() {
+  try {
+    const entries = performance.getEntriesByType('navigation') as PerformanceNavigationTiming[];
+    if (entries.length > 0 && entries[0].type === 'reload') {
+      sessionStorage.removeItem('afs_auth');
+      return;
+    }
+  } catch { /* ignore */ }
+  // Fallback for browsers without PerformanceNavigationTiming
+  try {
+    if ((performance as any).navigation?.type === 1) {
+      sessionStorage.removeItem('afs_auth');
+    }
+  } catch { /* ignore */ }
+})();
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HISTORY HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface NavHistoryState {
+  afsView:    AppView;
+  afsDashTab: DashTabId;
+  afsCaseId:  string | null;
+}
+
+export function pushNavState(view: AppView, dashTab: DashTabId, caseId: string | null) {
+  const state: NavHistoryState = { afsView: view, afsDashTab: dashTab, afsCaseId: caseId };
+  const hash = (view === 'engine' || view === 'matrimonial')
+    ? `#${view}/${dashTab}`
+    : `#${view}`;
+  try { history.pushState(state, '', hash); } catch { /* ignore cross-origin/iframe */ }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STORE
+// ─────────────────────────────────────────────────────────────────────────────
+
 interface AppState {
-  // ── Auth ──────────────────────────────────────────────────────────────────
   isAuthenticated: boolean;
   authenticate:    () => void;
 
-  // ── Navigation ────────────────────────────────────────────────────────────
   view:     AppView;
   setView:  (v: AppView) => void;
 
-  // ── Active case ───────────────────────────────────────────────────────────
-  activeCase:    Case | null;
-  setActiveCase: (c: Case | null) => void;
+  activeCase:       Case | null;
+  setActiveCase:    (c: Case | null) => void;
   updateActiveCase: (patch: Partial<Case>) => void;
 
-  // ── Dashboard tab ─────────────────────────────────────────────────────────
   dashTab:    DashTabId;
   setDashTab: (t: DashTabId) => void;
 
-  // ── Global error (for auth failures etc) ─────────────────────────────────
   globalError:    string;
   setGlobalError: (msg: string) => void;
   clearError:     () => void;
 
-  // ── Docket overlay ────────────────────────────────────────────────────────
   docketOpen:    boolean;
   setDocketOpen: (open: boolean) => void;
 
-  // ── Docket filter ─────────────────────────────────────────────────────────
   docketFilter:    DocketFilter;
   setDocketFilter: (f: DocketFilter) => void;
 }
 
-export const useAppStore = create<AppState>((set) => ({
+export const useAppStore = create<AppState>((set, get) => ({
   // ── Auth ──────────────────────────────────────────────────────────────────
-  isAuthenticated: (() => { try { return sessionStorage.getItem('afs_auth') === '1'; } catch { return false; } })(),
+  isAuthenticated: (() => {
+    try { return sessionStorage.getItem('afs_auth') === '1'; } catch { return false; }
+  })(),
+
   authenticate: () => {
     try { sessionStorage.setItem('afs_auth', '1'); } catch { }
-    set({ isAuthenticated: true, view: 'home' });
+    const newView: AppView   = 'home';
+    const newTab:  DashTabId = 'overview';
+    pushNavState(newView, newTab, null);
+    set({ isAuthenticated: true, view: newView, dashTab: newTab });
   },
-  // ── Navigation — initialise from persisted auth so hard-refresh lands on home ──
-  view: (() => { try { return sessionStorage.getItem('afs_auth') === '1' ? 'home' : 'gate'; } catch { return 'gate'; } })() as AppView,
-  setView: (v) => set({ view: v }),
+
+  // ── Navigation ────────────────────────────────────────────────────────────
+  // After hard-refresh the IIFE above will have cleared sessionStorage, so
+  // this correctly initialises to 'gate'. After authenticate() it's 'home'.
+  view: (() => {
+    try { return sessionStorage.getItem('afs_auth') === '1' ? 'home' : 'gate'; }
+    catch { return 'gate'; }
+  })() as AppView,
+
+  setView: (v) => {
+    const { dashTab, activeCase } = get();
+    pushNavState(v, dashTab, activeCase?.id ?? null);
+    set({ view: v });
+  },
 
   // ── Active case ───────────────────────────────────────────────────────────
   activeCase:    null,
-  setActiveCase: (c) => set({ activeCase: c, dashTab: 'overview' }),
+  setActiveCase: (c) => {
+    const newTab: DashTabId = 'overview';
+    const view = get().view;
+    pushNavState(view, newTab, c?.id ?? null);
+    set({ activeCase: c, dashTab: newTab });
+  },
   updateActiveCase: (patch) =>
     set((s) =>
       s.activeCase ? { activeCase: { ...s.activeCase, ...patch } } : {}
@@ -76,7 +136,11 @@ export const useAppStore = create<AppState>((set) => ({
 
   // ── Dashboard tab ─────────────────────────────────────────────────────────
   dashTab:    'overview',
-  setDashTab: (t) => set({ dashTab: t }),
+  setDashTab: (t) => {
+    const { view, activeCase } = get();
+    pushNavState(view, t, activeCase?.id ?? null);
+    set({ dashTab: t });
+  },
 
   // ── Global error ──────────────────────────────────────────────────────────
   globalError:    '',
