@@ -127,6 +127,14 @@ export const DASH_TABS: DashTab[] = [
     desc:  'Build and execute comprehensive cross-examination strategies. Witness profiler, impeachment planner, contradiction mapper, question sequencer, and live courtroom mode.',
     step:  null,
   },
+  // ── Trial Engine (Build Plan v2, Phase 3) ────────────────────────────────
+  {
+    id:    'trial',
+    icon:  '⚔',
+    label: 'Trial Engine',
+    desc:  'Unified trial engine. Case Theory Brief · Witness Register · Examination-in-Chief · Cross-Examination · Contradiction Mapper · Impeachment Arsenal · Live Courtroom Mode.',
+    step:  null,
+  },
   {
     id:    'enforcement',
     icon:  '→',
@@ -260,7 +268,7 @@ export const TABS_WRIT: DashTab[] = tabs(
   'applications',
   'arg_templates',      // Phase 2 — Argument Template Manager
   'evidence',
-  'crossexam',
+  'trial',              // Build Plan v2 Phase 3 — replaces crossexam
   'case_intelligence',  // Phase 2
   'written_address',    // Phase 3
   'enforcement',
@@ -280,7 +288,7 @@ export const TABS_CRIMINAL: DashTab[] = tabs(
   'prosecution_case',
   'no_case',
   'defence_case',
-  'crossexam',
+  'trial',              // Build Plan v2 Phase 3 — replaces crossexam
   'evidence',
   'applications',
   'arg_templates',      // Phase 2 — Argument Template Manager
@@ -300,6 +308,7 @@ export const TABS_FREP: DashTab[] = tabs(
   'applications',
   'arg_templates',      // Phase 2 — Argument Template Manager
   'evidence',
+  'trial',              // Build Plan v2 Phase 3
   'case_intelligence',  // Phase 2
   'written_address',    // Phase 3
   'appeal',
@@ -322,6 +331,7 @@ export const TABS_MATRIMONIAL: DashTab[] = tabs(
   'arg_templates',      // Phase 2 — Argument Template Manager
   'forms_documents',
   'evidence',
+  'trial',              // Build Plan v2 Phase 3
   'case_intelligence',  // Phase 2
   'decree_enforcement',
   'appeal',
