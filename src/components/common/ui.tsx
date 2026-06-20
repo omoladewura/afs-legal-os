@@ -418,6 +418,153 @@ export function RoleBadge({ role }: RoleBadgeProps) {
   );
 }
 
+// ── CaseTheoryBanner ──────────────────────────────────────────────────────────
+// Trial Engine Consolidation, Phase 1.
+//
+// Shown at the top of every engine that reads or propagates Case Theory
+// (TrialEngine, FinalWrittenAddressEngine, ArgumentBuilder Trial/Civil
+// tracks, ApplicationsEngine when the selected appType needs theory).
+//
+// Three states, in priority order:
+//   1. No theory at all                    → soft red banner
+//   2. Theory exists but is not locked      → amber banner
+//   3. Theory exists and is locked          → collapsible green banner with
+//                                              core proposition + score + version
+//
+// Pass the direct output of useCaseTheory() — props mirror that hook's shape
+// so callers can spread it: <CaseTheoryBanner {...useCaseTheory(caseId)} />
+
+interface CaseTheoryBannerProps {
+  theory?:    { core_proposition: string } | null;
+  locked?:    boolean;
+  score?:     number | null;
+  version?:   number;
+  hasTheory?: boolean;
+  loading?:   boolean;
+  /** Optional — wires the banner's action button to navigate to the theory tab */
+  onOpenTheory?: () => void;
+}
+
+export function CaseTheoryBanner({
+  theory, locked, score, version, hasTheory, loading, onOpenTheory,
+}: CaseTheoryBannerProps) {
+  // React is already imported as the default export at the top of this file;
+  // reuse React.useState rather than adding another named import.
+  const [expanded, setExpanded] = React.useState(true);
+
+  if (loading) return null;
+
+  // ── State 1: no theory at all ────────────────────────────────────────────
+  if (!theory) {
+    return (
+      <div style={{
+        background: '#fff8f8', border: '1px solid #e8c0c0',
+        borderRadius: 4, padding: '10px 14px', marginBottom: 14,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+      }}>
+        <p style={{
+          fontSize: 13, color: '#8a1a1a', margin: 0,
+          fontFamily: "'Times New Roman', Times, serif",
+        }}>
+          No Case Theory set. Run Intelligence Engine then crystallise your theory.
+        </p>
+        {onOpenTheory && (
+          <button onClick={onOpenTheory} style={{
+            background: 'transparent', border: '1px solid #8a1a1a', color: '#8a1a1a',
+            borderRadius: 3, padding: '4px 10px', fontSize: 11, cursor: 'pointer',
+            fontFamily: "'Times New Roman', Times, serif", flexShrink: 0,
+          }}>
+            Build Theory →
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  // ── State 2: theory exists but unlocked ──────────────────────────────────
+  if (!locked) {
+    return (
+      <div style={{
+        background: '#fdf6e8', border: '1px solid #e0cfa0',
+        borderRadius: 4, padding: '10px 14px', marginBottom: 14,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+      }}>
+        <p style={{
+          fontSize: 13, color: '#7a4a00', margin: 0,
+          fontFamily: "'Times New Roman', Times, serif",
+        }}>
+          Theory not yet locked — downstream engines will not use it.
+        </p>
+        {onOpenTheory && (
+          <button onClick={onOpenTheory} style={{
+            background: 'transparent', border: '1px solid #7a4a00', color: '#7a4a00',
+            borderRadius: 3, padding: '4px 10px', fontSize: 11, cursor: 'pointer',
+            fontFamily: "'Times New Roman', Times, serif", flexShrink: 0,
+          }}>
+            Review & Lock →
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  // ── State 3: locked — collapsible summary ────────────────────────────────
+  const s = score ?? 0;
+  const scoreColor = s >= 80 ? '#2a6a3a' : s >= 50 ? '#7a4a00' : '#8a1a1a';
+
+  return (
+    <div style={{
+      background: '#eef7f1', border: '1px solid #b0d4bc',
+      borderRadius: 4, padding: '10px 14px', marginBottom: 14,
+    }}>
+      <div
+        onClick={() => setExpanded(e => !e)}
+        style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          gap: 10, cursor: 'pointer',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
+          <span style={{
+            fontSize: 9, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase',
+            color: '#1a5a30', background: '#ffffff', border: '1px solid #b0d4bc',
+            borderRadius: 2, padding: '2px 8px', flexShrink: 0,
+            fontFamily: "'Times New Roman', Times, serif",
+          }}>
+            Locked v{version ?? 1}
+          </span>
+          <span style={{
+            fontSize: 9, fontWeight: 700, color: scoreColor,
+            fontFamily: "'Times New Roman', Times, serif", flexShrink: 0,
+          }}>
+            {s}/100
+          </span>
+          {!expanded && (
+            <span style={{
+              fontSize: 13, color: '#1a5a30', fontStyle: 'italic',
+              fontFamily: "'Times New Roman', Times, serif",
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}>
+              {theory.core_proposition}
+            </span>
+          )}
+        </div>
+        <span style={{ fontSize: 11, color: '#1a5a30', flexShrink: 0 }}>
+          {expanded ? '▲' : '▼'}
+        </span>
+      </div>
+      {expanded && (
+        <p style={{
+          fontSize: 13, color: '#1a3a23', margin: '8px 0 0', lineHeight: 1.7,
+          fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic',
+        }}>
+          {theory.core_proposition}
+        </p>
+      )}
+    </div>
+  );
+}
+
 // ── Label ─────────────────────────────────────────────────────────────────────
 
 interface LabelProps {
