@@ -49,13 +49,41 @@ type MoverSubTab = 'written_address' | 'opposing_response' | 'further_better' | 
 // Respondent track sub-tabs
 type RespondentSubTab = 'counter_affidavit' | 'written_address_opp' | 'further_better_resp';
 
-interface AppTypeConfig {
+export interface AppTypeConfig {
   id:      string;
   label:   string;
   icon:    string;
   track:   'civil' | 'criminal' | 'appeal' | 'all';
   package: string[];
   hint:    string;
+  /**
+   * Trial Engine Consolidation, Phase 1 — Decision 1.
+   *
+   * Whether a locked Case Theory is injected into this appType's draft
+   * calls (Phase 9 wires the actual injection; this flag is set here so
+   * the catalogue carries it from the start).
+   *
+   *   true  + locked theory exists → theory is injected
+   *   true  + no locked theory     → soft warning shown, drafting proceeds
+   *   false                        → never injected, regardless of theory state
+   *
+   * These are defaults from the build plan's Decision 1 table. Counsel can
+   * override per session in the engine UI (Phase 9). Provisional defaults
+   * applied here, extending the plan's explicit table to every current
+   * catalogue entry:
+   *   - Generic notice/ex-parte/opposition motions are vehicles, not
+   *     inherently theory-bearing → false.
+   *   - Injunctions (interim & interlocutory) → true, per the plan.
+   *   - Bail, Extension of Time, Stay (civil/criminal/appeal), Default
+   *     Judgment, Substituted Service, Security for Costs, Preliminary
+   *     Objection, Quash Charge, Regularise Records → false — procedural/
+   *     technical applications argued on their own discrete test, not on
+   *     the merits theory of the case.
+   *   - Summary Judgment and Strike Out → true — both turn on whether the
+   *     pleaded/evidenced case discloses a sustainable claim or defence,
+   *     i.e. they engage the case theory's elements directly.
+   */
+  needsCaseTheory: boolean;
 }
 
 interface ArgumentIssue {
@@ -149,67 +177,86 @@ interface TrackerData  { entries: TrackerEntry[]; }
 // APPLICATION TYPE CATALOGUE
 // ─────────────────────────────────────────────────────────────────────────────
 
-const APP_TYPES: AppTypeConfig[] = [
+export const APP_TYPES: AppTypeConfig[] = [
   // Civil
   { id: 'civil_motion_on_notice', label: 'Motion on Notice', icon: '📋', track: 'civil',
     package: ['Motion Paper', 'Supporting Affidavit', 'Written Address in Support', 'List of Authorities'],
-    hint: 'Formal application with notice to the other side — grounds, supporting affidavit, reliefs sought.' },
+    hint: 'Formal application with notice to the other side — grounds, supporting affidavit, reliefs sought.',
+    needsCaseTheory: false },
   { id: 'civil_motion_ex_parte', label: 'Motion Ex Parte', icon: '⚡', track: 'civil',
     package: ['Motion Paper', 'Supporting Affidavit', 'Written Address in Support', 'List of Authorities'],
-    hint: 'Urgent application without notice — where giving notice would defeat the purpose or cause irreparable harm.' },
+    hint: 'Urgent application without notice — where giving notice would defeat the purpose or cause irreparable harm.',
+    needsCaseTheory: false },
   { id: 'civil_opposition', label: 'Opposition to Motion', icon: '↩', track: 'civil',
     package: ['Counter-Affidavit', 'Written Address in Opposition', 'List of Authorities'],
-    hint: 'Opposing an application — counter-affidavit challenging the supporting affidavit and a written address in opposition.' },
+    hint: 'Opposing an application — counter-affidavit challenging the supporting affidavit and a written address in opposition.',
+    needsCaseTheory: false },
   { id: 'civil_interim_injunction', label: 'Interim Injunction', icon: '⏳', track: 'civil',
     package: ['Motion Ex Parte', 'Supporting Affidavit', 'Certificate of Urgency', 'Written Address in Support', 'List of Authorities'],
-    hint: 'Short-lived order made ex parte to preserve the status quo pending the hearing of the motion on notice for interlocutory injunction — must show extreme urgency and a real risk of irreparable harm if notice is given to the other side first.' },
+    hint: 'Short-lived order made ex parte to preserve the status quo pending the hearing of the motion on notice for interlocutory injunction — must show extreme urgency and a real risk of irreparable harm if notice is given to the other side first.',
+    needsCaseTheory: true },
   { id: 'civil_interlocutory_injunction', label: 'Interlocutory Injunction', icon: '🚫', track: 'civil',
     package: ['Motion on Notice', 'Supporting Affidavit', 'Written Address in Support', 'Undertaking as to Damages', 'List of Authorities'],
-    hint: 'On notice, pending the determination of the substantive suit — establish the three conditions: serious question to be tried, balance of convenience, and adequacy of damages. Mandatory or Mareva variants apply the same test with their added requirements.' },
+    hint: 'On notice, pending the determination of the substantive suit — establish the three conditions: serious question to be tried, balance of convenience, and adequacy of damages. Mandatory or Mareva variants apply the same test with their added requirements.',
+    needsCaseTheory: true },
   { id: 'civil_substituted_service', label: 'Substituted Service', icon: '📬', track: 'civil',
     package: ['Motion Ex Parte', 'Affidavit of Attempted/Difficulty of Service', 'Written Address in Support', 'List of Authorities'],
-    hint: 'Leave to serve by substituted means — affidavit must show personal service is impracticable (evading service, unknown whereabouts, etc.) and propose a mode reasonably likely to bring the process to the respondent\'s notice (courier, email, newspaper publication, or posting at last known address).' },
+    hint: 'Leave to serve by substituted means — affidavit must show personal service is impracticable (evading service, unknown whereabouts, etc.) and propose a mode reasonably likely to bring the process to the respondent\'s notice (courier, email, newspaper publication, or posting at last known address).',
+    needsCaseTheory: false },
   { id: 'civil_default_judgment', label: 'Default Judgment', icon: '⚖', track: 'civil',
     package: ['Motion on Notice', 'Affidavit of Service', 'Written Address in Support', 'List of Authorities'],
-    hint: 'Judgment in default of appearance or defence — prove service, show no defence filed, establish entitlement.' },
+    hint: 'Judgment in default of appearance or defence — prove service, show no defence filed, establish entitlement.',
+    needsCaseTheory: false },
   { id: 'civil_strike_out', label: 'Strike Out', icon: '✕', track: 'civil',
     package: ['Motion on Notice', 'Supporting Affidavit', 'Written Address in Support', 'List of Authorities'],
-    hint: 'Strike out — no reasonable cause of action, frivolous, vexatious, or abuse of process.' },
+    hint: 'Strike out — no reasonable cause of action, frivolous, vexatious, or abuse of process.',
+    needsCaseTheory: true },
   { id: 'civil_stay', label: 'Stay of Proceedings', icon: '⏸', track: 'civil',
     package: ['Motion on Notice', 'Supporting Affidavit', 'Written Address in Support', 'List of Authorities'],
-    hint: 'Stay pending appeal, arbitration, or related proceedings.' },
+    hint: 'Stay pending appeal, arbitration, or related proceedings.',
+    needsCaseTheory: false },
   { id: 'civil_security_costs', label: 'Security for Costs', icon: '💰', track: 'civil',
     package: ['Motion on Notice', 'Supporting Affidavit', 'Written Address in Support', 'List of Authorities'],
-    hint: 'Security for costs — impecunious or foreign claimant, no fixed place of business in jurisdiction.' },
+    hint: 'Security for costs — impecunious or foreign claimant, no fixed place of business in jurisdiction.',
+    needsCaseTheory: false },
   { id: 'civil_extension_time', label: 'Extension of Time', icon: '⏰', track: 'civil',
     package: ['Motion on Notice', 'Affidavit Explaining Delay', 'Written Address in Support', 'List of Authorities'],
-    hint: 'Extension of time — account for every day of delay; apply Bowaje v Adediwura two-condition test.' },
+    hint: 'Extension of time — account for every day of delay; apply Bowaje v Adediwura two-condition test.',
+    needsCaseTheory: false },
   { id: 'civil_summary_judgment', label: 'Summary Judgment', icon: '⚖', track: 'civil',
     package: ['Motion on Notice', 'Supporting Affidavit', 'Written Address in Support', 'List of Authorities'],
-    hint: 'Summary judgment where defendant has no real or bona fide defence — Ord 11 or equivalent. Address each purported defence and why it fails.' },
+    hint: 'Summary judgment where defendant has no real or bona fide defence — Ord 11 or equivalent. Address each purported defence and why it fails.',
+    needsCaseTheory: true },
   // Criminal
   { id: 'crim_bail', label: 'Bail Application', icon: '🔓', track: 'criminal',
     package: ['Formal Application', 'Affidavit in Support', 'Written Address', 'Proposed Bail Conditions', 'List of Authorities'],
-    hint: 'Address community ties, flight risk, gravity of offence, health, dependants. Cite Dokubo-Asari v FRN, Ani v State, Bamaiyi v State.' },
+    hint: 'Address community ties, flight risk, gravity of offence, health, dependants. Cite Dokubo-Asari v FRN, Ani v State, Bamaiyi v State.',
+    needsCaseTheory: false },
   { id: 'crim_prelim_obj', label: 'Preliminary Objection', icon: '🛡', track: 'criminal',
     package: ['Notice of Preliminary Objection', 'Written Address', 'List of Authorities'],
-    hint: 'Jurisdiction, charge duplicity, wrong statute, vague particulars, or missing elements.' },
+    hint: 'Jurisdiction, charge duplicity, wrong statute, vague particulars, or missing elements.',
+    needsCaseTheory: false },
   { id: 'crim_stay', label: 'Stay of Proceedings (Criminal)', icon: '⏸', track: 'criminal',
     package: ['Motion on Notice', 'Affidavit', 'Written Address', 'List of Authorities'],
-    hint: 'Stay pending constitutional challenge, interlocutory appeal, or related civil proceedings.' },
+    hint: 'Stay pending constitutional challenge, interlocutory appeal, or related civil proceedings.',
+    needsCaseTheory: false },
   { id: 'crim_quash', label: 'Quash Charge / Information', icon: '🗑', track: 'criminal',
     package: ['Application to Quash', 'Written Address', 'List of Authorities'],
-    hint: 'Charge is fundamentally defective — wrong court, duplicitous counts, no offence known to law.' },
+    hint: 'Charge is fundamentally defective — wrong court, duplicitous counts, no offence known to law.',
+    needsCaseTheory: false },
   // Appeal
   { id: 'appeal_extension', label: 'Extension of Time to Appeal', icon: '⏰', track: 'appeal',
     package: ['Motion on Notice', 'Affidavit Explaining Delay', 'Written Address in Support', 'Proposed Notice of Appeal', 'List of Authorities'],
-    hint: 'Account for every day of delay. Two conditions: good reason for delay and arguable grounds of appeal.' },
+    hint: 'Account for every day of delay. Two conditions: good reason for delay and arguable grounds of appeal.',
+    needsCaseTheory: false },
   { id: 'appeal_stay_execution', label: 'Stay of Execution', icon: '⏸', track: 'appeal',
     package: ['Motion on Notice', 'Affidavit', 'Written Address in Support', 'List of Authorities'],
-    hint: 'Three conditions: good grounds of appeal, special circumstances, balance of hardship. Cite Vaswani Trading Co v Savalakh & Co.' },
+    hint: 'Three conditions: good grounds of appeal, special circumstances, balance of hardship. Cite Vaswani Trading Co v Savalakh & Co.',
+    needsCaseTheory: false },
   { id: 'appeal_regularise', label: 'Regularise Records / Deem Notice Filed', icon: '📄', track: 'appeal',
     package: ['Motion on Notice', 'Affidavit', 'Written Address in Support', 'List of Authorities'],
-    hint: 'Regularise steps in appellate proceedings — deem notice of appeal as properly filed, extend time to compile records.' },
+    hint: 'Regularise steps in appellate proceedings — deem notice of appeal as properly filed, extend time to compile records.',
+    needsCaseTheory: false },
 ];
 
 const DEFAULT_FACTS: AppFacts = {
