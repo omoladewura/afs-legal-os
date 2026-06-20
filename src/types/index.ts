@@ -743,7 +743,9 @@ export type DashTabId =
   // Master Plan — Four Merged Engines (Phases 1–4)
   | 'case_command'       // Phase 1 — replaces overview
   | 'case_intelligence'  // Phase 2 — new tab
-  | 'written_address';   // Phase 3 — replaces builder + final_address
+  | 'written_address'    // Phase 3 — replaces builder + final_address
+  // Trial Engine Consolidation (Build Plan v2, Phase 3)
+  | 'trial';             // unified trial engine — replaces crossexam
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ORIGINATING PROCESS
