@@ -1,3 +1,7 @@
+// Build Plan v2 — Trial Engine Consolidation complete. 20 June 2026.
+// Phases 3–8 confirmed. CrossExamEngine: stub retained — Check 4 (live production
+// + real-case test) not yet confirmed. Re-run CrossExamEngine deletion gate when ready.
+
 /**
  * AFS Legal OS — Trial Engine
  *

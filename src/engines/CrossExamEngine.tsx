@@ -865,8 +865,13 @@ interface Props {
 //     are read directly by TrialEngine via the same loadBlindSpot / saveBlindSpot
 //     calls with the same key strings. No data migration required.
 //
-// DO NOT DELETE this file until Phase 10 is confirmed and the app is live in
-// production and tested (Build Plan v2, Part D, Rule 3).
+// DELETION GATE — Phase 10F-iii (20 June 2026):
+//   ✅ Check 1: TrialEngine Phases 7 & 8 confirmed complete (all 7 tabs implemented).
+//   ✅ Check 2: Redirect stub operational — renders correctly, no crash.
+//   ✅ Check 3: No runtime imports outside CaseDashboard.tsx.
+//   ⏳ Check 4: App live in production and tested on real case data — NOT YET CONFIRMED.
+//
+// RETAIN THIS STUB until Check 4 is confirmed. Re-run deletion gate at that point.
 // DO NOT add new features here.
 export function CrossExamEngine({ activeCase: _activeCase }: Props) {
   return (

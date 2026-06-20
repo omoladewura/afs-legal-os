@@ -1,3 +1,10 @@
+// Build Plan v2 — Phase 10 complete. 20 June 2026.
+// getLawSync wiring: Phase 10C (getJurisdictionDeltaSync → buildDraftSystemPrompt Layer 2).
+// Clone Draft: Phases 10D (data layer) + 10E (UI — clone button, modal, clone notice).
+// Phase 10F-ii integration smoke test: PASS (20 x checks, zero TypeScript errors).
+// Phase 10F-iii: PromptPreview removed. CrossExamEngine stub retained — Check 4
+//   (live production + real-case test) not yet confirmed; re-run deletion gate when ready.
+
 /**
  * AFS Legal OS V2 — Applications Engine (Phase 1 Rebuild)
  *
@@ -61,16 +68,6 @@ This application must be argued in a manner consistent with and advancing this p
 // ─────────────────────────────────────────────────────────────────────────────
 // PHASE 10B — PROMPT CONSOLIDATION
 // ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Returns true when ?debug=1 is in the URL.
- * Gates the PromptPreview panel — never visible in production to a user
- * who doesn't know the param. Removed entirely in Phase 10F.
- */
-function useDebugMode(): boolean {
-  if (typeof window === 'undefined') return false;
-  return new URLSearchParams(window.location.search).get('debug') === '1';
-}
 
 interface BuildDraftSystemPromptParams {
   /** Role + intelligence context — the base layer (always required). */
@@ -173,75 +170,6 @@ function buildDraftSystemPrompt({
   }
 
   return layers.join('\n\n');
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// DEBUG: PromptPreview component (Phase 10B — removed in Phase 10F)
-// Only rendered at ?debug=1. No production user will see this.
-// ─────────────────────────────────────────────────────────────────────────────
-
-interface PromptPreviewProps {
-  systemPrompt: string;
-  appType:      string;
-  jurisdiction: string;
-  hasTemplate:  boolean;
-  hasTheory:    boolean;
-  lawDeltaLen:  number;
-}
-
-function PromptPreview({
-  systemPrompt, appType, jurisdiction, hasTemplate, hasTheory, lawDeltaLen,
-}: PromptPreviewProps) {
-  const [open, setOpen] = React.useState(false);
-  const tokenEst = Math.round(systemPrompt.length / 4);
-  return (
-    <div style={{
-      border: '2px dashed #f59e0b', borderRadius: 6, padding: '8px 12px',
-      marginBottom: 14, background: '#0a0800', fontFamily: 'monospace', fontSize: 12,
-    }}>
-      <div
-        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
-        onClick={() => setOpen(o => !o)}
-      >
-        <span style={{ fontWeight: 700, color: '#f59e0b' }}>
-          ⚙ DEBUG PROMPT {open ? '▲' : '▼'}
-        </span>
-        <span style={{ color: '#c08020', fontSize: 11 }}>
-          ~{tokenEst} tok · {systemPrompt.length} ch
-        </span>
-      </div>
-      {open && (
-        <>
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', margin: '8px 0' }}>
-            {([ ['L1 systemCtx', true], ['L2 JurisdΔ', lawDeltaLen > 0], ['L3 Template', hasTemplate], ['L4 Theory', hasTheory] ] as [string, boolean][]).map(([label, active]) => (
-              <span key={label} style={{
-                padding: '2px 8px', borderRadius: 10, fontSize: 10,
-                background: active ? '#143020' : '#101018',
-                color: active ? '#40c060' : '#404050',
-                border: `1px solid ${active ? '#40c060' : '#202030'}`,
-                fontWeight: active ? 700 : 400,
-              }}>
-                {active ? '✓' : '○'} {label}
-              </span>
-            ))}
-          </div>
-          <div style={{ color: '#806010', fontSize: 10, marginBottom: 6 }}>
-            appType: <strong>{appType}</strong> · jurisdiction: <strong>{jurisdiction}</strong>
-          </div>
-          <pre style={{
-            whiteSpace: 'pre-wrap', wordBreak: 'break-word', background: '#080600',
-            padding: 10, borderRadius: 4, maxHeight: 360, overflowY: 'auto',
-            border: '1px solid #302000', color: '#c8c0a0', fontSize: 11,
-          }}>
-            {systemPrompt}
-          </pre>
-          <div style={{ marginTop: 4, fontSize: 10, color: '#505030' }}>
-            ?debug=1 only — removed in Phase 10F
-          </div>
-        </>
-      )}
-    </div>
-  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -695,10 +623,7 @@ function IssueBuilder({
   const { ask, loading, error, clearError } = useAI(activeCase);
   // Phase 9D — light theory injection when appType.needsCaseTheory is true
   const { theory: issueTheory, hasTheory: issueHasTheory } = useCaseTheory(activeCase.id);
-  // Phase 10B — debug prompt preview
-  const isDebug = useDebugMode();
-  // Phase 10C — jurisdiction delta, resolved once per render and reused by
-  // generateIssue, assembleAddress, and the debug PromptPreview below.
+  // Phase 10C — jurisdiction delta, resolved once per render and reused by generateIssue and assembleAddress.
   const jurisdiction = (activeCase as any).jurisdiction ?? activeCase.court ?? '';
   const lawDelta = getJurisdictionDeltaSync(appType.label, jurisdiction);
   const [editingId,       setEditingId]       = useState<string | null>(null);
@@ -1066,25 +991,6 @@ ${facts.keyFacts ? 'Key Facts: ' + facts.keyFacts : ''}
                 <Md text={draftIssue.draft} />
               </div>
             </div>
-          )}
-
-          {/* Phase 10B — PromptPreview at ?debug=1, shows expected system prompt before generation */}
-          {isDebug && draftIssue && (
-            <PromptPreview
-              systemPrompt={buildDraftSystemPrompt({
-                systemCtx,
-                appType,
-                template:        null,   // template lookup is async — check at generation time; see generateIssue
-                theory:          appType.needsCaseTheory && issueHasTheory && issueTheory ? issueTheory : null,
-                lawDelta,
-                callInstruction: 'You are drafting one issue of a Written Address for a Nigerian court. NEVER invent case citations. Use [RESEARCH NEEDED] blocks for uncertain authority.',
-              })}
-              appType={appType.label}
-              jurisdiction={jurisdiction}
-              hasTemplate={false /* async — verified at generation time */}
-              hasTheory={!!(appType.needsCaseTheory && issueHasTheory && issueTheory)}
-              lawDeltaLen={lawDelta.length}
-            />
           )}
 
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -2243,9 +2149,6 @@ export function ApplicationsEngine({ activeCase }: Props) {
   const { fullContext } = useIntelligence(activeCase, 'facts');
   const systemCtx = buildRoleSystemPrompt(activeCase.matter_track, activeCase.counsel_role) + fullContext;
 
-  // Phase 10B — debug mode (PromptPreview panel)
-  const isDebug = useDebugMode();
-
   // Phase 9D — locked Case Theory for needsCaseTheory appTypes
   const { theory, locked, score, hasTheory, loading: theoryLoading } = useCaseTheory(activeCase.id);
 
@@ -2258,29 +2161,11 @@ export function ApplicationsEngine({ activeCase }: Props) {
   const [customTypeText,  setCustomTypeText]  = useState('');
 
   // Phase 10C — jurisdiction delta for the selected application type, memoized
-  // so it's resolved once per (selectedType, activeCase) change and reused by
-  // handleAssemble, assembleSystemPrompt, and the debug PromptPreview below.
-  // Moved here (after selectedType's declaration) — the Phase 10B placement
-  // before the useState call referenced selectedType ahead of its own
-  // initialization, which throws at render ("Cannot access 'selectedType'
-  // before initialization"). Fixed in-stride per Execution Rule 5.
+  // so it's resolved once per (selectedType, activeCase) change and reused by handleAssemble.
   const lawDelta = React.useMemo(() => {
     if (!selectedType) return '';
     return getJurisdictionDeltaSync(selectedType.label, (activeCase as any).jurisdiction ?? activeCase.court ?? '');
   }, [selectedType, activeCase]);
-
-  // Phase 10B — pre-compute the assemble system prompt at render time so
-  // PromptPreview can display it before the user clicks the button.
-  const assembleSystemPrompt = React.useMemo(() => {
-    if (!selectedType) return '';
-    return buildDraftSystemPrompt({
-      systemCtx,
-      appType:  selectedType,
-      template: null,
-      theory:   selectedType?.needsCaseTheory && hasTheory && theory ? theory : null,
-      lawDelta,
-    });
-  }, [systemCtx, selectedType, theory, hasTheory, lawDelta]);
 
   // Stage 2
   const [facts, setFacts] = useState<AppFacts>({ ...DEFAULT_FACTS });
@@ -2775,19 +2660,6 @@ Begin with the first document heading now:`;
 
               <div style={{ display: 'flex', gap: 10, marginTop: 24, paddingTop: 16, borderTop: '1px solid #181828', flexWrap: 'wrap' }}>
                 <Btn label="← Back to Facts" onClick={() => setStage(2)} accent="#505068" small />
-                {/* Phase 10B — PromptPreview shown above Assemble button at ?debug=1 */}
-                {isDebug && selectedType && (
-                  <div style={{ width: '100%', order: -1 }}>
-                    <PromptPreview
-                      systemPrompt={assembleSystemPrompt}
-                      appType={selectedType.label}
-                      jurisdiction={(activeCase as any).jurisdiction ?? activeCase.court ?? ''}
-                      hasTemplate={false}
-                      hasTheory={!!(selectedType?.needsCaseTheory && hasTheory && theory)}
-                      lawDeltaLen={lawDelta.length}
-                    />
-                  </div>
-                )}
                 <Btn label="Assemble Full Package →" onClick={() => { setStage(4); handleAssemble(); }} loading={loading} accent="#4090d0" />
               </div>
             </div>
