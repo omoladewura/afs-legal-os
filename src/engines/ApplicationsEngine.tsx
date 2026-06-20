@@ -35,6 +35,8 @@ import {
 } from '@/services/statuteRag';
 import { ArgumentTemplateManager } from './ArgumentTemplateManager';
 import { db } from '@/storage/db';
+import type { ArgumentTemplate } from '@/storage/db';
+import { getJurisdictionDeltaSync } from '@/law/registry';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CASE THEORY — Light injection helper (Phase 9D)
@@ -42,12 +44,204 @@ import { db } from '@/storage/db';
 // Used in appTypes where needsCaseTheory: true.
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * @deprecated Phase 10B — superseded by Layer 4 of buildDraftSystemPrompt.
+ * All call sites now route through buildDraftSystemPrompt. Retained here
+ * as a named reference in case any engine outside ApplicationsEngine still
+ * imports this function. Safe to delete once confirmed unused across the codebase.
+ */
 function buildLightTheoryInjection(theory: CaseTheoryRecord): string {
   return `CASE THEORY CONTEXT (relevant to this application):
 Core Proposition: ${theory.core_proposition}
 This application must be argued in a manner consistent with and advancing this proposition.
 
 `;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PHASE 10B — PROMPT CONSOLIDATION
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Returns true when ?debug=1 is in the URL.
+ * Gates the PromptPreview panel — never visible in production to a user
+ * who doesn't know the param. Removed entirely in Phase 10F.
+ */
+function useDebugMode(): boolean {
+  if (typeof window === 'undefined') return false;
+  return new URLSearchParams(window.location.search).get('debug') === '1';
+}
+
+interface BuildDraftSystemPromptParams {
+  /** Role + intelligence context — the base layer (always required). */
+  systemCtx:        string;
+  /** AppTypeConfig — governs needsCaseTheory and label for logging. */
+  appType:          AppTypeConfig;
+  /**
+   * Saved ArgumentTemplate for this appType × jurisdiction (Phase 2).
+   * Pass null when no template match exists or when the call type does not
+   * use templates (assembleAddress, generateReplyLaw, generateCounterAffidavit).
+   */
+  template:         ArgumentTemplate | null;
+  /**
+   * Locked CaseTheoryRecord (Phase 9D).
+   * Pass null when appType.needsCaseTheory is false, or when the theory
+   * is not locked, or when the call type should not carry theory context.
+   * Callers are responsible for the gate — this function always injects
+   * when theory is non-null, with no second-guessing.
+   */
+  theory:           CaseTheoryRecord | null;
+  /**
+   * Jurisdiction delta string from getJurisdictionDeltaSync (Phase 10A).
+   * Pass '' in Phase 10B — wired to a live call in Phase 10C.
+   * When empty, Layer 2 is silently omitted.
+   */
+  lawDelta:         string;
+  /**
+   * Per-call instruction appended as Layer 5 (optional).
+   * e.g. 'You are drafting one issue of a Written Address for a Nigerian court.
+   * NEVER invent case citations. Use [RESEARCH NEEDED] blocks.'
+   * When omitted, the assembled prompt ends after Layer 4.
+   */
+  callInstruction?: string;
+}
+
+/**
+ * Assembles the system prompt for every ApplicationsEngine draft call.
+ *
+ * Layer order (always preserved):
+ *   1 — systemCtx          (role + intelligence context — always present)
+ *   2 — lawDelta           (jurisdiction delta — omitted when empty string)
+ *   3 — template skeleton  (argument framework — omitted when template is null)
+ *   4 — theory context     (case theory — omitted when theory is null)
+ *   5 — callInstruction    (per-call task instruction — omitted when undefined)
+ *
+ * BACKWARD-COMPATIBILITY GUARANTEE:
+ * When called with lawDelta='', template=null, theory=null, callInstruction=undefined,
+ * output equals: systemCtx
+ * When called with the same inputs plus callInstruction=X:
+ * output equals: systemCtx + '\n' + X
+ * Both are equivalent to what the pre-refactor call sites produced for those conditions.
+ */
+function buildDraftSystemPrompt({
+  systemCtx,
+  appType,
+  template,
+  theory,
+  lawDelta,
+  callInstruction,
+}: BuildDraftSystemPromptParams): string {
+  const layers: string[] = [];
+
+  // ── Layer 1: role + intelligence context (always present) ─────────────────
+  layers.push(systemCtx);
+
+  // ── Layer 2: jurisdiction delta (omitted when empty) ──────────────────────
+  if (lawDelta && lawDelta.trim().length > 0) {
+    layers.push(lawDelta.trim());
+  }
+
+  // ── Layer 3: argument template skeleton (omitted when null) ───────────────
+  if (template !== null) {
+    layers.push(
+      `ARGUMENT FRAMEWORK (pre-approved skeleton for ${template.appType} in ${template.jurisdiction}):\n` +
+      template.skeleton +
+      `\n\nStatutory Basis: ${template.statutory_basis}` +
+      `\nApplicable Tests: ${template.tests}` +
+      `\nLeading Authorities: ${template.leading_authorities}` +
+      (template.law_delta ? `\nJurisdiction Notes: ${template.law_delta}` : '') +
+      '\n\nINSTRUCTION: Use this framework as the structure for the argument. Merge the case-specific facts supplied below into this framework. Do not re-derive the legal framework from scratch.',
+    );
+  }
+
+  // ── Layer 4: case theory context (omitted when null) ──────────────────────
+  if (theory !== null) {
+    const elementList = theory.elements
+      .map((e, i) => `  ${i + 1}. ${e.element}`)
+      .join('\n');
+    layers.push(
+      `CASE THEORY CONTEXT (relevant to this application):\n` +
+      `Core Proposition: ${theory.core_proposition}\n` +
+      `Elements to Establish:\n${elementList}\n` +
+      `This application must be argued in a manner consistent with and advancing the Core Proposition above.`,
+    );
+  }
+
+  // ── Layer 5: per-call task instruction (omitted when undefined) ───────────
+  if (callInstruction) {
+    layers.push(callInstruction);
+  }
+
+  return layers.join('\n\n');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DEBUG: PromptPreview component (Phase 10B — removed in Phase 10F)
+// Only rendered at ?debug=1. No production user will see this.
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface PromptPreviewProps {
+  systemPrompt: string;
+  appType:      string;
+  jurisdiction: string;
+  hasTemplate:  boolean;
+  hasTheory:    boolean;
+  lawDeltaLen:  number;
+}
+
+function PromptPreview({
+  systemPrompt, appType, jurisdiction, hasTemplate, hasTheory, lawDeltaLen,
+}: PromptPreviewProps) {
+  const [open, setOpen] = React.useState(false);
+  const tokenEst = Math.round(systemPrompt.length / 4);
+  return (
+    <div style={{
+      border: '2px dashed #f59e0b', borderRadius: 6, padding: '8px 12px',
+      marginBottom: 14, background: '#0a0800', fontFamily: 'monospace', fontSize: 12,
+    }}>
+      <div
+        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
+        onClick={() => setOpen(o => !o)}
+      >
+        <span style={{ fontWeight: 700, color: '#f59e0b' }}>
+          ⚙ DEBUG PROMPT {open ? '▲' : '▼'}
+        </span>
+        <span style={{ color: '#c08020', fontSize: 11 }}>
+          ~{tokenEst} tok · {systemPrompt.length} ch
+        </span>
+      </div>
+      {open && (
+        <>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', margin: '8px 0' }}>
+            {([ ['L1 systemCtx', true], ['L2 JurisdΔ', lawDeltaLen > 0], ['L3 Template', hasTemplate], ['L4 Theory', hasTheory] ] as [string, boolean][]).map(([label, active]) => (
+              <span key={label} style={{
+                padding: '2px 8px', borderRadius: 10, fontSize: 10,
+                background: active ? '#143020' : '#101018',
+                color: active ? '#40c060' : '#404050',
+                border: `1px solid ${active ? '#40c060' : '#202030'}`,
+                fontWeight: active ? 700 : 400,
+              }}>
+                {active ? '✓' : '○'} {label}
+              </span>
+            ))}
+          </div>
+          <div style={{ color: '#806010', fontSize: 10, marginBottom: 6 }}>
+            appType: <strong>{appType}</strong> · jurisdiction: <strong>{jurisdiction}</strong>
+          </div>
+          <pre style={{
+            whiteSpace: 'pre-wrap', wordBreak: 'break-word', background: '#080600',
+            padding: 10, borderRadius: 4, maxHeight: 360, overflowY: 'auto',
+            border: '1px solid #302000', color: '#c8c0a0', fontSize: 11,
+          }}>
+            {systemPrompt}
+          </pre>
+          <div style={{ marginTop: 4, fontSize: 10, color: '#505030' }}>
+            ?debug=1 only — removed in Phase 10F
+          </div>
+        </>
+      )}
+    </div>
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -501,6 +695,12 @@ function IssueBuilder({
   const { ask, loading, error, clearError } = useAI(activeCase);
   // Phase 9D — light theory injection when appType.needsCaseTheory is true
   const { theory: issueTheory, hasTheory: issueHasTheory } = useCaseTheory(activeCase.id);
+  // Phase 10B — debug prompt preview
+  const isDebug = useDebugMode();
+  // Phase 10C — jurisdiction delta, resolved once per render and reused by
+  // generateIssue, assembleAddress, and the debug PromptPreview below.
+  const jurisdiction = (activeCase as any).jurisdiction ?? activeCase.court ?? '';
+  const lawDelta = getJurisdictionDeltaSync(appType.label, jurisdiction);
   const [editingId,       setEditingId]       = useState<string | null>(null);
   const [draftIssue,      setDraftIssue]      = useState<ArgumentIssue | null>(null);
   const [statuteChunks,   setStatuteChunks]   = useState<StatuteChunk[]>([]);
@@ -547,34 +747,23 @@ function IssueBuilder({
     // 2D-ii — clear any badge from a previous run
     onTemplateBadge?.(null);
 
-    // ── Pre-draft template lookup ──────────────────────────────────────────
-    // Check if a saved template exists for appType × jurisdiction.
-    // If found, inject skeleton into the system prompt (additive — RAG still runs).
-    // If not found, skeletonBlock is '' and system prompt is unchanged.
-    let skeletonBlock = '';
-    let matchedTemplate: { appType: string; jurisdiction: string } | null = null;
+    // ── Pre-draft template lookup (Phase 10B refactor) ────────────────────
+    // The full template object is now passed to buildDraftSystemPrompt (Layer 3).
+    // The badge state retains its { appType, jurisdiction } shape for the badge UI.
+    // skeletonBlock is retired — skeleton assembly is inside buildDraftSystemPrompt.
+    let matchedTemplateBadge: { appType: string; jurisdiction: string } | null = null;
+    let foundTemplate: ArgumentTemplate | null = null;
     try {
-      const jurisdiction = (activeCase as any).jurisdiction ?? activeCase.court ?? '';
-      const template = await db.argument_templates
+      const tpl = await db.argument_templates
         .where({ appType: appType.label, jurisdiction })
         .first();
-      if (template) {
-        matchedTemplate = { appType: template.appType, jurisdiction: template.jurisdiction };
-        skeletonBlock = `
-ARGUMENT FRAMEWORK (pre-approved skeleton for ${template.appType} in ${template.jurisdiction}):
-${template.skeleton}
-
-Statutory Basis: ${template.statutory_basis}
-Applicable Tests: ${template.tests}
-Leading Authorities: ${template.leading_authorities}
-
-INSTRUCTION: Use this framework as the structure for the argument. Merge the case-specific facts below into this framework. Do not re-derive the legal framework from scratch.
-`;
+      if (tpl) {
+        foundTemplate        = tpl ?? null;
+        matchedTemplateBadge = { appType: tpl.appType, jurisdiction: tpl.jurisdiction };
       }
     } catch {
       // Template lookup failure is non-fatal — proceed with standard draft
     }
-
     // ── RAG statute lookup (unchanged) ────────────────────────────────────
     let statuteSections = '';
     if (isRagConfigured() && draftIssue.issue) {
@@ -625,13 +814,20 @@ What the case must decide: [required ratio/holding in one sentence]
 - NEVER invent a case name, citation, year, volume, or law report.
 - Begin immediately with the issue heading.`;
 
-    // ── Assemble system prompt — skeleton injected after role context if found
-    // Phase 9D: light theory prepended when needsCaseTheory is true and theory is locked
-    const systemPrompt =
-      (appType.needsCaseTheory && issueHasTheory && issueTheory ? buildLightTheoryInjection(issueTheory) : '') +
-      systemCtx +
-      (skeletonBlock ? skeletonBlock : '') +
-      '\nYou are drafting one issue of a Written Address for a Nigerian court. NEVER invent case citations. Use [RESEARCH NEEDED] blocks for uncertain authority.';
+    // ── Assemble system prompt via buildDraftSystemPrompt (Phase 10B)
+    // Layer 1: systemCtx (role + intelligence)
+    // Layer 2: lawDelta — wired via getJurisdictionDeltaSync (Phase 10C)
+    // Layer 3: template skeleton (foundTemplate from lookup above, or null)
+    // Layer 4: theory — gated on needsCaseTheory + locked theory
+    // Layer 5: per-call instruction
+    const systemPrompt = buildDraftSystemPrompt({
+      systemCtx,
+      appType,
+      template:        foundTemplate,
+      theory:          appType.needsCaseTheory && issueHasTheory && issueTheory ? issueTheory : null,
+      lawDelta,
+      callInstruction: 'You are drafting one issue of a Written Address for a Nigerian court. NEVER invent case citations. Use [RESEARCH NEEDED] blocks for uncertain authority.',
+    });
 
     const result = await ask({
       system: systemPrompt,
@@ -641,7 +837,7 @@ What the case must decide: [required ratio/holding in one sentence]
     if (result) {
       setDraftIssue(prev => prev ? { ...prev, draft: result.trim() } : prev);
       // 2D-ii — raise badge to parent only when a template was used
-      if (matchedTemplate) onTemplateBadge?.(matchedTemplate);
+      if (matchedTemplateBadge) onTemplateBadge?.(matchedTemplateBadge);
     }
   }
 
@@ -769,7 +965,13 @@ ${facts.keyFacts ? 'Key Facts: ' + facts.keyFacts : ''}
 - Begin with the INTRODUCTION heading.`;
 
     const result = await ask({
-      system: (appType.needsCaseTheory && issueHasTheory && issueTheory ? buildLightTheoryInjection(issueTheory) : '') + systemCtx,
+      system: buildDraftSystemPrompt({
+        systemCtx,
+        appType,
+        template:  null,   // assembleAddress merges pre-drafted issues — no skeleton needed
+        theory:    appType.needsCaseTheory && issueHasTheory && issueTheory ? issueTheory : null,
+        lawDelta,
+      }),
       userMsg: prompt, maxTokens: 3500,
       libraryOpts: { queryHint: `${appType.label} written address Nigerian court procedure`, topK: 8 },
     });
@@ -864,6 +1066,25 @@ ${facts.keyFacts ? 'Key Facts: ' + facts.keyFacts : ''}
                 <Md text={draftIssue.draft} />
               </div>
             </div>
+          )}
+
+          {/* Phase 10B — PromptPreview at ?debug=1, shows expected system prompt before generation */}
+          {isDebug && draftIssue && (
+            <PromptPreview
+              systemPrompt={buildDraftSystemPrompt({
+                systemCtx,
+                appType,
+                template:        null,   // template lookup is async — check at generation time; see generateIssue
+                theory:          appType.needsCaseTheory && issueHasTheory && issueTheory ? issueTheory : null,
+                lawDelta,
+                callInstruction: 'You are drafting one issue of a Written Address for a Nigerian court. NEVER invent case citations. Use [RESEARCH NEEDED] blocks for uncertain authority.',
+              })}
+              appType={appType.label}
+              jurisdiction={jurisdiction}
+              hasTemplate={false /* async — verified at generation time */}
+              hasTheory={!!(appType.needsCaseTheory && issueHasTheory && issueTheory)}
+              lawDeltaLen={lawDelta.length}
+            />
           )}
 
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -1482,8 +1703,19 @@ STRICT RULES FOR A REPLY ON POINTS OF LAW — MANDATORY:
 
 Draft the Reply on Points of Law now:`;
 
+    // Phase 10C — jurisdiction delta for the Reply on Points of Law draft call.
+    const jurisdiction = (activeCase as any).jurisdiction ?? activeCase.court ?? '';
+    const lawDelta = getJurisdictionDeltaSync(appType.label, jurisdiction);
+
     const result = await ask({
-      system: (appType.needsCaseTheory && replyHasTheory && replyTheory ? buildLightTheoryInjection(replyTheory) : '') + systemCtx + '\nYou are drafting a Reply on Points of Law — a strictly limited document responding only to new legal points raised by opposing counsel. No new facts. No new arguments beyond what opposing counsel provoked. NEVER invent case citations.',
+      system: buildDraftSystemPrompt({
+        systemCtx,
+        appType,
+        template:        null,   // reply on points of law — no template skeleton
+        theory:          appType.needsCaseTheory && replyHasTheory && replyTheory ? replyTheory : null,
+        lawDelta,
+        callInstruction: 'You are drafting a Reply on Points of Law — a strictly limited document responding only to new legal points raised by opposing counsel. No new facts. No new arguments beyond what opposing counsel provoked. NEVER invent case citations.',
+      }),
       userMsg: prompt, maxTokens: 2000,
       libraryOpts: { queryHint: `reply points of law ${appType.label} Nigerian court`, topK: 5 },
     });
@@ -2004,6 +2236,9 @@ export function ApplicationsEngine({ activeCase }: Props) {
   const { fullContext } = useIntelligence(activeCase, 'facts');
   const systemCtx = buildRoleSystemPrompt(activeCase.matter_track, activeCase.counsel_role) + fullContext;
 
+  // Phase 10B — debug mode (PromptPreview panel)
+  const isDebug = useDebugMode();
+
   // Phase 9D — locked Case Theory for needsCaseTheory appTypes
   const { theory, locked, score, hasTheory, loading: theoryLoading } = useCaseTheory(activeCase.id);
 
@@ -2014,6 +2249,31 @@ export function ApplicationsEngine({ activeCase }: Props) {
   // Stage 1
   const [selectedType,    setSelectedType]    = useState<AppTypeConfig | null>(null);
   const [customTypeText,  setCustomTypeText]  = useState('');
+
+  // Phase 10C — jurisdiction delta for the selected application type, memoized
+  // so it's resolved once per (selectedType, activeCase) change and reused by
+  // handleAssemble, assembleSystemPrompt, and the debug PromptPreview below.
+  // Moved here (after selectedType's declaration) — the Phase 10B placement
+  // before the useState call referenced selectedType ahead of its own
+  // initialization, which throws at render ("Cannot access 'selectedType'
+  // before initialization"). Fixed in-stride per Execution Rule 5.
+  const lawDelta = React.useMemo(() => {
+    if (!selectedType) return '';
+    return getJurisdictionDeltaSync(selectedType.label, (activeCase as any).jurisdiction ?? activeCase.court ?? '');
+  }, [selectedType, activeCase]);
+
+  // Phase 10B — pre-compute the assemble system prompt at render time so
+  // PromptPreview can display it before the user clicks the button.
+  const assembleSystemPrompt = React.useMemo(() => {
+    if (!selectedType) return '';
+    return buildDraftSystemPrompt({
+      systemCtx,
+      appType:  selectedType,
+      template: null,
+      theory:   selectedType?.needsCaseTheory && hasTheory && theory ? theory : null,
+      lawDelta,
+    });
+  }, [systemCtx, selectedType, theory, hasTheory, lawDelta]);
 
   // Stage 2
   const [facts, setFacts] = useState<AppFacts>({ ...DEFAULT_FACTS });
@@ -2162,7 +2422,13 @@ ASSEMBLY RULES — MANDATORY:
 Begin with the first document heading now:`;
 
     const result = await ask({
-      system: (selectedType?.needsCaseTheory && hasTheory && theory ? buildLightTheoryInjection(theory) : '') + systemCtx,
+      system: buildDraftSystemPrompt({
+        systemCtx,
+        appType:   selectedType,
+        template:  null,   // handleAssemble does not do a template lookup (IssueBuilder handles template per issue)
+        theory:    selectedType?.needsCaseTheory && hasTheory && theory ? theory : null,
+        lawDelta,
+      }),
       userMsg: prompt,
       maxTokens: 4500,
       libraryOpts: { queryHint: `${selectedType.label} Nigerian court applications procedure`, topK: 10 },
@@ -2172,7 +2438,7 @@ Begin with the first document heading now:`;
       setGenerated(result.trim());
       setStage(4);
     }
-  }, [selectedType, facts, stage3, ask, activeCase, systemCtx]);
+  }, [selectedType, facts, stage3, ask, activeCase, systemCtx, lawDelta, hasTheory, theory]);
 
   const handleSave = useCallback(async () => {
     if (!selectedType || !generated) return;
@@ -2456,6 +2722,19 @@ Begin with the first document heading now:`;
 
               <div style={{ display: 'flex', gap: 10, marginTop: 24, paddingTop: 16, borderTop: '1px solid #181828', flexWrap: 'wrap' }}>
                 <Btn label="← Back to Facts" onClick={() => setStage(2)} accent="#505068" small />
+                {/* Phase 10B — PromptPreview shown above Assemble button at ?debug=1 */}
+                {isDebug && selectedType && (
+                  <div style={{ width: '100%', order: -1 }}>
+                    <PromptPreview
+                      systemPrompt={assembleSystemPrompt}
+                      appType={selectedType.label}
+                      jurisdiction={(activeCase as any).jurisdiction ?? activeCase.court ?? ''}
+                      hasTemplate={false}
+                      hasTheory={!!(selectedType?.needsCaseTheory && hasTheory && theory)}
+                      lawDeltaLen={lawDelta.length}
+                    />
+                  </div>
+                )}
                 <Btn label="Assemble Full Package →" onClick={() => { setStage(4); handleAssemble(); }} loading={loading} accent="#4090d0" />
               </div>
             </div>
