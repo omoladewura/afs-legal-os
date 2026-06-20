@@ -146,16 +146,16 @@ function getRoleQuickActions(
     return [
       { label: 'Run Intelligence', icon: '⚡', tab: 'intelligence', hint: '5-step AI pipeline' },
       { label: 'Add Docket Entry', icon: '⚖', tab: 'docket',       hint: 'Log a filing or order' },
-      { label: 'Brief Me Now',     icon: '🎯', tab: 'case_intelligence' as DashTabId, hint: 'Pre-hearing brief' },
+      { label: 'Brief Me Now',     icon: '🎯', tab: 'strategy_hub' as DashTabId, hint: 'Pre-hearing brief' },
       { label: 'Upload Evidence',  icon: '📁', tab: 'evidence',     hint: 'Add to vault' },
-      { label: 'War Room',         icon: '⬛', tab: 'case_intelligence' as DashTabId, hint: 'Strategic cockpit' },
+      { label: 'War Room',         icon: '⬛', tab: 'strategy_hub' as DashTabId, hint: 'Strategic cockpit' },
     ];
   }
 
   const base: Array<{ label: string; icon: string; tab: DashTabId; hint: string }> = [
     { label: 'Run Intelligence', icon: '⚡', tab: 'intelligence',       hint: 'AI case analysis' },
     { label: 'Add Docket Entry', icon: '⚖', tab: 'docket',             hint: 'Log a filing or order' },
-    { label: 'Brief Me Now',     icon: '🎯', tab: 'case_intelligence' as DashTabId, hint: 'Pre-hearing brief' },
+    { label: 'Brief Me Now',     icon: '🎯', tab: 'strategy_hub' as DashTabId, hint: 'Pre-hearing brief' },
     { label: 'Upload Evidence',  icon: '📁', tab: 'evidence',           hint: 'Add to vault' },
     { label: 'Written Address',  icon: '✍',  tab: 'written_address' as DashTabId,   hint: 'Draft final address' },
     { label: 'AI Copilot',       icon: '✦',  tab: 'copilot',           hint: 'Role-aware chat' },

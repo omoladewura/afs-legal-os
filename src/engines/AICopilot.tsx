@@ -100,7 +100,7 @@ const ROUTE_MAP: Record<RouteKey, { label: string; tab: DashTabId | null; color:
   compliance_check:  { label: 'Compliance Engine',        tab: 'case_command' as DashTabId,    color: '#50a0e0' },
   risk_assessment:   { label: 'Risk Analytics',           tab: 'case_command' as DashTabId,    color: '#e05050' },
   appeal_analysis:   { label: 'Appeal Engine',            tab: 'appeal',             color: '#60c0a0' },
-  settlement:        { label: 'Case Intelligence',        tab: 'case_intelligence' as DashTabId, color: '#80d060' },
+  settlement:        { label: 'Strategy Hub',            tab: 'strategy_hub' as DashTabId, color: '#80d060' },
   general:           { label: 'General Intelligence',     tab: null,                 color: '#b0a080' },
 };
 
