@@ -13,9 +13,9 @@
  */
 
 import { db } from './db';
-import type { Case, DocketEntry, Deadline, EvidenceItem, ArgumentVersion } from '@/types';
+import type { Case, DocketEntry, Deadline, EvidenceItem, ArgumentVersion, CaseTheoryRecord, CaseTheoryHistoryEntry } from '@/types';
 import type { MatrimonialCaseData, MExtractionResult } from '@/matrimonial/types';
-import type { BlindSpotRecord, ResearchRecord } from './db';
+import type { BlindSpotRecord, ResearchRecord, ArgumentTemplate } from './db';
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
@@ -605,6 +605,200 @@ export async function writeIntelligenceToCase(
   } catch (e) {
     console.error('[Storage] writeIntelligenceToCase failed', e);
     return false;
+  }
+}
+
+// ── Case Theory ───────────────────────────────────────────────────────────────
+// Trial Engine Consolidation, Phase 1.
+//
+// The Case Theory record lives directly on the Case record (case_theory_*
+// fields), not in its own table or blind_spots slot — it must be available
+// wherever a Case is already loaded (TrialEngine, FinalWrittenAddressEngine,
+// ArgumentBuilder, ApplicationsEngine) without an extra round trip.
+//
+// Every write goes through saveCase() so the existing dual-write (IndexedDB +
+// D1 background sync) behaviour applies for free. Always read-modify-write
+// against a freshly loaded Case to avoid clobbering unrelated fields that may
+// have changed elsewhere (docket entries, deadlines, etc. are stored in their
+// own tables, but intelligence_data / counsel_instructions / matter fields
+// live on the same Case object).
+
+export async function loadCaseTheory(caseId: string): Promise<CaseTheoryRecord | null> {
+  try {
+    const c = await loadCase(caseId);
+    return c?.case_theory_structured ?? null;
+  } catch (e) {
+    console.error('[Storage] loadCaseTheory failed', e);
+    return null;
+  }
+}
+
+/**
+ * Saves a theory draft. Does NOT lock it and does NOT touch case_theory_score —
+ * score is written explicitly by the caller (after an AI re-score) as part of
+ * theory.score_breakdown.total, read back out via hasCaseTheory()/loadCaseTheory().
+ * Saving an already-locked theory is allowed (editing post-lock is still just
+ * an edit) but does not itself change the lock state — call unlockCaseTheory()
+ * first if the intent is to revise a locked theory.
+ */
+export async function saveCaseTheory(caseId: string, theory: CaseTheoryRecord): Promise<void> {
+  try {
+    const c = await loadCase(caseId);
+    if (!c) {
+      console.error('[Storage] saveCaseTheory failed — case not found', caseId);
+      return;
+    }
+    await saveCase({
+      ...c,
+      case_theory_structured: theory,
+      case_theory_score:      theory.score_breakdown?.total ?? c.case_theory_score ?? null,
+    });
+  } catch (e) {
+    console.error('[Storage] saveCaseTheory failed', e);
+  }
+}
+
+/**
+ * Locks the current theory for propagation to downstream engines.
+ * No-ops silently (with a console error) if no theory has been saved yet —
+ * callers should disable the Lock button until case_theory_structured exists.
+ * Increments case_theory_version on every lock (not on every save).
+ */
+export async function lockCaseTheory(caseId: string): Promise<void> {
+  try {
+    const c = await loadCase(caseId);
+    if (!c) {
+      console.error('[Storage] lockCaseTheory failed — case not found', caseId);
+      return;
+    }
+    if (!c.case_theory_structured) {
+      console.error('[Storage] lockCaseTheory failed — no theory to lock', caseId);
+      return;
+    }
+    const now = new Date().toISOString();
+    await saveCase({
+      ...c,
+      case_theory_locked:    true,
+      case_theory_locked_at: now,
+      case_theory_version:   (c.case_theory_version ?? 0) + 1,
+    });
+  } catch (e) {
+    console.error('[Storage] lockCaseTheory failed', e);
+  }
+}
+
+/**
+ * Unlocks the theory so it can be revised. Requires a reason note — appended
+ * to case_theory_history as a new entry pairing the lock/unlock timestamps
+ * for that version. The theory record and score remain visible (callers
+ * should show the amber "not locked" banner, not hide the data).
+ */
+export async function unlockCaseTheory(caseId: string, note: string): Promise<void> {
+  try {
+    const c = await loadCase(caseId);
+    if (!c) {
+      console.error('[Storage] unlockCaseTheory failed — case not found', caseId);
+      return;
+    }
+    const now = new Date().toISOString();
+    const historyEntry: CaseTheoryHistoryEntry = {
+      version:     c.case_theory_version ?? 0,
+      locked_at:   c.case_theory_locked_at ?? '',
+      unlocked_at: now,
+      note:        note || '(no reason given)',
+    };
+    await saveCase({
+      ...c,
+      case_theory_locked:    false,
+      case_theory_history:   [...(c.case_theory_history ?? []), historyEntry],
+    });
+  } catch (e) {
+    console.error('[Storage] unlockCaseTheory failed', e);
+  }
+}
+
+/**
+ * True only if the theory is locked AND the structured record exists.
+ * This is the gate every downstream engine must check before reading
+ * case_theory_structured — an unlocked or absent theory must never be
+ * injected into a draft, even if the data is technically present.
+ */
+export async function hasCaseTheory(caseId: string): Promise<boolean> {
+  try {
+    const c = await loadCase(caseId);
+    return !!(c?.case_theory_locked === true && c?.case_theory_structured);
+  } catch (e) {
+    console.error('[Storage] hasCaseTheory failed', e);
+    return false;
+  }
+}
+
+// ── Argument Templates ───────────────────────────────────────────────────────
+// Trial Engine Consolidation, Phase 2.
+//
+// Not scoped to a case — these live in their own global Dexie table
+// (argument_templates) and are reused across every matter of the same
+// appType/jurisdiction/court_level. Local-only, same as arg_versions:
+// no D1 sync wired up yet for non-case-scoped tables.
+
+export async function loadArgumentTemplates(): Promise<ArgumentTemplate[]> {
+  try {
+    return await db.argument_templates
+      .orderBy('created_at')
+      .reverse()
+      .toArray();
+  } catch (e) {
+    console.error('[Storage] loadArgumentTemplates failed', e);
+    return [];
+  }
+}
+
+export async function saveArgumentTemplate(t: ArgumentTemplate): Promise<boolean> {
+  try {
+    await db.argument_templates.put(t);
+    return true;
+  } catch (e) {
+    console.error('[Storage] saveArgumentTemplate failed', e);
+    return false;
+  }
+}
+
+export async function deleteArgumentTemplate(id: string): Promise<boolean> {
+  try {
+    await db.argument_templates.delete(id);
+    return true;
+  } catch (e) {
+    console.error('[Storage] deleteArgumentTemplate failed', e);
+    return false;
+  }
+}
+
+/**
+ * Case-insensitive, trimmed exact match on (appType, jurisdiction).
+ * Returns the most recently updated match if more than one exists for the
+ * same pair (shouldn't normally happen — the New Template form should
+ * overwrite rather than duplicate — but this keeps lookups deterministic
+ * either way). Returns null if no template exists for this combination —
+ * callers should fall back to full RAG generation, exactly as they did
+ * before templates existed.
+ */
+export async function findArgumentTemplate(
+  appType: string,
+  jurisdiction: string,
+): Promise<ArgumentTemplate | null> {
+  try {
+    if (!appType.trim() || !jurisdiction.trim()) return null;
+    const all = await db.argument_templates.toArray();
+    const matches = all.filter(t =>
+      t.appType.trim().toLowerCase() === appType.trim().toLowerCase() &&
+      t.jurisdiction.trim().toLowerCase() === jurisdiction.trim().toLowerCase()
+    );
+    if (matches.length === 0) return null;
+    matches.sort((a, b) => (b.updated_at || '').localeCompare(a.updated_at || ''));
+    return matches[0];
+  } catch (e) {
+    console.error('[Storage] findArgumentTemplate failed', e);
+    return null;
   }
 }
 
