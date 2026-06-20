@@ -4,7 +4,7 @@
  *
  * New tabs added:
  *   case_command      — Phase 1 (replaces overview)
- *   case_intelligence — Phase 2 (new tab)
+ *   strategy_hub      — Phase 1A rename (was case_intelligence)
  *   written_address   — Phase 3 (replaces builder + final_address)
  *   copilot           — Phase 4 (now includes Command Console)
  *
@@ -59,11 +59,11 @@ export const DASH_TABS: DashTab[] = [
     step:  null,
   },
 
-  // ── Phase 2 — Case Intelligence (new tab) ────────────────────────────────
+  // ── Phase 1A — Strategy Hub (renamed from case_intelligence) ────────────
   {
-    id:    'case_intelligence',
+    id:    'strategy_hub',
     icon:  '⬛',
-    label: 'Case Intelligence',
+    label: 'Strategy Hub',
     desc:  'Three-mode intelligence centre. Mode 1 — Intelligence Layer (Conflict, Judge, Counsel, Settlement, Comms, Witnesses, Interlocutory). Mode 2 — Strategic Cockpit (Case Theory, Posture, Witness Map, Contradictions, Appellate). Mode 3 — Brief Me (one-click pre-hearing brief).',
     step:  null,
   },
@@ -269,7 +269,7 @@ export const TABS_WRIT: DashTab[] = tabs(
   'arg_templates',      // Phase 2 — Argument Template Manager
   'evidence',
   'trial',              // Build Plan v2 Phase 3 — replaces crossexam
-  'case_intelligence',  // Phase 2
+  'strategy_hub',       // Phase 1A
   'written_address',    // Phase 3
   'enforcement',
   'appeal',
@@ -292,7 +292,7 @@ export const TABS_CRIMINAL: DashTab[] = tabs(
   'evidence',
   'applications',
   'arg_templates',      // Phase 2 — Argument Template Manager
-  'case_intelligence',  // Phase 2
+  'strategy_hub',       // Phase 1A
   'appeal',
   'copilot',            // Phase 4
 );
@@ -309,7 +309,7 @@ export const TABS_FREP: DashTab[] = tabs(
   'arg_templates',      // Phase 2 — Argument Template Manager
   'evidence',
   'trial',              // Build Plan v2 Phase 3
-  'case_intelligence',  // Phase 2
+  'strategy_hub',       // Phase 1A
   'written_address',    // Phase 3
   'appeal',
   'copilot',            // Phase 4
@@ -332,7 +332,7 @@ export const TABS_MATRIMONIAL: DashTab[] = tabs(
   'forms_documents',
   'evidence',
   'trial',              // Build Plan v2 Phase 3
-  'case_intelligence',  // Phase 2
+  'strategy_hub',       // Phase 1A
   'decree_enforcement',
   'appeal',
   'copilot',            // Phase 4

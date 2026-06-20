@@ -7,7 +7,7 @@
  * Phase 8 (Quick Actions Audit): All `tab` properties pointing to removed
  * top-level tabs remapped per Master Plan:
  *   overview → case_command
- *   warroom, blindspots, briefme → case_intelligence
+ *   warroom, blindspots, briefme → strategy_hub
  *   builder, final_address → written_address
  *   console → copilot (deduplicated)
  *   risk, timeline, compliance → case_command (deduplicated)
@@ -30,7 +30,7 @@ import type { DashTabId } from '@/types';
  *
  * Phase 8 remaps (per Master Plan):
  *   overview → case_command
- *   warroom, blindspots, briefme → case_intelligence
+ *   warroom, blindspots, briefme → strategy_hub
  *   builder, final_address → written_address
  *   console → copilot (deduplicated)
  *   risk, timeline, compliance → case_command (deduplicated)
@@ -46,7 +46,7 @@ export const ROLE_TABS: Record<CounselRole, DashTabId[]> = {
     'applications',
     'evidence',
     'crossexam',
-    'case_intelligence',
+    'strategy_hub',
     'written_address',
     'enforcement',
     'appeal',
@@ -60,7 +60,7 @@ export const ROLE_TABS: Record<CounselRole, DashTabId[]> = {
     'applications',
     'evidence',
     'crossexam',
-    'case_intelligence',
+    'strategy_hub',
     'written_address',
     'enforcement',
     'appeal',
@@ -78,7 +78,7 @@ export const ROLE_TABS: Record<CounselRole, DashTabId[]> = {
     'crossexam',
     'evidence',
     'applications',
-    'case_intelligence',
+    'strategy_hub',
     'written_address',
     'sentencing',
     'appeal',
@@ -96,7 +96,7 @@ export const ROLE_TABS: Record<CounselRole, DashTabId[]> = {
     'crossexam',
     'evidence',
     'applications',
-    'case_intelligence',
+    'strategy_hub',
     'written_address',
     'sentencing',
     'appeal',
@@ -111,7 +111,7 @@ export const ROLE_TABS: Record<CounselRole, DashTabId[]> = {
     'ancillary_applications',
     'forms_documents',
     'evidence',
-    'case_intelligence',
+    'strategy_hub',
     'decree_enforcement',
     'appeal',
     'copilot',
@@ -125,7 +125,7 @@ export const ROLE_TABS: Record<CounselRole, DashTabId[]> = {
     'ancillary_applications',
     'forms_documents',
     'evidence',
-    'case_intelligence',
+    'strategy_hub',
     'decree_enforcement',
     'appeal',
     'copilot',
@@ -136,7 +136,7 @@ export const ROLE_TABS: Record<CounselRole, DashTabId[]> = {
     'inheritance',
     'applications',
     'evidence',
-    'case_intelligence',
+    'strategy_hub',
     'written_address',
     'appeal',
     'copilot',
@@ -147,7 +147,7 @@ export const ROLE_TABS: Record<CounselRole, DashTabId[]> = {
     'inheritance',
     'applications',
     'evidence',
-    'case_intelligence',
+    'strategy_hub',
     'written_address',
     'appeal',
     'copilot',
@@ -655,7 +655,7 @@ export const ROLE_MODULES: Record<CounselRole, RoleModule[]> = {
     { id: 'evidence',        icon: '📁', label: 'Evidence',       desc: 'Upload and categorise proof of rights breach' },
     { id: 'written_address', icon: '✍', label: 'Written Address', desc: 'Written Address (filed with main bundle) and Reply on Points of Law (within 5 days of respondent\'s WA)' },
     { id: 'case_command',    icon: '■',  label: 'Risk Analytics', desc: 'Jurisdiction, laches, proper respondent, mode lock, ex parte completeness' },
-    { id: 'case_intelligence', icon: '◈', label: 'Case Intelligence', desc: 'Jurisdiction flag, single-applicant compliance, NIC exclusivity check' },
+    { id: 'strategy_hub', icon: '◈', label: 'Strategy Hub', desc: 'Jurisdiction flag, single-applicant compliance, NIC exclusivity check' },
     { id: 'appeal',          icon: '↑',  label: 'Appeal Engine',  desc: 'Priority appeal — Notice of Appeal and Appellant\'s Brief' },
   ],
   frep_respondent: [
@@ -664,7 +664,7 @@ export const ROLE_MODULES: Record<CounselRole, RoleModule[]> = {
     { id: 'evidence',        icon: '📁', label: 'Evidence',       desc: 'Upload and categorise respondent evidence' },
     { id: 'written_address', icon: '✍', label: 'Written Address', desc: 'Written Address in Opposition — filed within 5-day window; no oral argument if not filed' },
     { id: 'case_command',    icon: '■',  label: 'Risk Analytics', desc: 'Admission risk (no counter-affidavit), PO grounds, compliance exposure' },
-    { id: 'case_intelligence', icon: '◈', label: 'Case Intelligence', desc: 'Jurisdiction gate, interim discharge status, 5-day deadline monitor' },
+    { id: 'strategy_hub', icon: '◈', label: 'Strategy Hub', desc: 'Jurisdiction gate, interim discharge status, 5-day deadline monitor' },
     { id: 'appeal',          icon: '↑',  label: 'Appeal Engine',  desc: 'Priority appeal against adverse ruling — Notice of Appeal and Appellant\'s Brief' },
   ],
 };
