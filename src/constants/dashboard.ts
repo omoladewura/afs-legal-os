@@ -107,6 +107,13 @@ export const DASH_TABS: DashTab[] = [
     step:  null,
   },
   {
+    id:    'arg_templates',
+    icon:  '◧',
+    label: 'Argument Templates',
+    desc:  'Trial Engine Consolidation, Phase 2. Build and manage reusable argument skeletons for recurring application types. Pull jurisdiction delta from the Law Registry, AI-draft a framework, save it, and apply it across any matter — only case-specific facts change each time.',
+    step:  null,
+  },
+  {
     id:    'evidence',
     icon:  '📁',
     label: 'Evidence Vault',
@@ -251,6 +258,7 @@ export const TABS_WRIT: DashTab[] = tabs(
   'inheritance',
   'pleadings',
   'applications',
+  'arg_templates',      // Phase 2 — Argument Template Manager
   'evidence',
   'crossexam',
   'case_intelligence',  // Phase 2
@@ -275,9 +283,8 @@ export const TABS_CRIMINAL: DashTab[] = tabs(
   'crossexam',
   'evidence',
   'applications',
+  'arg_templates',      // Phase 2 — Argument Template Manager
   'case_intelligence',  // Phase 2
-  'written_address',    // Phase 3
-  'sentencing',
   'appeal',
   'copilot',            // Phase 4
 );
@@ -291,6 +298,7 @@ export const TABS_FREP: DashTab[] = tabs(
   'intelligence',
   'inheritance',
   'applications',
+  'arg_templates',      // Phase 2 — Argument Template Manager
   'evidence',
   'case_intelligence',  // Phase 2
   'written_address',    // Phase 3
@@ -311,6 +319,7 @@ export const TABS_MATRIMONIAL: DashTab[] = tabs(
   'petition_answer',
   'matrimonial_engine',
   'applications',
+  'arg_templates',      // Phase 2 — Argument Template Manager
   'forms_documents',
   'evidence',
   'case_intelligence',  // Phase 2
