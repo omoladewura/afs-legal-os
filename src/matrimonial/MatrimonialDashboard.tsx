@@ -7,9 +7,9 @@
  * Phase 4: Full tab bar, own header (Petitioner v Respondent, suit number,
  *           court, MCA citation strip, relief-type badge), own engine router.
  * Phase 7 (Engine consolidation): 16 → 11 tabs.
- *   - Added lazy imports: CaseCommand, CaseIntelligence, WrittenAddressEngine,
+ *   - Added lazy imports: CaseCommand, StrategyHub, WrittenAddressEngine,
  *     InheritanceMode.
- *   - Added router cases: case_command, case_intelligence, written_address,
+ *   - Added router cases: case_command, strategy_hub, written_address,
  *     inheritance.
  *   - Removed router cases and lazy imports: MRisk, MArgumentBuilder,
  *     CaseResearch (research), standalone custody/maintenance/property
@@ -37,8 +37,8 @@ import { LoadingBlock } from '@/components/common/ui';
 const CaseCommand = lazy(() =>
   import('@/engines/CaseCommand').then(m => ({ default: m.CaseCommand }))
 );
-const CaseIntelligence = lazy(() =>
-  import('@/engines/CaseIntelligence').then(m => ({ default: m.CaseIntelligence }))
+const StrategyHub = lazy(() =>
+  import('@/engines/StrategyHub').then(m => ({ default: m.StrategyHub }))
 );
 const WrittenAddressEngine = lazy(() =>
   import('@/engines/FinalWrittenAddressEngine').then(m => ({ default: m.FinalWrittenAddressEngine }))
@@ -384,11 +384,11 @@ export function MatrimonialDashboard() {
           </ErrorBoundary>
         );
 
-      case 'case_intelligence':
+      case 'strategy_hub':
         return (
-          <ErrorBoundary name="case_intelligence">
+          <ErrorBoundary name="strategy_hub">
             <Suspense fallback={fallback}>
-              <CaseIntelligence activeCase={activeCase} />
+              <StrategyHub activeCase={activeCase} />
             </Suspense>
           </ErrorBoundary>
         );
