@@ -21,10 +21,10 @@ import { T } from '@/constants/tokens';
 import { useAI } from '@/hooks/useAI';
 import { useIntelligence } from '@/hooks/useIntelligence';
 import { buildRoleSystemPrompt } from '@/utils/rolePrompt';
-import { loadBlindSpot, saveBlindSpot, uid } from '@/storage/helpers';
+import { loadBlindSpot, saveBlindSpot, uid, cloneApplicationToCase, loadAllCases } from '@/storage/helpers';
 import { Md, ErrorBlock, TypeDeleteModal, CaseTheoryBanner } from '@/components/common/ui';
 import { useCaseTheory } from '@/hooks/useCaseTheory';
-import type { CaseTheoryRecord } from '@/types';
+import type { CaseTheoryRecord, CaseSummary } from '@/types';
 import { COUNSEL_ROLE_COLORS, MATTER_TRACK_COLORS } from '@/types';
 import {
   queryStatutes,
@@ -2311,6 +2311,13 @@ export function ApplicationsEngine({ activeCase }: Props) {
   const [historyLoaded,  setHistoryLoaded]  = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<ApplicationRecord | null>(null);
 
+  // Clone modal
+  const [cloneTarget,          setCloneTarget]          = useState<ApplicationRecord | null>(null);
+  const [allCases,             setAllCases]             = useState<CaseSummary[]>([]);
+  const [allCasesLoaded,       setAllCasesLoaded]       = useState(false);
+  const [selectedCloneCaseId,  setSelectedCloneCaseId]  = useState('');
+  const [cloneInProgress,      setCloneInProgress]      = useState(false);
+
   const roleColor  = COUNSEL_ROLE_COLORS[activeCase.counsel_role ?? 'claimant_side'];
   const trackColor = MATTER_TRACK_COLORS[activeCase.matter_track ?? 'civil'];
 
@@ -2332,6 +2339,15 @@ export function ApplicationsEngine({ activeCase }: Props) {
     })();
     return () => { cancelled = true; };
   }, [activeCase.id]);
+
+  // Lazy-load all cases when the clone modal opens — only once per engine mount
+  useEffect(() => {
+    if (!cloneTarget || allCasesLoaded) return;
+    loadAllCases().then(cases => {
+      setAllCases(cases.filter(c => c.id !== activeCase.id));
+      setAllCasesLoaded(true);
+    });
+  }, [cloneTarget, allCasesLoaded, activeCase.id]);
 
   async function persistHistory(updated: ApplicationRecord[]) {
     setHistory(updated);
@@ -2640,6 +2656,13 @@ Begin with the first document heading now:`;
                 <StepBadge n={2} active={true} /> &nbsp; Application Facts
               </div>
 
+              {/* Clone notice — shown when this record was cloned from another case */}
+              {(facts as Record<string, string>)['_clone_notice'] && (
+                <div style={{ background: '#1a1200', border: '1px solid #4a3800', borderRadius: 7, padding: '12px 16px', marginBottom: 16, fontSize: 12, color: '#c8a840', lineHeight: 1.65 }}>
+                  ⚠ {(facts as Record<string, string>)['_clone_notice']}
+                </div>
+              )}
+
               {/* Type reminder */}
               <div style={{ background: '#080814', border: '1px solid #1e1e34', borderRadius: 6, padding: '10px 14px', marginBottom: 18, display: 'flex', alignItems: 'center', gap: 10 }}>
                 <span style={{ fontSize: 18 }}>{selectedType.icon}</span>
@@ -2833,8 +2856,16 @@ Begin with the first document heading now:`;
                           {new Date(rec.createdAt).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' })}
                         </div>
                       </div>
-                      <button onClick={e => { e.stopPropagation(); handleDelete(rec.id); }}
-                        style={{ background: 'none', border: 'none', color: '#503030', cursor: 'pointer', fontSize: 16, padding: '4px 8px' }}>✕</button>
+                      <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                        <button
+                          onClick={e => { e.stopPropagation(); setCloneTarget(rec); }}
+                          title="Clone to another case"
+                          style={{ background: 'none', border: '1px solid #1e2a3a', borderRadius: 4, color: '#4090d0', cursor: 'pointer', fontSize: 13, padding: '3px 8px', lineHeight: 1 }}>
+                          ⎘
+                        </button>
+                        <button onClick={e => { e.stopPropagation(); handleDelete(rec.id); }}
+                          style={{ background: 'none', border: 'none', color: '#503030', cursor: 'pointer', fontSize: 16, padding: '4px 8px' }}>✕</button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -2859,5 +2890,85 @@ Begin with the first document heading now:`;
         </div>
       )}
     </div>
+
+    {/* ── Clone Draft Modal ───────────────────────────────────────────────── */}
+    {cloneTarget && (
+      <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.72)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ background: '#0d0d1a', border: '1px solid #2a2a44', borderRadius: 10, padding: '28px 30px', width: 440, maxWidth: '92vw' }}>
+
+          <div style={{ fontSize: 16, fontWeight: 700, color: '#f0ece0', marginBottom: 6 }}>
+            Clone to Another Case
+          </div>
+          <div style={{ fontSize: 12, color: '#505068', marginBottom: 18 }}>
+            {cloneTarget.appType}
+          </div>
+
+          {!allCasesLoaded ? (
+            <div style={{ fontSize: 13, color: '#808098', marginBottom: 18 }}>Loading cases…</div>
+          ) : allCases.length === 0 ? (
+            <div style={{ fontSize: 13, color: '#905050', marginBottom: 18 }}>No other cases found.</div>
+          ) : (
+            <select
+              value={selectedCloneCaseId}
+              onChange={e => setSelectedCloneCaseId(e.target.value)}
+              style={{ width: '100%', background: '#080814', border: '1px solid #2a2a44', borderRadius: 6, color: '#d0ccbc', padding: '9px 12px', fontSize: 13, marginBottom: 14 }}>
+              <option value="">— Select target case —</option>
+              {allCases.map(c => (
+                <option key={c.id} value={c.id}>
+                  {c.caseName}{c.jurisdiction ? ` · ${c.jurisdiction}` : ''}
+                </option>
+              ))}
+            </select>
+          )}
+
+          <div style={{ fontSize: 11, color: '#505068', marginBottom: 20, lineHeight: 1.65 }}>
+            The application structure will be copied to the selected case. All case-specific facts will be cleared. Open that case → Applications to complete the facts and generate a new draft.
+          </div>
+
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button
+              disabled={!selectedCloneCaseId || cloneInProgress}
+              onClick={async () => {
+                if (!selectedCloneCaseId || cloneInProgress) return;
+                setCloneInProgress(true);
+                try {
+                  const targetCase = allCases.find(c => c.id === selectedCloneCaseId);
+                  await cloneApplicationToCase({
+                    sourceRecord:   cloneTarget as unknown as import('@/types').CloneableApplicationRecord,
+                    targetCaseId:   selectedCloneCaseId,
+                    sourceCaseName: activeCase.caseName,
+                  });
+                  setCloneTarget(null);
+                  setSelectedCloneCaseId('');
+                  alert(`Cloned to "${targetCase?.caseName ?? 'selected case'}". Open that case → Applications to complete the facts.`);
+                } catch (err) {
+                  console.error('[ApplicationsEngine] clone failed', err);
+                  alert('Clone failed — see console for details.');
+                } finally {
+                  setCloneInProgress(false);
+                }
+              }}
+              style={{
+                background:   selectedCloneCaseId && !cloneInProgress ? '#1a3a5a' : '#111122',
+                border:       '1px solid #2a2a44',
+                borderRadius: 6,
+                color:        selectedCloneCaseId && !cloneInProgress ? '#4090d0' : '#404058',
+                cursor:       selectedCloneCaseId && !cloneInProgress ? 'pointer' : 'not-allowed',
+                padding:      '9px 18px',
+                fontSize:     13,
+                fontWeight:   600,
+              }}>
+              {cloneInProgress ? 'Cloning…' : 'Clone'}
+            </button>
+            <button
+              onClick={() => { setCloneTarget(null); setSelectedCloneCaseId(''); }}
+              style={{ background: 'none', border: '1px solid #2a2a44', borderRadius: 6, color: '#808098', cursor: 'pointer', padding: '9px 18px', fontSize: 13 }}>
+              Cancel
+            </button>
+          </div>
+
+        </div>
+      </div>
+    )}
   );
 }
