@@ -315,6 +315,88 @@ export interface Case {
    * criminal / matrimonial engines.
    */
   frep_data?:          FrepData;
+
+  /**
+   * Case Theory — Trial Engine Consolidation, Phase 1.
+   *
+   * Separate from intelligence_data / intelligence_package. The intelligence
+   * package is the loose narrative background; case_theory_structured is the
+   * operative, library-grounded, scored record built on top of it. Counsel
+   * must lock it before any downstream engine (TrialEngine, Final Written
+   * Address, ArgumentBuilder Trial/Civil tracks, flagged ApplicationsEngine
+   * appTypes) is permitted to read it.
+   *
+   * Use loadCaseTheory / saveCaseTheory / lockCaseTheory / unlockCaseTheory
+   * from '@/storage/helpers', or the useCaseTheory() hook — do not read/write
+   * these fields directly so the lock/version/history invariants hold.
+   */
+  case_theory_structured?: CaseTheoryRecord | null;
+  /** True only once counsel has explicitly locked the theory for propagation. */
+  case_theory_locked?:     boolean;
+  /** ISO timestamp of the most recent lock. Null until first lock. */
+  case_theory_locked_at?:  string | null;
+  /** Most recent score, 0–100. Null until the AI has scored a theory at least once. */
+  case_theory_score?:      number | null;
+  /** Increments on every lock. Starts at 0 (never locked). */
+  case_theory_version?:    number;
+  /** Append-only unlock log — one entry per unlock, oldest first. */
+  case_theory_history?:    CaseTheoryHistoryEntry[];
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CASE THEORY — TRIAL ENGINE CONSOLIDATION (PHASE 1)
+//
+// The operative, structured theory of the case. Built from the intelligence
+// package plus a library-grounded "Legal Foundation" query, proposed by AI,
+// refined by counsel, scored 0–100, and locked before propagation to:
+//   - TrialEngine (examination-in-chief, cross-examination, all tabs)
+//   - FinalWrittenAddressEngine
+//   - ArgumentBuilder (Trial & Civil tracks)
+//   - ApplicationsEngine, for any appType flagged needsCaseTheory: true
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** One element of the case theory — a legal/factual proposition that must be established. */
+export interface CaseTheoryElement {
+  element:   string;   // Legal/factual element to establish
+  evidence:  string;   // Evidence that proves it
+  authority: string;   // Statute or case that supports it
+  risk:      string;   // Risk if not proved
+}
+
+/** One unresolved gap in the theory's evidentiary or legal foundation. */
+export interface CaseTheoryGapItem {
+  element:          string;
+  needed:           string;
+  suggested_action: string;   // Specific, not generic — e.g. a named research task or document to obtain
+}
+
+/** Score breakdown — five 0–20 components summing to a 0–100 total. */
+export interface CaseTheoryScoreBreakdown {
+  legal_sufficiency:        number;  // 0–20
+  evidence_coverage:        number;  // 0–20
+  vulnerability:            number;  // 0–20
+  narrative_coherence:      number;  // 0–20
+  jurisdictional_precision: number;  // 0–20
+  total:                    number;  // 0–100
+}
+
+export interface CaseTheoryRecord {
+  core_proposition: string;   // One sentence. The single thing that if proved wins.
+  elements:         CaseTheoryElement[];
+  opposing_theory:  string;   // Other side's case in one sentence
+  theory_killer:    string;   // The one fact/document that defeats their theory
+  weakest_link:     string;   // Our least confident element + contingency
+  narrative_theme:  string;   // Human story for the judge, non-legal language
+  gap_report:       CaseTheoryGapItem[];
+  score_breakdown:  CaseTheoryScoreBreakdown;
+}
+
+/** One entry in the unlock log — recorded every time a locked theory is unlocked. */
+export interface CaseTheoryHistoryEntry {
+  version:     number;
+  locked_at:   string;
+  unlocked_at: string;
+  note:        string;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
