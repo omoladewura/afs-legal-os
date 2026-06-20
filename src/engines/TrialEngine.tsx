@@ -12,6 +12,24 @@
  *
  *   Tabs 2–7 render ComingSoon placeholders — implemented in Phases 5–8.
  *
+ * Phase 5 (Build Plan v2):
+ *   Tab 2 — Witness Register — fully implemented.
+ *
+ * Phase 6 (Build Plan v2):
+ *   Tab 3 — Examination-in-Chief — fully implemented.
+ *   Three-sided Witness Preparation Bundle: counsel question script (Side A) ·
+ *   witness study pack (Side B) · anticipated cross-examination prep (Side C).
+ *
+ * Phase 7 (Build Plan v2):
+ *   Tab 4 — Cross-Examination — fully implemented.
+ *   Witness Statement Importer (line-numbered, Witness Register or local paste) ·
+ *   Statement Audit (claims, internal/case contradictions, omissions, strategic
+ *   purpose) · Theory-Breach Question Generator across four tactical tiers
+ *   (Theory Destroyers · Credibility Shakers · Evidence Exclusion · Cleanup).
+ *
+ *   Tabs 5–7 (Contradiction Mapper, Impeachment Arsenal, Live Courtroom Mode)
+ *   remain ComingSoon placeholders — implemented in Phase 8.
+ *
  * Role detection: reads activeCase.counsel_role.
  *   prosecution / claimant_side → Prosecution/Claimant mode
  *   defence / defendant_side    → Defence/Defendant mode
@@ -80,7 +98,7 @@ const TRIAL_TABS: TabDef[] = [
     id:    'cross_examination',
     icon:  '⚔',
     label: 'Cross-Examination',
-    desc:  'Statement audit, theory-breach question generator, contradiction mapper, impeachment arsenal, live courtroom mode.',
+    desc:  'Witness Statement Importer with line-numbered review · Statement Audit (claims, contradictions, omissions, strategic purpose) · Theory-Breach Question Generator across four tactical tiers.',
   },
   {
     id:    'contradiction_mapper',
@@ -2357,6 +2375,386 @@ Three core weaknesses opposing counsel will probe:
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// PHASE 7 — CROSS-EXAMINATION: STATEMENT AUDIT + THEORY-BREACH QUESTION GENERATOR
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ── Bundle storage schema ─────────────────────────────────────────────────────
+
+interface CrossExamBundle {
+  statementText: string;   // local paste — only persisted when Witness Register has no statement
+  audit:         string;   // 7A — Statement Audit output
+  questions:     string;   // 7B — Theory-Breach Question Bank output
+}
+
+function crossBundleKey(witnessId: string): string {
+  return `trial_cross_${witnessId}`;
+}
+
+// ── Line-numbered statement viewer (7A) ────────────────────────────────────────
+
+function LineNumberedStatement({ text }: { text: string }) {
+  const lines = text.split('\n');
+  return (
+    <div style={{
+      background: '#fafaf8', border: `1px solid ${T.bdr}`, borderRadius: 5,
+      padding: '12px 14px', maxHeight: 320, overflowY: 'auto',
+      fontFamily: 'monospace', fontSize: 12, lineHeight: 1.7,
+    }}>
+      {lines.map((line, i) => (
+        <div key={i} style={{ display: 'flex' }}>
+          <span style={{
+            width: 32, textAlign: 'right', marginRight: 12,
+            color: T.mute, flexShrink: 0, userSelect: 'none',
+          }}>
+            {i + 1}
+          </span>
+          <span style={{ whiteSpace: 'pre-wrap', color: T.text, flex: 1 }}>
+            {line || '\u00A0'}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── CrossExaminationTab ──────────────────────────────────────────────────────
+
+interface CrossExaminationTabProps {
+  activeCase: Case;
+  role:       TrialRole;
+}
+
+function CrossExaminationTab({ activeCase, role: _role }: CrossExaminationTabProps) {
+  const caseId = activeCase.id;
+  const ai     = useAI(activeCase);
+  const { fullContext } = useIntelligence(activeCase);
+  const { theory, hasTheory } = useCaseTheory(caseId);
+
+  // Opposing witnesses (from Witness Register)
+  const [opposingWitnesses, setOpposingWitnesses] = useState<TrialWitness[]>([]);
+  const [loadingWitnesses,  setLoadingWitnesses]  = useState(true);
+
+  // Selected witness
+  const [selectedId, setSelectedId] = useState('');
+
+  // Local paste fallback — only used when the register has no statement
+  const [localStatement, setLocalStatement] = useState('');
+
+  // Generated outputs
+  const [audit,     setAudit]     = useState('');
+  const [questions, setQuestions] = useState('');
+
+  // Loading / save state
+  const [loadingAudit,     setLoadingAudit]     = useState(false);
+  const [loadingQuestions, setLoadingQuestions] = useState(false);
+  const [saving,           setSaving]           = useState(false);
+  const [saveMsg,          setSaveMsg]          = useState('');
+  const [error,            setError]            = useState('');
+
+  // Load opposing witnesses from register
+  useEffect(() => {
+    loadBlindSpot<WitnessStore>(caseId, WITNESS_STORE_KEY).then(stored => {
+      setOpposingWitnesses(stored?.opposing ?? []);
+      setLoadingWitnesses(false);
+    });
+  }, [caseId]);
+
+  const selectedWitness = opposingWitnesses.find(w => w.id === selectedId) ?? null;
+
+  // When witness selected: load any previously saved bundle
+  useEffect(() => {
+    if (!selectedId) return;
+    loadBlindSpot<CrossExamBundle>(caseId, crossBundleKey(selectedId)).then(saved => {
+      setLocalStatement(saved?.statementText ?? '');
+      setAudit(saved?.audit ?? '');
+      setQuestions(saved?.questions ?? '');
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId]);
+
+  // 7A — the statement that drives everything: registry first, local paste as fallback
+  const registryStatement = (selectedWitness?.statement_text ?? '').trim();
+  const effectiveStatement = registryStatement || localStatement;
+
+  // ── Theory string for AI injection ──────────────────────────────────────────
+  function theoryBlock(): string {
+    if (!theory) return 'No locked Case Theory — proceed without theory context.';
+    return [
+      `Core Proposition: ${theory.core_proposition}`,
+      `Elements to establish: ${theory.elements.map(e => `${e.element} (authority: ${e.authority || 'n/a'})`).join(' | ')}`,
+      `Opposing Theory: ${theory.opposing_theory}`,
+      `Theory Killer: ${theory.theory_killer}`,
+      `Weakest Link: ${theory.weakest_link}`,
+    ].join('\n');
+  }
+
+  // ── 7A — Audit Statement ─────────────────────────────────────────────────────
+
+  async function auditStatement() {
+    if (!selectedWitness || !effectiveStatement.trim()) return;
+    setLoadingAudit(true); setError('');
+    const result = await ai.ask({
+      system: `You are a Nigerian senior counsel conducting a forensic audit of an opposing witness's statement on oath, in preparation for cross-examination.
+Read with suspicion — every sentence may conceal more than it reveals.
+Be precise and specific. Quote or reference exact wording where it matters.
+Structure output EXACTLY as instructed — five titled sections.`,
+
+      userMsg: `CASE: ${activeCase.caseName} | COURT: ${activeCase.court || 'Not specified'}
+
+CASE INTELLIGENCE CONTEXT:
+${fullContext || 'No intelligence package recorded.'}
+
+WITNESS: ${selectedWitness.name} (${selectedWitness.designation})
+ROLE IN CASE: ${selectedWitness.role_in_case}
+KNOWN VULNERABILITIES (Witness Register): ${selectedWitness.vulnerabilities || 'None noted.'}
+
+FULL STATEMENT ON OATH:
+${effectiveStatement}
+
+Produce a structured Statement Audit in this exact format:
+
+CLAIMS MADE
+Numbered list of every material factual claim the statement makes.
+
+INTERNAL CONTRADICTIONS
+Contradictions within the statement itself — between paragraphs, dates, sequences, or figures. Reference the conflicting parts directly. If none, state "None identified."
+
+CONTRADICTIONS WITH KNOWN CASE FACTS
+Contradictions between this statement and the established facts / intelligence on this case. If none, state "None identified."
+
+WHAT THE STATEMENT CONSPICUOUSLY AVOIDS SAYING
+Gaps, omissions, and evasions — what a complete and honest account would have addressed but this one does not.
+
+STRATEGIC PURPOSE OF THE STATEMENT
+What is this witness's statement trying to establish for the other side? What function does it serve in their case theory?`,
+    });
+    setLoadingAudit(false);
+    if (result) setAudit(result);
+    else setError('Statement audit failed. Check connection and retry.');
+  }
+
+  // ── 7B — Theory-Breach Question Generator ────────────────────────────────────
+
+  async function generateCrossExamination() {
+    if (!selectedWitness || !audit) return;
+    setLoadingQuestions(true); setError('');
+    const result = await ai.ask({
+      system: `You are a Nigerian senior trial advocate preparing the cross-examination of an opposing witness.
+Apply the Evidence Act 2011 throughout.
+Every question must serve a specific tactical purpose: destroying the opposing case theory,
+shaking credibility, excluding inadmissible evidence, or locking in a helpful admission.
+Be surgical and exact — write the precise question text counsel will read aloud in court.
+Structure output EXACTLY as instructed — four numbered tiers.`,
+
+      userMsg: `LOCKED CASE THEORY:
+${theoryBlock()}
+
+WITNESS: ${selectedWitness.name} (${selectedWitness.designation})
+ROLE IN CASE: ${selectedWitness.role_in_case}
+KNOWN VULNERABILITIES (Witness Register): ${selectedWitness.vulnerabilities || 'None noted.'}
+
+STATEMENT AUDIT:
+${audit}
+
+CASE INTELLIGENCE CONTEXT:
+${fullContext || 'No intelligence package recorded.'}
+
+Generate the cross-examination question bank in this exact format:
+
+TIER 1 — THEORY DESTROYERS
+Questions that directly undermine the opposing case theory or advance ours.
+Q1. [Exact question text] → Purpose: [what this destroys or advances]
+
+TIER 2 — CREDIBILITY SHAKERS
+Contradiction exploitation, prior inconsistent statements, motive to lie.
+Q[N]. [Exact question text] → Contradiction exploited: [which one, from the audit]
+
+TIER 3 — EVIDENCE EXCLUSION
+Admissibility attacks — hearsay, lack of foundation, secondary evidence rule.
+Q[N]. [Exact question text] → Evidence Act provision invoked: [section]
+
+TIER 4 — CLEANUP
+Securing admissions that help our case; locking the witness into positions.
+Q[N]. [Exact question text] → Admission secured: [what it locks in]`,
+    });
+    setLoadingQuestions(false);
+    if (result) setQuestions(result);
+    else setError('Cross-examination question generation failed.');
+  }
+
+  // ── Save bundle ──────────────────────────────────────────────────────────────
+
+  async function saveBundle() {
+    if (!selectedId) return;
+    setSaving(true);
+    const bundle: CrossExamBundle = {
+      statementText: registryStatement ? '' : localStatement,
+      audit, questions,
+    };
+    const ok = await saveBlindSpot(caseId, crossBundleKey(selectedId), bundle);
+    setSaving(false);
+    if (ok) { setSaveMsg('Saved.'); setTimeout(() => setSaveMsg(''), 3000); }
+    else setError('Save failed.');
+  }
+
+  // ── Render ───────────────────────────────────────────────────────────────────
+
+  if (loadingWitnesses) {
+    return <div style={{ padding: 32, color: T.mute, fontFamily: "'Times New Roman', Times, serif", fontSize: 13 }}>Loading witnesses…</div>;
+  }
+
+  const noWitnesses = opposingWitnesses.length === 0;
+
+  return (
+    <div style={{ paddingBottom: 60 }}>
+
+      {/* Warnings */}
+      {noWitnesses && (
+        <div style={{ padding: '14px 18px', background: '#fff8f0', border: '1px solid #e0b888', borderRadius: 5, marginBottom: 16 }}>
+          <p style={{ fontSize: 13, color: '#7a4a00', fontFamily: "'Times New Roman', Times, serif", margin: 0 }}>
+            No opposing witnesses in the register. Add them in the <strong>Witness Register</strong> tab first.
+          </p>
+        </div>
+      )}
+      {!hasTheory && !noWitnesses && (
+        <div style={{ padding: '12px 16px', background: '#fdf6e8', border: '1px solid #e0cfa0', borderRadius: 5, marginBottom: 16 }}>
+          <p style={{ fontSize: 12, color: '#7a4a00', fontFamily: "'Times New Roman', Times, serif", margin: 0 }}>
+            Case Theory not locked — generated questions will not be theory-anchored. Lock theory in the Case Theory Brief tab for best results.
+          </p>
+        </div>
+      )}
+
+      {/* 7A — Witness selector */}
+      <SectionLabel>A — Select Opposing Witness</SectionLabel>
+      {noWitnesses ? (
+        <p style={{ fontSize: 13, color: T.mute, fontFamily: "'Times New Roman', Times, serif" }}>
+          Add opposing witnesses to the register to begin.
+        </p>
+      ) : (
+        <select
+          style={{ ...S.sel, maxWidth: 420 }}
+          value={selectedId}
+          onChange={e => {
+            setSelectedId(e.target.value);
+            setAudit(''); setQuestions(''); setLocalStatement(''); setError('');
+          }}
+        >
+          <option value="">— Select an opposing witness —</option>
+          {opposingWitnesses.map(w => (
+            <option key={w.id} value={w.id}>
+              {w.designation ? `${w.designation} — ` : ''}{w.name || 'Unnamed'} ({w.role_in_case || 'role not set'})
+            </option>
+          ))}
+        </select>
+      )}
+
+      {/* Witness profile summary */}
+      {selectedWitness && (
+        <div style={{
+          marginTop: 10, padding: '10px 14px',
+          background: '#f7f9fd', border: '1px solid #b8cfe8', borderRadius: 5,
+        }}>
+          <p style={{ fontSize: 11, color: '#1a3a6a', fontFamily: "'Times New Roman', Times, serif", margin: 0 }}>
+            <strong>{selectedWitness.designation}</strong> · {selectedWitness.name} · {selectedWitness.role_in_case} ·{' '}
+            Status: <strong>{selectedWitness.status}</strong>
+            {selectedWitness.vulnerabilities && ` · Vulnerabilities: ${selectedWitness.vulnerabilities.slice(0, 70)}${selectedWitness.vulnerabilities.length > 70 ? '…' : ''}`}
+          </p>
+        </div>
+      )}
+
+      {selectedWitness && (
+        <>
+          {/* Witness Statement Importer */}
+          <div style={{ marginTop: 20 }}>
+            <SectionLabel>Witness Statement on Oath</SectionLabel>
+            {registryStatement ? (
+              <>
+                <p style={{ fontSize: 12, color: T.mute, fontFamily: "'Times New Roman', Times, serif", margin: '0 0 8px', fontStyle: 'italic' }}>
+                  Loaded from the Witness Register. Edit it there if it needs to change.
+                </p>
+                <LineNumberedStatement text={registryStatement} />
+              </>
+            ) : (
+              <>
+                <p style={{ fontSize: 12, color: T.mute, fontFamily: "'Times New Roman', Times, serif", margin: '0 0 8px', fontStyle: 'italic' }}>
+                  No statement on oath loaded in the Witness Register for this witness. Paste it here — or notes of expected evidence if the formal statement has not yet been served.
+                </p>
+                <textarea
+                  style={{ ...S.ta, minHeight: 180, fontFamily: 'monospace', fontSize: 12 }}
+                  value={localStatement}
+                  onChange={e => setLocalStatement(e.target.value)}
+                  placeholder="Paste the witness statement on oath, or notes of expected evidence…"
+                />
+                {localStatement.trim() && (
+                  <div style={{ marginTop: 10 }}>
+                    <LineNumberedStatement text={localStatement} />
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          {/* Error */}
+          {error && (
+            <div style={{ marginTop: 14 }}>
+              <ErrorBlock message={error} onDismiss={() => setError('')} />
+            </div>
+          )}
+
+          {/* 7A — Statement Audit */}
+          <SidePanel
+            label="Statement Audit"
+            content={audit}
+            onPrint={() => printSide(activeCase.caseName, selectedWitness.designation || selectedWitness.name, 'Statement Audit', audit, false)}
+            loading={loadingAudit}
+            disabled={!effectiveStatement.trim()}
+            onGenerate={auditStatement}
+            generateLabel="Audit Statement"
+            hint="Claims made · internal contradictions · contradictions with case intelligence · conspicuous omissions · the statement's strategic purpose."
+          />
+
+          {/* 7B — Theory-Breach Question Generator */}
+          <SidePanel
+            label="Theory-Breach Question Bank"
+            content={questions}
+            onPrint={() => printSide(activeCase.caseName, selectedWitness.designation || selectedWitness.name, 'Cross-Examination — Theory-Breach Question Bank', questions, false)}
+            loading={loadingQuestions}
+            disabled={!audit}
+            onGenerate={generateCrossExamination}
+            generateLabel={audit ? 'Generate Cross-Examination' : 'Audit the statement first'}
+            hint="Four tiers: Theory Destroyers · Credibility Shakers · Evidence Exclusion · Cleanup."
+          />
+
+          {/* Save */}
+          {(audit || questions || localStatement.trim()) && (
+            <div style={{
+              marginTop: 28, paddingTop: 16, borderTop: `1px solid ${T.bdrL}`,
+              display: 'flex', gap: 14, alignItems: 'center',
+            }}>
+              <button
+                onClick={saveBundle}
+                disabled={saving}
+                style={{ ...S.btn, width: 'auto', marginTop: 0, padding: '9px 24px' }}
+              >
+                {saving ? 'Saving…' : '↓ Save'}
+              </button>
+              {saveMsg && (
+                <span style={{ fontSize: 12, color: '#2a6a3a', fontFamily: "'Times New Roman', Times, serif" }}>
+                  {saveMsg}
+                </span>
+              )}
+              <span style={{ fontSize: 11, color: T.mute, fontFamily: "'Times New Roman', Times, serif", marginLeft: 'auto' }}>
+                Saved per witness under trial_cross_{'{witnessId}'}
+              </span>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // COMING SOON PLACEHOLDER (Phases 5–8)
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -2439,7 +2837,12 @@ function TabContent({ tab, activeCase, role, theoryReload }: TabContentProps) {
         />
       );
     case 'cross_examination':
-      return <ComingSoon tab={tabDef} phase={7} />;
+      return (
+        <CrossExaminationTab
+          activeCase={activeCase}
+          role={role}
+        />
+      );
     case 'contradiction_mapper':
     case 'impeachment_arsenal':
     case 'live_courtroom':
