@@ -14,9 +14,9 @@
  *   BriefMe, ArgumentBuilder, FinalAddressEngine, AuthorityValidator,
  *   ResearchResolver (CaseResearch), SynthesisEngine, CommandConsole,
  *   FilingsTracker, CriminalDefence, SanMode.
- * - Added lazy imports for: CaseCommand, CaseIntelligence, WrittenAddressEngine.
+ * - Added lazy imports for: CaseCommand, StrategyHub, WrittenAddressEngine.
  * - Engine router updated: `overview` → case_command, `blindspots`/`warroom`/
- *   `briefme` → case_intelligence, `builder`/`final_address`/`authority`/
+ *   `briefme` → strategy_hub, `builder`/`final_address`/`authority`/
  *   `research`/`synthesis` → written_address, `console` → copilot (AICopilot).
  * - `Timeline →` shortcut in Next Action strip rerouted to `case_command`.
  */
@@ -52,7 +52,7 @@ import {
 
 // Phase 6 — New consolidated engine shells
 const CaseCommand        = lazy(() => import('@/engines/CaseCommand').then(m => ({ default: m.CaseCommand })));
-const CaseIntelligence   = lazy(() => import('@/engines/CaseIntelligence').then(m => ({ default: m.CaseIntelligence })));
+const StrategyHub        = lazy(() => import('@/engines/StrategyHub').then(m => ({ default: m.StrategyHub })));
 const WrittenAddressEngine = lazy(() => import('@/engines/FinalWrittenAddressEngine').then(m => ({ default: m.FinalWrittenAddressEngine })));
 
 // Retained engines — untouched
@@ -104,7 +104,7 @@ function EngineContent({
   switch (tabId) {
     // Phase 6 — New consolidated engine shells
     case 'case_command':      return <CaseCommand          activeCase={activeCase} onSetDashTab={onSetDashTab} />;
-    case 'case_intelligence': return <CaseIntelligence     activeCase={activeCase} />;
+    case 'strategy_hub':       return <StrategyHub          activeCase={activeCase} />;
     case 'written_address':   return <WrittenAddressEngine activeCase={activeCase} />;
     // Retained engines — untouched
     case 'intelligence': return <IntelligenceEngine activeCase={activeCase} onSave={onSaveIntel} />;
