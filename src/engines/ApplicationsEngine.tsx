@@ -2492,6 +2492,28 @@ Begin with the first document heading now:`;
     setGenerated(''); clearError();
   }, [clearError]);
 
+  // Loads a saved/cloned ApplicationRecord back into the live editing wizard
+  // (facts + stage3 + matched type) and jumps to the Facts stage, so a
+  // cloned record's _clone_notice is reachable and any saved draft can be
+  // resumed rather than only viewed read-only. Falls back to a synthetic
+  // custom type if appType doesn't match a current APP_TYPES entry (covers
+  // older saved records and the free-text "custom" application path).
+  const resumeRecord = useCallback((rec: ApplicationRecord) => {
+    const matchedType: AppTypeConfig = APP_TYPES.find(t => t.label === rec.appType) ?? {
+      id: 'custom', label: rec.appType, icon: '📄', track: 'all',
+      package: ['Motion Paper', 'Supporting Affidavit', 'Written Address in Support', 'List of Authorities'],
+      hint: rec.appType, needsCaseTheory: false,
+    };
+    setSelectedType(matchedType);
+    setFacts(rec.facts);
+    setStage3(rec.stage3);
+    setGenerated('');
+    clearError();
+    setStage(2);
+    setMainTab('new');
+    setSelectedRecord(null);
+  }, [clearError]);
+
   const filteredTypes = APP_TYPES.filter(t => trackFilter === 'all' || t.track === trackFilter || t.track === 'all');
   const canGoToStage2 = !!selectedType;
   const canGoToStage3 = canGoToStage2 && !!(facts.reliefSought.trim() || facts.grounds.trim());
@@ -2859,6 +2881,12 @@ Begin with the first document heading now:`;
                       </div>
                       <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
                         <button
+                          onClick={e => { e.stopPropagation(); resumeRecord(rec); }}
+                          title="Continue editing"
+                          style={{ background: 'none', border: '1px solid #1e2a3a', borderRadius: 4, color: '#4090d0', cursor: 'pointer', fontSize: 13, padding: '3px 8px', lineHeight: 1 }}>
+                          ✎
+                        </button>
+                        <button
                           onClick={e => { e.stopPropagation(); setCloneTarget(rec); }}
                           title="Clone to another case"
                           style={{ background: 'none', border: '1px solid #1e2a3a', borderRadius: 4, color: '#4090d0', cursor: 'pointer', fontSize: 13, padding: '3px 8px', lineHeight: 1 }}>
@@ -2868,6 +2896,7 @@ Begin with the first document heading now:`;
                           style={{ background: 'none', border: 'none', color: '#503030', cursor: 'pointer', fontSize: 16, padding: '4px 8px' }}>✕</button>
                       </div>
                     </div>
+
                   ))}
                 </div>
               ) : (
@@ -2876,19 +2905,29 @@ Begin with the first document heading now:`;
                     style={{ background: 'none', border: 'none', color: '#4090d0', cursor: 'pointer', fontSize: 13, padding: 0, marginBottom: 12 }}>
                     ← Back to list
                   </button>
-                  <div style={{ fontSize: 16, fontWeight: 700, color: '#f0ece0', marginBottom: 4 }}>{selectedRecord.appType}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 4, flexWrap: 'wrap' }}>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: '#f0ece0' }}>{selectedRecord.appType}</div>
+                    <Btn label="✎ Continue Editing →" onClick={() => resumeRecord(selectedRecord)} accent="#4090d0" small />
+                  </div>
                   <div style={{ fontSize: 12, color: '#505068', marginBottom: 16 }}>
                     {new Date(selectedRecord.createdAt).toLocaleDateString('en-NG', { day: 'numeric', month: 'long', year: 'numeric' })}
                   </div>
-                  <div style={{ background: '#06060f', border: '1px solid #1a1a2e', borderRadius: 8, padding: '20px 22px', lineHeight: 1.85, fontSize: 13 }}>
-                    <Md text={selectedRecord.documents} />
-                  </div>
-                  <MandatoryNotice />
+                  {selectedRecord.documents ? (
+                    <div style={{ background: '#06060f', border: '1px solid #1a1a2e', borderRadius: 8, padding: '20px 22px', lineHeight: 1.85, fontSize: 13 }}>
+                      <Md text={selectedRecord.documents} />
+                    </div>
+                  ) : (
+                    <div style={{ background: '#080814', border: '1px dashed #282840', borderRadius: 8, padding: '20px 22px', fontSize: 13, color: '#808098', textAlign: 'center' }}>
+                      No draft generated yet for this record{(selectedRecord.facts as Record<string, string>)['_clone_notice'] ? ' — cloned from another case' : ''}. Click "Continue Editing" above to fill in the facts and generate a draft.
+                    </div>
+                  )}
+                  {selectedRecord.documents && <MandatoryNotice />}
                 </div>
               )}
             </div>
           )}
         </div>
+
       )}
     </div>
 
@@ -2934,11 +2973,17 @@ Begin with the first document heading now:`;
                 setCloneInProgress(true);
                 try {
                   const targetCase = allCases.find(c => c.id === selectedCloneCaseId);
-                  await cloneApplicationToCase({
+                  const cloned = await cloneApplicationToCase({
                     sourceRecord:   cloneTarget as unknown as import('@/types').CloneableApplicationRecord,
                     targetCaseId:   selectedCloneCaseId,
                     sourceCaseName: activeCase.caseName,
                   });
+                  // cloneApplicationToCase only writes to local storage (saveBlindSpot).
+                  // Every other create path (handleAssemble) also pushes to the remote
+                  // worker — without this, the clone gets silently overwritten the
+                  // moment the target case's ApplicationsEngine mounts and workerLoad
+                  // returns any pre-existing remote records for that case.
+                  await workerSave(cloned as unknown as ApplicationRecord);
                   setCloneTarget(null);
                   setSelectedCloneCaseId('');
                   alert(`Cloned to "${targetCase?.caseName ?? 'selected case'}". Open that case → Applications to complete the facts.`);
