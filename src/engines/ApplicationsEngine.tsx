@@ -31,6 +31,8 @@ import {
   isRagConfigured,
   type StatuteChunk,
 } from '@/services/statuteRag';
+import { ArgumentTemplateManager } from './ArgumentTemplateManager';
+import { db } from '@/storage/db';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES
@@ -38,7 +40,7 @@ import {
 
 interface Props { activeCase: Case; }
 
-type MainTab         = 'new' | 'tracker';
+type MainTab         = 'new' | 'tracker' | 'templates';
 type Stage           = 1 | 2 | 3 | 4 | 5;
 type TrackFilter     = 'all' | 'civil' | 'criminal' | 'appeal';
 type AppStatus       = 'Drafting' | 'Filed' | 'Served' | 'Awaiting Hearing' | 'Heard' | 'Granted' | 'Refused' | 'Withdrawn';
@@ -470,11 +472,15 @@ interface IssueBuilderProps {
   onAddressChange: (v: string) => void;
   side:            'support' | 'opposition';
   systemCtx:       string;
+  // 2D-ii — populated when a template skeleton was injected into the last draft call
+  templateBadge?:  { appType: string; jurisdiction: string } | null;
+  onTemplateBadge?: (badge: { appType: string; jurisdiction: string } | null) => void;
 }
 
 function IssueBuilder({
   activeCase, appType, facts, issues, onIssuesChange,
   writtenAddress, onAddressChange, side, systemCtx,
+  templateBadge, onTemplateBadge,
 }: IssueBuilderProps) {
   const { ask, loading, error, clearError } = useAI(activeCase);
   const [editingId,       setEditingId]       = useState<string | null>(null);
@@ -483,6 +489,22 @@ function IssueBuilder({
   const [statuteRagError, setStatuteRagError] = useState('');
   const [ragFetching,     setRagFetching]     = useState(false);
   const [deleteModal,     setDeleteModal]     = useState<string | null>(null);
+
+  // 2D-iii — Save as Template modal state
+  interface SaveTemplateModal {
+    skeleton:            string;
+    appType:             string;
+    jurisdiction:        string;
+    court_level:         string;
+    statutory_basis:     string;
+    leading_authorities: string;
+    tests:               string;
+    stripping:           boolean;   // AI stripping in progress
+    duplicateWarning:    boolean;   // a template already exists for this appType × jurisdiction
+  }
+  const [saveModal,    setSaveModal]    = useState<SaveTemplateModal | null>(null);
+  const [saveToast,    setSaveToast]    = useState('');
+  const [savingTpl,    setSavingTpl]    = useState(false);
 
   const sideLabel = side === 'support' ? 'Written Address in Support' : 'Written Address in Opposition';
 
@@ -504,6 +526,38 @@ function IssueBuilder({
   async function generateIssue() {
     if (!draftIssue) return;
     setStatuteChunks([]); setStatuteRagError('');
+    // 2D-ii — clear any badge from a previous run
+    onTemplateBadge?.(null);
+
+    // ── Pre-draft template lookup ──────────────────────────────────────────
+    // Check if a saved template exists for appType × jurisdiction.
+    // If found, inject skeleton into the system prompt (additive — RAG still runs).
+    // If not found, skeletonBlock is '' and system prompt is unchanged.
+    let skeletonBlock = '';
+    let matchedTemplate: { appType: string; jurisdiction: string } | null = null;
+    try {
+      const jurisdiction = (activeCase as any).jurisdiction ?? activeCase.court ?? '';
+      const template = await db.argument_templates
+        .where({ appType: appType.label, jurisdiction })
+        .first();
+      if (template) {
+        matchedTemplate = { appType: template.appType, jurisdiction: template.jurisdiction };
+        skeletonBlock = `
+ARGUMENT FRAMEWORK (pre-approved skeleton for ${template.appType} in ${template.jurisdiction}):
+${template.skeleton}
+
+Statutory Basis: ${template.statutory_basis}
+Applicable Tests: ${template.tests}
+Leading Authorities: ${template.leading_authorities}
+
+INSTRUCTION: Use this framework as the structure for the argument. Merge the case-specific facts below into this framework. Do not re-derive the legal framework from scratch.
+`;
+      }
+    } catch {
+      // Template lookup failure is non-fatal — proceed with standard draft
+    }
+
+    // ── RAG statute lookup (unchanged) ────────────────────────────────────
     let statuteSections = '';
     if (isRagConfigured() && draftIssue.issue) {
       setRagFetching(true);
@@ -553,12 +607,109 @@ What the case must decide: [required ratio/holding in one sentence]
 - NEVER invent a case name, citation, year, volume, or law report.
 - Begin immediately with the issue heading.`;
 
+    // ── Assemble system prompt — skeleton injected after role context if found
+    const systemPrompt =
+      systemCtx +
+      (skeletonBlock ? skeletonBlock : '') +
+      '\nYou are drafting one issue of a Written Address for a Nigerian court. NEVER invent case citations. Use [RESEARCH NEEDED] blocks for uncertain authority.';
+
     const result = await ask({
-      system: systemCtx + '\nYou are drafting one issue of a Written Address for a Nigerian court. NEVER invent case citations. Use [RESEARCH NEEDED] blocks for uncertain authority.',
+      system: systemPrompt,
       userMsg: prompt, maxTokens: 2000,
       libraryOpts: { queryHint: `${appType.label} ${draftIssue.issue} Nigerian court`, topK: 6 },
     });
-    if (result) setDraftIssue(prev => prev ? { ...prev, draft: result.trim() } : prev);
+    if (result) {
+      setDraftIssue(prev => prev ? { ...prev, draft: result.trim() } : prev);
+      // 2D-ii — raise badge to parent only when a template was used
+      if (matchedTemplate) onTemplateBadge?.(matchedTemplate);
+    }
+  }
+
+  // 2D-iii — open the Save as Template flow from a completed assembled address
+  async function handleSaveAsTemplate(draft: string) {
+    const jurisdiction = (activeCase as any).jurisdiction ?? activeCase.court ?? '';
+    // Check for duplicate before stripping
+    let duplicateWarning = false;
+    try {
+      const existing = await db.argument_templates
+        .where({ appType: appType.label, jurisdiction })
+        .first();
+      if (existing) duplicateWarning = true;
+    } catch { /* non-fatal */ }
+
+    // Open modal in stripping state — skeleton field blank until AI returns
+    setSaveModal({
+      skeleton: '',
+      appType: appType.label,
+      jurisdiction,
+      court_level: (activeCase as any).court_level ?? '',
+      statutory_basis: '',
+      leading_authorities: '',
+      tests: '',
+      stripping: true,
+      duplicateWarning,
+    });
+
+    // AI strip call
+    const strippingPrompt = `You are given a completed legal argument draft. Extract the reusable structural skeleton only.
+
+Remove:
+- All references to specific parties (replace with [PARTY])
+- All specific dates (replace with [DATE])
+- All specific amounts (replace with [AMOUNT])
+- All specific locations unless they are jurisdictional identifiers
+- All case-specific facts
+
+Preserve:
+- Legal framework and structure
+- Statutory provisions and how they are applied
+- Legal tests and how they are structured
+- Argument flow and headings
+- Authorities cited (these are reusable)
+
+Return ONLY the stripped skeleton. No preamble.
+
+DRAFT:
+${draft}`;
+
+    const skeleton = await ask({
+      system: 'You extract reusable argument skeletons from completed Nigerian legal drafts. Return only the skeleton — no preamble, no explanation.',
+      userMsg: strippingPrompt.replace('${draft}', draft),
+      maxTokens: 2000,
+    });
+
+    setSaveModal(prev => prev ? { ...prev, skeleton: skeleton?.trim() ?? '', stripping: false } : null);
+  }
+
+  // 2D-iii — write the confirmed template to db.argument_templates
+  async function confirmSaveTemplate() {
+    if (!saveModal) return;
+    if (!saveModal.appType || !saveModal.jurisdiction || !saveModal.skeleton.trim()) return;
+    setSavingTpl(true);
+    try {
+      await db.argument_templates.add({
+        id:                  uid(),
+        appType:             saveModal.appType,
+        jurisdiction:         saveModal.jurisdiction,
+        court_level:          saveModal.court_level,
+        skeleton:             saveModal.skeleton,
+        statutory_basis:      saveModal.statutory_basis,
+        leading_authorities:  saveModal.leading_authorities,
+        tests:                saveModal.tests,
+        law_delta:            '',
+        needsCaseTheory:      appType.needsCaseTheory,
+        created_at:           new Date().toISOString(),
+        updated_at:           new Date().toISOString(),
+      });
+      setSaveModal(null);
+      setSaveToast(`Template saved — ${saveModal.appType} / ${saveModal.jurisdiction}`);
+      setTimeout(() => setSaveToast(''), 4000);
+    } catch (e) {
+      setSaveToast('Save failed — check storage.');
+      setTimeout(() => setSaveToast(''), 4000);
+    } finally {
+      setSavingTpl(false);
+    }
   }
 
   function saveIssue() {
@@ -716,7 +867,21 @@ ${facts.keyFacts ? 'Key Facts: ' + facts.keyFacts : ''}
         <div style={{ borderTop: '1px solid #181828', paddingTop: 20 }}>
           {writtenAddress && (
             <div style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 11, color: '#40a060', marginBottom: 8 }}>✓ {sideLabel} assembled</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8, flexWrap: 'wrap' }}>
+                <div style={{ fontSize: 11, color: '#40a060' }}>✓ {sideLabel} assembled</div>
+                {/* 2D-iii — Save as Template trigger */}
+                <button
+                  onClick={() => handleSaveAsTemplate(writtenAddress)}
+                  disabled={loading}
+                  style={{
+                    background: 'none', border: '1px solid #303050', borderRadius: 4,
+                    color: '#6060a0', fontSize: 11, padding: '2px 10px', cursor: 'pointer',
+                    fontFamily: "'Times New Roman', Times, serif",
+                  }}
+                >
+                  🗂 Save as Template
+                </button>
+              </div>
               <div style={{ background: '#06060f', border: '1px solid #1a1a2e', borderRadius: 8, padding: '16px 18px', lineHeight: 1.85, fontSize: 13, maxHeight: 320, overflowY: 'auto' }}>
                 <Md text={writtenAddress} />
               </div>
@@ -726,6 +891,187 @@ ${facts.keyFacts ? 'Key Facts: ' + facts.keyFacts : ''}
             label={writtenAddress ? `↻ Re-assemble ${sideLabel}` : `⚖ Assemble ${sideLabel}`}
             onClick={assembleAddress} loading={loading} accent="#4090d0"
           />
+        </div>
+      )}
+
+      {/* 2D-iii — Toast */}
+      {saveToast && (
+        <div style={{
+          position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)',
+          background: '#101824', border: '1px solid #4090d0', borderRadius: 6,
+          padding: '10px 20px', fontSize: 12, color: '#c0d8f0', zIndex: 9999,
+          boxShadow: '0 4px 20px #00000080',
+        }}>
+          {saveToast}
+        </div>
+      )}
+
+      {/* 2D-iii — Save as Template modal */}
+      {saveModal && (
+        <div style={{
+          position: 'fixed', inset: 0, background: '#00000090', zIndex: 9000,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
+        }}>
+          <div style={{
+            background: '#0c0c1a', border: '1px solid #2a2a48', borderRadius: 10,
+            padding: '24px 28px', width: '100%', maxWidth: 660,
+            maxHeight: '90vh', overflowY: 'auto',
+          }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: '#f0ece0', marginBottom: 6 }}>
+              🗂 Save as Template
+            </div>
+            <div style={{ fontSize: 11, color: '#808098', marginBottom: 18 }}>
+              The skeleton below has had case-specific facts stripped by AI. Review and edit before saving.
+              Saved templates are applied automatically to future drafts for the same application type and jurisdiction.
+            </div>
+
+            {saveModal.duplicateWarning && (
+              <div style={{
+                background: '#1a1208', border: '1px solid #806030', borderRadius: 5,
+                padding: '10px 14px', fontSize: 11, color: '#c09040', marginBottom: 16,
+              }}>
+                ⚠ A template already exists for <strong>{saveModal.appType}</strong> in <strong>{saveModal.jurisdiction}</strong>.
+                Saving will create a second template. To replace, delete the existing one from the Templates tab first.
+              </div>
+            )}
+
+            {saveModal.stripping ? (
+              <div style={{ color: '#4090d0', fontSize: 12, padding: '20px 0', textAlign: 'center' }}>
+                ⟳ Stripping case-specific facts…
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                {/* Read-only identity fields */}
+                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                  <div style={{ flex: 1, minWidth: 160 }}>
+                    <div style={{ fontSize: 11, color: '#808098', marginBottom: 4 }}>Application Type</div>
+                    <div style={{ fontSize: 12, color: '#c0c0d8', background: '#080812', border: '1px solid #1e1e34', borderRadius: 4, padding: '6px 10px' }}>
+                      {saveModal.appType}
+                    </div>
+                  </div>
+                  <div style={{ flex: 1, minWidth: 160 }}>
+                    <div style={{ fontSize: 11, color: '#808098', marginBottom: 4 }}>Jurisdiction</div>
+                    <div style={{ fontSize: 12, color: '#c0c0d8', background: '#080812', border: '1px solid #1e1e34', borderRadius: 4, padding: '6px 10px' }}>
+                      {saveModal.jurisdiction || '(not set on case)'}
+                    </div>
+                  </div>
+                  <div style={{ flex: 1, minWidth: 160 }}>
+                    <div style={{ fontSize: 11, color: '#808098', marginBottom: 4 }}>Court Level (optional)</div>
+                    <input
+                      value={saveModal.court_level}
+                      onChange={e => setSaveModal(p => p ? { ...p, court_level: e.target.value } : null)}
+                      placeholder="e.g. High Court"
+                      style={{
+                        width: '100%', background: '#080812', border: '1px solid #2a2a40',
+                        borderRadius: 4, padding: '6px 10px', fontSize: 12,
+                        color: '#f0ece0', outline: 'none', boxSizing: 'border-box',
+                        fontFamily: "'Times New Roman', Times, serif",
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* Skeleton — editable */}
+                <div>
+                  <div style={{ fontSize: 11, color: '#808098', marginBottom: 4 }}>
+                    Argument Skeleton <span style={{ color: '#c04040' }}>*</span>
+                    <span style={{ color: '#505068', marginLeft: 8 }}>Edit inline to refine before saving</span>
+                  </div>
+                  <textarea
+                    value={saveModal.skeleton}
+                    onChange={e => setSaveModal(p => p ? { ...p, skeleton: e.target.value } : null)}
+                    rows={10}
+                    style={{
+                      width: '100%', background: '#06060f', border: '1px solid #2a2a48',
+                      borderRadius: 5, padding: '10px 12px', fontSize: 12, lineHeight: 1.7,
+                      color: '#d0cce0', outline: 'none', resize: 'vertical', boxSizing: 'border-box',
+                      fontFamily: "'Times New Roman', Times, serif",
+                    }}
+                  />
+                </div>
+
+                {/* Optional fields */}
+                <div>
+                  <div style={{ fontSize: 11, color: '#808098', marginBottom: 4 }}>Statutory Basis (optional)</div>
+                  <input
+                    value={saveModal.statutory_basis}
+                    onChange={e => setSaveModal(p => p ? { ...p, statutory_basis: e.target.value } : null)}
+                    placeholder="e.g. s.35 CFRN, s.158 ACJL 2011"
+                    style={{
+                      width: '100%', background: '#080812', border: '1px solid #2a2a40',
+                      borderRadius: 4, padding: '6px 10px', fontSize: 12,
+                      color: '#f0ece0', outline: 'none', boxSizing: 'border-box',
+                      fontFamily: "'Times New Roman', Times, serif",
+                    }}
+                  />
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, color: '#808098', marginBottom: 4 }}>Applicable Tests (optional)</div>
+                  <textarea
+                    value={saveModal.tests}
+                    onChange={e => setSaveModal(p => p ? { ...p, tests: e.target.value } : null)}
+                    rows={2}
+                    placeholder="e.g. Three-limb test in Kotoye v Saraki…"
+                    style={{
+                      width: '100%', background: '#080812', border: '1px solid #2a2a40',
+                      borderRadius: 4, padding: '6px 10px', fontSize: 12,
+                      color: '#f0ece0', outline: 'none', resize: 'vertical', boxSizing: 'border-box',
+                      fontFamily: "'Times New Roman', Times, serif",
+                    }}
+                  />
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, color: '#808098', marginBottom: 4 }}>Leading Authorities (optional)</div>
+                  <textarea
+                    value={saveModal.leading_authorities}
+                    onChange={e => setSaveModal(p => p ? { ...p, leading_authorities: e.target.value } : null)}
+                    rows={2}
+                    placeholder="e.g. Abacha v FRN (2006) 4 NWLR, Fawehinmi v IGP…"
+                    style={{
+                      width: '100%', background: '#080812', border: '1px solid #2a2a40',
+                      borderRadius: 4, padding: '6px 10px', fontSize: 12,
+                      color: '#f0ece0', outline: 'none', resize: 'vertical', boxSizing: 'border-box',
+                      fontFamily: "'Times New Roman', Times, serif",
+                    }}
+                  />
+                </div>
+
+                {/* Validation note */}
+                {!saveModal.skeleton.trim() && (
+                  <div style={{ fontSize: 11, color: '#c04040' }}>
+                    Skeleton is required before saving.
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
+                  <button
+                    onClick={confirmSaveTemplate}
+                    disabled={savingTpl || !saveModal.skeleton.trim()}
+                    style={{
+                      background: saveModal.skeleton.trim() ? '#1a3a2a' : '#111120',
+                      border: `1px solid ${saveModal.skeleton.trim() ? '#40a060' : '#2a2a40'}`,
+                      borderRadius: 5, padding: '8px 18px', fontSize: 12,
+                      color: saveModal.skeleton.trim() ? '#60c080' : '#404060',
+                      cursor: saveModal.skeleton.trim() ? 'pointer' : 'not-allowed',
+                      fontFamily: "'Times New Roman', Times, serif",
+                    }}
+                  >
+                    {savingTpl ? 'Saving…' : '✓ Save Template'}
+                  </button>
+                  <button
+                    onClick={() => setSaveModal(null)}
+                    style={{
+                      background: 'none', border: '1px solid #252535', borderRadius: 5,
+                      padding: '8px 18px', fontSize: 12, color: '#505068', cursor: 'pointer',
+                      fontFamily: "'Times New Roman', Times, serif",
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -956,6 +1302,9 @@ interface ArgBuilderProps {
 function ArgumentBuilderStage({ activeCase, appType, facts, stage3, onStage3, systemCtx }: ArgBuilderProps) {
   const { ask, loading, error } = useAI(activeCase);
 
+  // 2D-ii — badge shown when a template was used in the last IssueBuilder draft call
+  const [templateBadge, setTemplateBadge] = useState<{ appType: string; jurisdiction: string } | null>(null);
+
   // ── Role selection — who are we in THIS application?
   if (!stage3.applicationRole) {
     return (
@@ -1153,12 +1502,26 @@ Draft the Reply on Points of Law now:`;
 
         {/* A — Written Address in Support */}
         {moverTab === 'written_address' && (
-          <IssueBuilder
-            activeCase={activeCase} appType={appType} facts={facts}
-            issues={stage3.issues} onIssuesChange={v => onStage3({ ...stage3, issues: v })}
-            writtenAddress={stage3.writtenAddress} onAddressChange={v => onStage3({ ...stage3, writtenAddress: v })}
-            side="support" systemCtx={systemCtx}
-          />
+          <>
+            {/* 2D-ii — Template badge */}
+            {templateBadge && (
+              <div style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                background: '#1a2a1a', border: '1px solid #40a060',
+                borderRadius: 4, padding: '4px 10px', marginBottom: 12,
+                fontSize: 11, color: '#60c080',
+              }}>
+                ⚡ Drafted with Template: {templateBadge.appType} — {templateBadge.jurisdiction}
+              </div>
+            )}
+            <IssueBuilder
+              activeCase={activeCase} appType={appType} facts={facts}
+              issues={stage3.issues} onIssuesChange={v => onStage3({ ...stage3, issues: v })}
+              writtenAddress={stage3.writtenAddress} onAddressChange={v => onStage3({ ...stage3, writtenAddress: v })}
+              side="support" systemCtx={systemCtx}
+              templateBadge={templateBadge} onTemplateBadge={setTemplateBadge}
+            />
+          </>
         )}
 
         {/* B — Opposing Response */}
@@ -1440,12 +1803,26 @@ Draft the Reply on Points of Law now:`;
 
       {/* B — Written Address in Opposition */}
       {respondentTab === 'written_address_opp' && (
-        <IssueBuilder
-          activeCase={activeCase} appType={appType} facts={facts}
-          issues={stage3.respIssues} onIssuesChange={v => onStage3({ ...stage3, respIssues: v })}
-          writtenAddress={stage3.writtenAddressOpp} onAddressChange={v => onStage3({ ...stage3, writtenAddressOpp: v })}
-          side="opposition" systemCtx={systemCtx}
-        />
+        <>
+          {/* 2D-ii — Template badge */}
+          {templateBadge && (
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              background: '#1a2a1a', border: '1px solid #40a060',
+              borderRadius: 4, padding: '4px 10px', marginBottom: 12,
+              fontSize: 11, color: '#60c080',
+            }}>
+              ⚡ Drafted with Template: {templateBadge.appType} — {templateBadge.jurisdiction}
+            </div>
+          )}
+          <IssueBuilder
+            activeCase={activeCase} appType={appType} facts={facts}
+            issues={stage3.respIssues} onIssuesChange={v => onStage3({ ...stage3, respIssues: v })}
+            writtenAddress={stage3.writtenAddressOpp} onAddressChange={v => onStage3({ ...stage3, writtenAddressOpp: v })}
+            side="opposition" systemCtx={systemCtx}
+            templateBadge={templateBadge} onTemplateBadge={setTemplateBadge}
+          />
+        </>
       )}
 
       {/* C — Further & Better Affidavit (Respondent) */}
@@ -1842,7 +2219,7 @@ Begin with the first document heading now:`;
 
       {/* Main tabs */}
       <div style={{ display: 'flex', gap: 4, marginBottom: 24, borderBottom: '1px solid #181828' }}>
-        {([['new', '⚡ New Application'], ['tracker', `📋 Tracker`]] as const).map(([id, label]) => (
+        {([['new', '⚡ New Application'], ['tracker', '📋 Tracker'], ['templates', '🗂 Templates']] as const).map(([id, label]) => (
           <button key={id} onClick={() => { setMainTab(id as MainTab); if (id === 'tracker') setSelectedRecord(null); }}
             style={{
               background: mainTab === id ? '#181828' : 'transparent',
@@ -2097,6 +2474,19 @@ Begin with the first document heading now:`;
               <ApplicationsTracker caseId={activeCase.id} />
             </div>
           )}
+        </div>
+      )}
+
+      {/* ══ TEMPLATES TAB ══ */}
+      {mainTab === 'templates' && (
+        <div>
+          <ArgumentTemplateManager
+            activeCase={activeCase}
+            onApplyDraft={(draft) => {
+              // stub — handler wired in Phase 2D-ii
+              console.log('[2D-i] onApplyDraft stub received draft:', draft.slice(0, 120));
+            }}
+          />
         </div>
       )}
 
