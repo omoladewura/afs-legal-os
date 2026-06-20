@@ -5,6 +5,9 @@
  * 5-step pipeline:
  *   1. Raw Facts intake
  *   2. AI extraction (timeline, established facts, disputes, legal issues, gaps, risks)
+ *   2b. Commencement Audit — auto-runs after extraction; ports ComplianceEngine
+ *       (Full Compliance Audit + Limitation Calculator + Service Validator).
+ *       Persists to intelligence_data.commencement_audit. Non-blocking.
  *   3. Dynamic follow-up questions
  *   4. Evidence matrix
  *   5. Intelligence Package generation
@@ -24,7 +27,7 @@ import { getPartyLabels } from '@/utils/getPartyLabels';
 
 const TIE_STEPS = [
   { id: 1, label: 'Raw Facts' },
-  { id: 2, label: 'Extraction' },
+  { id: 2, label: 'Extraction + Audit' },
   { id: 3, label: 'Follow-Up' },
   { id: 4, label: 'Evidence Map' },
   { id: 5, label: 'Package' },
@@ -66,14 +69,27 @@ interface EvidenceMapItem {
   notes?:             string;
 }
 
+// ── Step 2b — Commencement Audit result (mirrors intelligence_data.commencement_audit) ──
+
+interface CommencementAuditResult {
+  run_at:             string;
+  findings:           string;
+  limitation_expiry?: string;
+  service_valid?:     boolean;
+  status:             'CLEAR' | 'RISK' | 'DEFECTIVE';
+  summary:            string;
+}
+
 interface TIEData {
-  stage:       number;
-  rawFacts:    string;
-  extraction:  ExtractionResult | null;
-  followUpQs:  Array<{ id: string; question: string; purpose?: string }>;
-  followUpAs:  Record<string, string>;
-  evidenceM:   EvidenceMapItem[] | null;
-  intPkg:      string;
+  stage:               number;
+  rawFacts:            string;
+  extraction:          ExtractionResult | null;
+  followUpQs:          Array<{ id: string; question: string; purpose?: string }>;
+  followUpAs:          Record<string, string>;
+  evidenceM:           EvidenceMapItem[] | null;
+  intPkg:              string;
+  /** Step 2b — Commencement Audit. Auto-populated after extraction. */
+  commencement_audit?: CommencementAuditResult;
 }
 
 interface Props {
@@ -101,13 +117,18 @@ const lbS: React.CSSProperties = {
 export function IntelligenceEngine({ activeCase, onSave }: Props) {
   const saved = (activeCase.intelligence_data || {}) as unknown as Partial<TIEData>;
 
-  const [stage,      setStage]      = useState<number>(saved.stage ?? 1);
-  const [rawFacts,   setRawFacts]   = useState<string>(saved.rawFacts ?? '');
-  const [extraction, setExtraction] = useState<ExtractionResult | null>(saved.extraction ?? null);
-  const [followUpQs, setFollowUpQs] = useState<TIEData['followUpQs']>(saved.followUpQs ?? []);
-  const [followUpAs, setFollowUpAs] = useState<Record<string, string>>(saved.followUpAs ?? {});
-  const [evidenceM,  setEvidenceM]  = useState<EvidenceMapItem[] | null>(saved.evidenceM ?? null);
-  const [intPkg,     setIntPkg]     = useState<string>(saved.intPkg ?? '');
+  const [stage,              setStage]              = useState<number>(saved.stage ?? 1);
+  const [rawFacts,           setRawFacts]           = useState<string>(saved.rawFacts ?? '');
+  const [extraction,         setExtraction]         = useState<ExtractionResult | null>(saved.extraction ?? null);
+  const [followUpQs,         setFollowUpQs]         = useState<TIEData['followUpQs']>(saved.followUpQs ?? []);
+  const [followUpAs,         setFollowUpAs]         = useState<Record<string, string>>(saved.followUpAs ?? {});
+  const [evidenceM,          setEvidenceM]          = useState<EvidenceMapItem[] | null>(saved.evidenceM ?? null);
+  const [intPkg,             setIntPkg]             = useState<string>(saved.intPkg ?? '');
+  // Step 2b
+  const [commencementAudit,  setCommencementAudit]  = useState<CommencementAuditResult | undefined>(saved.commencement_audit);
+  const [auditLoading,       setAuditLoading]       = useState(false);
+  const [auditError,         setAuditError]         = useState('');
+
   const [loading,    setLoading]    = useState(false);
   const [error,      setError]      = useState('');
   const [copied,     setCopied]     = useState(false);
@@ -129,6 +150,7 @@ ${partyBPlural}: ${activeCase.defendants.map(d => d.name).filter(Boolean).join('
   function persist(updates: Partial<TIEData>) {
     const data: TIEData = {
       stage, rawFacts, extraction, followUpQs, followUpAs, evidenceM, intPkg,
+      commencement_audit: commencementAudit,
       ...updates,
     };
     onSave(data);
@@ -196,12 +218,213 @@ Rules:
 
       setExtraction(ext);
       advance(2, { extraction: ext, rawFacts });
+      // Step 2b fires automatically — non-blocking (does not await)
+      runCommencementAudit(ext);
     } catch (e) {
       setError('Extraction failed: ' + ((e as Error).message || 'Please try again.'));
     } finally { setLoading(false); }
   }
 
-  // ── Step 2 → 3: Generate follow-up questions ──────────────────────────────
+  // ── Step 2b: Commencement Audit (auto-runs after extraction) ──────────────
+  // Ports: Full Compliance Audit + Limitation Calculator + Service Validator
+  // from ComplianceEngine into the pipeline. Saves to intelligence_data.commencement_audit.
+  async function runCommencementAudit(ext: ExtractionResult) {
+    setAuditLoading(true); setAuditError('');
+    const track     = activeCase.matter_track ?? 'civil';
+    const roleLabel = activeCase.counsel_role
+      ? activeCase.counsel_role.replace('_', ' ')
+      : track === 'criminal' ? 'defence' : 'claimant side';
+    const trackLabel = track === 'criminal' ? 'Criminal' : 'Civil';
+
+    const roleDirective = track === 'criminal'
+      ? activeCase.counsel_role === 'prosecution'
+        ? 'You advise prosecution. Flag compliance gaps the defence could exploit — ACJA violations, constitutional defects, evidence exclusion risks.'
+        : 'You advise defence. Identify every procedural defect, constitutional violation, or compliance gap benefiting the accused — discharge grounds, exclusion of evidence, bail.'
+      : activeCase.counsel_role === 'defendant_side'
+        ? 'You advise the defendant. Identify every procedural defect the defendant can exploit — invalid service, limitation, wrong originating process, pre-action non-compliance.'
+        : 'You advise the claimant. Flag compliance risks that could defeat the claim — limitation expiry, defective process, service failure, standing issues.';
+
+    const system = `You are a Nigerian litigation procedural compliance expert acting for ${roleLabel} on a ${trackLabel} matter.
+${roleDirective}
+Cite specific Nigerian statutes, Rules of Court, and court decisions. Be precise and actionable.
+Output ONLY valid JSON — no markdown fences, no preamble, no explanation.`;
+
+    const prompt = `Conduct a commencement audit across three areas from the case facts and extracted intelligence below.
+
+CASE: ${activeCase.caseName || 'Untitled'}
+COURT: ${activeCase.court || 'Not specified'}
+TRACK: ${trackLabel} | ROLE: ${roleLabel}
+${partyAPlural}: ${activeCase.claimants.map(c => c.name).filter(Boolean).join(', ') || 'Not specified'}
+${partyBPlural}: ${activeCase.defendants.map(d => d.name).filter(Boolean).join(', ') || 'Not specified'}
+
+RAW FACTS:
+${rawFacts}
+
+EXTRACTED INTELLIGENCE (timeline / legal issues / initial risks):
+Timeline: ${JSON.stringify(ext.timeline?.slice(0, 5) ?? [])}
+Legal issues: ${JSON.stringify(ext.legal_issues ?? [])}
+Initial risks: ${JSON.stringify(ext.initial_risks ?? [])}
+
+Return EXACTLY this JSON object and nothing else:
+{
+  "findings": "Detailed markdown narrative covering:\n## COMPLIANCE AUDIT\n[Status per area: COMPLIANT / AT RISK / DEFECTIVE. Cite statutes and Rules of Court. Include limitation period analysis: cause of action identified from facts, applicable limitation period and statute, whether time is open or expired. Include service validity assessment based on any service facts mentioned.]\n## LIMITATION PERIOD\n[Specific limitation period, trigger event, current status, any extension provisions, pre-action notice requirements]\n## SERVICE VALIDITY\n[Assessment of service validity or anticipated service requirements for this matter type]\n## COMPLIANCE SUMMARY\n[Priority-ranked list of immediate actions]",
+  "limitation_expiry": "ISO date string if calculable, or plain text like 'Cannot determine without trigger date', or null",
+  "service_valid": true or false or null,
+  "status": "CLEAR or RISK or DEFECTIVE",
+  "summary": "One sentence for Case Command — e.g. 'Limitation period open, service requirements identified, no critical defects'"
+}
+
+Rules:
+- status CLEAR = no material compliance risk identified
+- status RISK = at least one issue needs attention but is not yet fatal
+- status DEFECTIVE = a fatal procedural defect exists
+- If facts are insufficient to determine an area, note it as UNCLEAR in findings but still return the JSON
+- Never use unescaped double quotes inside JSON string values`;
+
+    try {
+      const raw = await callClaude({
+        system,
+        userMsg: prompt,
+        maxTokens: 2500,
+        skipLibrary: true,
+      });
+
+      let cleaned = raw.trim()
+        .replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+      const start = cleaned.indexOf('{');
+      const end   = cleaned.lastIndexOf('}');
+      if (start === -1 || end === -1) throw new Error('No JSON in audit response');
+      cleaned = cleaned.slice(start, end + 1);
+
+      let parsed: Omit<CommencementAuditResult, 'run_at'>;
+      try {
+        parsed = JSON.parse(cleaned);
+      } catch {
+        const repaired = cleaned
+          .replace(/[\u0000-\u001F\u007F-\u009F]/g, ' ')
+          .replace(/,\s*}/g, '}').replace(/,\s*]/g, ']');
+        parsed = JSON.parse(repaired);
+      }
+
+      const result: CommencementAuditResult = {
+        run_at:            new Date().toISOString(),
+        findings:          parsed.findings   ?? '',
+        limitation_expiry: parsed.limitation_expiry ?? undefined,
+        service_valid:     typeof parsed.service_valid === 'boolean' ? parsed.service_valid : undefined,
+        status:            (['CLEAR','RISK','DEFECTIVE'] as const).includes(parsed.status as 'CLEAR'|'RISK'|'DEFECTIVE')
+                             ? parsed.status as 'CLEAR'|'RISK'|'DEFECTIVE'
+                             : 'RISK',
+        summary:           parsed.summary ?? '',
+      };
+
+      setCommencementAudit(result);
+      // Persist immediately — commencementAudit state won't be visible to persist() yet
+      // so we pass it directly in the update
+      onSave({
+        stage, rawFacts, extraction: ext, followUpQs, followUpAs, evidenceM, intPkg,
+        commencement_audit: result,
+      });
+    } catch (e) {
+      setAuditError('Commencement audit failed: ' + ((e as Error).message || 'Please try again.'));
+    } finally { setAuditLoading(false); }
+  }
+
+  // ── Step 2b: Commencement Audit panel (rendered inside Stage2) ───────────
+
+  function CommencementAuditPanel() {
+    if (!auditLoading && !commencementAudit && !auditError) return null;
+
+    const statusCfg = {
+      CLEAR:    { bg: '#071810', bdr: '#1a4028', col: '#40b068', icon: '✓' },
+      RISK:     { bg: '#1a1000', bdr: '#3a2800', col: '#c08030', icon: '⚠' },
+      DEFECTIVE:{ bg: '#1a0808', bdr: '#401818', col: '#c05050', icon: '✗' },
+    };
+    const sc = commencementAudit ? statusCfg[commencementAudit.status] : null;
+
+    return (
+      <div style={{
+        background: '#0a0a14', border: `1px solid ${sc ? sc.bdr : '#1a1a28'}`,
+        borderRadius: 8, padding: '16px 20px', marginBottom: 14,
+        borderLeft: `3px solid ${sc ? sc.col : '#2a2a40'}`,
+        animation: 'fadeUp .3s ease',
+      }}>
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: auditLoading ? 0 : 12 }}>
+          <span style={{ fontSize: 9, color: sc?.col ?? '#5a5a78', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 700 }}>
+            Step 2b · Commencement Audit
+          </span>
+          {auditLoading && (
+            <>
+              <Spinner size={10} />
+              <span style={{ fontSize: 10, color: T.mute, fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic' }}>
+                Running compliance · limitation · service audit…
+              </span>
+            </>
+          )}
+          {!auditLoading && commencementAudit && sc && (
+            <span style={{ marginLeft: 'auto', background: sc.bg, border: `1px solid ${sc.bdr}`, color: sc.col, fontSize: 8, padding: '2px 8px', borderRadius: 2, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.1em', fontWeight: 700 }}>
+              {sc.icon} {commencementAudit.status}
+            </span>
+          )}
+          {!auditLoading && !commencementAudit && auditError && (
+            <button
+              onClick={() => extraction && runCommencementAudit(extraction)}
+              style={{ marginLeft: 'auto', background: 'transparent', border: '1px solid #3a2800', color: '#c08030', borderRadius: 4, padding: '3px 10px', fontSize: 9, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', letterSpacing: '.06em' }}>
+              ↺ Retry
+            </button>
+          )}
+        </div>
+
+        {/* Summary + detail */}
+        {!auditLoading && commencementAudit && (
+          <>
+            <p style={{ fontSize: 13, color: sc!.col, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.6, marginBottom: 10 }}>
+              {commencementAudit.summary}
+            </p>
+            {(commencementAudit.limitation_expiry || commencementAudit.service_valid !== undefined) && (
+              <div style={{ display: 'flex', gap: 16, marginBottom: 12, flexWrap: 'wrap' }}>
+                {commencementAudit.limitation_expiry && (
+                  <div style={{ background: '#0d0d18', border: '1px solid #1a1a28', borderRadius: 5, padding: '7px 12px' }}>
+                    <span style={{ fontSize: 8, color: T.mute, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.1em', textTransform: 'uppercase', display: 'block', marginBottom: 2 }}>
+                      Limitation Expiry
+                    </span>
+                    <span style={{ fontSize: 12, color: T.sub, fontFamily: "'Times New Roman', Times, serif" }}>
+                      {commencementAudit.limitation_expiry}
+                    </span>
+                  </div>
+                )}
+                {commencementAudit.service_valid !== undefined && (
+                  <div style={{ background: '#0d0d18', border: '1px solid #1a1a28', borderRadius: 5, padding: '7px 12px' }}>
+                    <span style={{ fontSize: 8, color: T.mute, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.1em', textTransform: 'uppercase', display: 'block', marginBottom: 2 }}>
+                      Service Valid
+                    </span>
+                    <span style={{ fontSize: 12, color: commencementAudit.service_valid ? '#40b068' : '#c05050', fontFamily: "'Times New Roman', Times, serif" }}>
+                      {commencementAudit.service_valid ? 'Yes' : 'No / Unclear'}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+            <details style={{ cursor: 'pointer' }}>
+              <summary style={{ fontSize: 10, color: T.mute, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.08em', userSelect: 'none', outline: 'none', listStyle: 'none', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span>▸</span> View full audit findings
+              </summary>
+              <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #131320' }}>
+                <Md text={commencementAudit.findings} />
+              </div>
+            </details>
+          </>
+        )}
+
+        {/* Error state */}
+        {!auditLoading && auditError && (
+          <p style={{ fontSize: 12, color: '#804040', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.6 }}>
+            {auditError}
+          </p>
+        )}
+      </div>
+    );
+  }
   async function generateFollowUp() {
     setLoading(true); setError('');
     try {
@@ -313,7 +536,8 @@ Rules:
     if (!window.confirm('Reset the Intelligence Engine? All pipeline data for this case will be cleared.')) return;
     setStage(1); setRawFacts(''); setExtraction(null); setFollowUpQs([]);
     setFollowUpAs({}); setEvidenceM(null); setIntPkg(''); setError('');
-    onSave({ stage: 1, rawFacts: '', extraction: null, followUpQs: [], followUpAs: {}, evidenceM: null, intPkg: '' });
+    setCommencementAudit(undefined); setAuditError('');
+    onSave({ stage: 1, rawFacts: '', extraction: null, followUpQs: [], followUpAs: {}, evidenceM: null, intPkg: '', commencement_audit: undefined });
   }
 
   // ── Step progress bar ──────────────────────────────────────────────────────
@@ -578,6 +802,10 @@ Rules:
         )}
 
         <ErrorBlock message={error} />
+
+        {/* Step 2b — Commencement Audit (auto-runs after extraction) */}
+        <CommencementAuditPanel />
+
         <div style={{ display: 'flex', gap: 10 }}>
           <button onClick={() => goBack(1)} style={{ background: 'transparent', border: '1px solid #cccccc', color: T.mute, borderRadius: 5, padding: '12px 20px', fontSize: 13, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', letterSpacing: '.04em' }}>
             ← Edit Facts
