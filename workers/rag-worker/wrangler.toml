@@ -31,3 +31,24 @@ enabled = true
 enabled = true
 invocation_logs = true
 
+# ── Secrets (set via CLI, never in this file) ──────────────────────────────────
+# AUTH_TOKEN          — wrangler secret put AUTH_TOKEN
+# ANTHROPIC_API_KEY   — wrangler secret put ANTHROPIC_API_KEY
+#
+# Phase 9F — Web Push VAPID secrets
+# Generate a P-256 key pair (run once):
+#   node -e "
+#     const { webcrypto } = require('crypto');
+#     webcrypto.subtle.generateKey({ name:'ECDH', namedCurve:'P-256' }, true, ['deriveKey'])
+#       .then(async kp => {
+#         const pub  = Buffer.from(await webcrypto.subtle.exportKey('raw',  kp.publicKey)).toString('base64url');
+#         const priv = Buffer.from(await webcrypto.subtle.exportKey('pkcs8',kp.privateKey)).toString('base64url');
+#         console.log('VAPID_PUBLIC_KEY=' + pub);
+#         console.log('VAPID_PRIVATE_KEY=' + priv);
+#       });
+#   "
+# Then set each secret:
+#   wrangler secret put VAPID_PUBLIC_KEY  --name afs-legal-rag
+#   wrangler secret put VAPID_PRIVATE_KEY --name afs-legal-rag
+#   wrangler secret put VAPID_SUBJECT     --name afs-legal-rag   (e.g. mailto:admin@afslegal.com)
+
