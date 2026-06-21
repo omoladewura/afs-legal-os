@@ -858,6 +858,29 @@ export interface ApiRequestOptions {
    * is never the only signal the user gets.
    */
   silent?: boolean;
+  /**
+   * Streaming callback. When provided, callClaude switches to SSE mode:
+   * the Worker is asked to stream the Anthropic response, and each
+   * incremental text chunk is forwarded here as it arrives.
+   * The returned { text, usage } still contains the complete assembled
+   * text and final usage figures once the stream closes — callers that
+   * need both live updates (e.g. draft display) and a completion signal
+   * (e.g. persisting to IndexedDB) can use both.
+   * When omitted, callClaude behaves exactly as before (one-shot JSON).
+   */
+  onChunk?: (chunk: string) => void;
+  /**
+   * Case ID for the draft_buffer record written during streaming.
+   * If omitted the buffer record is written with caseId: null.
+   * Has no effect on non-streaming calls.
+   */
+  streamCaseId?: string | null;
+  /**
+   * Engine / queryHint label for the draft_buffer record.
+   * Defaults to libraryOpts.queryHint when omitted.
+   * Has no effect on non-streaming calls.
+   */
+  streamEngine?: string;
 }
 
 export interface ApiUsage {
