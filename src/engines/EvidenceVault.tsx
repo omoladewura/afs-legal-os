@@ -34,6 +34,9 @@ import {
   deleteEvidenceFile,
   saveMediaItem,
   saveMediaAsTemplate,
+  loadCaseMedia,
+  loadGlobalMedia,
+  deleteMediaItem,
 } from '@/storage/helpers';
 import type { MediaLibraryItem } from '@/storage/db';
 
@@ -111,6 +114,20 @@ function defaultPasteFilename(file: File): string {
   if (file.name && file.name !== 'image.png' && file.name !== 'blob') return file.name;
   const ext = (file.type.split('/')[1] || 'dat').split(';')[0];
   return `pasted-${Date.now()}.${ext}`;
+}
+
+/**
+ * Phase 8E — small icon mapper for the merged Media Library list (case +
+ * global items). Mirrors AssetLibrary.tsx's iconFor so the two surfaces
+ * that render MediaLibraryItem rows stay visually consistent.
+ */
+function mediaIconFor(fileType: string): string {
+  if (fileType.startsWith('image/'))  return '🖼';
+  if (fileType === 'application/pdf') return '📄';
+  if (fileType.startsWith('audio/'))  return '🔊';
+  if (fileType.startsWith('video/'))  return '🎬';
+  if (fileType.startsWith('text/'))   return '📝';
+  return '📎';
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -425,6 +442,20 @@ export function EvidenceVault({ activeCase }: Props) {
   const [aiLoading,  setAiLoading]  = useState<Record<string, boolean>>({});
   const [deleteModal,setDeleteModal]= useState<string | null>(null);
 
+  // ── Phase 8E — merged Media Library (case-scoped + global-scoped) ───────────
+  // Queried together via loadCaseMedia(caseId) + loadGlobalMedia() and merged
+  // client-side — no dedup needed, since a global item's caseId is always
+  // null and can never also match the case-scoped query. Rendered as its
+  // own section below the document list so counsel sees this case's pasted
+  // assets *and* every global template together, with no separate trip to
+  // the Asset Library tab to go looking for a template.
+  const [mediaItems,    setMediaItems]    = useState<MediaLibraryItem[]>([]);
+  const [mediaLoading,  setMediaLoading]  = useState(true);
+  const [mediaSearchQ,  setMediaSearchQ]  = useState('');
+  const [mediaPreview,  setMediaPreview]  = useState<MediaLibraryItem | null>(null);
+  const [mediaDeleteId, setMediaDeleteId] = useState<string | null>(null);
+  const [rowPromoting,  setRowPromoting]  = useState<Record<string, boolean>>({});
+
   // ── Phase 8B — quick paste/upload capture for the Media Library ─────────────
   // Independent of the categorised Document Upload flow above (UploadPanel /
   // handleUploaded / evidence_meta + evidence_files). This captures a file
@@ -437,20 +468,41 @@ export function EvidenceVault({ activeCase }: Props) {
   const [promoting,     setPromoting]     = useState(false);
 
   /**
-   * Phase 8C — "Save as Template". Flips the just-saved item's scope to
-   * 'global' and clears its caseId, in place. The same row then becomes
-   * available to every matter via the global Asset Library (Phase 8D).
+   * Phase 8E — promotes a media item (by id) to global/template scope and
+   * keeps the merged `mediaItems` list in sync in place, rather than
+   * re-querying both tables. Shared by the quick-paste toast's "Save as
+   * Template" button and the per-row action in the merged Media Library
+   * list below.
+   */
+  const promoteToTemplate = useCallback(async (id: string) => {
+    const updated = await saveMediaAsTemplate(id);
+    if (updated) {
+      setMediaItems(prev => prev.map(m => (m.id === id ? updated : m)));
+      setQuickMedia(qm => (qm && qm.id === id ? updated : qm));
+    }
+    return updated;
+  }, []);
+
+  /**
+   * Phase 8C — "Save as Template", from the quick-paste toast. Flips the
+   * just-saved item's scope to 'global' and clears its caseId, in place.
+   * The same row then becomes available to every matter via the global
+   * Asset Library (Phase 8D) and stays visible right here too (Phase 8E).
    */
   async function handleSaveAsTemplate() {
     if (!quickMedia || quickMedia.scope === 'global') return;
     setPromoting(true);
-    const updated = await saveMediaAsTemplate(quickMedia.id);
-    if (updated) {
-      setQuickMedia(updated);
-    } else {
-      setQuickMediaErr('Could not save as template — please try again.');
-    }
+    const updated = await promoteToTemplate(quickMedia.id);
+    if (!updated) setQuickMediaErr('Could not save as template — please try again.');
     setPromoting(false);
+  }
+
+  /** Phase 8E — "Save as Template" from a row in the merged Media Library list. */
+  async function handleRowSaveAsTemplate(id: string) {
+    setRowPromoting(p => ({ ...p, [id]: true }));
+    const updated = await promoteToTemplate(id);
+    setRowPromoting(p => ({ ...p, [id]: false }));
+    if (!updated) alert('Could not save as template — please try again.');
   }
 
   const captureQuickMedia = useCallback(async (file: File) => {
@@ -478,6 +530,10 @@ export function EvidenceVault({ activeCase }: Props) {
         return;
       }
       setQuickMedia(item);
+      // Phase 8E — prepend straight into the merged list rather than
+      // re-querying both tables; this item is case-scoped so it belongs
+      // at the front of the merged case+global view immediately.
+      setMediaItems(prev => [item, ...prev]);
     } catch {
       setQuickMediaErr('Could not read the pasted item.');
     }
@@ -511,6 +567,36 @@ export function EvidenceVault({ activeCase }: Props) {
     return () => window.removeEventListener('paste', onWindowPaste);
   }, [captureQuickMedia]);
 
+  // ── Phase 8E — load the merged Media Library on mount / case change ────────
+  // Pulls case-scoped items (this matter only) and global-scoped templates
+  // (every matter) via two indexed lookups and merges them client-side —
+  // this is the "pull case-scoped + global-scoped together" query.
+  const loadMedia = useCallback(async () => {
+    setMediaLoading(true);
+    try {
+      const [caseItems, globalItems] = await Promise.all([
+        loadCaseMedia(caseId),
+        loadGlobalMedia(),
+      ]);
+      const merged = [...caseItems, ...globalItems].sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+      setMediaItems(merged);
+    } finally {
+      setMediaLoading(false);
+    }
+  }, [caseId]);
+
+  useEffect(() => { loadMedia(); }, [loadMedia]);
+
+  /** Phase 8E — delete a media item (case- or global-scoped) from the merged list. */
+  async function confirmDeleteMedia(id: string) {
+    await deleteMediaItem(id);
+    setMediaItems(prev => prev.filter(m => m.id !== id));
+    if (mediaPreview?.id === id) setMediaPreview(null);
+    setMediaDeleteId(null);
+  }
+
   // ── Load evidence metadata on mount ──────────────────────────────────────────
   useEffect(() => {
     loadEvidenceMeta(caseId).then(loaded => {
@@ -535,6 +621,14 @@ export function EvidenceVault({ activeCase }: Props) {
       (EV_CATS.find(c => c.id === it.category)?.label || '').toLowerCase().includes(q);
     return matchCat && matchQ;
   });
+
+  // ── Filtered media (Phase 8E — search over the merged case+global list) ───────
+  const mediaQ = mediaSearchQ.toLowerCase();
+  const filteredMedia = mediaItems.filter(it =>
+    !mediaQ ||
+    it.filename.toLowerCase().includes(mediaQ) ||
+    (it.notes || '').toLowerCase().includes(mediaQ)
+  );
 
   // ── Upload completion ─────────────────────────────────────────────────────────
   const handleUploaded = useCallback(async (meta: EvidenceItem) => {
@@ -836,6 +930,110 @@ export function EvidenceVault({ activeCase }: Props) {
           {filteredItems.length} of {items.length} document{items.length !== 1 ? 's' : ''} · Evidence Vault · {activeCase.caseName}
         </p>
       )}
+
+      {/* ───────────────────────────────────────────────────────────────────
+          MEDIA LIBRARY — Phase 8E
+          Case-scoped paste captures (Phase 8B) merged with global-scoped
+          templates (Phase 8D), queried together via loadCaseMedia() +
+          loadGlobalMedia() and combined client-side. Counsel sees every
+          reusable asset right here — no separate trip to the Asset
+          Library tab to go looking for a template.
+         ─────────────────────────────────────────────────────────────────── */}
+      <div style={{ marginTop: 40, paddingTop: 28, borderTop: '1px solid #0f0f18' }}>
+        <div style={{ marginBottom: 16 }}>
+          <p style={{ fontSize: 10, color: '#444444', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.16em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 4 }}>
+            Media Library
+          </p>
+          <p style={{ fontSize: 12, color: T.dim, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.6 }}>
+            Pasted assets for this case, plus global templates available across every matter.
+          </p>
+        </div>
+
+        {mediaLoading ? (
+          <p style={{ fontSize: 12, color: T.mute, fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic', textAlign: 'center', padding: '20px 0' }}>
+            Loading media library…
+          </p>
+        ) : mediaItems.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '40px 24px', background: '#050508', border: '1px solid #0f0f18', borderRadius: 8 }}>
+            <p style={{ fontSize: 32, marginBottom: 10, opacity: .08 }}>📎</p>
+            <p style={{ fontSize: 13, color: T.dim, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.7, maxWidth: 420, margin: '0 auto' }}>
+              Paste an image or file (Ctrl/Cmd+V) anywhere in the Vault to add it here. Promote any item to a global template and it's available across every matter.
+            </p>
+          </div>
+        ) : (
+          <>
+            {mediaItems.length > 4 && (
+              <input
+                value={mediaSearchQ} onChange={e => setMediaSearchQ(e.target.value)}
+                placeholder="Search media by filename or notes…"
+                style={{ width: '100%', background: '#080808', border: '1px solid #1a1a2a', borderRadius: 5, color: T.text, fontFamily: "'Times New Roman', Times, serif", fontSize: 12, padding: '9px 12px', marginBottom: 14, boxSizing: 'border-box', outline: 'none' }}
+              />
+            )}
+            {filteredMedia.length === 0 ? (
+              <p style={{ fontSize: 12, color: T.mute, fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic', textAlign: 'center', padding: '20px 0' }}>
+                No media match that search.
+              </p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                {filteredMedia.map(it => (
+                  <MediaRow
+                    key={it.id}
+                    item={it}
+                    promoting={!!rowPromoting[it.id]}
+                    onPreview={setMediaPreview}
+                    onDelete={setMediaDeleteId}
+                    onSaveAsTemplate={handleRowSaveAsTemplate}
+                  />
+                ))}
+              </div>
+            )}
+            <p style={{ fontSize: 10, color: '#1e1e2a', fontFamily: "'Times New Roman', Times, serif", textAlign: 'center', marginTop: 16, letterSpacing: '.06em' }}>
+              {filteredMedia.length} of {mediaItems.length} media item{mediaItems.length !== 1 ? 's' : ''} · {mediaItems.filter(m => m.scope === 'global').length} global
+            </p>
+          </>
+        )}
+      </div>
+
+      {/* Media preview modal */}
+      {mediaPreview && (
+        <MediaPreviewModal
+          item={mediaPreview}
+          promoting={!!rowPromoting[mediaPreview.id]}
+          onClose={() => setMediaPreview(null)}
+          onDelete={setMediaDeleteId}
+          onSaveAsTemplate={handleRowSaveAsTemplate}
+        />
+      )}
+
+      {/* Media delete confirm */}
+      {mediaDeleteId && (() => {
+        const target = mediaItems.find(m => m.id === mediaDeleteId);
+        const isGlobal = target?.scope === 'global';
+        return (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.55)', zIndex: 9200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+            <div style={{ background: '#080808', border: '1px solid #1a1a2a', borderRadius: 8, padding: 26, maxWidth: 420, width: '100%' }}>
+              <p style={{ fontSize: 15, color: T.text, fontFamily: "'Times New Roman', Times, serif", fontWeight: 600, marginTop: 0, marginBottom: 10 }}>
+                {isGlobal ? 'Remove Global Template?' : 'Remove from Case Media?'}
+              </p>
+              <p style={{ fontSize: 12, color: T.dim, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.65, marginBottom: 20 }}>
+                {isGlobal
+                  ? `"${target?.filename}" is a global template — removing it deletes it from every matter that can see it, not just this one. This cannot be undone.`
+                  : `"${target?.filename}" will be removed from this case's Media Library. This cannot be undone.`}
+              </p>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button onClick={() => confirmDeleteMedia(mediaDeleteId)}
+                  style={{ background: '#8a1a1a', color: '#fff', border: 'none', borderRadius: 4, padding: '9px 20px', fontSize: 12, cursor: 'pointer', fontFamily: "'Times New Roman', Times, serif", fontWeight: 600 }}>
+                  Remove
+                </button>
+                <button onClick={() => setMediaDeleteId(null)}
+                  style={{ background: 'transparent', border: '1px solid #1a1a2a', color: T.mute, borderRadius: 4, padding: '9px 18px', fontSize: 12, cursor: 'pointer', fontFamily: "'Times New Roman', Times, serif" }}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
@@ -857,4 +1055,152 @@ function ThumbnailLoader({ itemId, fileType, caseId }: { itemId: string; fileTyp
 
   if (!src) return <span style={{ fontSize: 22 }}>📷</span>;
   return <img src={src} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MEDIA ROW — Phase 8E merged Media Library list row (case + global items)
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface MediaRowProps {
+  item:             MediaLibraryItem;
+  promoting:        boolean;
+  onPreview:        (item: MediaLibraryItem) => void;
+  onDelete:         (id: string) => void;
+  onSaveAsTemplate: (id: string) => void;
+}
+
+function MediaRow({ item, promoting, onPreview, onDelete, onSaveAsTemplate }: MediaRowProps) {
+  const isImage  = item.fileType.startsWith('image/');
+  const src      = isImage ? (item.data.startsWith('data:') ? item.data : `data:${item.fileType};base64,${item.data}`) : null;
+  const isGlobal = item.scope === 'global';
+
+  return (
+    <div style={{ background: '#080808', border: '1px solid #111120', borderRadius: 7, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 12 }}>
+      <div onClick={() => onPreview(item)}
+        style={{ width: 42, height: 42, borderRadius: 5, background: '#050508', border: '1px solid #1a1a2a', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden', cursor: 'pointer', fontSize: 19 }}>
+        {isImage && src ? <img src={src} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : mediaIconFor(item.fileType)}
+      </div>
+
+      <div style={{ flex: 1, minWidth: 0, cursor: 'pointer' }} onClick={() => onPreview(item)}>
+        <p style={{ fontSize: 12, color: T.text, fontFamily: "'Times New Roman', Times, serif", fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {item.filename}
+        </p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 2 }}>
+          <span style={{ fontSize: 8, color: isGlobal ? '#60a878' : '#6080c0', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.08em', textTransform: 'uppercase', fontWeight: 600 }}>
+            {isGlobal ? '🌐 Global' : '📍 This Case'}
+          </span>
+          <span style={{ fontSize: 9, color: T.mute, fontFamily: "'Times New Roman', Times, serif" }}>{fmtSize(item.fileSize)}</span>
+          <span style={{ fontSize: 9, color: '#252535', fontFamily: "'Times New Roman', Times, serif" }}>{fmtDate(item.createdAt)}</span>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+        {!isGlobal && (
+          <button onClick={e => { e.stopPropagation(); onSaveAsTemplate(item.id); }} disabled={promoting}
+            style={{ background: 'transparent', border: '1px solid #1a3a26', color: '#60a878', borderRadius: 3, padding: '5px 9px', fontSize: 9, cursor: promoting ? 'not-allowed' : 'pointer', opacity: promoting ? .5 : 1, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.03em' }}>
+            {promoting ? 'Saving…' : 'Save as Template'}
+          </button>
+        )}
+        <button onClick={e => { e.stopPropagation(); onPreview(item); }}
+          style={{ background: 'transparent', border: '1px solid #1a1a2e', color: T.mute, borderRadius: 3, padding: '5px 9px', fontSize: 10, cursor: 'pointer', fontFamily: "'Times New Roman', Times, serif" }}>
+          Open
+        </button>
+        <button onClick={e => { e.stopPropagation(); onDelete(item.id); }}
+          style={{ background: 'transparent', border: '1px solid #1e1010', color: '#604040', borderRadius: 3, padding: '5px 7px', fontSize: 10, cursor: 'pointer' }}>
+          ✕
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MEDIA PREVIEW MODAL — Phase 8E
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface MediaPreviewModalProps {
+  item:             MediaLibraryItem;
+  promoting:        boolean;
+  onClose:          () => void;
+  onDelete:         (id: string) => void;
+  onSaveAsTemplate: (id: string) => void;
+}
+
+function MediaPreviewModal({ item, promoting, onClose, onDelete, onSaveAsTemplate }: MediaPreviewModalProps) {
+  const src      = item.data.startsWith('data:') ? item.data : `data:${item.fileType};base64,${item.data}`;
+  const isImage  = item.fileType.startsWith('image/');
+  const isPdf    = item.fileType === 'application/pdf';
+  const isGlobal = item.scope === 'global';
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose(); }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  return (
+    <div onClick={onClose}
+      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.55)', zIndex: 9000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+      <div onClick={e => e.stopPropagation()}
+        style={{ background: '#080808', border: '1px solid #1a1a2a', borderRadius: 10, padding: 24, maxWidth: 680, width: '100%', maxHeight: '90vh', overflowY: 'auto' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, gap: 12 }}>
+          <div style={{ minWidth: 0 }}>
+            <p style={{ fontSize: 14, color: T.text, fontWeight: 600, fontFamily: "'Times New Roman', Times, serif", overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {item.filename}
+            </p>
+            <p style={{ fontSize: 10, color: isGlobal ? '#60a878' : T.mute, marginTop: 3, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.08em', textTransform: 'uppercase' }}>
+              {isGlobal ? '🌐 Global Template' : '📍 This Case'} · {fmtSize(item.fileSize)} · {fmtDate(item.createdAt)}
+            </p>
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+            <a href={src} download={item.filename}
+              style={{ background: 'transparent', border: '1px solid #1a1a2a', color: T.mute, borderRadius: 4, padding: '6px 13px', fontSize: 11, textDecoration: 'none', fontFamily: "'Times New Roman', Times, serif" }}>
+              ↓ Download
+            </a>
+            <button onClick={onClose}
+              style={{ background: 'transparent', border: '1px solid #1a1a2a', color: T.mute, borderRadius: 4, padding: '6px 11px', fontSize: 11, cursor: 'pointer' }}>
+              ✕
+            </button>
+          </div>
+        </div>
+
+        <div style={{ background: '#050508', border: '1px solid #0f0f18', borderRadius: 7, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 160 }}>
+          {isImage && <img src={src} alt={item.filename} style={{ maxWidth: '100%', maxHeight: 520, display: 'block', objectFit: 'contain' }} />}
+          {isPdf && (
+            <object data={src} type="application/pdf" width="100%" style={{ height: 460, display: 'block' }}>
+              <div style={{ padding: '40px 24px', textAlign: 'center' }}>
+                <p style={{ fontSize: 13, color: T.dim, fontFamily: "'Times New Roman', Times, serif" }}>PDF preview unavailable.</p>
+              </div>
+            </object>
+          )}
+          {!isImage && !isPdf && (
+            <div style={{ padding: '44px 24px', textAlign: 'center' }}>
+              <p style={{ fontSize: 40, marginBottom: 10, opacity: .3 }}>{mediaIconFor(item.fileType)}</p>
+              <p style={{ fontSize: 12, color: T.dim, fontFamily: "'Times New Roman', Times, serif" }}>{item.fileType} · {fmtSize(item.fileSize)}</p>
+            </div>
+          )}
+        </div>
+
+        {item.notes && (
+          <div style={{ marginTop: 14, background: '#050508', border: '1px solid #0f0f18', borderRadius: 5, padding: '10px 14px' }}>
+            <p style={{ fontSize: 9, color: T.mute, letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 700, fontFamily: "'Times New Roman', Times, serif", marginBottom: 5 }}>Notes</p>
+            <p style={{ fontSize: 13, color: T.dim, lineHeight: 1.65, fontFamily: "'Times New Roman', Times, serif" }}>{item.notes}</p>
+          </div>
+        )}
+
+        <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
+          {!isGlobal && (
+            <button onClick={() => onSaveAsTemplate(item.id)} disabled={promoting}
+              style={{ background: 'transparent', border: '1px solid #1a3a26', color: '#60a878', borderRadius: 4, padding: '8px 16px', fontSize: 11, cursor: promoting ? 'not-allowed' : 'pointer', opacity: promoting ? .5 : 1, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.03em' }}>
+              {promoting ? 'Saving…' : 'Save as Template'}
+            </button>
+          )}
+          <button onClick={() => onDelete(item.id)}
+            style={{ background: 'transparent', border: '1px solid #2a1010', color: '#a06060', borderRadius: 4, padding: '8px 16px', fontSize: 11, cursor: 'pointer', fontFamily: "'Times New Roman', Times, serif" }}>
+            Remove
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
