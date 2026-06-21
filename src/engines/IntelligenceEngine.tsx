@@ -152,6 +152,8 @@ interface TIEData {
   conflict_scan?:      ConflictScanResult;
   /** Step 5b — Risk Verdict. Auto-populated after package generation. */
   risk_verdict?:       RiskVerdictResult;
+  /** Step 5 — Authority Grounding. Auto-populated after package generation. */
+  authority_grounding?: IntelligenceData['authority_grounding'];
 }
 
 interface Props {
@@ -201,6 +203,9 @@ export function IntelligenceEngine({ activeCase, onSave }: Props) {
   const [riskLoading,        setRiskLoading]        = useState(false);
   const [riskError,          setRiskError]          = useState('');
   const [riskAnimated,       setRiskAnimated]       = useState(false);
+  const [authorityGrounding, setAuthorityGrounding] = useState<IntelligenceData['authority_grounding'] | undefined>(saved.authority_grounding);
+  const [agLoading,          setAgLoading]          = useState(false);
+  const [agError,            setAgError]            = useState('');
 
   const [loading,    setLoading]    = useState(false);
   const [error,      setError]      = useState('');
@@ -223,9 +228,10 @@ ${partyBPlural}: ${activeCase.defendants.map(d => d.name).filter(Boolean).join('
   function persist(updates: Partial<TIEData>) {
     const data: TIEData = {
       stage, rawFacts, extraction, followUpQs, followUpAs, evidenceM, intPkg,
-      commencement_audit: commencementAudit,
-      conflict_scan:      conflictScan,
-      risk_verdict:       riskVerdict,
+      commencement_audit:  commencementAudit,
+      conflict_scan:       conflictScan,
+      risk_verdict:        riskVerdict,
+      authority_grounding: authorityGrounding,
       ...updates,
     };
     onSave(data);
@@ -590,7 +596,7 @@ Rules:
     try {
       const pkg = await callClaude({
         system: `You are a Senior Advocate at the Nigerian Bar with 30 years of trial experience. You produce trial intelligence packages of exceptional depth and precision. Role-aware, outcome-focused, and honest. Your analysis changes how lawyers approach cases.`,
-        userMsg: `${caseCtx}\n\nRAW FACTS:\n${rawFacts}\n\nEXTRACTED INTELLIGENCE:\n${JSON.stringify(extraction, null, 2)}\n\nFOLLOW-UP ANSWERS:\n${qaText}\n\nEVIDENCE MATRIX:\n${JSON.stringify(evidenceM, null, 2)}\n\nGenerate the full Trial Intelligence Package. Format as structured markdown:\n\n# ESTABLISHED FACTS\n[Undisputed facts with basis]\n\n# DISPUTED FACTS\n[Contested facts and likely nature of dispute]\n\n# MISSING EVIDENCE\n[Critical gaps — what must be obtained and how]\n\n# LEGAL ISSUES\n[Each issue distilled — element by element where applicable]\n\n# ${claimsHead}\n[Role-specific: causes of action / grounds of defence, elements, burden of proof, what must be proved]\n\n# RISK REGISTER\n[Every material risk — severity HIGH/MEDIUM/LOW, impact, mitigation]\n\n# IMMEDIATE ACTION ITEMS\n[Specific, time-sensitive steps the lawyer must take NOW]\n\nWrite with the precision of a Senior Advocate who has analysed every document and seen every angle. Be direct, specific, and unflinchingly honest.`,
+        userMsg: `${caseCtx}\n\nRAW FACTS:\n${rawFacts}\n\nEXTRACTED INTELLIGENCE:\n${JSON.stringify(extraction, null, 2)}\n\nFOLLOW-UP ANSWERS:\n${qaText}\n\nEVIDENCE MATRIX:\n${JSON.stringify(evidenceM, null, 2)}\n\nGenerate the full Trial Intelligence Package. Format as structured markdown:\n\n# ESTABLISHED FACTS\n[Undisputed facts with basis]\n\n# DISPUTED FACTS\n[Contested facts and likely nature of dispute]\n\n# MISSING EVIDENCE\n[Critical gaps — what must be obtained and how]\n\n# LEGAL ISSUES\n[Each issue distilled — element by element where applicable]\n\n# ${claimsHead}\n[Role-specific: causes of action / grounds of defence, elements, burden of proof, what must be proved]\n\n# AUTHORITY GROUNDING\nFor every authority mentioned anywhere in the facts or follow-up answers:\n\n## HIERARCHY MAP\nFor each cited case: court level, binding on which courts in this matter, persuasive value if not binding. Flag any authority cited without a court or citation — those must be verified before filing.\n\n## BINDING FORCE & RATIO\nFor each authority: the ratio decidendi being relied on (not obiter). Flag where the principle being extracted may be obiter only.\n\n## OVERRULED / CONFLICTING STATUS\nHas any cited authority been overruled, distinguished, or significantly limited by a later decision? If so, name the later case and its effect. Flag any authority where currency is uncertain — direct counsel to verify on LawPavilion, NigeriaLII, or NWLR before filing.\n\n## CONFLICTING AUTHORITIES\nAre any cited authorities in direct conflict with each other? Identify the conflict, map hierarchy to determine which prevails, and state the reconciliation strategy.\n\n## OPPOSITION ATTACK VECTORS\nFor each authority we rely on: how will opposing counsel attack or distinguish it? For each authority they are likely to rely on: how do we neutralise it?\n\nIf no authorities are mentioned in the facts, state: \\"No authorities cited in the facts provided — authority research required before filing.\\" Do not fabricate case names.\n\n# RISK REGISTER\n[Every material risk — severity HIGH/MEDIUM/LOW, impact, mitigation]\n\n# IMMEDIATE ACTION ITEMS\n[Specific, time-sensitive steps the lawyer must take NOW]\n\nWrite with the precision of a Senior Advocate who has analysed every document and seen every angle. Be direct, specific, and unflinchingly honest.`,
         maxTokens: 5000,
         skipLibrary: true,
       });
@@ -598,6 +604,8 @@ Rules:
       advance(5, { intPkg: pkg });
       // Step 5b — auto-run risk verdict off the completed package
       runRiskVerdict(pkg);
+      // Step 5 — auto-run authority grounding off the completed package
+      runAuthorityGrounding(pkg);
     } catch (e) {
       setError('Package generation failed: ' + ((e as Error).message || 'Please try again.'));
     } finally { setLoading(false); }
@@ -616,7 +624,7 @@ Rules:
     setCommencementAudit(undefined); setAuditError('');
     setConflictScan(undefined); setConflictError('');
     setRiskVerdict(undefined); setRiskError(''); setRiskAnimated(false);
-    onSave({ stage: 1, rawFacts: '', extraction: null, followUpQs: [], followUpAs: {}, evidenceM: null, intPkg: '', commencement_audit: undefined, conflict_scan: undefined, risk_verdict: undefined });
+    onSave({ stage: 1, rawFacts: '', extraction: null, followUpQs: [], followUpAs: {}, evidenceM: null, intPkg: '', commencement_audit: undefined, conflict_scan: undefined, risk_verdict: undefined, authority_grounding: undefined });
   }
 
   // ── Step progress bar ──────────────────────────────────────────────────────
@@ -1198,7 +1206,7 @@ Rules:
       setConflictScan(result);
       onSave({
         stage, rawFacts, extraction, followUpQs, followUpAs, evidenceM, intPkg,
-        commencement_audit: commencementAudit, conflict_scan: result, risk_verdict: riskVerdict,
+        commencement_audit: commencementAudit, conflict_scan: result, risk_verdict: riskVerdict, authority_grounding: authorityGrounding,
       });
 
     } catch (e) {
@@ -1373,6 +1381,48 @@ Rules:
     const posSum = positive.reduce((a, k) => a + scores[k], 0) / positive.length;
     const negSum = negative.reduce((a, k) => a + (100 - scores[k]), 0) / negative.length;
     return Math.round((posSum + negSum) / 2);
+  }
+
+  // ── Step 5: Run Authority Grounding (auto-called after package generation) ────
+  async function runAuthorityGrounding(pkg: string) {
+    setAgLoading(true);
+    setAgError('');
+    try {
+      const raw = await callClaude({
+        system: `You are a Nigerian litigation authority analyst. Extract the Authority Grounding section from the Intelligence Package and return ONLY valid JSON — no markdown fences, no preamble, no trailing text. Use this exact shape:
+{"hierarchy_map":"markdown narrative of court hierarchy and binding status for each cited authority","conflict_flags":"markdown narrative of overruled, conflicting, or unverified authorities — state \"None identified\" if clean","status":"GROUNDED","summary":"one-line summary for Case Command"}
+
+Rules:
+- status must be exactly one of: GROUNDED (all authorities appear current and mapped), GAPS (some authorities lack court/citation or could not be mapped), CONFLICTS (at least one overruled or conflicting authority detected).
+- hierarchy_map must address every authority mentioned in the package. If none are cited, set to "No authorities cited — research required before filing."
+- conflict_flags must name any authority flagged as overruled, distinguished, or unverified.
+- summary must be one sentence, plain text, no markdown.
+- Every string value must be properly JSON-escaped. Use \\n for newlines inside narrative fields.`,
+        userMsg: `${caseCtx}\n\nINTELLIGENCE PACKAGE (read the AUTHORITY GROUNDING section):\n${pkg}`,
+        maxTokens: 1500,
+        skipLibrary: true,
+      });
+      const clean  = raw.replace(/^\`\`\`json\s*/, '').replace(/\`\`\`\s*$/, '').trim();
+      const parsed = JSON.parse(clean) as Omit<NonNullable<IntelligenceData['authority_grounding']>, 'run_at'>;
+      const result: NonNullable<IntelligenceData['authority_grounding']> = {
+        ...parsed,
+        run_at: new Date().toISOString(),
+      };
+      setAuthorityGrounding(result);
+      // Persist alongside the latest intPkg and risk_verdict (if already set)
+      onSave({
+        stage: 5, rawFacts, extraction, followUpQs, followUpAs, evidenceM,
+        intPkg: pkg,
+        commencement_audit:  commencementAudit,
+        conflict_scan:       conflictScan,
+        risk_verdict:        riskVerdict,
+        authority_grounding: result,
+      });
+    } catch (e) {
+      setAgError((e as Error).message || 'Authority grounding failed. Please try again.');
+    } finally {
+      setAgLoading(false);
+    }
   }
 
   // ── Step 5b: Run Risk Verdict (auto-called after package generation) ───────

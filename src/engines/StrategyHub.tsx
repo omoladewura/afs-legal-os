@@ -2,12 +2,12 @@
  * AFS Legal OS — Strategy Hub (Phase 1A rename of Case Intelligence Engine)
  *
  * New tab: `strategy_hub`  (was: `case_intelligence`)
- * Absorbs: BlindSpots · WarRoom · BriefMe
+ * Absorbs: CaseTrackers · WarRoom · BriefMe
  *
  * Three modes toggled at the top. Data flows forward:
  *   Mode 1 → feeds Mode 2 → feeds Mode 3.
  *
- *   MODE 1 — INTELLIGENCE LAYER  (BlindSpots)
+ *   MODE 1 — INTELLIGENCE LAYER  (CaseTrackers)
  *     Conflict Check · Judge/Court Tendencies · Opposing Counsel Profiler
  *     Settlement Tracker + BATNA · Client Communication Log
  *     Witness Management · Interlocutory Tracker
@@ -30,7 +30,7 @@ import type { Case, TokenLogEntry } from '@/types';
 import { loadTokenLog } from '@/storage/helpers';
 
 // Absorbed engines — logic untouched, rendered inside new shell
-import { BlindSpots } from '@/engines/BlindSpots';
+import { CaseTrackers } from '@/engines/CaseTrackers';
 import { WarRoom }    from '@/engines/WarRoom';
 import { BriefMe }    from '@/engines/BriefMe';
 
@@ -436,9 +436,9 @@ export function StrategyHub({ activeCase }: Props) {
       {/* ── Mode header ───────────────────────────────────────────────────── */}
       <ModeHeader mode={currentMode} />
 
-      {/* ── Mode 1: Intelligence Layer (BlindSpots) ───────────────────────── */}
+      {/* ── Mode 1: Intelligence Layer (CaseTrackers) ───────────────────────── */}
       {activeMode === 'intelligence' && (
-        <BlindSpots activeCase={activeCase} />
+        <CaseTrackers activeCase={activeCase} />
       )}
 
       {/* ── Mode 2: Strategic Cockpit (WarRoom) ───────────────────────────── */}
