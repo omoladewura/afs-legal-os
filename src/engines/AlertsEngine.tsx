@@ -59,6 +59,7 @@ import {
 } from '@/types';
 import { loadDeadlines, loadEntries, saveCase } from '@/storage/helpers';
 import { callClaude, withRetry } from '@/services/api';
+import { subscribeToPush } from '@/services/pushSubscription';
 import { useIntelligence } from '@/hooks/useIntelligence';
 import { T } from '@/constants/tokens';
 import { STAGE_KEYWORDS } from '@/constants/roleWorkspace';
@@ -95,17 +96,29 @@ async function getActiveSW() {
   } catch { return null; }
 }
 
-async function requestAndNotify(title: string, body: string) {
+async function requestAndNotify(title: string, body: string, severity?: string, caseId?: string) {
   if (!('Notification' in window)) return;
   if (Notification.permission === 'denied') return;
-  if (Notification.permission !== 'granted') {
-    const perm = await Notification.requestPermission();
-    if (perm !== 'granted') return;
-  }
+
+  // Phase 9E — ensure a push subscription is registered so background
+  // delivery works even when the app is later closed.
+  // subscribeToPush() handles the permission request internally,
+  // so we no longer call Notification.requestPermission() directly here.
+  await subscribeToPush().catch(() => {});
+
+  // In-app (foreground) notification — show immediately regardless of
+  // whether the Worker subscription succeeded (the SW handles background).
   const reg = await getActiveSW();
   if (reg) {
-    reg.showNotification(title, { body, icon: '/favicon.ico', tag: 'afs-alert', renotify: true });
-  } else {
+    reg.showNotification(title, {
+      body,
+      icon:      '/icon-192.png',
+      badge:     '/icon-192.png',
+      tag:       `afs-${(severity ?? 'low').toLowerCase()}-${caseId ?? 'global'}`,
+      renotify:  true,
+      data:      { actionUrl: caseId ? `/#engine?case=${caseId}&tab=alerts` : '/#home' },
+    });
+  } else if (Notification.permission === 'granted') {
     new Notification(title, { body });
   }
 }
@@ -903,7 +916,7 @@ function AlertCard({
           </div>
           {/* Notify + Dismiss buttons */}
           <button
-            onClick={() => requestAndNotify(alert.title, alert.body)}
+            onClick={() => requestAndNotify(alert.title, alert.body, alert.severity, activeCase.id)}
             title="Send phone notification"
             style={{
               background: 'transparent', border: 'none',
