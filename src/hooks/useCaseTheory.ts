@@ -23,6 +23,16 @@
  * mirrors hasCaseTheory() in storage/helpers.ts. An unlocked theory still
  * has `theory` populated (so counsel can see/edit it) but hasTheory is false,
  * which is the signal downstream engines use to withhold propagation.
+ *
+ * PHASE 0C CONSUMER AUDIT (June 2026):
+ * The following engines all read Case Theory exclusively through this hook.
+ * No direct case_theory_structured / case_theory_locked reads exist outside
+ * storage/helpers.ts and the hook itself:
+ *   ✓ CrossExamEngine      — useCaseTheory(caseId)
+ *   ✓ ArgumentBuilder      — useCaseTheory(activeCase.id)
+ *   ✓ FinalWrittenAddressEngine — useCaseTheory(activeCase.id) [civil + criminal]
+ *   ✓ TrialEngine          — useCaseTheory(caseId) [banner + theory_brief tab]
+ * No further wiring changes required for Phase 0C.
  */
 
 import { useState, useEffect, useCallback } from 'react';
