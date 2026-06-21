@@ -81,6 +81,8 @@ const ApplicationsEngine = lazy(() => import('@/engines/ApplicationsEngine').the
 const ArgumentTemplateManager = lazy(() => import('@/engines/ArgumentTemplateManager').then(m => ({ default: m.ArgumentTemplateManager })));
 // Trial Engine Consolidation (Build Plan v2, Phase 3)
 const TrialEngine          = lazy(() => import('@/engines/TrialEngine').then(m => ({ default: m.TrialEngine })));
+// Phase 5C — Synthesis Engine (re-added as a live tab; always last for every role)
+const SynthesisEngine      = lazy(() => import('@/engines/SynthesisEngine').then(m => ({ default: m.SynthesisEngine })));
 
 // ── Engine router ─────────────────────────────────────────────────────────────
 
@@ -131,6 +133,8 @@ function EngineContent({
     case 'arg_templates':      return <ArgumentTemplateManager activeCase={activeCase} />;
     // Trial Engine Consolidation (Build Plan v2, Phase 3)
     case 'trial':              return <TrialEngine            activeCase={activeCase} />;
+    // Phase 5C — Synthesis Engine (Master Case Theory)
+    case 'synthesis':         return <SynthesisEngine activeCase={activeCase} onNavigate={(tabId) => onSetDashTab(tabId as DashTabId)} />;
     default:             return null;
   }
 }
