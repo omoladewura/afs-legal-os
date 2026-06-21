@@ -482,6 +482,24 @@ function RiskVerdictDisplay({
         </details>
       )}
 
+      {/* BATNA notes — folded in from BlindSpots Settlement Tracker (4B) */}
+      {rv.batna_notes && (
+        <details style={{ cursor: 'pointer' }}>
+          <summary style={{
+            fontSize: 10, color: T.mute, fontFamily: SERIF, letterSpacing: '.08em',
+            userSelect: 'none', outline: 'none', listStyle: 'none',
+            display: 'flex', alignItems: 'center', gap: 6,
+          }}>
+            <span>▸</span> BATNA / settlement notes · settlement advisability {scores['settlement_advisability'] ?? '—'}/100
+          </summary>
+          <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #131320' }}>
+            <div style={{ fontSize: 12, color: '#8a8676', fontFamily: SERIF, lineHeight: 1.85, whiteSpace: 'pre-wrap' }}>
+              {rv.batna_notes}
+            </div>
+          </div>
+        </details>
+      )}
+
     </div>
   );
 }

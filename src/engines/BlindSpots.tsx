@@ -17,9 +17,10 @@ import { useState, useEffect, useCallback } from 'react';
 import type { Case } from '@/types';
 import { T } from '@/constants/tokens';
 import { callClaude } from '@/services/api';
-import { loadBlindSpot, saveBlindSpot, uid } from '@/storage/helpers';
+import { loadBlindSpot, saveBlindSpot, saveCase, uid } from '@/storage/helpers';
 import { buildRoleSystemPrompt } from '@/utils/rolePrompt';
 import { useIntelligence } from '@/hooks/useIntelligence';
+import { useAppStore } from '@/state/appStore';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -206,13 +207,15 @@ function useAI() {
   const [result, setResult] = useState('');
   const [error, setError] = useState('');
 
-  const run = useCallback(async (prompt: string, maxTokens = 1000, system?: string) => {
+  const run = useCallback(async (prompt: string, maxTokens = 1000, system?: string): Promise<string | null> => {
     setLoading(true); setError(''); setResult('');
     try {
       const text = await callClaude({ userMsg: prompt, maxTokens, ...(system ? { system } : {}) });
       setResult(text);
+      return text;
     } catch (e) {
       setError((e as Error).message || 'API error');
+      return null;
     } finally {
       setLoading(false);
     }
@@ -607,7 +610,9 @@ function BSSettlement({ caseId, activeCase, fullContext }: { caseId: string; act
   const [offerText, setOfferText] = useState('');
   const [offerSide, setOfferSide] = useState<'ours' | 'theirs'>('ours');
   const [offerAmt, setOfferAmt] = useState('');
+  const [foldStatus, setFoldStatus] = useState<'idle' | 'folded' | 'no_verdict'>('idle');
   const ai = useAI();
+  const { updateActiveCase } = useAppStore();
 
   useEffect(() => {
     loadBlindSpot<SettlementData>(caseId, 'settlement', {
@@ -635,6 +640,38 @@ function BSSettlement({ caseId, activeCase, fullContext }: { caseId: string; act
     update('offers', (data.offers || []).map(o => o.id === id ? { ...o, status } : o));
   }
 
+  // ── Phase 4B.ii — Fold BATNA notes into intelligence_data.risk_verdict ────
+  //
+  // risk_verdict (Step 5b) is the single field CaseCommand reads for the full
+  // strategic picture. BATNA notes only have somewhere to land once that
+  // object exists — appellate_narrative (3B) set the precedent of merging
+  // a narrative field into risk_verdict rather than creating a sibling.
+  // If Step 5b hasn't run yet, the BATNA notes stay local (already persisted
+  // via saveBlindSpot above) and get folded in next time this runs.
+  async function foldBatnaIntoRiskVerdict(analysis: string) {
+    const rv = activeCase.intelligence_data?.risk_verdict;
+    if (!rv) { setFoldStatus('no_verdict'); return; }
+
+    const summary = [
+      data.claimValue      ? `Claim Value: ${data.claimValue}` : null,
+      data.clientAuthority ? `Settlement Authority: ${data.clientAuthority}` : null,
+      data.batna           ? `BATNA: ${data.batna}` : null,
+      data.latna           ? `Likelihood of Achieving BATNA: ${data.latna}` : null,
+    ].filter(Boolean).join('\n');
+
+    const batna_notes = [summary, analysis].filter(Boolean).join('\n\n---\n\n');
+
+    const patch = {
+      intelligence_data: {
+        ...activeCase.intelligence_data,
+        risk_verdict: { ...rv, batna_notes },
+      },
+    };
+    updateActiveCase(patch);
+    await saveCase({ ...activeCase, ...patch });
+    setFoldStatus('folded');
+  }
+
   async function runBatna() {
     const liveOffers = (data.offers || []).filter(o => o.status === 'Live');
     const prompt = `You are a senior Nigerian litigation strategist advising on a settlement decision. Conduct a realistic BATNA analysis.
@@ -659,7 +696,8 @@ Provide:
 6. RECOMMENDATION — Settle now / Hold / Counter at [X] / Reject and proceed
 
 Be ruthlessly honest about litigation risk.`;
-    await ai.run(prompt, 1000, `You are a senior Nigerian litigation counsel and settlement negotiation strategist. Provide honest, tactical settlement analysis grounded in Nigerian litigation realities and BATNA principles.` + fullContext);
+    const text = await ai.run(prompt, 1000, `You are a senior Nigerian litigation counsel and settlement negotiation strategist. Provide honest, tactical settlement analysis grounded in Nigerian litigation realities and BATNA principles.` + fullContext);
+    if (text) await foldBatnaIntoRiskVerdict(text);
   }
 
   const STATUS_COLOURS: Record<string, string> = {
@@ -720,6 +758,16 @@ Be ruthlessly honest about litigation risk.`;
       <BSSection title="BATNA Analysis">
         <BSBtn onClick={runBatna} disabled={ai.loading}>Run BATNA / Settlement Analysis →</BSBtn>
         <BSAIBlock loading={ai.loading} result={ai.result} error={ai.error} />
+        {foldStatus === 'folded' && (
+          <p style={{ fontSize: 10, color: '#5a9070', fontFamily: 'Inter,sans-serif', letterSpacing: '.04em', marginTop: 10 }}>
+            ✓ Folded into intelligence_data.risk_verdict.batna_notes — visible on Case Command's Risk Score.
+          </p>
+        )}
+        {foldStatus === 'no_verdict' && (
+          <p style={{ fontSize: 10, color: '#8a7840', fontFamily: 'Inter,sans-serif', letterSpacing: '.04em', marginTop: 10 }}>
+            ⚠ No Risk Verdict yet — run Intelligence Step 5b first, then re-run BATNA analysis to fold these notes into the risk picture.
+          </p>
+        )}
       </BSSection>
 
       <BSSection title="Notes">
