@@ -3,8 +3,8 @@ import { writeDraftChunk, clearDraftBuffer, getAllDraftBuffers } from '@/storage
 
 export const CLAUDE_MODEL = 'claude-sonnet-4-5';
 
-const WORKER_URL = 'https://afs-legal-rag.sobamboadeshupo.workers.dev';
-const AUTH_TOKEN = 'AFS2026SecureToken99';
+export const WORKER_URL = 'https://afs-legal-rag.sobamboadeshupo.workers.dev';
+export const AUTH_TOKEN = 'AFS2026SecureToken99';
 
 export function saveApiKey(key: string): void {
   try { localStorage.setItem('afs_api_key', key.trim()); } catch { }
