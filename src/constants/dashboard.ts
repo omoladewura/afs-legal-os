@@ -274,6 +274,7 @@ export const TABS_WRIT: DashTab[] = tabs(
   'enforcement',
   'appeal',
   'copilot',            // Phase 4 — now includes Command Console
+  'synthesis',          // Phase 5C — Master Case Theory, always last
 );
 
 /**
@@ -295,6 +296,7 @@ export const TABS_CRIMINAL: DashTab[] = tabs(
   'strategy_hub',       // Phase 1A
   'appeal',
   'copilot',            // Phase 4
+  'synthesis',          // Phase 5C — Master Case Theory, always last
 );
 
 /**
@@ -313,6 +315,7 @@ export const TABS_FREP: DashTab[] = tabs(
   'written_address',    // Phase 3
   'appeal',
   'copilot',            // Phase 4
+  'synthesis',          // Phase 5C — Master Case Theory, always last
 );
 
 /**
