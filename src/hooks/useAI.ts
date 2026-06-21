@@ -14,11 +14,21 @@
  *   3. Falls back to the role-aware system prompt if the caller
  *      does not provide one explicitly.
  *
+ * V3 upgrade: streaming support via ApiRequestOptions.onChunk.
+ * When opts.onChunk is provided, ask() passes it through to callClaude
+ * which switches to SSE mode. loading/error state, role enrichment,
+ * token telemetry, and toast-on-failure all behave identically whether
+ * the call is streaming or one-shot.
+ *
  * Usage (with role-awareness):
  *   const ai = useAI(activeCase);
  *   const { ask, loading, error } = ai;
  *   const result = await ask({ userMsg: '...' });          // role injected automatically
  *   const result = await ask({ system: '...', userMsg: '...' }); // explicit system override
+ *
+ * Usage (streaming):
+ *   const result = await ask({ userMsg: '...', onChunk: chunk => setDraft(d => d + chunk) });
+ *   // result contains the complete assembled text once the stream closes.
  *
  * Usage (without case — legacy / utility calls):
  *   const { ask } = useAI();
@@ -88,6 +98,7 @@ export function useAI(activeCase?: Case): UseAIReturn {
           libraryOpts:  mergedLibraryOpts,
           matter_track: opts.matter_track ?? matter_track,
           counsel_role: opts.counsel_role ?? counsel_role,
+          // onChunk passes through unchanged — role enrichment doesn't affect it
         };
       }
 
