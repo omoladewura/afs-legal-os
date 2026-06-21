@@ -296,7 +296,7 @@ export function AICopilot({ activeCase }: Props) {
           content: `User command: "${command}"\n\nReturn ONLY the category key.`,
         }],
         maxTokens: 80,
-      })).trim().toLowerCase().replace(/[^a-z_]/g, '');
+      }))).trim().toLowerCase().replace(/[^a-z_]/g, '');
 
       const routeKey: RouteKey = (rawKey in ROUTE_MAP) ? rawKey as RouteKey : 'general';
       const route = ROUTE_MAP[routeKey];
