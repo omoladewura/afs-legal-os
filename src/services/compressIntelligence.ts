@@ -33,7 +33,7 @@
  */
 
 import type { Case, IntelligenceData } from '@/types';
-import { callClaude } from '@/services/api';
+import { callClaude, withRetry } from '@/services/api';
 import { indexCaseChunk } from '@/services/caseRag';
 
 // Re-compress at most once per 24 hours, even if stage stays at 5.
@@ -122,7 +122,7 @@ export async function compressIntelligence(
   if (!prompt) return;
 
   try {
-    const digest = await callClaude({
+    const digest = await withRetry(() => callClaude({
       system:
         'You are a Nigerian litigation intelligence analyst. ' +
         'Compress the provided case intelligence into a concise, high-density digest ' +
@@ -135,7 +135,7 @@ export async function compressIntelligence(
       userMsg: prompt,
       maxTokens: 600,
       skipLibrary: true,
-    });
+    }));
 
     if (!digest?.trim()) return;
 
