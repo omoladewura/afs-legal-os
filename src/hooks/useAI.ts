@@ -36,7 +36,7 @@
  */
 
 import { useState, useCallback } from 'react';
-import { callClaude, withRetry, ApiError } from '@/services/api';
+import { callClaude, withRetry, ApiError, classifyError } from '@/services/api';
 import { buildRoleSystemPrompt } from '@/utils/rolePrompt';
 import { buildRoleLibraryOpts, deriveRoleHint } from '@/utils/roleLibrary';
 import { appendTokenLog } from '@/storage/helpers';
@@ -112,12 +112,11 @@ export function useAI(activeCase?: Case): UseAIReturn {
 
       return text;
     } catch (e) {
-      const msg = e instanceof ApiError ? e.message : (e as Error).message ?? 'Unknown error';
+      // Phase 1 — Error Classifier: maps every failure mode to a clean
+      // user-facing string. No per-engine changes needed — all engines
+      // surface errors through this hook's `error` state and toast.
+      const msg = classifyError(e);
       setError(msg);
-      // Surface foreground failures as a toast — a spinner that just stops
-      // with no explanation is the worse failure mode. Background calls
-      // (silentCompress, indexCaseChunk, etc.) pass { silent: true } to
-      // opt out, since they have their own quiet catch handling.
       if (!opts.silent) toast.error(msg);
       return null;
     } finally {
