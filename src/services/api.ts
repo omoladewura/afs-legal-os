@@ -22,6 +22,25 @@ export class ApiError extends Error {
 }
 
 /**
+ * Phase 9D — Offline detection.
+ *
+ * Fired whenever a Worker fetch fails with a network error (i.e. the device
+ * is offline or the Worker is unreachable). `App.tsx` listens for this event
+ * to show the persistent offline banner, independent of individual engine
+ * error states so the banner appears regardless of which engine is active.
+ *
+ * We use a plain CustomEvent on `window` rather than a shared module-level
+ * signal so that the api.ts module stays side-effect-free and any component
+ * can listen without importing from this module.
+ */
+export function emitWorkerOffline(): void {
+  window.dispatchEvent(new CustomEvent('afs:worker-offline'));
+}
+export function emitWorkerOnline(): void {
+  window.dispatchEvent(new CustomEvent('afs:worker-online'));
+}
+
+/**
  * Phase 7D — Resilient call wrapper for one-shot (non-streaming) callClaude calls.
  *
  * Retries up to `maxAttempts` times on transient network errors or 5xx responses.
@@ -85,6 +104,7 @@ async function fetchStream(
       body: JSON.stringify({ ...body, stream: true }),
     });
   } catch (e) {
+    emitWorkerOffline();
     throw new ApiError(`Network error: ${(e as Error).message}`);
   }
 
@@ -93,6 +113,8 @@ async function fetchStream(
     const msg = (data as any).error?.message ?? `HTTP ${res.status}`;
     throw new ApiError(msg, res.status);
   }
+
+  emitWorkerOnline();
 
   if (!res.body) throw new ApiError('Streaming response had no body');
 
@@ -232,6 +254,7 @@ export async function callClaude(opts: ApiRequestOptions): Promise<{ text: strin
         body: JSON.stringify(body),
       });
     } catch (e) {
+      emitWorkerOffline();
       throw new ApiError(`Network error: ${(e as Error).message}`);
     }
 
@@ -240,6 +263,8 @@ export async function callClaude(opts: ApiRequestOptions): Promise<{ text: strin
       const msg = (data as any).error?.message ?? `HTTP ${res.status}`;
       throw new ApiError(msg, res.status);
     }
+
+    emitWorkerOnline();
 
     const text = ((data as any).content as Array<{ type: string; text?: string }>)
       .filter(b => b.type === 'text')
