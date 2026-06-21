@@ -783,12 +783,12 @@ export function WarRoom({ activeCase }: Props) {
         </p>
       </div>
 
-      {/* ── Deep-link: Case Theory now lives in Synthesis Engine (Phase 5D-ii) ── */}
+      {/* ── Deep-link: Case Theory lives in Trial Engine → Theory Brief tab (Phase 0D fix) ── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 0 18px 24px', flexWrap: 'wrap' }}>
         <span style={{ fontSize: 10, color: T.dim, fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic' }}>
-          Looking for Case Theory? The Master Case Theory now lives in →
+          Looking for Case Theory? Author and lock it in →
         </span>
-        <NavBtn label="Synthesis Engine" tab="synthesis" setDashTab={setDashTab} />
+        <NavBtn label="Trial Engine — Theory Brief" tab="trial" setDashTab={setDashTab} />
       </div>
 
       {/* ── Panel navigation ── */}

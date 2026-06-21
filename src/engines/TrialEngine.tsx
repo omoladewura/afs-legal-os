@@ -55,7 +55,7 @@ import { CaseTheoryBanner, Md, ErrorBlock } from '@/components/common/ui';
 import { useCaseTheory } from '@/hooks/useCaseTheory';
 import { useAI } from '@/hooks/useAI';
 import { useIntelligence } from '@/hooks/useIntelligence';
-import { saveCaseTheory, lockCaseTheory, unlockCaseTheory, loadBlindSpot, saveBlindSpot, uid } from '@/storage/helpers';
+import { saveCaseTheory, lockCaseTheory, unlockCaseTheory, loadBlindSpot, saveBlindSpot, uid, isIntelligenceCompleteSync } from '@/storage/helpers';
 import { getJurisdictionDelta } from '@/law/registry';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -609,6 +609,10 @@ function CaseTheoryBriefTab({ activeCase, role, theoryReload }: CaseTheoryBriefT
   const ai     = useAI(activeCase);
   const { fullContext, hasIntel, raw } = useIntelligence(activeCase);
 
+  // Phase 0A gate — derived synchronously from the already-loaded activeCase.
+  // True only when Step 5 intPkg + risk_verdict + authority_grounding are all present.
+  const isIntelComplete = isIntelligenceCompleteSync(activeCase);
+
   // Local instance of useCaseTheory — drives this tab's rendering
   const { theory, locked, score, loading, reload } = useCaseTheory(caseId);
 
@@ -893,6 +897,43 @@ Role: ${role}`,
   return (
     <div style={{ paddingBottom: 60 }}>
 
+      {/* ── Phase 0B — Step 5 completion badge ───────────────────────────── */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
+        marginBottom: 16, padding: '8px 12px',
+        background: isIntelComplete ? '#f0f8f2' : '#fff8f0',
+        border: `1px solid ${isIntelComplete ? '#2a6a3a' : '#d4900a'}`,
+        borderRadius: 4,
+      }}>
+        <span style={{
+          fontSize: 11, fontWeight: 700, letterSpacing: '.08em',
+          fontFamily: "'Times New Roman', Times, serif",
+          color: isIntelComplete ? '#1a5a30' : '#7a4a00',
+          textTransform: 'uppercase',
+        }}>
+          Intelligence Engine Step 5
+        </span>
+        <span style={{
+          fontSize: 11, fontFamily: "'Times New Roman', Times, serif",
+          color: isIntelComplete ? '#1a5a30' : '#7a4a00',
+        }}>
+          {isIntelComplete
+            ? '✓ Complete — Lock Theory is enabled'
+            : '⚠ Incomplete — Lock Theory is blocked until all three outputs are present'}
+        </span>
+        <span style={{
+          fontSize: 10, fontFamily: "'Times New Roman', Times, serif",
+          color: isIntelComplete ? '#2a6a3a' : '#8a5a00',
+          marginLeft: 'auto',
+        }}>
+          Package {activeCase.intelligence_data?.intPkg ? '✓' : '✗'}
+          {' · '}
+          Risk Verdict {activeCase.intelligence_data?.risk_verdict ? '✓' : '✗'}
+          {' · '}
+          Authority Grounding {activeCase.intelligence_data?.authority_grounding ? '✓' : '✗'}
+        </span>
+      </div>
+
       {/* ── 4A: Intelligence Package ───────────────────────────────────────── */}
       <div>
         <p style={sectionHead('A — Intelligence Package')}>A — Intelligence Package</p>
@@ -1163,16 +1204,52 @@ Role: ${role}`,
               )}
               <button
                 onClick={() => setLockModalOpen(true)}
+                disabled={!isIntelComplete}
+                title={!isIntelComplete ? 'Complete Intelligence Engine Step 5 (Risk Verdict + Authority Grounding) before locking' : undefined}
                 style={{
-                  background: '#1a5a30', border: 'none',
+                  background: isIntelComplete ? '#1a5a30' : '#888',
+                  border: 'none',
                   color: '#ffffff', borderRadius: 4, padding: '9px 22px',
-                  fontSize: 13, cursor: 'pointer',
+                  fontSize: 13, cursor: isIntelComplete ? 'pointer' : 'not-allowed',
                   fontFamily: "'Times New Roman', Times, serif", fontWeight: 700,
                   marginLeft: 'auto',
+                  opacity: isIntelComplete ? 1 : 0.65,
                 }}
               >
                 Lock Theory ✓
               </button>
+
+              {/* Phase 0B — Intelligence gate message */}
+              {!isIntelComplete && (
+                <div style={{
+                  width: '100%', marginTop: 8,
+                  padding: '10px 14px',
+                  background: '#fff8f0', border: '1px solid #d4900a',
+                  borderRadius: 4, display: 'flex', alignItems: 'flex-start', gap: 10,
+                }}>
+                  <span style={{ fontSize: 16, lineHeight: 1 }}>⚠</span>
+                  <div>
+                    <p style={{
+                      margin: 0, fontSize: 12, fontWeight: 700, color: '#7a4a00',
+                      fontFamily: "'Times New Roman', Times, serif",
+                    }}>
+                      Complete Intelligence Engine Step 5 first
+                    </p>
+                    <p style={{
+                      margin: '4px 0 0', fontSize: 11, color: '#7a4a00',
+                      fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.5,
+                    }}>
+                      Lock Theory requires all three Step 5 outputs:{' '}
+                      <strong>Intelligence Package</strong>{' '}
+                      {activeCase.intelligence_data?.intPkg ? '✓' : '✗'},{' '}
+                      <strong>Risk Verdict</strong>{' '}
+                      {activeCase.intelligence_data?.risk_verdict ? '✓' : '✗'},{' '}
+                      <strong>Authority Grounding</strong>{' '}
+                      {activeCase.intelligence_data?.authority_grounding ? '✓' : '✗'}.
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
