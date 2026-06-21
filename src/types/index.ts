@@ -260,6 +260,14 @@ export interface IntelligenceData {
     /** Top-level strategic verdict */
     verdict:        'FILE' | 'NEGOTIATE' | 'SETTLE' | 'WALK_AWAY';
     /**
+     * Full structured appellate vulnerability narrative — ported from WarRoom's
+     * Appellate Vulnerabilities panel (Phase 3B). Per-issue breakdown:
+     * issue → ground of appeal → survivability (High/Medium/Low) → preservation action.
+     * Merged here rather than scored separately; appeal_survivability score reflects
+     * the aggregate survivability across all identified grounds.
+     */
+    appellate_narrative?: string;
+    /**
      * BATNA notes folded in from BlindSpots Settlement Tracker (Phase 4B).
      * Stored here so CaseCommand can show the full strategic picture from one field.
      */
