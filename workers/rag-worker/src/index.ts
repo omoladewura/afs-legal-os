@@ -701,7 +701,22 @@ async function handleChat(req: Request, env: Env): Promise<Response> {
       : (baseSystem || undefined);
   }
 
-  // ── Call Anthropic ────────────────────────────────────────────────────────
+  // ── Stream or one-shot ────────────────────────────────────────────────────
+  // When body.stream === true the client wants SSE forwarded verbatim.
+  // The Worker pipes the Anthropic SSE stream straight through without
+  // buffering — the frontend is responsible for parsing the event stream.
+  // When body.stream is absent or false, behaviour is unchanged (one-shot
+  // JSON, fully backwards-compatible with all existing callClaude callers).
+  const useStream = body.stream === true;
+
+  const anthropicBody: Record<string, unknown> = {
+    model:      body.model      ?? 'claude-sonnet-4-6',
+    max_tokens: body.max_tokens ?? 1500,
+    system:     effectiveSystem,
+    messages:   body.messages,
+  };
+  if (useStream) anthropicBody.stream = true;
+
   // No anthropic-beta header needed — prompt caching is GA; cache_control
   // on a content block is sufficient on its own.
   const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -711,16 +726,49 @@ async function handleChat(req: Request, env: Env): Promise<Response> {
       'x-api-key':         env.ANTHROPIC_API_KEY,
       'anthropic-version': '2023-06-01',
     },
-    body: JSON.stringify({
-      model:      body.model      ?? 'claude-sonnet-4-6',
-      max_tokens: body.max_tokens ?? 1500,
-      system:     effectiveSystem,
-      messages:   body.messages,
-    }),
+    body: JSON.stringify(anthropicBody),
   });
 
-  const data = await res.json();
-  return json(data, res.status, origin);
+  if (!useStream) {
+    // Existing path — parse JSON and return it unchanged.
+    const data = await res.json();
+    return json(data, res.status, origin);
+  }
+
+  // ── Streaming path — pipe SSE from Anthropic to the client ───────────────
+  // The Anthropic SSE wire format uses these event types:
+  //   message_start        — carries model + usage snapshot
+  //   content_block_start  — opens a text block (index 0 for text output)
+  //   content_block_delta  — carries { delta: { type: 'text_delta', text: '…' } }
+  //   content_block_stop   — closes the block
+  //   message_delta        — carries stop_reason + final usage
+  //   message_stop         — stream is complete
+  //
+  // We forward the raw SSE bytes unchanged. The frontend (callClaude in
+  // streaming mode) is responsible for parsing these events.
+  //
+  // Error handling: if Anthropic returns a non-2xx *before* streaming starts,
+  // read the body as JSON and return it as a normal error response so the
+  // frontend's existing error path works unchanged.
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+    return json(errData, res.status, origin);
+  }
+
+  if (!res.body) {
+    return json({ error: 'Anthropic returned no body' }, 502, origin);
+  }
+
+  const sseHeaders = new Headers({
+    'Content-Type':                 'text/event-stream',
+    'Cache-Control':                'no-cache',
+    'X-Accel-Buffering':            'no',
+    'Access-Control-Allow-Origin':  origin,
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  });
+
+  return new Response(res.body, { status: 200, headers: sseHeaders });
 }
 
 // ── Embed ─────────────────────────────────────────────────────────────────────
