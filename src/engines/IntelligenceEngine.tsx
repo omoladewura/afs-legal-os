@@ -18,7 +18,7 @@
 import React, { useState } from 'react';
 import type { Case } from '@/types';
 import { T } from '@/constants/tokens';
-import { callClaude } from '@/services/api';
+import { callClaude, withRetry } from '@/services/api';
 import { Spinner, ErrorBlock, RoleBadge, Md } from '@/components/common/ui';
 import { copyToClipboard } from '@/utils';
 import { getPartyLabels } from '@/utils/getPartyLabels';
@@ -228,6 +228,8 @@ export function IntelligenceEngine({ activeCase, onSave }: Props) {
   const [loading,    setLoading]    = useState(false);
   const [error,      setError]      = useState('');
   const [copied,     setCopied]     = useState(false);
+  // Phase 7C — set true when a mid-stream interruption was auto-resumed
+  const [pkgResumed, setPkgResumed] = useState(false);
 
   const { partyA, partyB, partyAPlural, partyBPlural, ourSide } = getPartyLabels(activeCase);
 
@@ -272,7 +274,7 @@ ${partyBPlural}: ${activeCase.defendants.map(d => d.name).filter(Boolean).join('
     }
     setLoading(true); setError('');
     try {
-      const raw = await callClaude({
+      const raw = await withRetry(() => callClaude({
         system: `You are a trial intelligence extraction engine for Nigerian litigation.
 Extract structured intelligence from the raw case facts provided by the user.
 Role-aware: the lawyer acts for the ${role}.
@@ -299,7 +301,7 @@ Rules:
         userMsg: `RAW FACTS / CLIENT NARRATION:\n\n${rawFacts}`,
         maxTokens: 5000,
         skipLibrary: true,
-      });
+      }));
 
       let cleaned = raw.trim();
       cleaned = cleaned.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
@@ -395,12 +397,12 @@ Rules:
 - Never use unescaped double quotes inside JSON string values`;
 
     try {
-      const raw = await callClaude({
+      const raw = await withRetry(() => callClaude({
         system,
         userMsg: prompt,
         maxTokens: 2500,
         skipLibrary: true,
-      });
+      }));
 
       let cleaned = raw.trim()
         .replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
@@ -626,11 +628,19 @@ Rules:
       activeCase.counsel_role === 'defendant_side' ? `${partyB.toUpperCase()} DEFENCE POSTURE & COUNTERCLAIMS` :
       'CLAIMS, DEFENCES & STRATEGY';
     try {
-      const pkg = await callClaude({
+      let streamedPkg = '';
+      const { text: pkg } = await callClaude({
         system: `You are a Senior Advocate at the Nigerian Bar with 30 years of trial experience. You produce trial intelligence packages of exceptional depth and precision. Role-aware, outcome-focused, and honest. Your analysis changes how lawyers approach cases.`,
-        userMsg: `${caseCtx}\n\nRAW FACTS:\n${rawFacts}\n\nEXTRACTED INTELLIGENCE:\n${JSON.stringify(extraction, null, 2)}\n\nFOLLOW-UP ANSWERS:\n${qaText}\n\nEVIDENCE MATRIX:\n${JSON.stringify(evidenceM, null, 2)}\n\nGenerate the full Trial Intelligence Package. Format as structured markdown:\n\n# ESTABLISHED FACTS\n[Undisputed facts with basis]\n\n# DISPUTED FACTS\n[Contested facts and likely nature of dispute]\n\n# MISSING EVIDENCE\n[Critical gaps — what must be obtained and how]\n\n# LEGAL ISSUES\n[Each issue distilled — element by element where applicable]\n\n# ${claimsHead}\n[Role-specific: causes of action / grounds of defence, elements, burden of proof, what must be proved]\n\n# AUTHORITY GROUNDING\nFor every authority mentioned anywhere in the facts or follow-up answers:\n\n## HIERARCHY MAP\nFor each cited case: court level, binding on which courts in this matter, persuasive value if not binding. Flag any authority cited without a court or citation — those must be verified before filing.\n\n## BINDING FORCE & RATIO\nFor each authority: the ratio decidendi being relied on (not obiter). Flag where the principle being extracted may be obiter only.\n\n## OVERRULED / CONFLICTING STATUS\nHas any cited authority been overruled, distinguished, or significantly limited by a later decision? If so, name the later case and its effect. Flag any authority where currency is uncertain — direct counsel to verify on LawPavilion, NigeriaLII, or NWLR before filing.\n\n## CONFLICTING AUTHORITIES\nAre any cited authorities in direct conflict with each other? Identify the conflict, map hierarchy to determine which prevails, and state the reconciliation strategy.\n\n## OPPOSITION ATTACK VECTORS\nFor each authority we rely on: how will opposing counsel attack or distinguish it? For each authority they are likely to rely on: how do we neutralise it?\n\nIf no authorities are mentioned in the facts, state: \\"No authorities cited in the facts provided — authority research required before filing.\\" Do not fabricate case names.\n\n# RISK REGISTER\n[Every material risk — severity HIGH/MEDIUM/LOW, impact, mitigation]\n\n# IMMEDIATE ACTION ITEMS\n[Specific, time-sensitive steps the lawyer must take NOW]\n\nWrite with the precision of a Senior Advocate who has analysed every document and seen every angle. Be direct, specific, and unflinchingly honest.`,
+        userMsg: `${caseCtx}\n\nRAW FACTS:\n${rawFacts}\n\nEXTRACTED INTELLIGENCE:\n${JSON.stringify(extraction, null, 2)}\n\nFOLLOW-UP ANSWERS:\n${qaText}\n\nEVIDENCE MATRIX:\n${JSON.stringify(evidenceM, null, 2)}\n\nGenerate the full Trial Intelligence Package. Format as structured markdown:\n\n# ESTABLISHED FACTS\n[Undisputed facts with basis]\n\n# DISPUTED FACTS\n[Contested facts and likely nature of dispute]\n\n# MISSING EVIDENCE\n[Critical gaps — what must be obtained and how]\n\n# LEGAL ISSUES\n[Each issue distilled — element by element where applicable]\n\n# ${claimsHead}\n[Role-specific: causes of action / grounds of defence, elements, burden of proof, what must be proved]\n\n# AUTHORITY GROUNDING\nFor every authority mentioned anywhere in the facts or follow-up answers:\n\n## HIERARCHY MAP\nFor each cited case: court level, binding on which courts in this matter, persuasive value if not binding. Flag any authority cited without a court or citation — those must be verified before filing.\n\n## BINDING FORCE & RATIO\nFor each authority: the ratio decidendi being relied on (not obiter). Flag where the principle being extracted may be obiter only.\n\n## OVERRULED / CONFLICTING STATUS\nHas any cited authority been overruled, distinguished, or significantly limited by a later decision? If so, name the later case and its effect. Flag any authority where currency is uncertain — direct counsel to verify on LawPavilion, NigeriaLII, or NWLR before filing.\n\n## CONFLICTING AUTHORITIES\nAre any cited authorities in direct conflict with each other? Identify the conflict, map hierarchy to determine which prevails, and state the reconciliation strategy.\n\n## OPPOSITION ATTACK VECTORS\nFor each authority we rely on: how will opposing counsel attack or distinguish it? For each authority they are likely to rely on: how do we neutralise it?\n\nIf no authorities are mentioned in the facts, state: \\\"No authorities cited in the facts provided — authority research required before filing.\\\" Do not fabricate case names.\n\n# RISK REGISTER\n[Every material risk — severity HIGH/MEDIUM/LOW, impact, mitigation]\n\n# IMMEDIATE ACTION ITEMS\n[Specific, time-sensitive steps the lawyer must take NOW]\n\nWrite with the precision of a Senior Advocate who has analysed every document and seen every angle. Be direct, specific, and unflinchingly honest.`,
         maxTokens: 5000,
         skipLibrary: true,
+        streamCaseId: activeCase.id,
+        streamEngine: 'intelligence-pkg',
+        onChunk: (chunk) => {
+          streamedPkg += chunk;
+          setIntPkg(streamedPkg);
+        },
+        onResumed: () => setPkgResumed(true),
       });
       setIntPkg(pkg);
       advance(5, { intPkg: pkg });
@@ -1433,7 +1443,7 @@ Rules:
     setAgLoading(true);
     setAgError('');
     try {
-      const raw = await callClaude({
+      const raw = await withRetry(() => callClaude({
         system: `You are a Nigerian litigation authority analyst. Extract the Authority Grounding section from the Intelligence Package and return ONLY valid JSON — no markdown fences, no preamble, no trailing text. Use this exact shape:
 {"hierarchy_map":"markdown narrative of court hierarchy and binding status for each cited authority","conflict_flags":"markdown narrative of overruled, conflicting, or unverified authorities — state \"None identified\" if clean","status":"GROUNDED","summary":"one-line summary for Case Command"}
 
@@ -1446,7 +1456,7 @@ Rules:
         userMsg: `${caseCtx}\n\nINTELLIGENCE PACKAGE (read the AUTHORITY GROUNDING section):\n${pkg}`,
         maxTokens: 1500,
         skipLibrary: true,
-      });
+      }));
       const clean  = raw.replace(/^\`\`\`json\s*/, '').replace(/\`\`\`\s*$/, '').trim();
       const parsed = JSON.parse(clean) as Omit<NonNullable<IntelligenceData['authority_grounding']>, 'run_at'>;
       const result: NonNullable<IntelligenceData['authority_grounding']> = {
@@ -1475,12 +1485,12 @@ Rules:
     setRiskLoading(true);
     setRiskError('');
     try {
-      const raw = await callClaude({
+      const raw = await withRetry(() => callClaude({
         system: RISK_SYSTEM_PROMPT,
         userMsg: `${caseCtx}\n\nINTELLIGENCE PACKAGE:\n${pkg}`,
         maxTokens: 2000,
         skipLibrary: true,
-      });
+      }));
       const clean  = raw.replace(/^```json\s*/, '').replace(/```\s*$/, '').trim();
       const parsed = JSON.parse(clean) as Omit<RiskVerdictResult, 'run_at'>;
       const result: RiskVerdictResult = { ...parsed, run_at: new Date().toISOString() };
@@ -1535,6 +1545,15 @@ Rules:
             </button>
           </div>
         </div>
+
+        {pkgResumed && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#1a1400', border: '1px solid #3a2800', borderRadius: 6, padding: '8px 14px', marginBottom: 14 }}>
+            <span style={{ fontSize: 13, color: '#c08030' }}>⟳</span>
+            <span style={{ fontSize: 11, color: '#c08030', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.06em' }}>
+              Resumed after interruption — output is complete and continuous
+            </span>
+          </div>
+        )}
 
         {intPkg && (
           <div style={{ background: T.card, border: `1px solid ${T.text}33`, borderRadius: 10, padding: '26px 28px', marginBottom: 14 }}>
