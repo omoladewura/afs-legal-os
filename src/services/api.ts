@@ -22,6 +22,87 @@ export class ApiError extends Error {
 }
 
 /**
+ * Phase 1 — Error Classifier
+ *
+ * Single function that maps every failure mode from callClaude / fetchStream
+ * into a short, user-facing string. Called by useAI.ts in its catch block —
+ * no per-engine changes needed.
+ *
+ * Categories:
+ *   offline / network   → navigator.onLine is false OR a TypeError from fetch
+ *   401 / 403           → API key invalid or expired
+ *   429                 → Rate-limited
+ *   Anthropic 5xx       → AI service temporarily down  (worker forwards these)
+ *   Worker 5xx          → Legal RAG Worker error       (worker's own failures)
+ *   timeout / abort     → Request timed out
+ *   everything else     → Unknown error with raw message preserved
+ *
+ * The distinction between Anthropic 5xx and Worker 5xx is carried by the
+ * error message prefix set in fetchStream/callClaude: Anthropic errors come
+ * through as the JSON .error.message from the Anthropic API, while Worker
+ * errors surface as "HTTP 5xx" with no Anthropic-shaped payload. We use a
+ * simple heuristic: if the message already looks like an Anthropic API error
+ * we label it as the AI service; otherwise it is the RAG worker.
+ */
+export function classifyError(e: unknown): string {
+  // Offline — check browser flag first (most reliable signal)
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    return "You're offline — check your connection";
+  }
+
+  // Network-level failure before any HTTP response (TypeError from fetch)
+  if (e instanceof TypeError) {
+    return "You're offline — check your connection";
+  }
+
+  if (e instanceof ApiError) {
+    const { status, message } = e;
+
+    // Explicit abort / timeout — AbortError surfaces as a network error here
+    if (message.toLowerCase().includes('abort') || message.toLowerCase().includes('timeout')) {
+      return 'Request timed out — please try again';
+    }
+
+    // Network error string emitted by fetchStream / one-shot path
+    if (message.startsWith('Network error:')) {
+      return "You're offline — check your connection";
+    }
+
+    if (status === 401 || status === 403) {
+      return 'API key invalid or expired — check Settings';
+    }
+
+    if (status === 429) {
+      return 'Rate-limited — wait a moment and retry';
+    }
+
+    if (status !== undefined && status >= 500) {
+      // Anthropic errors forwarded by the worker arrive with a descriptive
+      // message (e.g. "overloaded_error"). Worker's own 5xx errors arrive
+      // as plain "HTTP 5xx" with no such payload.
+      const isAnthropicMessage =
+        message.includes('overloaded') ||
+        message.includes('api_error') ||
+        message.includes('service_unavailable') ||
+        message.includes('529');
+      return isAnthropicMessage
+        ? 'AI service temporarily down — please retry shortly'
+        : 'Legal RAG Worker error — please retry or check your connection';
+    }
+
+    // No status or non-categorised status — return raw message
+    return message || 'An unexpected error occurred';
+  }
+
+  // Plain Error or unknown throw
+  const msg = (e as Error)?.message;
+  if (msg?.toLowerCase().includes('abort') || msg?.toLowerCase().includes('timeout')) {
+    return 'Request timed out — please try again';
+  }
+  return msg || 'An unexpected error occurred';
+}
+
+/**
  * Phase 9D — Offline detection.
  *
  * Fired whenever a Worker fetch fails with a network error (i.e. the device
