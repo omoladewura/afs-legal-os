@@ -14,20 +14,25 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import type { Case, RiskResult } from '@/types';
+import type { Case } from '@/types';
 import { T, S } from '@/constants/tokens';
 import { useAI } from '@/hooks/useAI';
 import { useIntelligence } from '@/hooks/useIntelligence';
-import { useCaseContext } from '@/hooks/useCaseContext';
 import { Spinner, Md } from '@/components/common/ui';
 import { loadBlindSpot, saveBlindSpot } from '@/storage/helpers';
 import { copyToClipboard } from '@/utils';
+import {
+  detectMode,
+  modeLabel,
+  modeIcon,
+  checkReadiness,
+  buildSynthesisPrompt,
+} from './SynthesisEngine.logic';
+import type { SynthesisMode, SynthesisRisk, AllInputs, ReadinessItem } from './SynthesisEngine.logic';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// TYPES
+// LOCAL TYPES  (engine-only — not needed in tests)
 // ─────────────────────────────────────────────────────────────────────────────
-
-type SynthesisMode = 'civil' | 'criminal' | 'appeal';
 
 interface SynthesisResult {
   mode:        SynthesisMode;
@@ -36,232 +41,12 @@ interface SynthesisResult {
   caseId:      string;
 }
 
-interface ReadinessItem {
-  id:     string;
-  label:  string;
-  met:    boolean;
-  engine: string;   // tab id to navigate to
-}
-
-interface AllInputs {
-  riskResult:       RiskResult | null;
-  crossExamData:    unknown;
-  warRoomData:      unknown;
-  argBuilderData:   unknown;
-  prevSynthesis:    SynthesisResult | null;
-  intPkg:           string;
-  appealData:       unknown;
-  criminalDefData:  unknown;
-}
+// SynthesisMode, SynthesisRisk, AllInputs, ReadinessItem — see SynthesisEngine.logic.ts
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CONSTANTS
+// detectMode / modeLabel / modeIcon / checkReadiness / buildSynthesisPrompt
+// imported from SynthesisEngine.logic.ts
 // ─────────────────────────────────────────────────────────────────────────────
-
-function detectMode(activeCase: Case): SynthesisMode {
-  if (activeCase.appeal_data?.package) return 'appeal';
-  if (activeCase.matter_track === 'criminal') return 'criminal';
-  return 'civil';
-}
-
-function modeLabel(mode: SynthesisMode): string {
-  if (mode === 'appeal')   return 'Appeal Master Theory';
-  if (mode === 'criminal') return 'Criminal Master Defence Theory';
-  return 'Civil Master Case Theory';
-}
-
-function modeIcon(mode: SynthesisMode): string {
-  if (mode === 'appeal')   return '↑';
-  if (mode === 'criminal') return '⚖';
-  return '◎';
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// READINESS CHECK
-// ─────────────────────────────────────────────────────────────────────────────
-
-function checkReadiness(
-  mode: SynthesisMode,
-  inputs: AllInputs,
-): ReadinessItem[] {
-  const hasIntPkg      = Boolean(inputs.intPkg && inputs.intPkg.length > 50);
-  const hasRisk        = Boolean(inputs.riskResult);
-  const hasArgBuilder  = Boolean(inputs.argBuilderData);
-  const hasCrimDef     = Boolean(inputs.criminalDefData);
-  const hasAppeal      = Boolean(inputs.appealData);
-
-  if (mode === 'civil') {
-    return [
-      { id: 'intelligence', label: 'Intelligence Package generated',    met: hasIntPkg,     engine: 'intelligence' },
-      { id: 'builder',      label: 'At least one Argument Builder draft', met: hasArgBuilder, engine: 'builder'      },
-      { id: 'risk',         label: 'Risk Analytics result available',   met: hasRisk,       engine: 'risk'         },
-    ];
-  }
-  if (mode === 'criminal') {
-    return [
-      { id: 'criminal',  label: 'Criminal Defence analysis run',          met: hasCrimDef,    engine: 'criminal'     },
-      { id: 'builder',   label: 'At least one Argument Builder draft',    met: hasArgBuilder, engine: 'builder'      },
-      { id: 'risk',      label: 'Risk Analytics result available',        met: hasRisk,       engine: 'risk'         },
-    ];
-  }
-  // appeal
-  return [
-    { id: 'appeal',   label: 'Appeal Engine package completed',        met: hasAppeal,     engine: 'appeal'   },
-    { id: 'builder',  label: 'At least one Argument Builder draft',    met: hasArgBuilder, engine: 'builder'  },
-  ];
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// PROMPT BUILDERS
-// ─────────────────────────────────────────────────────────────────────────────
-
-function buildSynthesisPrompt(
-  mode: SynthesisMode,
-  activeCase: Case,
-  inputs: AllInputs,
-): string {
-  const caseTitle = activeCase.caseName || 'Untitled Matter';
-  const court     = activeCase.court || '';
-  const riskVerdict = inputs.riskResult
-    ? `${inputs.riskResult.verdict} — ${inputs.riskResult.recommendation}`
-    : 'Not available';
-  const riskWarn = inputs.riskResult &&
-    (inputs.riskResult.verdict === 'SETTLE' || inputs.riskResult.verdict === 'WALK_AWAY')
-      ? `⚠ RISK ALERT: Risk Analytics returned "${inputs.riskResult.verdict}". This must be the first thing addressed in The Risk-Adjusted Strategy section — lead with the red flag before any theory.`
-      : '';
-
-  const sharedContext = `
-CASE: ${caseTitle}
-COURT: ${court}
-MATTER TRACK: ${activeCase.matter_track ?? 'civil'}
-COUNSEL ROLE: ${activeCase.counsel_role ?? 'claimant_side'}
-
-INTELLIGENCE PACKAGE:
-${inputs.intPkg || '(not available)'}
-
-RISK ANALYTICS VERDICT: ${riskVerdict}
-${riskWarn}
-
-ARGUMENT BUILDER DRAFTS:
-${inputs.argBuilderData ? JSON.stringify(inputs.argBuilderData, null, 2).slice(0, 4000) : '(not available)'}
-
-CROSS-EXAMINATION DATA:
-${inputs.crossExamData ? JSON.stringify(inputs.crossExamData, null, 2).slice(0, 2000) : '(not available)'}
-
-WAR ROOM DATA:
-${inputs.warRoomData ? JSON.stringify(inputs.warRoomData, null, 2).slice(0, 2000) : '(not available)'}
-`.trim();
-
-  // ─── Civil ───────────────────────────────────────────────────────────────
-
-  if (mode === 'civil') {
-    return `You are a senior Nigerian advocate. You are NOT generating new legal analysis. You are finding the single coherent case theory that reconciles ALL the engine outputs provided below.
-
-CRITICAL INSTRUCTION: Where engines contradict each other (e.g. Risk Analytics says SETTLE but Argument Builder has a strong draft), surface the contradiction EXPLICITLY in the relevant section. Do NOT resolve contradictions silently.
-
-${sharedContext}
-
-Produce the CIVIL MASTER CASE THEORY in exactly these six sections. Use clear headings:
-
-1. THE DECISIVE ISSUE
-What is the single most important factual or legal question this case will turn on? One paragraph. Precise.
-
-2. THE WINNING THEORY OF FACTS
-The narrative of facts that, if believed, guarantees the client wins. Built from the Intelligence Package. Credible, coherent, consistent with every established fact.
-
-3. THE KILLING GROUND
-The witnesses, contradictions, and cross-examination opportunities that will break the opposing case. Draw from CrossExam data and WarRoom intelligence. Identify each by name or label.
-
-4. THE LEGAL FRAMEWORK
-The legal arguments sequenced in order of strength. Drawn from Argument Builder drafts. Each argument linked to the issue it resolves.
-
-5. THE RISK-ADJUSTED STRATEGY
-${riskWarn ? riskWarn + '\n' : ''}Integrate the Risk Analytics verdict into the case theory. Recommended litigation posture (FILE / NEGOTIATE / SETTLE / WALK_AWAY) with the concrete actions that posture requires. If Risk Analytics and Argument Builder are in tension, say so directly.
-
-6. IMMEDIATE ACTIONS
-3–5 concrete actions counsel must take before the next hearing. Specific. Ordered by urgency.
-
-Output only the six sections. No preamble. No disclaimer. Counsel will review.`;
-  }
-
-  // ─── Criminal ────────────────────────────────────────────────────────────
-
-  if (mode === 'criminal') {
-    const crimData = inputs.criminalDefData
-      ? JSON.stringify(inputs.criminalDefData, null, 2).slice(0, 3000)
-      : '(not available)';
-
-    return `You are a senior Nigerian criminal defence advocate. You are NOT generating new legal analysis. You are finding the single coherent defence theory that reconciles ALL the engine outputs provided below.
-
-CRITICAL INSTRUCTION: Where engines contradict each other, surface the contradiction EXPLICITLY. Do NOT resolve contradictions silently.
-
-${sharedContext}
-
-CRIMINAL DEFENCE ANALYSIS:
-${crimData}
-
-Produce the CRIMINAL MASTER DEFENCE THEORY in exactly these six sections:
-
-1. THE CORE DEFENCE
-The single acquittal theory (or minimum sentence strategy if full acquittal is improbable). One paragraph. Definitive. The theory every subsequent action must support.
-
-2. THE PROSECUTION'S WEAKNESSES
-Per-element failure analysis for each count. Which elements of the offence have the prosecution failed or likely to fail to prove beyond reasonable doubt? Precise references to evidence gaps.
-
-3. WITNESS DESTRUCTION PLAN
-Per prosecution witness: their evidence-in-chief summary, identified weakness, and the cross-examination line that exploits it. Drawn from CrossExam data. Named per witness.
-
-4. CONSTITUTIONAL AND PROCEDURAL WEAPONS
-Every arguable procedural violation and available interlocutory application — bail, preliminary objection, no-case submission grounds, ACJA rights breaches, constitutional issues. Each framed as an actionable weapon.
-
-5. RISK ASSESSMENT
-Probability of acquittal per count (HIGH / MEDIUM / LOW). If Risk Analytics returned SETTLE or WALK_AWAY equivalent, say so explicitly and identify which count(s) carry the highest conviction risk.
-
-6. IMMEDIATE ACTIONS
-3–5 concrete actions counsel must take before the next hearing. Ordered by urgency.
-
-Output only the six sections. No preamble. No disclaimer. Counsel will review.`;
-  }
-
-  // ─── Appeal ──────────────────────────────────────────────────────────────
-
-  const appealPkg = activeCase.appeal_data?.package || '(not available)';
-  const appealGrounds = activeCase.appeal_data?.extractedGrounds || '(not available)';
-
-  return `You are a senior Nigerian appellate advocate. You are NOT generating new legal analysis. You are finding the single coherent appeal theory that reconciles ALL the engine outputs provided below.
-
-CRITICAL INSTRUCTION: Where engines contradict each other, surface the contradiction EXPLICITLY. Do NOT resolve contradictions silently.
-
-${sharedContext}
-
-APPEAL PACKAGE:
-${appealPkg.slice(0, 3000)}
-
-EXTRACTED GROUNDS:
-${appealGrounds.slice(0, 2000)}
-
-Produce the APPEAL MASTER THEORY in exactly these six sections:
-
-1. THE GROUND THAT WINS
-The single ground of appeal with the highest probability of success. Why it wins. How it connects to the judgment below. One paragraph. Definitive.
-
-2. THE RECORD ON APPEAL
-Which grounds are fully preserved in the lower court record. Which grounds are abandoned or procedurally vulnerable. Any gaps in the record that must be remedied before filing briefs.
-
-3. THE BRIEF ARCHITECTURE
-How the Argument Builder drafts map to each ground. Sequencing of issues in the Appellant's Brief. Arguments that should lead vs. arguments that support. Flag any ground that lacks a supporting draft.
-
-4. PROCEDURAL CALENDAR
-Filing deadlines in order: Notice of Appeal, compilation of records, Appellant's Brief, service, Respondent's Brief, Reply Brief. Statute-specific timeframes where known.
-
-5. RISK ASSESSMENT
-Pursue / Negotiate / Withdraw recommendation per ground. If Risk Analytics data is available, integrate it. Flag any ground that is procedurally fatal if not remedied immediately.
-
-6. IMMEDIATE ACTIONS
-3–5 concrete actions counsel must take. Ordered by urgency.
-
-Output only the six sections. No preamble. No disclaimer. Counsel will review.`;
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SHARED STYLES
@@ -465,38 +250,60 @@ export function SynthesisEngine({ activeCase, onNavigate }: Props) {
   const caseId = activeCase.id;
   const ai     = useAI(activeCase);
   const mode   = detectMode(activeCase);
-  const { fullContext } = useCaseContext(activeCase, { query: activeCase?.caseName ?? '', engine: 'SynthesisEngine' });
 
-  const [inputs,    setInputs]    = useState<AllInputs | null>(null);
-  const [result,    setResult]    = useState<SynthesisResult | null>(null);
-  const [loading,   setLoading]   = useState(true);
-  const [copied,    setCopied]    = useState(false);
+  // ── Intelligence hook — canonical source for intPkg + fullContext ─────────
+  const { fullContext, raw: intelRaw } = useIntelligence(activeCase);
+
+  const [inputs,     setInputs]     = useState<AllInputs | null>(null);
+  const [result,     setResult]     = useState<SynthesisResult | null>(null);
+  const [loading,    setLoading]    = useState(true);
+  const [copied,     setCopied]     = useState(false);
   const [generating, setGenerating] = useState(false);
 
-  // ── Load all engine data in parallel ────────────────────────────────────
+  // ── Load all engine data in parallel ─────────────────────────────────────
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
 
     Promise.all([
-      loadBlindSpot<RiskResult | null>(caseId, 'risk_result', null),
       loadBlindSpot<unknown>(caseId, 'crossexam', null),
       loadBlindSpot<unknown>(caseId, 'warroom', null),
       loadBlindSpot<unknown>(caseId, 'arg_versions', null),
       loadBlindSpot<SynthesisResult | null>(caseId, 'synthesis', null),
       loadBlindSpot<unknown>(caseId, 'criminal_defence', null),
-    ]).then(([riskResult, crossExamData, warRoomData, argBuilderData, prevSynthesis, criminalDefData]) => {
+    ]).then(([crossExamData, warRoomData, argBuilderData, prevSynthesis, criminalDefData]) => {
       if (cancelled) return;
+
+      // ── Risk: prefer intelligence_data.risk_verdict (Phase 3+); fall back
+      //    to the legacy loadBlindSpot('risk_result') shape via a minimal bridge.
+      //    Both expose .verdict and .recommendation so the prompt works either way.
+      const iv = activeCase.intelligence_data?.risk_verdict ?? null;
+      const riskResult: AllInputs['riskResult'] = iv
+        ? {
+            verdict:              iv.verdict,
+            recommendation:       iv.recommendation,
+            scores:               iv.scores as Record<string, number>,
+            reasoning:            iv.reasoning as Record<string, string>,
+            appellate_narrative:  iv.appellate_narrative,
+            batna_notes:          iv.batna_notes,
+          }
+        : null;
+
+      // ── Authority grounding (Phase 5A) — lives in intelligence_data ──────
+      const ag = activeCase.intelligence_data?.authority_grounding ?? null;
+      const authorityGrounding: AllInputs['authorityGrounding'] = ag ?? null;
+
       setInputs({
-        riskResult:      riskResult as RiskResult | null,
+        riskResult,
         crossExamData,
         warRoomData,
         argBuilderData,
-        prevSynthesis:   prevSynthesis as SynthesisResult | null,
-        intPkg:          activeCase.intelligence_data?.intPkg ?? '',
-        appealData:      activeCase.appeal_data ?? null,
+        prevSynthesis:    prevSynthesis as SynthesisResult | null,
+        intPkg:           intelRaw.intPkg ?? '',
+        appealData:       activeCase.appeal_data ?? null,
         criminalDefData,
+        authorityGrounding,
       });
       setResult(prevSynthesis as SynthesisResult | null);
       setLoading(false);
@@ -505,7 +312,7 @@ export function SynthesisEngine({ activeCase, onNavigate }: Props) {
     });
 
     return () => { cancelled = true; };
-  }, [caseId, activeCase]);
+  }, [caseId, activeCase, intelRaw]);
 
   // ── Generate ─────────────────────────────────────────────────────────────
 
@@ -673,7 +480,8 @@ export function SynthesisEngine({ activeCase, onNavigate }: Props) {
           }}>
             {[
               { label: 'Intelligence Package', available: Boolean(inputs.intPkg) },
-              { label: 'Risk Analytics',        available: Boolean(inputs.riskResult) },
+              { label: 'Risk Verdict',          available: Boolean(inputs.riskResult) },
+              { label: 'Authority Grounding',   available: Boolean(inputs.authorityGrounding) },
               { label: 'Cross-Examination',     available: Boolean(inputs.crossExamData) },
               { label: 'War Room',              available: Boolean(inputs.warRoomData) },
               { label: 'Argument Builder',      available: Boolean(inputs.argBuilderData) },
