@@ -22,6 +22,7 @@ import { callClaude } from '@/services/api';
 import { Spinner, ErrorBlock, RoleBadge, Md } from '@/components/common/ui';
 import { copyToClipboard } from '@/utils';
 import { getPartyLabels } from '@/utils/getPartyLabels';
+import { db } from '@/storage/db';
 
 // ── Step definitions ───────────────────────────────────────────────────────────
 
@@ -30,7 +31,7 @@ const TIE_STEPS = [
   { id: 2, label: 'Extraction + Audit' },
   { id: 3, label: 'Follow-Up' },
   { id: 4, label: 'Evidence Map' },
-  { id: 5, label: 'Package' },
+  { id: 5, label: 'Package + Risk' },
 ];
 
 // ── Severity colours ──────────────────────────────────────────────────────────
@@ -80,6 +81,63 @@ interface CommencementAuditResult {
   summary:            string;
 }
 
+// ── Step 4b — Conflict Scan types ─────────────────────────────────────────────
+
+interface ConflictHit {
+  case_id:  string;
+  case_ref: string;
+  overlap:  string;
+}
+
+interface ConflictScanResult {
+  run_at:    string;
+  clear:     boolean;
+  conflicts: ConflictHit[];
+  summary:   string;
+}
+
+// ── Step 5b — Risk Verdict types ─────────────────────────────────────────────
+
+type RiskVerdict = 'FILE' | 'NEGOTIATE' | 'SETTLE' | 'WALK_AWAY';
+
+interface RiskDimensionScores {
+  procedural:              number;
+  evidential:              number;
+  witness_vulnerability:   number;
+  jurisdictional_risk:     number;
+  burden_satisfaction:     number;
+  settlement_advisability: number;
+  /** Includes merged appellate vulnerabilities narrative */
+  appeal_survivability:    number;
+  opponent_threat:         number;
+}
+
+interface RiskDimensionReasoning {
+  procedural:              string;
+  evidential:              string;
+  witness_vulnerability:   string;
+  jurisdictional_risk:     string;
+  burden_satisfaction:     string;
+  settlement_advisability: string;
+  appeal_survivability:    string;
+  opponent_threat:         string;
+}
+
+interface RiskVerdictResult {
+  run_at:               string;
+  scores:               RiskDimensionScores;
+  reasoning:            RiskDimensionReasoning;
+  recommendation:       string;
+  verdict:              RiskVerdict;
+  /**
+   * Full structured appellate vulnerability narrative (3B).
+   * Per-issue: issue → ground → survivability → preservation action.
+   * Merged into appeal_survivability rather than scored separately.
+   */
+  appellate_narrative?: string;
+  batna_notes?:         string;
+}
+
 interface TIEData {
   stage:               number;
   rawFacts:            string;
@@ -90,6 +148,10 @@ interface TIEData {
   intPkg:              string;
   /** Step 2b — Commencement Audit. Auto-populated after extraction. */
   commencement_audit?: CommencementAuditResult;
+  /** Step 4b — Conflict Scan. Run on-demand from Stage 4/5. */
+  conflict_scan?:      ConflictScanResult;
+  /** Step 5b — Risk Verdict. Auto-populated after package generation. */
+  risk_verdict?:       RiskVerdictResult;
 }
 
 interface Props {
@@ -129,6 +191,17 @@ export function IntelligenceEngine({ activeCase, onSave }: Props) {
   const [auditLoading,       setAuditLoading]       = useState(false);
   const [auditError,         setAuditError]         = useState('');
 
+  // Step 4b — Conflict Scan
+  const [conflictScan,       setConflictScan]       = useState<ConflictScanResult | undefined>(saved.conflict_scan);
+  const [conflictLoading,    setConflictLoading]    = useState(false);
+  const [conflictError,      setConflictError]      = useState('');
+
+  // Step 5b — Risk Verdict
+  const [riskVerdict,        setRiskVerdict]        = useState<RiskVerdictResult | undefined>(saved.risk_verdict);
+  const [riskLoading,        setRiskLoading]        = useState(false);
+  const [riskError,          setRiskError]          = useState('');
+  const [riskAnimated,       setRiskAnimated]       = useState(false);
+
   const [loading,    setLoading]    = useState(false);
   const [error,      setError]      = useState('');
   const [copied,     setCopied]     = useState(false);
@@ -151,6 +224,8 @@ ${partyBPlural}: ${activeCase.defendants.map(d => d.name).filter(Boolean).join('
     const data: TIEData = {
       stage, rawFacts, extraction, followUpQs, followUpAs, evidenceM, intPkg,
       commencement_audit: commencementAudit,
+      conflict_scan:      conflictScan,
+      risk_verdict:       riskVerdict,
       ...updates,
     };
     onSave(data);
@@ -521,6 +596,8 @@ Rules:
       });
       setIntPkg(pkg);
       advance(5, { intPkg: pkg });
+      // Step 5b — auto-run risk verdict off the completed package
+      runRiskVerdict(pkg);
     } catch (e) {
       setError('Package generation failed: ' + ((e as Error).message || 'Please try again.'));
     } finally { setLoading(false); }
@@ -537,7 +614,9 @@ Rules:
     setStage(1); setRawFacts(''); setExtraction(null); setFollowUpQs([]);
     setFollowUpAs({}); setEvidenceM(null); setIntPkg(''); setError('');
     setCommencementAudit(undefined); setAuditError('');
-    onSave({ stage: 1, rawFacts: '', extraction: null, followUpQs: [], followUpAs: {}, evidenceM: null, intPkg: '', commencement_audit: undefined });
+    setConflictScan(undefined); setConflictError('');
+    setRiskVerdict(undefined); setRiskError(''); setRiskAnimated(false);
+    onSave({ stage: 1, rawFacts: '', extraction: null, followUpQs: [], followUpAs: {}, evidenceM: null, intPkg: '', commencement_audit: undefined, conflict_scan: undefined, risk_verdict: undefined });
   }
 
   // ── Step progress bar ──────────────────────────────────────────────────────
@@ -958,6 +1037,10 @@ Rules:
         })}
 
         <ErrorBlock message={error} />
+
+        {/* Step 4b — Conflict Scan (run before generating the package) */}
+        <ConflictScanPanel />
+
         <div style={{ display: 'flex', gap: 10 }}>
           <button onClick={() => goBack(3)} style={{ background: 'transparent', border: '1px solid #cccccc', color: T.mute, borderRadius: 5, padding: '12px 20px', fontSize: 13, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer' }}>
             ← Back
@@ -970,6 +1053,355 @@ Rules:
         </div>
       </div>
     );
+  }
+
+  // ── Step 4b: Conflict Scan ─────────────────────────────────────────────────
+  //
+  // 4Ai  — query db.cases for party-name + subject-matter overlap
+  // 4Aii — normalise + compare; produce candidate hit list
+  // 4Aiii — AI assesses each hit; builds red/green output + conflict list
+  //
+  // Run on-demand from Stage 4 or Stage 5 (button). Non-blocking.
+  // Persists to intelligence_data.conflict_scan.
+
+  /** Normalise a party name for fuzzy matching — lowercase, strip Ltd/Inc/& punctuation */
+  function normaliseName(raw: string): string {
+    return raw
+      .toLowerCase()
+      .replace(/\b(limited|ltd|plc|inc|llc|lp|and|&|nig|nigeria|enterprises?|company|co\.?)\b/gi, '')
+      .replace(/[^a-z0-9\s]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  /** Return true if two normalised names share a meaningful token (≥4 chars) */
+  function namesOverlap(a: string, b: string): boolean {
+    if (!a || !b) return false;
+    const tokA = new Set(a.split(' ').filter(t => t.length >= 4));
+    const tokB = new Set(b.split(' ').filter(t => t.length >= 4));
+    for (const t of tokA) { if (tokB.has(t)) return true; }
+    return false;
+  }
+
+  async function runConflictScan() {
+    setConflictLoading(true);
+    setConflictError('');
+
+    try {
+      // ── 4Ai: Query the cases table ──────────────────────────────────────
+      const allCases = await db.cases.toArray();
+      const otherCases = allCases.filter(c => c.id !== activeCase.id);
+
+      // Collect current case's party names (normalised)
+      const currentParties = [
+        ...activeCase.claimants.map(p => p.name),
+        ...activeCase.defendants.map(p => p.name),
+      ].filter(Boolean);
+      const currentNorm = currentParties.map(normaliseName);
+
+      // Current case subject tokens (caseName + suitNo fragments)
+      const currentSubject = normaliseName(
+        `${activeCase.caseName ?? ''} ${activeCase.suitNo ?? ''}`
+      );
+
+      // ── 4Aii: Comparison logic — detect overlap ─────────────────────────
+      interface Candidate {
+        case_id:  string;
+        case_ref: string;
+        overlaps: string[];
+      }
+      const candidates: Candidate[] = [];
+
+      for (const c of otherCases) {
+        const overlaps: string[] = [];
+
+        // Party name overlap
+        const otherParties = [
+          ...(c.claimants ?? []).map((p: { name: string }) => p.name),
+          ...(c.defendants ?? []).map((p: { name: string }) => p.name),
+        ].filter(Boolean);
+
+        for (const op of otherParties) {
+          const opNorm = normaliseName(op);
+          for (const cn of currentNorm) {
+            if (namesOverlap(cn, opNorm)) {
+              overlaps.push(`Party name match: "${op}" (in ${c.caseName || c.id})`);
+              break;
+            }
+          }
+        }
+
+        // Subject matter overlap — caseName tokens
+        const otherSubject = normaliseName(`${c.caseName ?? ''} ${c.suitNo ?? ''}`);
+        if (currentSubject && otherSubject && namesOverlap(currentSubject, otherSubject)) {
+          overlaps.push(`Subject matter similarity: "${c.caseName || c.id}"`);
+        }
+
+        if (overlaps.length > 0) {
+          candidates.push({
+            case_id:  c.id,
+            case_ref: c.caseName || c.suitNo || c.id,
+            overlaps,
+          });
+        }
+      }
+
+      // ── 4Aiii: Build red/green output ──────────────────────────────────
+      let result: ConflictScanResult;
+
+      if (candidates.length === 0) {
+        // No raw overlap — clear without an AI call
+        result = {
+          run_at:    new Date().toISOString(),
+          clear:     true,
+          conflicts: [],
+          summary:   `No party or subject-matter overlap detected across ${otherCases.length} case${otherCases.length !== 1 ? 's' : ''} in the database.`,
+        };
+      } else {
+        // AI assesses each candidate hit for true professional conflict
+        const conflictCtx = candidates.map((cand, i) =>
+          `[${i + 1}] Case: "${cand.case_ref}" (ID: ${cand.case_id})\nOverlap signals: ${cand.overlaps.join('; ')}`
+        ).join('\n\n');
+
+        const aiResult = await callClaude({
+          system: `You are a Nigerian bar ethics adviser specialising in conflict of interest under the Rules of Professional Conduct for Legal Practitioners 2007. Assess each candidate case for a genuine professional conflict of interest. Return ONLY valid JSON — no markdown fences, no preamble.`,
+          userMsg: `CURRENT CASE:\nName: ${activeCase.caseName || 'Untitled'}\nCourt: ${activeCase.court || 'Not specified'}\nCounsel role: ${activeCase.counsel_role || 'unspecified'}\nClaimants: ${activeCase.claimants.map(p => p.name).filter(Boolean).join(', ') || 'Not named'}\nDefendants: ${activeCase.defendants.map(p => p.name).filter(Boolean).join(', ') || 'Not named'}\n\nCANDIDATE OVERLAP CASES:\n${conflictCtx}\n\nFor each candidate, assess: does the overlap constitute a genuine professional conflict or adverse-interest risk under Nigerian bar rules? Consider: same parties on opposing sides, prior representation, substantially related subject matter, confidential information risk.\n\nReturn exactly:\n{\n  "conflicts": [\n    {"case_id":"...","case_ref":"...","overlap":"one sentence describing the specific conflict risk","flag":true}\n  ],\n  "clear_ids": ["case_id_1","case_id_2"],\n  "summary": "One sentence — e.g. '2 conflict flags across 8 cases: see Acme Ltd v Doe and XYZ v ABC.' or 'No genuine conflict risks identified across N overlap candidates.'"\n}\n\nRules:\n- Include in "conflicts" ONLY cases with genuine flag:true conflict risk. Superficial name similarity with no ethical risk should go in clear_ids.\n- clear_ids = candidate IDs you assessed as NOT a true conflict.\n- summary must be a single sentence suitable for Case Command display.`,
+          maxTokens: 800,
+          skipLibrary: true,
+        });
+
+        const clean = aiResult
+          .replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+        const start = clean.indexOf('{');
+        const end   = clean.lastIndexOf('}');
+        const parsed = JSON.parse(clean.slice(start, end + 1)) as {
+          conflicts: Array<{ case_id: string; case_ref: string; overlap: string }>;
+          summary:   string;
+        };
+
+        result = {
+          run_at:    new Date().toISOString(),
+          clear:     parsed.conflicts.length === 0,
+          conflicts: parsed.conflicts.map(c => ({
+            case_id:  c.case_id,
+            case_ref: c.case_ref,
+            overlap:  c.overlap,
+          })),
+          summary: parsed.summary ?? (
+            parsed.conflicts.length === 0
+              ? 'No genuine conflict risks identified.'
+              : `${parsed.conflicts.length} conflict flag${parsed.conflicts.length > 1 ? 's' : ''} identified.`
+          ),
+        };
+      }
+
+      setConflictScan(result);
+      onSave({
+        stage, rawFacts, extraction, followUpQs, followUpAs, evidenceM, intPkg,
+        commencement_audit: commencementAudit, conflict_scan: result, risk_verdict: riskVerdict,
+      });
+
+    } catch (e) {
+      setConflictError('Conflict scan failed: ' + ((e as Error).message || 'Please try again.'));
+    } finally {
+      setConflictLoading(false);
+    }
+  }
+
+  // ── Step 4b: Conflict Scan panel (rendered in Stage4 and Stage5) ──────────
+
+  function ConflictScanPanel() {
+    const hasScan = Boolean(conflictScan);
+    const hasParties = (
+      activeCase.claimants.some(p => p.name.trim()) ||
+      activeCase.defendants.some(p => p.name.trim())
+    );
+
+    return (
+      <div style={{
+        background: '#0a0a14',
+        border: `1px solid ${conflictScan ? (conflictScan.clear ? '#1a4028' : '#401818') : '#181828'}`,
+        borderLeft: `3px solid ${conflictScan ? (conflictScan.clear ? '#40b068' : '#c04040') : '#2a2a40'}`,
+        borderRadius: 8, padding: '16px 20px', marginBottom: 14,
+        animation: 'fadeUp .3s ease',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: conflictLoading ? 0 : (hasScan ? 12 : 0), flexWrap: 'wrap' }}>
+          <p style={{ fontSize: 9, color: '#6a6a8a', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 600, flex: 1 }}>
+            Step 4b · Conflict Scan
+          </p>
+
+          {conflictLoading && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+              <div style={{ width: 12, height: 12, border: '2px solid #1e1e2e', borderTop: '2px solid #c4a030', borderRadius: '50%', animation: 'spin .8s linear infinite' }} />
+              <span style={{ fontSize: 10, color: T.mute, fontFamily: "'Times New Roman', Times, serif" }}>Scanning {activeCase.caseName}…</span>
+            </div>
+          )}
+
+          {!conflictLoading && conflictScan && (
+            <span style={{
+              fontSize: 8, fontFamily: "'Times New Roman', Times, serif", fontWeight: 700,
+              letterSpacing: '.12em', padding: '2px 8px', borderRadius: 2,
+              background: conflictScan.clear ? '#071810' : '#1a0808',
+              border:     `1px solid ${conflictScan.clear ? '#1a4028' : '#401818'}`,
+              color:      conflictScan.clear ? '#40b068' : '#c04040',
+            }}>
+              {conflictScan.clear ? '✓ CLEAR' : `⚠ ${conflictScan.conflicts.length} FLAG${conflictScan.conflicts.length > 1 ? 'S' : ''}`}
+            </span>
+          )}
+
+          {!conflictLoading && (
+            <button
+              onClick={runConflictScan}
+              disabled={!hasParties}
+              title={!hasParties ? 'Add parties to the case before running a conflict scan' : ''}
+              style={{
+                background: 'transparent',
+                border: '1px solid #2a2208',
+                color: hasParties ? '#8a7840' : '#3a3a3a',
+                borderRadius: 4, padding: '4px 12px',
+                fontSize: 9, fontFamily: "'Times New Roman', Times, serif",
+                cursor: hasParties ? 'pointer' : 'not-allowed',
+                letterSpacing: '.04em',
+              }}>
+              {hasScan ? '⟳ Re-scan' : '⚠ Run Conflict Scan'}
+            </button>
+          )}
+        </div>
+
+        {conflictError && !conflictLoading && (
+          <p style={{ fontSize: 11, color: '#c05050', fontFamily: "'Times New Roman', Times, serif", margin: '8px 0 0' }}>
+            {conflictError}
+          </p>
+        )}
+
+        {!conflictLoading && conflictScan && (
+          <div>
+            <p style={{ fontSize: 13, color: conflictScan.clear ? '#40b068' : '#c07050', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.65, marginBottom: conflictScan.conflicts.length > 0 ? 12 : 0 }}>
+              {conflictScan.summary}
+            </p>
+
+            {conflictScan.conflicts.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {conflictScan.conflicts.map(hit => (
+                  <div key={hit.case_id} style={{
+                    background: '#1a0808', border: '1px solid #401818',
+                    borderRadius: 6, padding: '10px 14px',
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                      <span style={{ fontSize: 9, color: '#c04040', fontFamily: "'Times New Roman', Times, serif", fontWeight: 700, letterSpacing: '.1em' }}>⚑ CONFLICT</span>
+                      <span style={{ fontSize: 11, color: '#d0c8c0', fontFamily: "'Times New Roman', Times, serif", fontWeight: 600 }}>{hit.case_ref}</span>
+                    </div>
+                    <p style={{ fontSize: 12, color: '#9a7070', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.6, margin: 0 }}>
+                      {hit.overlap}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <p style={{ fontSize: 9, color: '#2a2a38', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.06em', marginTop: 10 }}>
+              Scanned {new Date(conflictScan.run_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })} · Saved to intelligence_data.conflict_scan
+            </p>
+          </div>
+        )}
+
+        {!conflictLoading && !conflictScan && !conflictError && (
+          <p style={{ fontSize: 11, color: '#3a3a52', fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic', marginTop: 6 }}>
+            {hasParties
+              ? 'Checks all cases in this device\'s database for party-name and subject-matter overlap. Run before proceeding to the Intelligence Package.'
+              : 'Add party names to the case file before running a conflict scan.'}
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  // ── Step 5b constants ──────────────────────────────────────────────────────
+
+  const RISK_DIMENSIONS: Array<{ id: keyof RiskDimensionScores; label: string; icon: string; invert?: boolean }> = [
+    { id: 'procedural',              label: 'Procedural Strength',      icon: '⚙' },
+    { id: 'evidential',              label: 'Evidential Strength',      icon: '📁' },
+    { id: 'witness_vulnerability',   label: 'Witness Vulnerability',    icon: '👁',  invert: true },
+    { id: 'jurisdictional_risk',     label: 'Jurisdictional Risk',      icon: '⚖',  invert: true },
+    { id: 'burden_satisfaction',     label: 'Burden Satisfaction',      icon: '⚔' },
+    { id: 'settlement_advisability', label: 'Settlement Advisability',  icon: '🤝' },
+    { id: 'appeal_survivability',    label: 'Appeal Survivability',     icon: '↑' },
+    { id: 'opponent_threat',         label: 'Opponent Threat Level',    icon: '⚡', invert: true },
+  ];
+
+  const RISK_VERDICT_CONFIG: Record<RiskVerdict, { color: string; label: string }> = {
+    FILE:      { color: '#40a868', label: 'FILE' },
+    NEGOTIATE: { color: '#c4a030', label: 'NEGOTIATE' },
+    SETTLE:    { color: '#c07830', label: 'SETTLE' },
+    WALK_AWAY: { color: '#c04040', label: 'WALK AWAY' },
+  };
+
+  const RISK_SYSTEM_PROMPT = `You are a senior Nigerian litigation risk analyst with 30 years of courtroom experience across the Magistrate Court, High Court, Court of Appeal, and Supreme Court. Analyse the Intelligence Package provided and return ONLY valid JSON — no markdown fences, no preamble, no trailing text. Use this exact shape:
+
+{"scores":{"procedural":N,"evidential":N,"witness_vulnerability":N,"jurisdictional_risk":N,"burden_satisfaction":N,"settlement_advisability":N,"appeal_survivability":N,"opponent_threat":N},"reasoning":{"procedural":"one precise line","evidential":"one precise line","witness_vulnerability":"one precise line","jurisdictional_risk":"one precise line","burden_satisfaction":"one precise line","settlement_advisability":"one precise line","appeal_survivability":"one line summarising aggregate appellate survivability across all identified grounds","opponent_threat":"one precise line"},"recommendation":"two to three sentence strategic recommendation for Nigerian litigation counsel","verdict":"FILE","appellate_narrative":"FULL STRUCTURED NARRATIVE HERE — see format below"}
+
+appellate_narrative format (plain text inside the JSON string, use \\n for line breaks):
+For each live appellate issue, follow this structure:
+ISSUE [N]: [Issue title]
+Ground: [The ground of appeal it generates under Nigerian appellate procedure]
+Survivability: [High / Medium / Low at the Court of Appeal — with brief reason]
+Preserve now: [Specific action counsel must take to preserve this point on the record]
+
+Cover ALL of: errors of law, wrongly admitted/excluded evidence, jurisdictional points, constitutional issues, procedural violations that affect the record.
+
+Rules:
+- All N values are integers 0–100.
+- verdict must be exactly one of: FILE, NEGOTIATE, SETTLE, WALK_AWAY.
+- Higher score = stronger practitioner position for: procedural, evidential, burden_satisfaction, settlement_advisability, appeal_survivability.
+- Higher score = WORSE (higher risk) for: witness_vulnerability, jurisdictional_risk, opponent_threat.
+- appeal_survivability score must reflect the aggregate survivability across all issues in appellate_narrative.
+- Do NOT score appellate issues separately — they are merged into appeal_survivability only.
+- Apply Nigerian procedural law, Evidence Act 2011, and specific court norms throughout.
+- Be analytically honest — do not default to optimistic scores.
+- Every string value must be properly JSON-escaped. Use \\n for newlines inside appellate_narrative.`;
+
+  function riskScoreColor(n: number, invert = false): string {
+    const adjusted = invert ? (100 - n) : n;
+    if (adjusted < 40) return '#c04040';
+    if (adjusted < 70) return '#c4a030';
+    return '#40a868';
+  }
+
+  function riskOverallScore(scores: RiskDimensionScores): number {
+    const positive: (keyof RiskDimensionScores)[] = ['procedural', 'evidential', 'burden_satisfaction', 'settlement_advisability', 'appeal_survivability'];
+    const negative: (keyof RiskDimensionScores)[] = ['witness_vulnerability', 'jurisdictional_risk', 'opponent_threat'];
+    const posSum = positive.reduce((a, k) => a + scores[k], 0) / positive.length;
+    const negSum = negative.reduce((a, k) => a + (100 - scores[k]), 0) / negative.length;
+    return Math.round((posSum + negSum) / 2);
+  }
+
+  // ── Step 5b: Run Risk Verdict (auto-called after package generation) ───────
+  async function runRiskVerdict(pkg: string) {
+    setRiskLoading(true);
+    setRiskError('');
+    try {
+      const raw = await callClaude({
+        system: RISK_SYSTEM_PROMPT,
+        userMsg: `${caseCtx}\n\nINTELLIGENCE PACKAGE:\n${pkg}`,
+        maxTokens: 2000,
+        skipLibrary: true,
+      });
+      const clean  = raw.replace(/^```json\s*/, '').replace(/```\s*$/, '').trim();
+      const parsed = JSON.parse(clean) as Omit<RiskVerdictResult, 'run_at'>;
+      const result: RiskVerdictResult = { ...parsed, run_at: new Date().toISOString() };
+      setRiskVerdict(result);
+      setRiskAnimated(false);
+      setTimeout(() => setRiskAnimated(true), 100);
+      // Persist — use advance-style direct call so we include the latest intPkg
+      onSave({
+        stage: 5, rawFacts, extraction, followUpQs, followUpAs, evidenceM,
+        intPkg: pkg, commencement_audit: commencementAudit, risk_verdict: result,
+      });
+    } catch (e) {
+      setRiskError((e as Error).message || 'Risk verdict failed. Please try again.');
+    } finally {
+      setRiskLoading(false);
+    }
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -1021,6 +1453,130 @@ Rules:
             <Md text={intPkg} />
           </div>
         )}
+
+        {/* ── Step 4b — Conflict Scan (also accessible from Stage 5) ──── */}
+        <div style={{ marginTop: 20 }}>
+          <ConflictScanPanel />
+        </div>
+
+        {/* ── Step 5b — Risk Verdict ──────────────────────────────────── */}
+        <div style={{ marginTop: 20, background: '#0a0a14', border: '1px solid #181828', borderRadius: 10, padding: '22px 24px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
+            <div>
+              <p style={{ fontSize: 9, color: '#5a5a72', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.16em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 4 }}>
+                Step 5b · Risk Verdict
+              </p>
+              <p style={{ fontSize: 17, color: '#c8c4b8', fontFamily: "'Times New Roman', Times, serif", fontWeight: 400 }}>
+                Strategic Risk Scoring
+              </p>
+            </div>
+            {riskVerdict && !riskLoading && (
+              <button
+                onClick={() => runRiskVerdict(intPkg)}
+                style={{ background: 'transparent', border: '1px solid #2a2208', color: '#5a5a40', borderRadius: 4, padding: '6px 14px', fontSize: 10, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', letterSpacing: '.04em' }}>
+                ⟳ Re-run
+              </button>
+            )}
+          </div>
+
+          {riskLoading && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '18px 0' }}>
+              <div style={{ width: 16, height: 16, border: '2px solid #1e1e2e', borderTop: '2px solid #c4a030', borderRadius: '50%', animation: 'spin .8s linear infinite', flexShrink: 0 }} />
+              <p style={{ fontSize: 13, color: '#5a5a72', fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic' }}>
+                Running 8-dimension risk analysis…
+              </p>
+            </div>
+          )}
+
+          {riskError && !riskLoading && (
+            <div style={{ background: '#180808', border: '1px solid #4a1818', borderRadius: 6, padding: '10px 14px', marginBottom: 12 }}>
+              <p style={{ fontSize: 12, color: '#c05050', fontFamily: "'Times New Roman', Times, serif", margin: 0 }}>{riskError}</p>
+              <button
+                onClick={() => runRiskVerdict(intPkg)}
+                style={{ marginTop: 8, background: 'transparent', border: '1px solid #4a1818', color: '#c05050', borderRadius: 4, padding: '4px 12px', fontSize: 10, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer' }}>
+                Retry
+              </button>
+            </div>
+          )}
+
+          {!riskLoading && !riskVerdict && !riskError && (
+            <p style={{ fontSize: 12, color: '#3a3a52', fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic' }}>
+              Risk verdict will auto-run when the Intelligence Package is generated.
+            </p>
+          )}
+
+          {riskVerdict && !riskLoading && (() => {
+            const overall = riskOverallScore(riskVerdict.scores);
+            const vc = RISK_VERDICT_CONFIG[riskVerdict.verdict];
+            return (
+              <div style={{ animation: 'fadeUp .3s ease' }}>
+                {/* Verdict + overall score bar */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 18, padding: '14px 18px', background: '#ffffff', border: `1px solid ${vc.color}33`, borderRadius: 8, flexWrap: 'wrap' }}>
+                  <div style={{ flex: 1 }}>
+                    <p style={{ fontSize: 9, color: '#5a5a72', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', marginBottom: 6 }}>Strategic Verdict</p>
+                    <div style={{ display: 'inline-block', background: `${vc.color}18`, border: `1px solid ${vc.color}55`, borderRadius: 4, padding: '5px 18px', marginBottom: 10 }}>
+                      <span style={{ fontSize: 13, color: vc.color, fontFamily: "'Times New Roman', Times, serif", fontWeight: 700, letterSpacing: '.14em', textTransform: 'uppercase' }}>{vc.label}</span>
+                    </div>
+                    <p style={{ fontSize: 13, color: '#8a8676', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.75, maxWidth: 520 }}>
+                      {riskVerdict.recommendation}
+                    </p>
+                  </div>
+                  <div style={{ textAlign: 'center', flexShrink: 0 }}>
+                    <p style={{ fontSize: 9, color: '#5a5a72', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 4 }}>Overall</p>
+                    <span style={{ fontSize: 40, color: riskScoreColor(overall), fontFamily: "'Times New Roman', Times, serif", fontWeight: 300, lineHeight: 1 }}>{overall}</span>
+                  </div>
+                </div>
+
+                {/* 8-dimension score cards */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 8, marginBottom: 12 }}>
+                  {RISK_DIMENSIONS.map(dim => {
+                    const score  = riskVerdict.scores[dim.id];
+                    const color  = riskScoreColor(score, dim.invert);
+                    const reason = riskVerdict.reasoning[dim.id];
+                    return (
+                      <div key={dim.id} style={{ background: '#07070f', border: '1px solid #141424', borderRadius: 7, padding: '14px 16px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                            <span style={{ fontSize: 12, opacity: .65 }}>{dim.icon}</span>
+                            <p style={{ fontSize: 9, color: '#8a8a9a', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.07em', textTransform: 'uppercase', fontWeight: 600 }}>{dim.label}</p>
+                          </div>
+                          <span style={{ fontSize: 26, color, fontFamily: "'Times New Roman', Times, serif", fontWeight: 300, lineHeight: 1 }}>{score}</span>
+                        </div>
+                        <div style={{ background: '#ffffff', borderRadius: 3, height: 4, marginBottom: 8, overflow: 'hidden' }}>
+                          <div style={{ height: '100%', width: riskAnimated ? `${score}%` : '0%', background: color, borderRadius: 3, transition: 'width .9s cubic-bezier(.25,.46,.45,.94)' }} />
+                        </div>
+                        {dim.invert && <p style={{ fontSize: 8, color: '#3a3a52', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.06em', textTransform: 'uppercase', marginBottom: 4 }}>↑ higher = more risk</p>}
+                        {reason && <p style={{ fontSize: 11, color: '#5a5650', fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic', lineHeight: 1.55, margin: 0 }}>{reason}</p>}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <p style={{ fontSize: 9, color: '#2a2a38', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.08em', textAlign: 'right' }}>
+                  Scored {new Date(riskVerdict.run_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })} · Saved to intelligence_data.risk_verdict
+                </p>
+
+                {/* Appellate vulnerability narrative (3B) */}
+                {riskVerdict.appellate_narrative && (
+                  <div style={{ marginTop: 16, background: '#06060e', border: '1px solid #1a1a30', borderRadius: 8, padding: '18px 20px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, paddingBottom: 12, borderBottom: '1px solid #121220' }}>
+                      <span style={{ fontSize: 13, opacity: .7 }}>↑</span>
+                      <p style={{ fontSize: 9, color: '#6a6a8a', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 600 }}>
+                        Appellate Vulnerability Analysis
+                      </p>
+                      <span style={{ marginLeft: 'auto', fontSize: 9, color: '#2a2a3e', fontFamily: "'Times New Roman', Times, serif" }}>
+                        Merged into appeal_survivability · score {riskVerdict.scores.appeal_survivability}/100
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 13, color: '#8a8676', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.85, whiteSpace: 'pre-wrap' }}>
+                      {riskVerdict.appellate_narrative}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+        </div>
 
         <ErrorBlock message={error} />
         <p style={{ fontSize: 11, color: '#1e1e2a', textAlign: 'center', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.8, marginTop: 16 }}>

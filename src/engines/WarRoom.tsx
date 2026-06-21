@@ -3,12 +3,14 @@
  *
  * The strategic cockpit. Aggregates every module into one operational view:
  * Case Theory Map · Strategic Posture · Witness Command Map · Evidence Coverage
- * Contradictions · Risk Alerts · Appellate Vulnerabilities · Opponent Strategy
- * Hearing Readiness · Judicial Notes
+ * Contradictions · Risk Alerts · Opponent Strategy · Hearing Readiness · Judicial Notes
+ *
+ * Phase 3D: Appellate Vulnerabilities panel removed — logic merged into
+ * Intelligence Engine Step 5b (intelligence_data.risk_verdict.appellate_narrative).
  *
  * All data is read from IndexedDB and localStorage (mirroring the original
  * app.html implementation). No data is entered here — each panel deep-links
- * to its source module. AI panels (Theory, Appellate, Opponent) persist their
+ * to its source module. AI panels (Theory, Opponent) persist their
  * output to localStorage keyed by caseId.
  *
  * Props:
@@ -114,7 +116,6 @@ const PANELS = [
   { id: 'evidence',      icon: '📁', label: 'Evidence Coverage'      },
   { id: 'contradictions',icon: '⚔', label: 'Contradictions'         },
   { id: 'risks',         icon: '■', label: 'Risk Alerts'            },
-  { id: 'appellate',     icon: '↑', label: 'Appellate Vulnerabilities'},
   { id: 'opponent',      icon: '◈', label: 'Opponent Strategy'      },
   { id: 'hearing',       icon: '⚖', label: 'Hearing Readiness'      },
   { id: 'judicial',      icon: '§', label: 'Judicial Notes'         },
@@ -237,7 +238,6 @@ export function WarRoom({ activeCase }: Props) {
   // ── AI panel state (persisted to localStorage) ────────────────────────────
   const [caseTheory,    setCaseTheory]    = useState<string>(() => readLS(`afs_wr_theory_${caseId}`,   ''));
   const [oppStrategy,   setOppStrategy]   = useState<string>(() => readLS(`afs_wr_opp_${caseId}`,     ''));
-  const [appellateVuln, setAppellateVuln] = useState<string>(() => readLS(`afs_wr_appvuln_${caseId}`, ''));
   const [judicialLog,   setJudicialLog]   = useState<JudicialNote[]>(() => readLS(`afs_wr_judicial_${caseId}`, []));
   const [judicialNote,  setJudicialNote]  = useState('');
 
@@ -639,35 +639,6 @@ export function WarRoom({ activeCase }: Props) {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // PANEL: APPELLATE VULNERABILITIES
-  // ─────────────────────────────────────────────────────────────────────────
-
-  function renderAppellate() {
-    return (
-      <PanelWrap
-        title="Appellate Vulnerability Tracker" icon="↑"
-        onGenerate={() => aiGenerate(
-          'appvuln',
-          roleSystem + fullContext,
-          `Identify every live appellate issue in this case from the perspective of the counsel role.\n\nFor each appellate issue:\n(1) The issue\n(2) The ground of appeal it generates\n(3) Survivability rating at the Court of Appeal (High/Medium/Low)\n(4) What must be done NOW to preserve the point\n\nCover: errors of law, wrongly admitted/excluded evidence, jurisdictional points, constitutional issues, procedural violations.\n\nCASE CONTEXT:\n${ctx}\n\nAppeal data: ${JSON.stringify(appeal, null, 2)}\n\nIdentify all appellate vulnerabilities from this counsel's position.`,
-          setAppellateVuln,
-          `afs_wr_appvuln_${caseId}`,
-        )}
-        genKey="appvuln" genLabel="⟳ Generate Appellate Analysis" loading={loading['appvuln']}
-      >
-        {errors['appvuln'] && <p style={{ fontSize: 12, color: '#c05050', fontFamily: "'Times New Roman', Times, serif", marginBottom: 10 }}>{errors['appvuln']}</p>}
-        {appellateVuln ? (
-          <Md text={appellateVuln} />
-        ) : (
-          <EmptyPanel msg="Generate an AI appellate vulnerability analysis, or navigate to the Appeal Engine for full appellate intelligence." />
-        )}
-        <button onClick={() => setDashTab('appeal')} style={{ marginTop: 10, background: 'transparent', border: '1px solid #1e1e30', color: '#404060', borderRadius: 4, padding: '4px 12px', fontSize: 10, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer' }}>
-          Appeal Engine ›
-        </button>
-      </PanelWrap>
-    );
-  }
-
   // ─────────────────────────────────────────────────────────────────────────
   // PANEL: OPPONENT STRATEGY
   // ─────────────────────────────────────────────────────────────────────────
@@ -828,7 +799,6 @@ export function WarRoom({ activeCase }: Props) {
     evidence:       renderEvidence,
     contradictions: renderContradictions,
     risks:          renderRisks,
-    appellate:      renderAppellate,
     opponent:       renderOpponent,
     hearing:        renderHearing,
     judicial:       renderJudicial,

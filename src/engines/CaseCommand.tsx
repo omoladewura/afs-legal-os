@@ -2,8 +2,9 @@
  * AFS Legal OS — Case Command Engine (Phase 1)
  *
  * Single scrollable command centre for every case.
- * Absorbs: CaseOverview · RiskAnalytics · AlertsEngine · ProceduralTimeline · ComplianceEngine
+ * Absorbs: CaseOverview · AlertsEngine · ProceduralTimeline · ComplianceEngine
  *   (Compliance Audit §4 now reads intelligence_data.commencement_audit,
+ *    Risk Score §5 now reads intelligence_data.risk_verdict — Phase 3C)
  *    produced by Intelligence Engine Step 2b — see Phase 2. ComplianceEngine.tsx
  *    itself was deleted Phase 2C; its Affidavit Checker sub-module — which
  *    doesn't fit the auto-run-once pipeline pattern — lives on standalone
@@ -52,7 +53,6 @@ import {
 } from '@/types';
 
 // Absorbed engines — logic untouched, rendered inside new shell
-import { RiskAnalytics }       from '@/engines/RiskAnalytics';
 import { AlertsEngine }        from '@/engines/AlertsEngine';
 import { ProceduralTimeline }  from '@/engines/ProceduralTimeline';
 import { AffidavitChecker }    from '@/engines/AffidavitChecker';
@@ -338,6 +338,150 @@ function CommencementAuditDisplay({
           <Md text={audit.findings} />
         </div>
       </details>
+    </div>
+  );
+}
+// ─────────────────────────────────────────────────────────────────────────────
+// RISK VERDICT DISPLAY (Phase 3C)
+// Read-only render of intelligence_data.risk_verdict — produced by
+// IntelligenceEngine Step 5b (auto-fires after package generation). This panel
+// never calls the AI itself; it surfaces the persisted result and appellate
+// narrative. Mirrors the CommencementAuditDisplay pattern.
+// ─────────────────────────────────────────────────────────────────────────────
+
+type RiskVerdict = 'FILE' | 'NEGOTIATE' | 'SETTLE' | 'WALK_AWAY';
+
+const VERDICT_CFG: Record<RiskVerdict, { color: string; label: string }> = {
+  FILE:      { color: '#40a868', label: 'FILE' },
+  NEGOTIATE: { color: '#c4a030', label: 'NEGOTIATE' },
+  SETTLE:    { color: '#c07830', label: 'SETTLE' },
+  WALK_AWAY: { color: '#c04040', label: 'WALK AWAY' },
+};
+
+const RISK_DIMS: Array<{ key: string; label: string; icon: string; invert?: boolean }> = [
+  { key: 'procedural',              label: 'Procedural',      icon: '⚙' },
+  { key: 'evidential',              label: 'Evidential',      icon: '📁' },
+  { key: 'witness_vulnerability',   label: 'Witness Vuln.',   icon: '👁',  invert: true },
+  { key: 'jurisdictional_risk',     label: 'Jurisdictional',  icon: '⚖',  invert: true },
+  { key: 'burden_satisfaction',     label: 'Burden',          icon: '⚔' },
+  { key: 'settlement_advisability', label: 'Settlement',      icon: '🤝' },
+  { key: 'appeal_survivability',    label: 'Appeal',          icon: '↑' },
+  { key: 'opponent_threat',         label: 'Opponent',        icon: '⚡', invert: true },
+];
+
+function riskScoreCol(n: number, invert = false): string {
+  const v = invert ? 100 - n : n;
+  if (v < 40) return '#c04040';
+  if (v < 70) return '#c4a030';
+  return '#40a868';
+}
+
+function RiskVerdictDisplay({
+  activeCase,
+  onRunIntelligence,
+}: {
+  activeCase: Case;
+  onRunIntelligence: () => void;
+}) {
+  const rv = activeCase.intelligence_data?.risk_verdict;
+
+  if (!rv) {
+    return (
+      <Empty
+        label="No risk verdict yet — runs automatically after Intelligence Engine package generation (Step 5b)."
+        action={{ label: 'Run Intelligence →', onClick: onRunIntelligence }}
+      />
+    );
+  }
+
+  const vc      = VERDICT_CFG[rv.verdict as RiskVerdict] ?? VERDICT_CFG.NEGOTIATE;
+  const scores  = rv.scores as Record<string, number>;
+  const reasons = rv.reasoning as Record<string, string>;
+
+  // Composite overall: average of positive dims + inverted negatives
+  const posKeys = ['procedural', 'evidential', 'burden_satisfaction', 'settlement_advisability', 'appeal_survivability'];
+  const negKeys = ['witness_vulnerability', 'jurisdictional_risk', 'opponent_threat'];
+  const posAvg  = posKeys.reduce((a, k) => a + (scores[k] ?? 0), 0) / posKeys.length;
+  const negAvg  = negKeys.reduce((a, k) => a + (100 - (scores[k] ?? 0)), 0) / negKeys.length;
+  const overall = Math.round((posAvg + negAvg) / 2);
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+      {/* Verdict + overall */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap',
+        background: '#0a0a14', border: `1px solid ${vc.color}33`,
+        borderLeft: `3px solid ${vc.color}`,
+        borderRadius: 8, padding: '14px 18px',
+      }}>
+        <div style={{ flex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+            <span style={{
+              background: `${vc.color}18`, border: `1px solid ${vc.color}55`,
+              color: vc.color, fontSize: 10, fontFamily: SERIF, fontWeight: 700,
+              letterSpacing: '.14em', padding: '3px 12px', borderRadius: 3,
+            }}>{vc.label}</span>
+            <span style={{ fontSize: 9, color: T.mute, fontFamily: SERIF, letterSpacing: '.08em' }}>
+              Last scored {fmtDate(rv.run_at)}
+            </span>
+          </div>
+          <p style={{ fontSize: 13, color: '#8a8676', fontFamily: SERIF, lineHeight: 1.7 }}>
+            {rv.recommendation}
+          </p>
+        </div>
+        <div style={{ textAlign: 'center', flexShrink: 0 }}>
+          <p style={{ fontSize: 8, color: T.mute, fontFamily: SERIF, letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 2 }}>Overall</p>
+          <span style={{ fontSize: 38, color: riskScoreCol(overall), fontFamily: SERIF, fontWeight: 300, lineHeight: 1 }}>{overall}</span>
+        </div>
+      </div>
+
+      {/* 8-dimension score strip */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 6 }}>
+        {RISK_DIMS.map(dim => {
+          const score  = scores[dim.key] ?? 0;
+          const color  = riskScoreCol(score, dim.invert);
+          const reason = reasons[dim.key] ?? '';
+          return (
+            <div key={dim.key} style={{
+              background: '#07070f', border: '1px solid #131320',
+              borderRadius: 6, padding: '10px 13px',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <span style={{ fontSize: 11, opacity: .6 }}>{dim.icon}</span>
+                  <span style={{ fontSize: 9, color: '#8a8a9a', fontFamily: SERIF, letterSpacing: '.06em', textTransform: 'uppercase', fontWeight: 600 }}>{dim.label}</span>
+                </div>
+                <span style={{ fontSize: 22, color, fontFamily: SERIF, fontWeight: 300, lineHeight: 1 }}>{score}</span>
+              </div>
+              <div style={{ background: '#1a1a28', borderRadius: 2, height: 3, marginBottom: 6, overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${score}%`, background: color, borderRadius: 2, transition: 'width .6s ease' }} />
+              </div>
+              {dim.invert && <p style={{ fontSize: 8, color: '#3a3a52', fontFamily: SERIF, letterSpacing: '.06em', marginBottom: 3 }}>↑ higher = more risk</p>}
+              {reason && <p style={{ fontSize: 10, color: '#5a5650', fontFamily: SERIF, fontStyle: 'italic', lineHeight: 1.5 }}>{reason}</p>}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Appellate vulnerability narrative (3B) */}
+      {rv.appellate_narrative && (
+        <details style={{ cursor: 'pointer' }}>
+          <summary style={{
+            fontSize: 10, color: T.mute, fontFamily: SERIF, letterSpacing: '.08em',
+            userSelect: 'none', outline: 'none', listStyle: 'none',
+            display: 'flex', alignItems: 'center', gap: 6,
+          }}>
+            <span>▸</span> Appellate vulnerability analysis · appeal survivability {scores['appeal_survivability'] ?? '—'}/100
+          </summary>
+          <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #131320' }}>
+            <div style={{ fontSize: 12, color: '#8a8676', fontFamily: SERIF, lineHeight: 1.85, whiteSpace: 'pre-wrap' }}>
+              {rv.appellate_narrative}
+            </div>
+          </div>
+        </details>
+      )}
+
     </div>
   );
 }
@@ -919,10 +1063,13 @@ export function CaseCommand({ activeCase }: Props) {
         <AffidavitChecker activeCase={activeCase} />
       </Card>
 
-      {/* ── §5 Risk Score (RiskAnalytics absorbed) ───────────────────────── */}
+      {/* ── §5 Risk Score (risk_verdict from Intelligence Step 5b) ─────────── */}
       <Card id="risk">
         <SectionLabel id="risk" icon="■" title="Risk Score" />
-        <RiskAnalytics activeCase={activeCase} />
+        <RiskVerdictDisplay
+          activeCase={activeCase}
+          onRunIntelligence={() => navigate('intelligence')}
+        />
       </Card>
 
       {/* ── §6 Alerts (AlertsEngine absorbed) ───────────────────────────── */}
