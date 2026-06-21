@@ -15,7 +15,7 @@
 import { db } from './db';
 import type { Case, DocketEntry, Deadline, EvidenceItem, ArgumentVersion, CaseTheoryRecord, CaseTheoryHistoryEntry, CaseSummary, CloneableApplicationRecord } from '@/types';
 import type { MatrimonialCaseData, MExtractionResult } from '@/matrimonial/types';
-import type { BlindSpotRecord, ResearchRecord, ArgumentTemplate, DraftBufferRecord } from './db';
+import type { BlindSpotRecord, ResearchRecord, ArgumentTemplate, DraftBufferRecord, MediaLibraryItem } from './db';
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
@@ -952,5 +952,101 @@ export async function getAllDraftBuffers(): Promise<DraftBufferRecord[]> {
     return await db.draft_buffer.toArray();
   } catch {
     return [];
+  }
+}
+
+// ── Media Library — Phase 8A ──────────────────────────────────────────────────
+//
+// Basic CRUD over the media_library table, plus saveMediaAsTemplate (8C),
+// which flips an existing item's scope in place rather than copying it.
+// Local-only, same as argument_templates: global-scoped items aren't tied
+// to any one case, and the dual-write pattern isn't wired up for
+// non-case-scoped tables yet.
+//
+// Remaining UI wiring — the global Asset Library panel, and merging case +
+// global results into one EvidenceVault view — lands in Phases 8D–8E.
+
+/** Upsert a single media item (case- or global-scoped). */
+export async function saveMediaItem(item: MediaLibraryItem): Promise<boolean> {
+  try {
+    await db.media_library.put(item);
+    return true;
+  } catch (e) {
+    console.error('[Storage] saveMediaItem failed', e);
+    return false;
+  }
+}
+
+/** Fetch a single media item by id, regardless of scope. */
+export async function loadMediaItem(id: string): Promise<MediaLibraryItem | null> {
+  try {
+    return (await db.media_library.get(id)) ?? null;
+  } catch (e) {
+    console.error('[Storage] loadMediaItem failed', e);
+    return null;
+  }
+}
+
+/** All case-scoped items for one matter (scope:'case', caseId === caseId). */
+export async function loadCaseMedia(caseId: string): Promise<MediaLibraryItem[]> {
+  try {
+    return await db.media_library
+      .where('caseId')
+      .equals(caseId)
+      .toArray();
+  } catch (e) {
+    console.error('[Storage] loadCaseMedia failed', e);
+    return [];
+  }
+}
+
+/** All global/template-scoped items (scope:'global', caseId === null). */
+export async function loadGlobalMedia(): Promise<MediaLibraryItem[]> {
+  try {
+    return await db.media_library
+      .where('scope')
+      .equals('global')
+      .toArray();
+  } catch (e) {
+    console.error('[Storage] loadGlobalMedia failed', e);
+    return [];
+  }
+}
+
+/** Delete a single media item by id, regardless of scope. */
+export async function deleteMediaItem(id: string): Promise<boolean> {
+  try {
+    await db.media_library.delete(id);
+    return true;
+  } catch (e) {
+    console.error('[Storage] deleteMediaItem failed', e);
+    return false;
+  }
+}
+
+/**
+ * "Save as Template" — Phase 8C.
+ *
+ * Promotes an existing media item to global/template scope in place:
+ * flips `scope` to 'global' and clears `caseId` to null. This is the same
+ * row, not a copy — once promoted, the item is no longer tied to the case
+ * it was pasted into and becomes available to every matter via the global
+ * Asset Library (Phase 8D).
+ *
+ * Returns the updated item, or null if the id doesn't exist. A no-op
+ * (returns the item unchanged) if it's already global-scoped.
+ */
+export async function saveMediaAsTemplate(id: string): Promise<MediaLibraryItem | null> {
+  try {
+    const existing = await db.media_library.get(id);
+    if (!existing) return null;
+    if (existing.scope === 'global') return existing;
+
+    const updated: MediaLibraryItem = { ...existing, scope: 'global', caseId: null };
+    await db.media_library.put(updated);
+    return updated;
+  } catch (e) {
+    console.error('[Storage] saveMediaAsTemplate failed', e);
+    return null;
   }
 }

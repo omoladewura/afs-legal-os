@@ -15,6 +15,7 @@
  * - blind_spots    — all blind-spot module data per case
  * - research_items — saved research per case
  * - arg_versions   — argument builder versions per case
+ * - media_library  — pasted/uploaded media assets, case- or global-scoped
  *
  * MIGRATION NOTE:
  * localStorage data from the original app is migrated on first run.
@@ -108,6 +109,38 @@ export interface DraftBufferRecord {
   prompt:    string;   // last user message that started this call
 }
 
+/**
+ * Media Library — Phase 8A.
+ *
+ * A single table for pasted/uploaded media assets at two scopes:
+ *   - 'case'   — caseId is set; the item belongs to one matter only
+ *   - 'global' — caseId is null; a reusable template asset available
+ *                across every matter (Phase 8C "Save as Template" flips
+ *                an existing case-scoped item to this scope and clears
+ *                caseId, rather than copying it into a second table)
+ *
+ * caseId is nullable specifically so global items have a clean, explicit
+ * "no case" value rather than a placeholder string — Dexie indexes null
+ * fine, so global items stay queryable via .where('scope').equals('global').
+ *
+ * data is stored inline as a base64 data URL — the same approach as
+ * evidence_files — rather than split into separate meta/file tables.
+ * Media-library items are expected to be opportunistically pasted/dropped
+ * assets (clips, screenshots, boilerplate snippets) rather than large case
+ * documents, so one row per item is enough.
+ */
+export interface MediaLibraryItem {
+  id:        string;            // UUID
+  caseId:    string | null;     // null when scope === 'global'
+  scope:     'case' | 'global';
+  filename:  string;
+  fileType:  string;            // MIME type
+  fileSize:  number;            // bytes
+  data:      string;            // base64 data URL
+  notes:     string;
+  createdAt: string;            // ISO 8601
+}
+
 export class AfsDatabase extends Dexie {
   declare cases:              Table<Case,           string>;
   declare docket_entries:     Table<DocketEntry,    string>;
@@ -119,6 +152,7 @@ export class AfsDatabase extends Dexie {
   declare arg_versions:       Table<ArgumentVersion & { caseId: string }, string>;
   declare argument_templates: Table<ArgumentTemplate, string>;
   declare draft_buffer:       Table<DraftBufferRecord, string>;
+  declare media_library:      Table<MediaLibraryItem, string>;
 
   constructor() {
     super('afs_legal_os');
@@ -165,6 +199,16 @@ export class AfsDatabase extends Dexie {
     // (>24 h) can be purged without a full table scan.
     this.version(4).stores({
       draft_buffer: '&callId, caseId, startedAt',
+    });
+
+    // V5 — Phase 8A. media_library holds pasted/uploaded assets at two
+    // scopes: case-scoped (caseId set, scope:'case') and global/template
+    // scoped (caseId null, scope:'global'). caseId and scope are both
+    // indexed so a later query (Phase 8E) can fetch case-scoped + global
+    // items in two cheap lookups and merge them client-side, rather than
+    // scanning the whole table.
+    this.version(5).stores({
+      media_library: '&id, caseId, scope, createdAt',
     });
   }
 }
