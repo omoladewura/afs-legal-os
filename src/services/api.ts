@@ -1,5 +1,5 @@
 import type { ApiMessage, ApiRequestOptions, ApiUsage } from '@/types';
-import { writeDraftChunk, clearDraftBuffer } from '@/storage/helpers';
+import { writeDraftChunk, clearDraftBuffer, getAllDraftBuffers } from '@/storage/helpers';
 
 export const CLAUDE_MODEL = 'claude-sonnet-4-5';
 
@@ -22,13 +22,148 @@ export class ApiError extends Error {
 }
 
 /**
+ * Phase 7D — Resilient call wrapper for one-shot (non-streaming) callClaude calls.
+ *
+ * Retries up to `maxAttempts` times on transient network errors or 5xx responses.
+ * Waits `baseDelayMs * 2^attempt` between retries (exponential backoff, capped at 8 s).
+ * Does NOT retry on 4xx (bad request, auth failure) — those are permanent errors.
+ *
+ * Usage:
+ *   const { text } = await withRetry(() => callClaude(opts));
+ *
+ * Step 2 (extraction), Step 2b (audit), Step 5b (risk verdict), and
+ * Step 5 authority grounding all use this. Step 5 package generation uses
+ * streaming + Phase 7C resume instead.
+ */
+export async function withRetry<T>(
+  fn: () => Promise<T>,
+  maxAttempts = 3,
+  baseDelayMs = 800,
+): Promise<T> {
+  let lastErr: unknown;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      // Don't retry client errors — they won't resolve on retry
+      if (err instanceof ApiError && err.status !== undefined && err.status < 500) throw err;
+      if (attempt < maxAttempts - 1) {
+        const delay = Math.min(baseDelayMs * 2 ** attempt, 8000);
+        await new Promise(res => setTimeout(res, delay));
+      }
+    }
+  }
+  throw lastErr;
+}
+
+/**
  * Convenience wrapper for callers that only need the text and don't
  * participate in token telemetry (direct callers outside useAI).
- * Usage: replace `await callClaude(opts)` with `await callClaudeText(opts)`.
  */
 export async function callClaudeText(opts: ApiRequestOptions): Promise<string> {
   const { text } = await callClaude(opts);
   return text;
+}
+
+// ── Internal: build and fetch a streaming response ────────────────────────────
+// Shared between the initial stream and the resume path.
+// Returns the assembled text and final usage — does NOT touch draft_buffer.
+
+async function fetchStream(
+  body: Record<string, unknown>,
+  onChunk: (chunk: string) => void,
+): Promise<{ text: string; usage: ApiUsage }> {
+  let res: Response;
+  try {
+    res = await fetch(`${WORKER_URL}/chat`, {
+      method: 'POST',
+      headers: {
+        'Content-Type':  'application/json',
+        'Authorization': `Bearer ${AUTH_TOKEN}`,
+      },
+      body: JSON.stringify({ ...body, stream: true }),
+    });
+  } catch (e) {
+    throw new ApiError(`Network error: ${(e as Error).message}`);
+  }
+
+  if (!res.ok || res.headers.get('Content-Type')?.includes('application/json')) {
+    const data = await res.json().catch(() => ({}));
+    const msg = (data as any).error?.message ?? `HTTP ${res.status}`;
+    throw new ApiError(msg, res.status);
+  }
+
+  if (!res.body) throw new ApiError('Streaming response had no body');
+
+  const reader  = res.body.getReader();
+  const decoder = new TextDecoder();
+
+  let assembled = '';
+  let eventType = '';
+  let usage: ApiUsage = { input_tokens: 0, output_tokens: 0 };
+  let lineBuffer = '';
+
+  const processLine = (line: string) => {
+    if (line.startsWith('event:')) {
+      eventType = line.slice(6).trim();
+      return;
+    }
+    if (!line.startsWith('data:')) return;
+    const raw = line.slice(5).trim();
+    if (raw === '[DONE]') return;
+
+    let payload: Record<string, unknown>;
+    try { payload = JSON.parse(raw); } catch { return; }
+
+    if (eventType === 'content_block_delta') {
+      const delta = payload.delta as Record<string, unknown> | undefined;
+      if (delta?.type === 'text_delta' && typeof delta.text === 'string') {
+        assembled += delta.text;
+        onChunk(delta.text);
+      }
+    } else if (eventType === 'message_delta') {
+      const u = payload.usage as Record<string, unknown> | undefined;
+      if (u) {
+        usage = {
+          input_tokens:                (u.input_tokens                as number) ?? usage.input_tokens,
+          output_tokens:               (u.output_tokens               as number) ?? usage.output_tokens,
+          cache_read_input_tokens:     u.cache_read_input_tokens     as number | undefined,
+          cache_creation_input_tokens: u.cache_creation_input_tokens as number | undefined,
+        };
+      }
+    } else if (eventType === 'message_start') {
+      const msg = payload.message as Record<string, unknown> | undefined;
+      const u   = msg?.usage   as Record<string, unknown> | undefined;
+      if (u) {
+        usage = {
+          input_tokens:                (u.input_tokens                as number) ?? 0,
+          output_tokens:               (u.output_tokens               as number) ?? 0,
+          cache_read_input_tokens:     u.cache_read_input_tokens     as number | undefined,
+          cache_creation_input_tokens: u.cache_creation_input_tokens as number | undefined,
+        };
+      }
+    }
+  };
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      lineBuffer += decoder.decode(value, { stream: true });
+      const lines = lineBuffer.split('\n');
+      lineBuffer = lines.pop() ?? '';
+      for (const line of lines) processLine(line);
+    }
+    const tail = decoder.decode();
+    if (tail) {
+      for (const line of tail.split('\n')) processLine(line);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  return { text: assembled, usage };
 }
 
 export async function callClaude(opts: ApiRequestOptions): Promise<{ text: string; usage: ApiUsage }> {
@@ -43,6 +178,7 @@ export async function callClaude(opts: ApiRequestOptions): Promise<{ text: strin
     matter_track,
     counsel_role,
     onChunk,
+    onResumed,
     streamCaseId = null,
     streamEngine,
   } = opts;
@@ -60,12 +196,7 @@ export async function callClaude(opts: ApiRequestOptions): Promise<{ text: strin
     messages:   msgs,
   };
 
-  // Signal the Worker to stream when a chunk callback is provided
-  if (onChunk) body.stream = true;
-
   if (skipLibrary) {
-    // Tell the worker to bypass RAG entirely — no embed call, no Vectorize
-    // query, no R2 fetches, no irrelevant library text injected into system.
     body.skip_library = true;
   } else {
     body.engine = libraryOpts.queryHint || 'unknown';
@@ -76,44 +207,35 @@ export async function callClaude(opts: ApiRequestOptions): Promise<{ text: strin
   }
 
   if (system) {
-    // Mark the system prompt as cacheable. By convention every call site
-    // builds `system` from buildRoleSystemPrompt() + case intelligence
-    // context (fullContext) — content that repeats byte-for-byte across many
-    // calls in a session. The volatile part (current draft / instruction)
-    // already lives in `messages` below, which is sent fresh and untouched.
-    // cache_control flags this block so Anthropic serves repeats from cache
-    // at ~10% of base input price instead of full price every call.
     body.system = [
       { type: 'text', text: system, cache_control: { type: 'ephemeral' } },
     ];
   }
-  if (mcpDrive)     body.mcp_servers = [{
+  if (mcpDrive) body.mcp_servers = [{
     type: 'url',
     url:  'https://drivemcp.googleapis.com/mcp/v1',
     name: 'google-drive',
   }];
-  // Role context — sent to Worker for role-aware retrieval and logging
-  if (counsel_role)   body.counsel_role  = counsel_role;
-  if (matter_track)   body.matter_track  = matter_track;
-
-  let res: Response;
-  try {
-    res = await fetch(`${WORKER_URL}/chat`, {
-      method: 'POST',
-      headers: {
-        'Content-Type':  'application/json',
-        'Authorization': `Bearer ${AUTH_TOKEN}`,
-      },
-      body: JSON.stringify(body),
-    });
-  } catch (e) {
-    throw new ApiError(`Network error: ${(e as Error).message}`);
-  }
+  if (counsel_role) body.counsel_role = counsel_role;
+  if (matter_track) body.matter_track = matter_track;
 
   // ── One-shot path (no onChunk) ────────────────────────────────────────────
   if (!onChunk) {
-    const data = await res.json();
+    let res: Response;
+    try {
+      res = await fetch(`${WORKER_URL}/chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type':  'application/json',
+          'Authorization': `Bearer ${AUTH_TOKEN}`,
+        },
+        body: JSON.stringify(body),
+      });
+    } catch (e) {
+      throw new ApiError(`Network error: ${(e as Error).message}`);
+    }
 
+    const data = await res.json();
     if (!res.ok || (data as any).error) {
       const msg = (data as any).error?.message ?? `HTTP ${res.status}`;
       throw new ApiError(msg, res.status);
@@ -135,33 +257,6 @@ export async function callClaude(opts: ApiRequestOptions): Promise<{ text: strin
   }
 
   // ── Streaming path ────────────────────────────────────────────────────────
-  // The Worker returns text/event-stream. Each SSE line is:
-  //   event: <event_type>
-  //   data: <json_payload>
-  //
-  // We care about two event types:
-  //   content_block_delta  → delta.type === 'text_delta' → delta.text is the chunk
-  //   message_delta        → carries stop_reason + final usage figures
-  //
-  // All other event types (message_start, content_block_start,
-  // content_block_stop, message_stop, ping) are parsed but ignored.
-  //
-  // Error before stream: the Worker returns a normal JSON error response
-  // (same shape as the one-shot error path) — we detect this via Content-Type.
-  if (!res.ok || res.headers.get('Content-Type')?.includes('application/json')) {
-    const data = await res.json().catch(() => ({}));
-    const msg = (data as any).error?.message ?? `HTTP ${res.status}`;
-    throw new ApiError(msg, res.status);
-  }
-
-  if (!res.body) {
-    throw new ApiError('Streaming response had no body');
-  }
-
-  const reader  = res.body.getReader();
-  const decoder = new TextDecoder();
-
-  // Stable ID for this call's draft_buffer record
   const callId    = crypto.randomUUID();
   const engineTag = streamEngine ?? (opts.libraryOpts as any)?.queryHint ?? 'unknown';
   const startedAt = new Date().toISOString();
@@ -170,99 +265,104 @@ export async function callClaude(opts: ApiRequestOptions): Promise<{ text: strin
     : (opts.messages?.filter(m => m.role === 'user').pop()?.content ?? '');
 
   let assembled = '';
-  let eventType = '';
   let usage: ApiUsage = { input_tokens: 0, output_tokens: 0 };
 
-  // SSE lines arrive as: "event: <type>\ndata: <json>\n\n"
-  // We accumulate raw bytes into a line buffer and process complete lines.
-  let lineBuffer = '';
-
-  const processLine = (line: string) => {
-    if (line.startsWith('event:')) {
-      eventType = line.slice(6).trim();
-      return;
-    }
-    if (!line.startsWith('data:')) return;
-
-    const raw = line.slice(5).trim();
-    if (raw === '[DONE]') return;
-
-    let payload: Record<string, unknown>;
-    try { payload = JSON.parse(raw); } catch { return; }
-
-    if (eventType === 'content_block_delta') {
-      const delta = payload.delta as Record<string, unknown> | undefined;
-      if (delta?.type === 'text_delta' && typeof delta.text === 'string') {
-        assembled += delta.text;
-        onChunk(delta.text);
-        // Write the full accumulated partial on every chunk — the buffer
-        // record always contains the complete text so a resume path can
-        // read it directly without replaying individual deltas.
-        writeDraftChunk({
-          callId,
-          engine:    engineTag,
-          caseId:    streamCaseId,
-          partial:   assembled,
-          startedAt,
-          prompt:    String(prompt).slice(0, 4096),
-        });
-      }
-    } else if (eventType === 'message_delta') {
-      // Final usage is on the message_delta event, not message_start
-      const u = payload.usage as Record<string, unknown> | undefined;
-      if (u) {
-        usage = {
-          input_tokens:                (u.input_tokens                as number) ?? usage.input_tokens,
-          output_tokens:               (u.output_tokens               as number) ?? usage.output_tokens,
-          cache_read_input_tokens:     u.cache_read_input_tokens     as number | undefined,
-          cache_creation_input_tokens: u.cache_creation_input_tokens as number | undefined,
-        };
-      }
-    } else if (eventType === 'message_start') {
-      // message_start carries the initial usage snapshot (input tokens, cache stats)
-      const msg = payload.message as Record<string, unknown> | undefined;
-      const u   = msg?.usage as Record<string, unknown> | undefined;
-      if (u) {
-        usage = {
-          input_tokens:                (u.input_tokens                as number) ?? 0,
-          output_tokens:               (u.output_tokens               as number) ?? 0,
-          cache_read_input_tokens:     u.cache_read_input_tokens     as number | undefined,
-          cache_creation_input_tokens: u.cache_creation_input_tokens as number | undefined,
-        };
-      }
-    }
+  // Wrap onChunk to also maintain the draft_buffer checkpoint on every delta
+  const trackingChunk = (chunk: string) => {
+    assembled += chunk;
+    onChunk(chunk);
+    writeDraftChunk({
+      callId,
+      engine:    engineTag,
+      caseId:    streamCaseId,
+      partial:   assembled,
+      startedAt,
+      prompt:    String(prompt).slice(0, 4096),
+    });
   };
 
   try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      lineBuffer += decoder.decode(value, { stream: true });
-
-      // Split on newlines, keeping empty lines (they delimit SSE events)
-      const lines = lineBuffer.split('\n');
-      // Last element may be incomplete — hold it back in the buffer
-      lineBuffer = lines.pop() ?? '';
-
-      for (const line of lines) {
-        processLine(line);
-      }
-    }
-
-    // Flush any remaining bytes in the decoder
-    const tail = decoder.decode();
-    if (tail) {
-      for (const line of tail.split('\n')) {
-        processLine(line);
-      }
-    }
+    const result = await fetchStream(body, trackingChunk);
+    // fetchStream assembled text into `assembled` via trackingChunk, but it
+    // also returns the full text — use fetchStream's return for usage.
+    // assembled is already correct from the tracking callback.
+    usage = result.usage;
 
     // Stream completed cleanly — remove the checkpoint record
     await clearDraftBuffer(callId);
-  } finally {
-    reader.releaseLock();
-  }
+    return { text: assembled, usage };
 
-  return { text: assembled, usage };
+  } catch (streamErr) {
+    // ── Phase 7C: mid-stream connection failure ────────────────────────────
+    // Check whether we captured a partial before the connection dropped.
+    // We read from draft_buffer rather than `assembled` to be safe — the
+    // buffer write is the durable record; assembled may be incomplete if the
+    // error fired before the last chunk was appended.
+    let savedPartial = assembled; // use in-memory as primary, buffer as fallback
+
+    try {
+      const buffers = await getAllDraftBuffers();
+      const rec = buffers.find(b => b.callId === callId);
+      if (rec?.partial && rec.partial.length >= savedPartial.length) {
+        savedPartial = rec.partial;
+      }
+    } catch { /* ignore — we'll use whatever assembled holds */ }
+
+    if (!savedPartial) {
+      // Nothing was saved at all — re-throw as a plain failure
+      await clearDraftBuffer(callId);
+      throw streamErr;
+    }
+
+    // We have a partial. Attempt resume via assistant-prefill turn.
+    // The resume request sends the original messages plus an assistant turn
+    // containing the partial output, followed by a user instruction to
+    // continue seamlessly from that exact point.
+    const resumeMessages: ApiMessage[] = [
+      ...msgs,
+      { role: 'assistant', content: savedPartial },
+      {
+        role: 'user',
+        content:
+          'Continue writing from exactly where you stopped. ' +
+          'Do not repeat any text already written. ' +
+          'Do not add any preamble, heading, or transition — ' +
+          'just continue the sentence or section mid-stream.',
+      },
+    ];
+
+    const resumeBody: Record<string, unknown> = {
+      ...body,
+      messages: resumeMessages,
+    };
+
+    // Signal the UI that a resume is happening before the first new chunk
+    onResumed?.();
+
+    let resumeResult: { text: string; usage: ApiUsage };
+    try {
+      resumeResult = await fetchStream(resumeBody, onChunk);
+    } catch (resumeErr) {
+      // Resume also failed — give up, leave the buffer so the user can retry
+      throw resumeErr;
+    }
+
+    // Concatenate: the partial that was already delivered to onChunk + the
+    // resumed continuation (already delivered to onChunk by fetchStream).
+    const fullText = savedPartial + resumeResult.text;
+
+    // Merge usage — add token counts from both legs
+    const mergedUsage: ApiUsage = {
+      input_tokens:  usage.input_tokens  + resumeResult.usage.input_tokens,
+      output_tokens: usage.output_tokens + resumeResult.usage.output_tokens,
+      // cache stats come from the initial leg only (resume doesn't hit cache)
+      cache_read_input_tokens:     usage.cache_read_input_tokens,
+      cache_creation_input_tokens: usage.cache_creation_input_tokens,
+    };
+
+    // Resume succeeded — clear the buffer
+    await clearDraftBuffer(callId);
+
+    return { text: fullText, usage: mergedUsage };
+  }
 }
