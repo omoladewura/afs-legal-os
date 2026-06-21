@@ -18,7 +18,7 @@
  *   but view is 'engine' — handled by re-opening the docket in that scenario.
  */
 
-import { lazy, Suspense, useEffect } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { useAppStore } from '@/state/appStore';
 import type { NavHistoryState } from '@/state/appStore';
 import { db } from '@/storage/db';
@@ -40,6 +40,74 @@ import { T } from '@/constants/tokens';
 import type { AppView, DashTabId } from '@/types';
 
 const SanMode = lazy(() => import('@/engines/SanMode').then(m => ({ default: m.SanMode })));
+
+/**
+ * Phase 9D — Offline banner.
+ *
+ * Shown as a slim persistent strip at the top of the viewport whenever:
+ *   a) `navigator.onLine` is false (device-level connectivity lost), OR
+ *   b) a Worker call fails with a network error (emitted via 'afs:worker-offline').
+ *
+ * Either condition shows the banner; clearing requires both to be resolved —
+ * the device coming back online AND a subsequent successful Worker call
+ * ('afs:worker-online'). This avoids false-clearing when Wi-Fi reconnects
+ * but the Worker is still unreachable.
+ *
+ * The banner is subtle, not alarming — a single line above the app chrome
+ * so it's visible mid-session without obscuring the workspace.
+ */
+function OfflineBanner() {
+  const [deviceOffline,  setDeviceOffline]  = useState(!navigator.onLine);
+  const [workerOffline,  setWorkerOffline]  = useState(false);
+
+  useEffect(() => {
+    const onOnline  = () => setDeviceOffline(false);
+    const onOffline = () => setDeviceOffline(true);
+    const onWOff    = () => setWorkerOffline(true);
+    const onWOn     = () => setWorkerOffline(false);
+
+    window.addEventListener('online',              onOnline);
+    window.addEventListener('offline',             onOffline);
+    window.addEventListener('afs:worker-offline',  onWOff);
+    window.addEventListener('afs:worker-online',   onWOn);
+
+    return () => {
+      window.removeEventListener('online',              onOnline);
+      window.removeEventListener('offline',             onOffline);
+      window.removeEventListener('afs:worker-offline',  onWOff);
+      window.removeEventListener('afs:worker-online',   onWOn);
+    };
+  }, []);
+
+  if (!deviceOffline && !workerOffline) return null;
+
+  const msg = deviceOffline
+    ? 'No connection — working from local data'
+    : 'AI services unreachable — connection interrupted';
+
+  return (
+    <div style={{
+      position:       'fixed',
+      top:            0,
+      left:           0,
+      right:          0,
+      zIndex:         100000,
+      background:     '#1a1200',
+      borderBottom:   `1px solid ${T.warn}`,
+      color:          T.warn,
+      fontSize:       11,
+      fontFamily:     "'Inter', sans-serif",
+      letterSpacing:  '0.04em',
+      padding:        '5px 16px',
+      display:        'flex',
+      alignItems:     'center',
+      gap:            8,
+    }}>
+      <span style={{ opacity: 0.7 }}>◌</span>
+      {msg}
+    </div>
+  );
+}
 
 export function App() {
   const {
@@ -129,6 +197,7 @@ export function App() {
 
   return (
     <>
+      <OfflineBanner />
       <SiteNav />
 
       <div id="root-inner">
