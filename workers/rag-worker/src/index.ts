@@ -75,6 +75,31 @@ export interface Env {
   R2:                 R2Bucket;
   AUTH_TOKEN?:        string;
   ANTHROPIC_API_KEY?: string;
+  /**
+   * Phase 9F — Web Push secrets (set via `wrangler secret put`):
+   *   VAPID_PUBLIC_KEY   — base64url-encoded P-256 public key
+   *   VAPID_PRIVATE_KEY  — base64url-encoded P-256 private key
+   *   VAPID_SUBJECT      — mailto: or https: contact URI
+   *
+   * Generate a key pair once:
+   *   node -e "
+   *     const { webcrypto } = require('crypto');
+   *     webcrypto.subtle.generateKey({ name:'ECDH', namedCurve:'P-256' }, true, ['deriveKey'])
+   *       .then(async kp => {
+   *         const pub  = Buffer.from(await webcrypto.subtle.exportKey('raw',  kp.publicKey)).toString('base64url');
+   *         const priv = Buffer.from(await webcrypto.subtle.exportKey('pkcs8',kp.privateKey)).toString('base64url');
+   *         console.log('VAPID_PUBLIC_KEY=' + pub);
+   *         console.log('VAPID_PRIVATE_KEY=' + priv);
+   *       });
+   *   "
+   * Then:
+   *   wrangler secret put VAPID_PUBLIC_KEY  --name afs-legal-rag
+   *   wrangler secret put VAPID_PRIVATE_KEY --name afs-legal-rag
+   *   wrangler secret put VAPID_SUBJECT     --name afs-legal-rag   (e.g. mailto:admin@afslegal.com)
+   */
+  VAPID_PUBLIC_KEY?:  string;
+  VAPID_PRIVATE_KEY?: string;
+  VAPID_SUBJECT?:     string;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -225,6 +250,12 @@ async function ensureTables(env: Env): Promise<void> {
     id      TEXT PRIMARY KEY,
     case_id TEXT NOT NULL,
     data    TEXT NOT NULL
+  )`).run();
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS push_subscriptions (
+    endpoint    TEXT PRIMARY KEY,
+    keys_auth   TEXT NOT NULL,
+    keys_p256dh TEXT NOT NULL,
+    created_at  TEXT NOT NULL
   )`).run();
   await env.DB.prepare(`CREATE TABLE IF NOT EXISTS processed_files (
     key          TEXT PRIMARY KEY,
@@ -1182,6 +1213,355 @@ async function handleDeleteApplication(req: Request, env: Env): Promise<Response
   return json({ ok: true }, 200, origin);
 }
 
+// ── Phase 9F — Web Push Pipeline ─────────────────────────────────────────────
+//
+// Three endpoints complete the background push pipeline:
+//
+//   GET  /push/vapid-public-key  — returns VAPID_PUBLIC_KEY so the client can
+//                                  create a PushSubscription tied to this server
+//   POST /push/subscribe         — stores the PushSubscription JSON in D1 so
+//                                  this Worker can reach the device when the app
+//                                  is closed (called by subscribeToPush() in
+//                                  src/services/pushSubscription.ts Phase 9E)
+//   POST /push/send              — dispatches a push notification to all stored
+//                                  subscriptions (or a single caseId-scoped one)
+//                                  called by the monitor worker's cron (Phase 9F)
+//
+// VAPID signing uses the Web Crypto API (available in all Cloudflare Workers
+// runtimes) to avoid the node-webpush npm dependency which doesn't run in
+// the Workers edge environment.
+//
+// SECRETS REQUIRED (set via `wrangler secret put`):
+//   VAPID_PUBLIC_KEY   — base64url P-256 public key (see Env comment above)
+//   VAPID_PRIVATE_KEY  — base64url P-256 private key in PKCS#8 format
+//   VAPID_SUBJECT      — mailto: or https: contact URI
+//
+// D1 TABLE REQUIRED:
+//   push_subscriptions (endpoint TEXT PRIMARY KEY, keys_auth TEXT, keys_p256dh TEXT, created_at TEXT)
+//   Added to ensureTables() below.
+
+// ── VAPID JWT + encryption helpers ───────────────────────────────────────────
+
+function b64uEncode(buf: ArrayBuffer): string {
+  return btoa(String.fromCharCode(...new Uint8Array(buf)))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+}
+
+function b64uDecode(str: string): Uint8Array {
+  const b64 = str.replace(/-/g, '+').replace(/_/g, '/');
+  const raw  = atob(b64);
+  const out  = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+  return out;
+}
+
+/**
+ * Builds a VAPID Authorization header value for a given push endpoint.
+ * Uses ES256 (ECDSA P-256 + SHA-256) as required by RFC 8292.
+ *
+ * The JWT header+payload are base64url-encoded and signed with the
+ * VAPID private key. The resulting token is returned as the full
+ * `vapid t=…,k=…` Authorization header value.
+ */
+async function buildVapidAuth(
+  endpoint:   string,
+  publicKey:  string,
+  privateKey: string,
+  subject:    string,
+): Promise<string> {
+  const audience = new URL(endpoint).origin;
+  const exp      = Math.floor(Date.now() / 1000) + 12 * 3600; // 12h TTL
+
+  const header  = b64uEncode(new TextEncoder().encode(JSON.stringify({ typ: 'JWT', alg: 'ES256' })));
+  const payload = b64uEncode(new TextEncoder().encode(JSON.stringify({ aud: audience, exp, sub: subject })));
+  const sigInput = new TextEncoder().encode(`${header}.${payload}`);
+
+  // Import PKCS#8 private key
+  const privKeyBytes = b64uDecode(privateKey);
+  const cryptoKey = await crypto.subtle.importKey(
+    'pkcs8', privKeyBytes,
+    { name: 'ECDSA', namedCurve: 'P-256' },
+    false, ['sign'],
+  );
+
+  // Sign with ECDSA P-256 / SHA-256 → raw 64-byte (r||s) signature
+  const sigRaw = await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, cryptoKey, sigInput);
+  const sig    = b64uEncode(sigRaw);
+
+  const token = `${header}.${payload}.${sig}`;
+  return `vapid t=${token},k=${publicKey}`;
+}
+
+/**
+ * Sends a single web push message to one PushSubscription.
+ *
+ * Uses the VAPID Authentication Scheme (RFC 8292) and encrypts the payload
+ * with the aesgcm scheme (RFC 8188 / draft-ietf-webpush-encryption) as
+ * implemented by all major browser push services (FCM, Mozilla, WebKit).
+ *
+ * Payload encryption summary:
+ *   1. Generate an ephemeral ECDH key pair on P-256
+ *   2. Derive shared secret from ephemeral private + subscriber p256dh public
+ *   3. Derive content encryption key + nonce via HKDF-SHA256
+ *   4. Encrypt the payload with AES-128-GCM
+ *   5. Pack salt + ephemeral public key + ciphertext into the body
+ *
+ * Returns the push service HTTP status code. 201 = delivered,
+ * 404/410 = subscription gone (caller should delete it).
+ */
+async function sendWebPush(
+  subscription: { endpoint: string; keys: { auth: string; p256dh: string } },
+  payloadObj:   Record<string, unknown>,
+  vapidPublic:  string,
+  vapidPrivate: string,
+  vapidSubject: string,
+): Promise<number> {
+  const payloadJson = JSON.stringify(payloadObj);
+  const plaintext   = new TextEncoder().encode(payloadJson);
+
+  // ── Key material ──────────────────────────────────────────────────────────
+  const authSecret  = b64uDecode(subscription.keys.auth);     // 16 bytes
+  const receiverPub = b64uDecode(subscription.keys.p256dh);   // 65 bytes uncompressed P-256
+
+  // Import receiver's p256dh as EC public key
+  const receiverKey = await crypto.subtle.importKey(
+    'raw', receiverPub,
+    { name: 'ECDH', namedCurve: 'P-256' },
+    false, [],
+  );
+
+  // Generate ephemeral ECDH key pair for this message
+  const ephemeralPair = await crypto.subtle.generateKey(
+    { name: 'ECDH', namedCurve: 'P-256' },
+    true, ['deriveKey', 'deriveBits'],
+  );
+
+  // Derive shared secret (ECDH between ephemeral private and receiver public)
+  const sharedSecret = await crypto.subtle.deriveBits(
+    { name: 'ECDH', public: receiverKey },
+    ephemeralPair.privateKey, 256,
+  );
+
+  // Export ephemeral public key (65-byte uncompressed)
+  const ephemeralPubRaw = await crypto.subtle.exportKey('raw', ephemeralPair.publicKey);
+
+  // ── HKDF to derive CEK + nonce (aesgcm scheme) ───────────────────────────
+  // PRK = HMAC-SHA256(auth_secret, shared_secret || "WebPush: info\0" || receiver_pub || ephemeral_pub)
+  const infoSuffix = new Uint8Array([
+    ...new TextEncoder().encode('WebPush: info\x00'),
+    ...new Uint8Array(receiverPub),
+    ...new Uint8Array(ephemeralPubRaw),
+  ]);
+
+  const hmacKey = await crypto.subtle.importKey(
+    'raw', authSecret, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'],
+  );
+  const ikm = new Uint8Array([
+    ...new Uint8Array(sharedSecret),
+    ...infoSuffix,
+  ]);
+  const prkBuffer = await crypto.subtle.sign('HMAC', hmacKey, ikm);
+  const prk = await crypto.subtle.importKey(
+    'raw', prkBuffer, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'],
+  );
+
+  // Salt: 16 random bytes
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+
+  // CEK = first 16 bytes of HMAC-SHA256(PRK, salt || info_cek || 0x01)
+  const infoCek = new Uint8Array([
+    ...new TextEncoder().encode('Content-Encoding: aesgcm\x00'),
+    0x01,
+  ]);
+  const cekFull = await crypto.subtle.sign('HMAC', prk, new Uint8Array([...salt, ...infoCek]));
+  const cekBytes = new Uint8Array(cekFull).slice(0, 16);
+
+  // Nonce = first 12 bytes of HMAC-SHA256(PRK, salt || info_nonce || 0x01)
+  const infoNonce = new Uint8Array([
+    ...new TextEncoder().encode('Content-Encoding: nonce\x00'),
+    0x01,
+  ]);
+  const nonceFull = await crypto.subtle.sign('HMAC', prk, new Uint8Array([...salt, ...infoNonce]));
+  const nonceBytes = new Uint8Array(nonceFull).slice(0, 12);
+
+  // ── AES-128-GCM encryption ────────────────────────────────────────────────
+  const cek = await crypto.subtle.importKey('raw', cekBytes, 'AES-GCM', false, ['encrypt']);
+
+  // Padding: 2-byte zero-length padding prefix (aesgcm scheme)
+  const padded = new Uint8Array([0, 0, ...plaintext]);
+  const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: nonceBytes }, cek, padded);
+
+  // ── Build body: salt(16) || rs(4, big-endian, = 4096) || keylen(1) || pubkey(65) || ciphertext ──
+  const rs = 4096;
+  const body = new Uint8Array(16 + 4 + 1 + 65 + new Uint8Array(ciphertext).length);
+  let offset = 0;
+  body.set(salt, offset);              offset += 16;
+  body[offset++] = (rs >> 24) & 0xff;
+  body[offset++] = (rs >> 16) & 0xff;
+  body[offset++] = (rs >>  8) & 0xff;
+  body[offset++] = (rs      ) & 0xff;
+  body[offset++] = 65;                  // keylen
+  body.set(new Uint8Array(ephemeralPubRaw), offset); offset += 65;
+  body.set(new Uint8Array(ciphertext), offset);
+
+  // ── VAPID Authorization header ────────────────────────────────────────────
+  const authorization = await buildVapidAuth(
+    subscription.endpoint, vapidPublic, vapidPrivate, vapidSubject,
+  );
+
+  // ── POST to the push service ──────────────────────────────────────────────
+  const res = await fetch(subscription.endpoint, {
+    method: 'POST',
+    headers: {
+      'Authorization':     authorization,
+      'Content-Type':      'application/octet-stream',
+      'Content-Encoding':  'aesgcm',
+      'Encryption':        `salt=${b64uEncode(salt.buffer)}`,
+      'Crypto-Key':        `dh=${b64uEncode(ephemeralPubRaw)};p256ecdsa=${vapidPublic}`,
+      'TTL':               '86400',
+    },
+    body: body,
+  });
+
+  return res.status;
+}
+
+// ── Push endpoint handlers ────────────────────────────────────────────────────
+
+/** GET /push/vapid-public-key — returns the VAPID public key for client subscription */
+function handleGetVapidPublicKey(req: Request, env: Env): Response {
+  const origin = req.headers.get('Origin') || '*';
+  if (!env.VAPID_PUBLIC_KEY) {
+    return json({ error: 'VAPID_PUBLIC_KEY secret not configured. Run: wrangler secret put VAPID_PUBLIC_KEY --name afs-legal-rag' }, 503, origin);
+  }
+  return json({ publicKey: env.VAPID_PUBLIC_KEY }, 200, origin);
+}
+
+/**
+ * POST /push/subscribe — stores a PushSubscription sent by the client.
+ * Body: { endpoint, keys: { auth, p256dh } }
+ * Called by subscribeToPush() in src/services/pushSubscription.ts.
+ */
+async function handlePushSubscribe(req: Request, env: Env): Promise<Response> {
+  const origin = req.headers.get('Origin') || '*';
+  await ensureTables(env);
+
+  const body = await req.json() as {
+    endpoint?: string;
+    keys?: { auth?: string; p256dh?: string };
+  };
+
+  if (!body.endpoint || !body.keys?.auth || !body.keys?.p256dh) {
+    return json({ error: 'endpoint, keys.auth, and keys.p256dh are required' }, 400, origin);
+  }
+
+  await env.DB.prepare(
+    `INSERT OR REPLACE INTO push_subscriptions (endpoint, keys_auth, keys_p256dh, created_at)
+     VALUES (?, ?, ?, ?)`
+  ).bind(body.endpoint, body.keys.auth, body.keys.p256dh, new Date().toISOString()).run();
+
+  return json({ ok: true }, 200, origin);
+}
+
+/**
+ * POST /push/send — dispatches a push notification to stored subscriptions.
+ *
+ * Body:
+ *   title      string  — notification title (required)
+ *   body       string  — notification body  (required)
+ *   severity?  string  — CRITICAL | HIGH | MEDIUM | LOW (default LOW)
+ *   caseId?    string  — if provided, also sets the deep-link URL
+ *   tab?       string  — tab to open in the app (default 'alerts')
+ *   actionUrl? string  — explicit deep-link override
+ *
+ * Called by the monitor worker's cron on critical deadline events,
+ * and optionally by the client (AlertsEngine) when a user taps
+ * "Notify all devices" on a CRITICAL alert (Phase 9F extension).
+ *
+ * Stale subscriptions (410 Gone) are deleted automatically.
+ */
+async function handlePushSend(req: Request, env: Env): Promise<Response> {
+  const origin = req.headers.get('Origin') || '*';
+  await ensureTables(env);
+
+  if (!env.VAPID_PUBLIC_KEY || !env.VAPID_PRIVATE_KEY || !env.VAPID_SUBJECT) {
+    return json({
+      error: 'VAPID secrets not fully configured. Set VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, and VAPID_SUBJECT.',
+    }, 503, origin);
+  }
+
+  const body = await req.json() as {
+    title?:     string;
+    body?:      string;
+    severity?:  string;
+    caseId?:    string;
+    tab?:       string;
+    actionUrl?: string;
+  };
+
+  if (!body.title || !body.body) {
+    return json({ error: 'title and body are required' }, 400, origin);
+  }
+
+  // Load all stored subscriptions from D1
+  const rows = await env.DB.prepare(
+    'SELECT endpoint, keys_auth, keys_p256dh FROM push_subscriptions'
+  ).all();
+
+  const subscriptions = (rows.results || []) as Array<{
+    endpoint: string; keys_auth: string; keys_p256dh: string;
+  }>;
+
+  if (subscriptions.length === 0) {
+    return json({ ok: true, sent: 0, failed: 0, removed: 0, message: 'No subscriptions registered' }, 200, origin);
+  }
+
+  const payload: Record<string, unknown> = {
+    title:     body.title,
+    body:      body.body,
+    severity:  body.severity  ?? 'LOW',
+    caseId:    body.caseId    ?? null,
+    tab:       body.tab       ?? 'alerts',
+    actionUrl: body.actionUrl ?? (body.caseId ? `/#engine?case=${body.caseId}&tab=alerts` : '/#home'),
+  };
+
+  let sent = 0, failed = 0, removed = 0;
+  const staleEndpoints: string[] = [];
+
+  await Promise.allSettled(
+    subscriptions.map(async sub => {
+      try {
+        const status = await sendWebPush(
+          { endpoint: sub.endpoint, keys: { auth: sub.keys_auth, p256dh: sub.keys_p256dh } },
+          payload,
+          env.VAPID_PUBLIC_KEY!,
+          env.VAPID_PRIVATE_KEY!,
+          env.VAPID_SUBJECT!,
+        );
+
+        if (status === 201 || status === 200) {
+          sent++;
+        } else if (status === 404 || status === 410) {
+          // Subscription is gone — mark for cleanup
+          staleEndpoints.push(sub.endpoint);
+          removed++;
+        } else {
+          failed++;
+        }
+      } catch {
+        failed++;
+      }
+    })
+  );
+
+  // Clean up stale subscriptions
+  for (const endpoint of staleEndpoints) {
+    await env.DB.prepare('DELETE FROM push_subscriptions WHERE endpoint = ?').bind(endpoint).run().catch(() => {});
+  }
+
+  return json({ ok: true, sent, failed, removed }, 200, origin);
+}
+
 // ── Main fetch handler ────────────────────────────────────────────────────────
 
 export default {
@@ -1234,6 +1614,11 @@ export default {
     if (method === 'POST'   && path === '/evidence/file')   return handleUploadEvidenceFile(req, env);
     if (method === 'GET'    && path === '/evidence/file')   return handleGetEvidenceFile(req, env);
     if (method === 'DELETE' && path === '/evidence/file')   return handleDeleteEvidenceFile(req, env);
+
+    // Phase 9F — Web Push Pipeline
+    if (method === 'GET'  && path === '/push/vapid-public-key') return handleGetVapidPublicKey(req, env);
+    if (method === 'POST' && path === '/push/subscribe')        return handlePushSubscribe(req, env);
+    if (method === 'POST' && path === '/push/send')             return handlePushSend(req, env);
 
     return json({ error: 'Not found' }, 404, origin);
   },
