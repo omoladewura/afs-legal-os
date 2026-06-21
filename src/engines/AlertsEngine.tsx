@@ -76,13 +76,22 @@ import {
 } from '@/utils/periodComputer';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// PHONE NOTIFICATIONS — service worker registration + push notify helper
+// PHONE NOTIFICATIONS — push notify helper
+//
+// Phase 9B — registration itself moved to src/main.tsx, called once,
+// unconditionally, at app boot — Phase 9A's offline shell caching can't
+// be gated behind anyone granting notification permission. This module
+// now only handles the notification-permission side; it reads the
+// already-active registration via `serviceWorker.ready` rather than
+// calling `.register()` a second time. `ready` resolves once *any*
+// registration of this page becomes active, so it works regardless of
+// whether main.tsx's register() has already settled by the time this
+// runs — no race condition between the two.
 // ─────────────────────────────────────────────────────────────────────────────
-async function registerSW() {
-  if (!('serviceWorker' in navigator) || !('Notification' in window)) return null;
+async function getActiveSW() {
+  if (!('serviceWorker' in navigator)) return null;
   try {
-    const reg = await navigator.serviceWorker.register('/sw.js');
-    return reg;
+    return await navigator.serviceWorker.ready;
   } catch { return null; }
 }
 
@@ -93,7 +102,7 @@ async function requestAndNotify(title: string, body: string) {
     const perm = await Notification.requestPermission();
     if (perm !== 'granted') return;
   }
-  const reg = await registerSW();
+  const reg = await getActiveSW();
   if (reg) {
     reg.showNotification(title, { body, icon: '/favicon.ico', tag: 'afs-alert', renotify: true });
   } else {
@@ -1079,8 +1088,9 @@ export function AlertsEngine({ activeCase }: AlertsEngineProps) {
   const [filter,       setFilter]       = useState<AlertSeverity | 'ALL'>('ALL');
   const [showDismissed, setShowDismissed] = useState(false);
 
-  // ── Register service worker for phone notifications ─────────────────────
-  useEffect(() => { registerSW(); }, []);
+  // ── Phase 9B — registration moved to src/main.tsx at app boot; nothing
+  // to do here anymore. requestAndNotify() reads the resulting active
+  // registration via getActiveSW() / serviceWorker.ready when needed.
 
   // ── Load docket data ──────────────────────────────────────────────────────
   useEffect(() => {
