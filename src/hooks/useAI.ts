@@ -36,7 +36,7 @@
  */
 
 import { useState, useCallback } from 'react';
-import { callClaude, ApiError } from '@/services/api';
+import { callClaude, withRetry, ApiError } from '@/services/api';
 import { buildRoleSystemPrompt } from '@/utils/rolePrompt';
 import { buildRoleLibraryOpts, deriveRoleHint } from '@/utils/roleLibrary';
 import { appendTokenLog } from '@/storage/helpers';
@@ -102,7 +102,7 @@ export function useAI(activeCase?: Case): UseAIReturn {
         };
       }
 
-      const { text, usage } = await callClaude(finalOpts);
+      const { text, usage } = await withRetry(() => callClaude(finalOpts));
 
       // Fire-and-forget token telemetry — never blocks the caller
       if (activeCase?.id) {
