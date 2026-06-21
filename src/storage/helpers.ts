@@ -15,7 +15,7 @@
 import { db } from './db';
 import type { Case, DocketEntry, Deadline, EvidenceItem, ArgumentVersion, CaseTheoryRecord, CaseTheoryHistoryEntry, CaseSummary, CloneableApplicationRecord } from '@/types';
 import type { MatrimonialCaseData, MExtractionResult } from '@/matrimonial/types';
-import type { BlindSpotRecord, ResearchRecord, ArgumentTemplate } from './db';
+import type { BlindSpotRecord, ResearchRecord, ArgumentTemplate, DraftBufferRecord } from './db';
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
@@ -887,3 +887,70 @@ export async function cloneApplicationToCase(params: {
   return cloned;
 }
 
+
+// ── Draft Buffer — Phase 7B resilient streaming ───────────────────────────────
+//
+// Three operations:
+//   writeDraftChunk  — upsert the buffer record on every incoming SSE chunk
+//   clearDraftBuffer — delete the record on clean stream completion
+//   getStaleDraftBuffers — return records older than `maxAgeMs` for pruning
+//
+// Write strategy: we merge `partial` into the existing record rather than
+// replacing the whole row on every chunk, but Dexie's put() replaces the full
+// record atomically so we read first then write. To avoid a read-on-every-chunk
+// overhead, callers accumulate text locally and call writeDraftChunk with the
+// FULL assembled text so far — not just the latest delta. This means:
+//   - The IndexedDB row always holds the complete partial, not a delta
+//   - A resume path can read the row and get the full text immediately
+//   - We pay one put() per chunk, but no read() in the hot path
+//
+// All three functions swallow errors silently — stream resilience must never
+// crash the engine that initiated the call.
+
+/** Upsert the in-flight partial text for a streaming call. */
+export async function writeDraftChunk(record: DraftBufferRecord): Promise<void> {
+  try {
+    await db.draft_buffer.put(record);
+  } catch {
+    // silently ignored — losing a checkpoint is recoverable; crashing is not
+  }
+}
+
+/** Delete the buffer record once a stream completes successfully. */
+export async function clearDraftBuffer(callId: string): Promise<void> {
+  try {
+    await db.draft_buffer.delete(callId);
+  } catch {
+    // ignore
+  }
+}
+
+/**
+ * Return buffer records older than `maxAgeMs` milliseconds.
+ * Default: 24 hours. Used by the startup pruner and the resume detector.
+ */
+export async function getStaleDraftBuffers(
+  maxAgeMs = 24 * 60 * 60 * 1000,
+): Promise<DraftBufferRecord[]> {
+  try {
+    const cutoff = new Date(Date.now() - maxAgeMs).toISOString();
+    return await db.draft_buffer
+      .where('startedAt')
+      .below(cutoff)
+      .toArray();
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Return ALL records in draft_buffer — used by Phase 7C resume detection
+ * to check for any interrupted stream on app startup, regardless of age.
+ */
+export async function getAllDraftBuffers(): Promise<DraftBufferRecord[]> {
+  try {
+    return await db.draft_buffer.toArray();
+  } catch {
+    return [];
+  }
+}
