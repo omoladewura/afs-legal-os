@@ -58,7 +58,7 @@ import {
   COUNSEL_ROLE_LABELS,
 } from '@/types';
 import { loadDeadlines, loadEntries, saveCase } from '@/storage/helpers';
-import { callClaude } from '@/services/api';
+import { callClaude, withRetry } from '@/services/api';
 import { useIntelligence } from '@/hooks/useIntelligence';
 import { T } from '@/constants/tokens';
 import { STAGE_KEYWORDS } from '@/constants/roleWorkspace';
@@ -780,14 +780,14 @@ Return ONLY a JSON array. No markdown. No preamble. Each item:
 
 Return an empty array [] if no meaningful alerts can be generated from the data provided.`;
 
-  const raw = await callClaude({
+  const raw = await withRetry(() => callClaude({
     system:    `You are the AFS Legal OS alert generator. Return only valid JSON arrays. No prose, no markdown fences.` + fullContext,
     userMsg:   prompt,
     maxTokens: 700,
     skipLibrary: true,
     matter_track: track,
     counsel_role: role,
-  });
+  }));
 
   try {
     const clean  = raw.replace(/```json|```/g, '').trim();

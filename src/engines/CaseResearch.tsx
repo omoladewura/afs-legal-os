@@ -39,7 +39,7 @@ async function runResearchPrompt(
   system: string,
   userPrompt: string,
 ): Promise<string> {
-  return callClaude({ system, userMsg: userPrompt, maxTokens: 2000 });
+  return withRetry(() => callClaude({ system, userMsg: userPrompt, maxTokens: 2000 }));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

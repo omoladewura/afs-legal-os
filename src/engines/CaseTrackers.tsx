@@ -15,7 +15,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { Case } from '@/types';
 import { T } from '@/constants/tokens';
-import { callClaude } from '@/services/api';
+import { callClaude, withRetry } from '@/services/api';
 import { loadBlindSpot, saveBlindSpot, uid } from '@/storage/helpers';
 import { useIntelligence } from '@/hooks/useIntelligence';
 
@@ -178,7 +178,7 @@ function useAI() {
   const run = useCallback(async (prompt: string, maxTokens = 1000, system?: string): Promise<string | null> => {
     setLoading(true); setError(''); setResult('');
     try {
-      const text = await callClaude({ userMsg: prompt, maxTokens, ...(system ? { system } : {}) });
+      const text = await withRetry(() => callClaude({ userMsg: prompt, maxTokens, ...(system ? { system } : {}) }));
       setResult(text);
       return text;
     } catch (e) {

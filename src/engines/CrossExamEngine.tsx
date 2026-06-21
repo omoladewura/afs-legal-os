@@ -15,7 +15,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { Case } from '@/types';
 import { T } from '@/constants/tokens';
-import { callClaude } from '@/services/api';
+import { callClaude, withRetry } from '@/services/api';
 import { useIntelligence } from '@/hooks/useIntelligence';
 import { useCaseContext } from '@/hooks/useCaseContext';
 import { loadBlindSpot, saveBlindSpot, uid } from '@/storage/helpers';
@@ -217,7 +217,7 @@ function CXWitnessProfiler({ caseId, activeCase }: { caseId: string; activeCase:
     if (!form) return;
     setLoading(true); setErr(''); setAiRes('');
     try {
-      const result = await callClaude({
+      const result = await withRetry(() => callClaude({
         system: roleSystemPrompt(activeCase) + fullContext,
         userMsg: `${caseHeader(activeCase)}
 
@@ -256,7 +256,7 @@ The single most important admission we must extract and how to engineer it.
 
 Be specific, tactical, and assume Nigerian litigation procedure throughout.`,
         maxTokens: 1800,
-      });
+      }));
       setAiRes(result);
     } catch (e) {
       setErr('Error: ' + (e as Error).message);
@@ -361,7 +361,7 @@ function CXContradictionMapper({ caseId, activeCase }: { caseId: string; activeC
     if (!form) return;
     setLoading(true); setErr(''); setAiRes('');
     try {
-      const result = await callClaude({
+      const result = await withRetry(() => callClaude({
         system: roleSystemPrompt(activeCase) + fullContext,
         userMsg: `${caseHeader(activeCase)}
 WITNESS: ${form.witness || 'Unknown'}
@@ -395,7 +395,7 @@ How to use this contradiction in the written address. The precise submission on 
 
 Be surgical. Every word must count.`,
         maxTokens: 1400,
-      });
+      }));
       setAiRes(result);
     } catch (e) {
       setErr('Error: ' + (e as Error).message);
@@ -486,7 +486,7 @@ function CXQuestionSequencer({ caseId: _caseId, activeCase }: { caseId: string; 
     if (!witName.trim() || !objective.trim()) return;
     setLoading(true); setErr(''); setAiRes('');
     try {
-      const result = await callClaude({
+      const result = await withRetry(() => callClaude({
         system: roleSystemPrompt(activeCase) + fullContext,
         userMsg: `${caseHeader(activeCase)}
 WITNESS: ${witName}
@@ -518,7 +518,7 @@ The exact words you need the witness to say, and the sequence most likely to pro
 Format questions as:
 Q[N]: [Exact question text] → [Purpose / what this achieves]`,
         maxTokens: 2000,
-      });
+      }));
       setAiRes(result);
     } catch (e) {
       setErr('Error: ' + (e as Error).message);
@@ -604,7 +604,7 @@ function CXImpeachmentBank({ caseId, activeCase }: { caseId: string; activeCase:
     if (!form.weapon.trim()) return;
     setLoading(true); setErr(''); setAiRes('');
     try {
-      const result = await callClaude({
+      const result = await withRetry(() => callClaude({
         system: roleSystemPrompt(activeCase) + fullContext,
         userMsg: `Nigerian court. Senior Advocate. Cross-examination impeachment analysis.
 
@@ -623,7 +623,7 @@ Advise:
 
 Be specific to Nigerian evidence law (Evidence Act 2011).`,
         maxTokens: 1200,
-      });
+      }));
       setAiRes(result);
     } catch (e) {
       setErr('Error: ' + (e as Error).message);
@@ -727,7 +727,7 @@ function CXLiveMode({ caseId: _caseId, activeCase }: { caseId: string; activeCas
     setLoading(true); setErr(''); setAiRes('');
     const log = answers.map((a, i) => `Answer ${i + 1} [${a.time}]: ${a.text}`).join('\n\n');
     try {
-      const result = await callClaude({
+      const result = await withRetry(() => callClaude({
         system: roleSystemPrompt(activeCase) + fullContext,
         userMsg: `${caseHeader(activeCase)}
 WITNESS BEING CROSS-EXAMINED: ${witness}
@@ -758,7 +758,7 @@ Anything that should be preserved as an appellate issue? Any objections that sho
 
 Be direct. Be urgent. This is live courtroom intelligence.`,
         maxTokens: 1200,
-      });
+      }));
       setAiRes(result);
     } catch (e) {
       setErr('Error: ' + (e as Error).message);

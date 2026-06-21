@@ -21,7 +21,7 @@
 import React, { useState } from 'react';
 import type { Case } from '@/types';
 import { T } from '@/constants/tokens';
-import { callClaudeText } from '@/services/api';
+import { callClaudeText, withRetry } from '@/services/api';
 import { Md, Spinner } from '@/components/common/ui';
 import { useIntelligence } from '@/hooks/useIntelligence';
 import { getPrompt } from '@/law/prompts';
@@ -91,13 +91,13 @@ For each defect: the specific correction required before the affidavit is court-
 Be specific. Reference Evidence Act 2011 sections and applicable court rules.`;
 
     try {
-      const text = await callClaudeText({
+      const text = await withRetry(() => callClaudeText({
         system:       fullContext,
         userMsg:      prompt,
         maxTokens:    1800,
         matter_track: activeCase.matter_track,
         counsel_role: activeCase.counsel_role,
-      });
+      }));
       setResult(text);
     } catch (e) {
       setError('API error: ' + ((e as Error).message || 'Please try again.'));

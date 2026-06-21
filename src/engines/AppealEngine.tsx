@@ -414,8 +414,8 @@ Return the complete draft brief.`;
 
     try {
       const system = `${buildRoleSystemPrompt(activeCase.matter_track, activeCase.counsel_role)} You are drafting a Nigerian ${isAppellant ? "Appellant's" : "Respondent's"} Brief of Argument before the ${appealCourt || 'appellate court'}, applying the ${appealCourt === 'Supreme Court' ? 'Supreme Court Rules 2014' : 'Court of Appeal Rules 2021'}. NEVER fabricate case citations, names, years, volumes, or law reports — where an authority cannot be verified, flag it clearly with [AUTHORITY TO VERIFY] rather than inventing one.` + fullContext;
-      const result = await callClaude({ system, userMsg: prompt, maxTokens: 4500,
-        matter_track: activeCase.matter_track, counsel_role: activeCase.counsel_role });
+      const result = await withRetry(() => callClaude({ system, userMsg: prompt, maxTokens: 4500,
+        matter_track: activeCase.matter_track, counsel_role: activeCase.counsel_role }));
       if (result) setDocData(p => ({ ...p, briefDraft: result }));
     } catch (e: unknown) {
       setError('Draft failed: ' + (e instanceof Error ? e.message : 'Unknown error'));
@@ -468,8 +468,8 @@ Return the complete draft Reply Brief.`;
 
     try {
       const system = `${buildRoleSystemPrompt(activeCase.matter_track, activeCase.counsel_role)} CRITICAL RESTRICTION: A Reply Brief may only respond to new points raised by the Respondent that were not in the Appellant's Brief. It cannot introduce new grounds of appeal or re-argue issues already addressed. NEVER fabricate case citations — flag any authority that cannot be verified with [AUTHORITY TO VERIFY].` + fullContext;
-      const result = await callClaude({ system, userMsg: prompt, maxTokens: 3000,
-        matter_track: activeCase.matter_track, counsel_role: activeCase.counsel_role });
+      const result = await withRetry(() => callClaude({ system, userMsg: prompt, maxTokens: 3000,
+        matter_track: activeCase.matter_track, counsel_role: activeCase.counsel_role }));
       if (result) setDocData(p => ({ ...p, replyBriefDraft: result }));
     } catch (e: unknown) {
       setError('Draft failed: ' + (e instanceof Error ? e.message : 'Unknown error'));
@@ -513,8 +513,8 @@ Date:
 Return the complete draft Respondent's Notice.`;
 
     try {
-      const result = await callClaude({ userMsg: prompt, maxTokens: 2000,
-        matter_track: activeCase.matter_track, counsel_role: activeCase.counsel_role });
+      const result = await withRetry(() => callClaude({ userMsg: prompt, maxTokens: 2000,
+        matter_track: activeCase.matter_track, counsel_role: activeCase.counsel_role }));
       if (result) setDocData(p => ({ ...p, respondentsNoticeDraft: result }));
     } catch (e: unknown) {
       setError('Draft failed: ' + (e instanceof Error ? e.message : 'Unknown error'));
@@ -822,7 +822,7 @@ export function AppealEngine({ activeCase, onSave }: Props) {
     if (judgmentSummary.trim().length < 80)     { setError('Judgment summary must be at least 80 characters.'); return; }
     setLoading(true); setError('');
     try {
-      const raw = await callClaude({
+      const raw = await withRetry(() => callClaude({
         system:    extractionSystemPrompt(activeCase, appealRole),
         messages:  [{ role: 'user', content:
 `APPEAL COURT: ${appealCourt}
@@ -852,7 +852,7 @@ Return ONLY this exact JSON structure (no markdown, no preamble):
   "procedural_risks": [{"risk":"specific procedural danger","severity":"HIGH|MEDIUM|LOW"}]
 }` }],
         maxTokens: 3500,
-      });
+      }));
       const clean = raw.replace(/```json|```/g, '').trim();
       const parsed = JSON.parse(clean) as Extraction;
       setExtraction(parsed);
@@ -869,7 +869,7 @@ Return ONLY this exact JSON structure (no markdown, no preamble):
     setLoading(true); setError('');
     const isAppellant = appealRole === 'Appellant';
     try {
-      const content = await callClaude({
+      const content = await withRetry(() => callClaude({
         system:    packageSystemPrompt(activeCase, appealRole),
         messages:  [{ role: 'user', content:
 `APPELLATE INTELLIGENCE PACKAGE — GENERATE NOW
@@ -934,7 +934,7 @@ Every risk that could kill the appeal, reduce the likelihood of success, or expo
 ## 11. Immediate Action Items
 The specific steps to take right now — in priority order. Deadlines where known.` }],
         maxTokens: 4500,
-      });
+      }));
       const pkg = content.trim();
       setIntPkg(pkg);
       setStage(5);

@@ -20,7 +20,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import type { Case, ArgumentVersion } from '@/types';
 import { T } from '@/constants/tokens';
-import { callClaude } from '@/services/api';
+import { callClaude, withRetry } from '@/services/api';
 import { useCaseContext } from '@/hooks/useCaseContext';
 import { Spinner, RoleBadge, Md, TypeDeleteModal, CaseTheoryBanner } from '@/components/common/ui';
 import { useCaseTheory } from '@/hooks/useCaseTheory';
@@ -426,14 +426,14 @@ ${context}
 Now produce the ${typeObj?.label || argType}:`;
 
     try {
-      const text = await callClaude({
+      const text = await withRetry(() => callClaude({
         system: (activeTrack === 'trial' && hasTheory && theory ? buildTheoryInjection(theory) : '') + 'You are Senior Counsel at AFS Advocates, a Nigerian litigation firm. You produce court-ready legal arguments grounded in Nigerian law, procedure, and practice. You NEVER invent case citations, names, years, volumes, or law reports — fabricating authorities is a professional disciplinary offence. Where you need a case authority, you output a structured [RESEARCH NEEDED]...[/RESEARCH NEEDED] block with the exact LawPavilion search terms specified in the instruction. Where statute sections are provided from the firm verified library, you cite them directly. You write with the authority and precision of a silk addressing a superior court. You always structure arguments with clear headings, IRAC logic, and a definitive conclusion.' + fullContext,
         userMsg: prompt,
         maxTokens: 4000,
         mcpDrive: driveRAG,
         matter_track: activeCase.matter_track,
         counsel_role: activeCase.counsel_role,
-      });
+      }));
       setDraft(text.trim());
       setAbTab('build');
     } catch (e) {

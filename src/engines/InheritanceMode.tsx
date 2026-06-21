@@ -19,7 +19,6 @@
 
 import { useState, useRef } from 'react';
 import { T } from '@/constants/tokens';
-import { callClaude } from '@/services/api';
 import { useIntelligence } from '@/hooks/useIntelligence';
 import { queryLibrary, deriveQuery } from '@/services/library';
 import { uid } from '@/storage/helpers';

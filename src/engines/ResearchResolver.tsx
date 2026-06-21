@@ -18,7 +18,7 @@
  */
 
 import React, { useState, useRef } from 'react';
-import { callClaude } from '@/services/api';
+import { callClaude, withRetry } from '@/services/api';
 import { useIntelligence } from '@/hooks/useIntelligence';
 import type { Case }  from '@/types';
 import { T }          from '@/constants/tokens';
@@ -237,7 +237,7 @@ function CaseFinder({ fullContext }: { fullContext: string }) {
     if (!parsed) return;
     setGenerating(true);
     try {
-      const text = await callClaude({
+      const text = await withRetry(() => callClaude({
         system: 'You are a Nigerian legal research expert specialising in LawPavilion searches. Generate precise, effective search queries for finding Nigerian case law.' + fullContext,
         userMsg:
           `Generate 4 additional LawPavilion search queries for this legal research need.\n\n` +
@@ -250,7 +250,7 @@ function CaseFinder({ fullContext }: { fullContext: string }) {
           `or related doctrines that might surface relevant cases in LawPavilion. ` +
           `Output ONLY the 4 search phrases, one per line, no numbering, no explanation.`,
         maxTokens: 300,
-      });
+      }));
       const lines = text.trim().split('\n').map(l => l.replace(/^\d+\.\s*/, '').trim()).filter(Boolean).slice(0, 4);
       setExtraSearches(lines);
     } catch (e) {
@@ -459,14 +459,14 @@ function Resolver({ fullContext }: { fullContext: string }) {
     });
 
     try {
-      const text = await callClaude({
+      const text = await withRetry(() => callClaude({
         system:
           'You are Senior Counsel at AFS Advocates. You rewrite argument paragraphs using real cases ' +
           'provided by the instructing solicitor. You cite accurately in Nigerian format. ' +
           'You output only the rewritten paragraph — nothing else.' + fullContext,
         messages: [{ role: 'user' as const, content: content as import('@/types').ContentBlock[] }],
         maxTokens: 2000,
-      });
+      }));
       setResult(text.trim());
     } catch (e) {
       setError((e as Error).message || 'Resolution failed. Please try again.');

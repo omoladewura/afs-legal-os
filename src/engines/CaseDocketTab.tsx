@@ -22,7 +22,7 @@ import {
   saveCase, loadCase,
 } from '@/storage/helpers';
 import { uid } from '@/utils';
-import { callClaude } from '@/services/api';
+import { callClaude, withRetry } from '@/services/api';
 import { indexCaseChunk } from '@/services/caseRag';
 import { T } from '@/constants/tokens';
 import { CASE_DOC_TYPES, CASE_STATUSES, STATUS_COLORS } from '@/constants/dashboard';
@@ -286,11 +286,11 @@ Provide a structured briefing:
         ? ({ claimant_side: 'Claimant Side', defendant_side: 'Defendant Side', prosecution: 'Prosecution', defence: 'Defence' }[activeCase.counsel_role] ?? activeCase.role ?? 'Counsel')
         : (activeCase.role ?? 'Counsel');
       const butsTrackLabel = activeCase.matter_track === 'criminal' ? 'Criminal' : 'Civil';
-      const res = await callClaude({
+      const res = await withRetry(() => callClaude({
         system: `You are Senior Counsel at AFS Advocates reviewing a litigation file. You are acting as ${butsRoleLabel} on a ${butsTrackLabel} matter. Brief the instructing solicitor directly, specifically, and practically from that perspective. Reference actual documents and dates from the docket. This is for a Nigerian advocate managing their own case file.`,
         userMsg: prompt,
         maxTokens: 2000,
-      });
+      }));
       setButsRes(res);
     } catch (e: unknown) {
       setButsErr((e as Error).message || 'Failed. Please try again.');
@@ -307,11 +307,11 @@ Provide a structured briefing:
     const toCompress = entries.slice(half);   // older half
     const keep       = entries.slice(0, half); // newer half
     try {
-      const summary = await callClaude({
+      const summary = await withRetry(() => callClaude({
         system: 'You are a legal case management assistant. Compress Nigerian litigation docket entries into a tight factual summary. Preserve every date, party, document name, and key decision.',
         userMsg: `Case: ${activeCase.caseName}\n\nEntries:\n${entriesToText(toCompress)}\n\nExisting summary:\n${activeCase.compressed_summary || 'None.'}\n\nProduce merged summary.`,
         maxTokens: 1500,
-      });
+      }));
       // Persist summary to case
       const fresh = await loadCase(activeCase.id);
       if (fresh) {
@@ -335,11 +335,11 @@ Provide a structured briefing:
     const toCompress = allEntries.slice(10);
     const keep       = allEntries.slice(0, 10);
     try {
-      const summary = await callClaude({
+      const summary = await withRetry(() => callClaude({
         system: 'You are a legal case management assistant. Compress Nigerian litigation docket entries into a concise factual summary. Preserve every date, party, document name, court order, and key decision.',
         userMsg: `Case: ${activeCase.caseName}\n\nEntries:\n${entriesToText(toCompress)}\n\nExisting summary:\n${activeCase.compressed_summary || 'None yet.'}\n\nMerge into a single compressed summary.`,
         maxTokens: 1000,
-      });
+      }));
       const fresh = await loadCase(activeCase.id);
       if (fresh) {
         fresh.compressed_summary = summary;
@@ -390,11 +390,11 @@ Provide a structured briefing:
     const limitTrackLabel = activeCase.matter_track === 'criminal' ? 'Criminal' : 'Civil';
     const caseCtx = `Case: ${activeCase.caseName}\nTrack: ${limitTrackLabel}\nRole: ${limitRoleLabel}\nCourt: ${activeCase.court || 'Not specified'}\nDate commenced: ${activeCase.dateCommenced || 'Not specified'}\nClaims/facts: ${activeCase.intelligence_data?.facts || activeCase.intelligence_data?.legal_issues || 'Not provided'}`;
     try {
-      const raw = await callClaude({
+      const raw = await withRetry(() => callClaude({
         system: 'You are a Nigerian litigation expert. Return only valid JSON arrays. No markdown, no backticks, no preamble.',
         userMsg: `Analyse this case and identify ALL applicable limitation periods and critical deadlines under Nigerian law.\n\n${caseCtx}\n\nReturn a JSON array. Each object: title (string), type (one of: "Limitation Period","Filing Deadline","Appeal Window","Compliance Date"), date (ISO date YYYY-MM-DD calculated from today ${today}), notes (cite statute and section). If insufficient facts, return [{"title":"Insufficient facts — run Intelligence Engine first","type":"Custom","date":"${today}","notes":"Please run the Trial Intelligence Engine to provide case facts before using the AI Limitation Tracker."}]. ONLY the JSON array.`,
         maxTokens: 1200,
-      });
+      }));
       const cleaned = raw.replace(/^```json|^```|```$/gm, '').trim();
       const arr = JSON.parse(cleaned);
       if (!Array.isArray(arr)) throw new Error('Not an array');

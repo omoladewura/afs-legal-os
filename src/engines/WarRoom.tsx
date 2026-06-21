@@ -25,7 +25,7 @@
 
 import { useState, useEffect } from 'react';
 import { T } from '@/constants/tokens';
-import { callClaude } from '@/services/api';
+import { callClaude, withRetry } from '@/services/api';
 import { buildRoleLibraryOpts } from '@/utils/roleLibrary';
 import { Md, Spinner } from '@/components/common/ui';
 import { useAppStore } from '@/state/appStore';
@@ -264,7 +264,7 @@ export function WarRoom({ activeCase }: Props) {
     setLoad(key, true);
     setErr(key, '');
     try {
-      const text = await callClaude({ system, userMsg, maxTokens: 1800, matter_track: activeCase.matter_track, counsel_role: activeCase.counsel_role, libraryOpts: buildRoleLibraryOpts(activeCase.matter_track, activeCase.counsel_role, userMsg.slice(0, 150)) });
+      const text = await withRetry(() => callClaude({ system, userMsg, maxTokens: 1800, matter_track: activeCase.matter_track, counsel_role: activeCase.counsel_role, libraryOpts: buildRoleLibraryOpts(activeCase.matter_track, activeCase.counsel_role, userMsg.slice(0, 150)) }));
       setter(text);
       writeLS(lsKey, text);
     } catch (e) {

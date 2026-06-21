@@ -9,7 +9,7 @@ import { useCaseTheory } from '@/hooks/useCaseTheory';
 import { buildRoleSystemPrompt } from '@/utils/rolePrompt';
 import { getPartyLabels } from '@/utils/getPartyLabels';
 import { queryStatutes, isRagConfigured } from '@/services/statuteRag';
-import { callClaude } from '@/services/api';
+import { callClaude, withRetry } from '@/services/api';
 import { loadArgVersions, saveArgVersion, deleteArgVersion } from '@/storage/helpers';
 import { getLawSync } from '@/law/registry';
 import { Md, Spinner, ErrorBlock, CaseTheoryBanner } from '@/components/common/ui';
@@ -1285,7 +1285,7 @@ function Stage2Research({ activeCase }: { activeCase: Case }) {
     if (!parsed) return;
     setFinderLoading(true);
     try {
-      const text = await callClaude({
+      const text = await withRetry(() => callClaude({
         system: 'You are a Nigerian legal research expert specialising in LawPavilion searches. Generate precise, effective search queries for finding Nigerian case law.' + fullContext,
         userMsg: `Generate 4 additional LawPavilion search queries for this legal research need.
 
@@ -1299,7 +1299,7 @@ ${parsed.searches.join('\n')}
 
 Generate 4 NEW search phrases — different angles, synonyms, alternative legal terms of art, or related doctrines that might surface relevant cases in LawPavilion. Output ONLY the 4 search phrases, one per line, no numbering, no explanation.`,
         maxTokens: 300,
-      });
+      }));
       setExtraSearches(
         text.trim()
           .split('\n')
@@ -1336,7 +1336,7 @@ Generate 4 NEW search phrases — different angles, synonyms, alternative legal 
     setResolveError('');
     setResolveResult('');
     try {
-      const text = await callClaude({
+      const text = await withRetry(() => callClaude({
         system: 'You are Senior Counsel at AFS Advocates. You rewrite argument paragraphs using real cases provided by the instructing solicitor. You cite accurately in Nigerian format. You output only the rewritten paragraph — nothing else.' + fullContext,
         userMsg: `You are resolving a [RESEARCH NEEDED] placeholder in a legal argument.
 
@@ -1351,7 +1351,7 @@ ${valid.map((c, i) => `CASE ${i + 1}: ${c.citation}\n${c.text}`).join('\n\n')}
 
 Rewrite the argument paragraph with the real Nigerian case citations inserted in place of the [RESEARCH NEEDED] block. Use Nigerian citation format. Output ONLY the rewritten paragraph.`,
         maxTokens: 2000,
-      });
+      }));
       setResolveResult(text.trim());
     } catch (e) {
       setResolveError((e as Error).message || 'Failed to resolve citations.');
@@ -1695,7 +1695,7 @@ function Stage3Validate({ activeCase }: { activeCase: Case }) {
     const track   = activeCase.matter_track === 'criminal' ? 'Criminal' : 'Civil';
     const roleCtx = role ? ` You are advising ${role} counsel on a ${track} matter.` : '';
     try {
-      const text = await callClaude({
+      const text = await withRetry(() => callClaude({
         system: VALIDATE_SYSTEM + roleCtx + fullContext,
         userMsg: `Nigerian litigation — authority validation analysis.
 
@@ -1731,7 +1731,7 @@ How to deploy this authority most effectively.`,
         maxTokens: 1400,
         matter_track: activeCase.matter_track,
         counsel_role: activeCase.counsel_role,
-      });
+      }));
       setValResult(text);
       persistAuths(
         auths.map(a => a.id === auth.id ? { ...a, validated: true, validation: text } : a),
@@ -1757,7 +1757,7 @@ How to deploy this authority most effectively.`,
     const authList = conflList.trim() ||
       auths.map(a => `${a.caseName} (${a.citation}) — ${a.court} — ${a.principle}`).join('\n');
     try {
-      const text = await callClaude({
+      const text = await withRetry(() => callClaude({
         system: '' + fullContext,
         userMsg: `LEGAL ISSUE: ${conflIssue}
 
@@ -1789,7 +1789,7 @@ Additional authorities to source.`,
         maxTokens: 1500,
         matter_track: activeCase.matter_track,
         counsel_role: activeCase.counsel_role,
-      });
+      }));
       setConflResult(text);
     } catch (e) {
       setConflError((e as Error).message || 'API error.');
@@ -1814,7 +1814,7 @@ Additional authorities to source.`,
       ? ` You are advising ${role} counsel on a ${track} matter. Tailor research to their position and flag both supportive and hostile authorities.`
       : '';
     try {
-      const text = await callClaude({
+      const text = await withRetry(() => callClaude({
         system: QUICK_SYSTEM + roleCtx + fullContext,
         userMsg: `Nigerian law research query: ${qQuery}
 
@@ -1835,7 +1835,7 @@ This is AI-generated research guidance only. All authorities must be independent
         maxTokens: 1400,
         matter_track: activeCase.matter_track,
         counsel_role: activeCase.counsel_role,
-      });
+      }));
       setQResult(text);
     } catch (e) {
       setQError((e as Error).message || 'API error.');

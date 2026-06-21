@@ -47,7 +47,7 @@ import {
   COUNSEL_ROLE_COLORS,
 } from '@/types';
 import { useAppStore } from '@/state/appStore';
-import { callClaude } from '@/services/api';
+import { callClaude, withRetry } from '@/services/api';
 import { loadBlindSpot, saveBlindSpot } from '@/storage/helpers';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -283,7 +283,7 @@ export function AICopilot({ activeCase }: Props) {
       // Step 1: Route
       // Phase 4: fullContext removed from the routing call — the router only
       // needs to classify the command, not read case facts.
-      const rawKey = (await callClaude({
+      const rawKey = (await withRetry(() => callClaude({
         system:
           'You are a command router for a Nigerian litigation intelligence system. ' +
           'Classify the user command into EXACTLY ONE of these categories ' +
@@ -302,11 +302,11 @@ export function AICopilot({ activeCase }: Props) {
       const route = ROUTE_MAP[routeKey];
 
       // Step 2: Execute — fullContext injected once here in system prompt
-      const aiText = await callClaude({
+      const aiText = await withRetry(() => callClaude({
         system:   buildCommandSystemPrompt(routeKey, posture, ctx) + fullContext,
         userMsg:  command,
         maxTokens: 2000,
-      });
+      }));
 
       const aiEntry: HistoryEntry = {
         role: 'assistant', content: aiText, ts: Date.now(),
