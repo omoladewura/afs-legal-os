@@ -14,6 +14,7 @@ import { useState } from 'react';
 import { useAppStore } from '@/state/appStore';
 import { T, S } from '@/constants/tokens';
 import { LawRegistry } from '@/components/LawRegistry';
+import { AssetLibrary } from '@/engines/AssetLibrary';
 
 const WORKER_URL  = 'https://afs-legal-rag.sobamboadeshupo.workers.dev';
 const MONITOR_URL = 'https://afs-monitor-worker.sobamboadeshupo.workers.dev';
@@ -78,6 +79,7 @@ export function SettingsPanel() {
   const [monActionId,    setMonActionId]    = useState('');  // alert id with pending action
   const [monExpanded,    setMonExpanded]    = useState(false);
   const [lawExpanded,    setLawExpanded]    = useState(false);
+  const [assetExpanded,  setAssetExpanded]  = useState(false);
 
   async function runIngest() {
     setIngesting(true);
@@ -641,6 +643,35 @@ export function SettingsPanel() {
         </p>
 
         {lawExpanded && <LawRegistry />}
+      </section>
+
+      {/* ── Asset Library (Phase 8D) ── */}
+      <section style={{
+        background: T.card, border: `1px solid ${T.bdr}`,
+        borderRadius: 8, padding: 24,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+          <div>
+            <h2 style={{ ...S.h2, marginTop: 0, marginBottom: 2 }}>Asset Library</h2>
+          </div>
+          <button
+            onClick={() => setAssetExpanded(v => !v)}
+            style={{
+              background: 'none', border: `1px solid ${T.bdr}`,
+              borderRadius: 4, padding: '5px 14px',
+              fontSize: 12, cursor: 'pointer', color: T.dim,
+              fontFamily: "'Times New Roman', Times, serif",
+            }}
+          >
+            {assetExpanded ? '▾ Hide' : '▸ Show'}
+          </button>
+        </div>
+        <p style={{ ...S.hint, marginBottom: assetExpanded ? 20 : 0 }}>
+          Global template assets — precedents, letterheads, standing forms —
+          available across every matter. Promote any pasted file from the
+          Evidence Vault via "Save as Template", or upload one directly here.
+        </p>
+        {assetExpanded && <AssetLibrary />}
       </section>
 
       {/* ── System Info ── */}
