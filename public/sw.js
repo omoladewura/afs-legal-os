@@ -108,13 +108,76 @@ self.addEventListener('fetch', event => {
   // Anything else cross-origin — let the browser handle it normally.
 });
 
+/**
+ * Phase 9E — Background push infrastructure.
+ *
+ * Upgrades to the push handler:
+ *  - Richer payload support: severity, caseId, tab, actionUrl
+ *  - Badge icon uses /icon-192.png (Phase 9C asset) instead of /favicon.ico
+ *  - Notification actions: "Open" deep-link (shows case + tab) and "Dismiss"
+ *  - Notification tag is severity-prefixed so CRITICAL alerts don't collapse
+ *    into LOW ones when multiple arrive while the app is backgrounded
+ *
+ * New: notificationclick handler
+ *  - Tapping the notification (or its "Open" action) focuses an existing
+ *    app window or opens a new one, and deep-links to the right case tab
+ *    by setting the hash the app reads on load.
+ *  - Tapping "Dismiss" closes the notification without opening the app.
+ */
+
 self.addEventListener('push', e => {
   const data = e.data?.json() ?? {};
-  e.waitUntil(self.registration.showNotification(data.title || 'AFS Alert', {
-    body: data.body || '',
-    icon: '/favicon.ico',
-    badge: '/favicon.ico',
-    tag: data.tag || 'afs-alert',
-    renotify: true,
-  }));
+
+  const title    = data.title    || 'AFS Alert';
+  const body     = data.body     || '';
+  const severity = data.severity || 'LOW';   // CRITICAL | HIGH | MEDIUM | LOW
+  const caseId   = data.caseId   || null;
+  const tab      = data.tab      || 'alerts';
+  const actionUrl = data.actionUrl
+    || (caseId ? `/#engine?case=${caseId}&tab=${tab}` : '/#home');
+
+  // Tag by severity so CRITICAL notifications are never collapsed by a LOW one
+  const tag = `afs-${severity.toLowerCase()}-${caseId || 'global'}`;
+
+  const icon  = '/icon-192.png';
+  const badge = '/icon-192.png';
+
+  const options = {
+    body,
+    icon,
+    badge,
+    tag,
+    renotify:          true,
+    requireInteraction: severity === 'CRITICAL' || severity === 'HIGH',
+    data:              { actionUrl },
+    actions: [
+      { action: 'open',    title: 'Open'    },
+      { action: 'dismiss', title: 'Dismiss' },
+    ],
+  };
+
+  e.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+
+  if (e.action === 'dismiss') return;
+
+  const actionUrl = e.notification.data?.actionUrl || '/';
+
+  e.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windowClients => {
+      // If an AFS window is already open, focus it and navigate to the deep link
+      for (const client of windowClients) {
+        if (client.url.includes(self.location.origin)) {
+          client.focus();
+          client.navigate(self.location.origin + actionUrl);
+          return;
+        }
+      }
+      // No window open — open a new one
+      return clients.openWindow(self.location.origin + actionUrl);
+    })
+  );
 });
