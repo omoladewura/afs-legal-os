@@ -870,6 +870,13 @@ export interface ApiRequestOptions {
    */
   onChunk?: (chunk: string) => void;
   /**
+   * Called once, before the first chunk of a resumed stream, when Phase 7C
+   * detects that a previous stream was interrupted and is being continued.
+   * Use this to surface a "Resumed after interruption" notice in the UI.
+   * Has no effect on non-streaming calls or on clean streams.
+   */
+  onResumed?: () => void;
+  /**
    * Case ID for the draft_buffer record written during streaming.
    * If omitted the buffer record is written with caseId: null.
    * Has no effect on non-streaming calls.
