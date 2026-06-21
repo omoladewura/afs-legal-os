@@ -32,7 +32,10 @@ import {
   saveEvidenceFile,
   loadEvidenceFile,
   deleteEvidenceFile,
+  saveMediaItem,
+  saveMediaAsTemplate,
 } from '@/storage/helpers';
+import type { MediaLibraryItem } from '@/storage/db';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CONSTANTS
@@ -40,6 +43,7 @@ import {
 
 const WORKER_URL   = 'https://afs-legal-rag.sobamboadeshupo.workers.dev';
 const EV_MAX_BYTES = 2 * 1024 * 1024; // 2 MB per file
+const MEDIA_MAX_BYTES = 2 * 1024 * 1024; // Phase 8B — same ceiling, mirrors EV_MAX_BYTES
 
 const EV_CATS = [
   { id: 'contract',    label: 'Contracts',      icon: '📜', col: '#7060d0' },
@@ -95,6 +99,18 @@ function fmtSize(bytes: number): string {
 
 function fmtDate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+/**
+ * Clipboard image pastes often come back as a File named just "image.png"
+ * or with an empty name, depending on the browser. Give it a unique,
+ * recognisable name so multiple pastes don't collide or look identical
+ * in a future Media Library listing (Phase 8D/8E).
+ */
+function defaultPasteFilename(file: File): string {
+  if (file.name && file.name !== 'image.png' && file.name !== 'blob') return file.name;
+  const ext = (file.type.split('/')[1] || 'dat').split(';')[0];
+  return `pasted-${Date.now()}.${ext}`;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -409,6 +425,92 @@ export function EvidenceVault({ activeCase }: Props) {
   const [aiLoading,  setAiLoading]  = useState<Record<string, boolean>>({});
   const [deleteModal,setDeleteModal]= useState<string | null>(null);
 
+  // ── Phase 8B — quick paste/upload capture for the Media Library ─────────────
+  // Independent of the categorised Document Upload flow above (UploadPanel /
+  // handleUploaded / evidence_meta + evidence_files). This captures a file
+  // pasted (Ctrl/Cmd+V) anywhere in the Vault — no category, no notes step —
+  // and saves it directly into media_library with scope:'case' (8B.ii).
+  // It does not yet appear in the document list below — merging case +
+  // global media into this view lands in Phase 8E.
+  const [quickMedia,    setQuickMedia]    = useState<MediaLibraryItem | null>(null);
+  const [quickMediaErr, setQuickMediaErr] = useState('');
+  const [promoting,     setPromoting]     = useState(false);
+
+  /**
+   * Phase 8C — "Save as Template". Flips the just-saved item's scope to
+   * 'global' and clears its caseId, in place. The same row then becomes
+   * available to every matter via the global Asset Library (Phase 8D).
+   */
+  async function handleSaveAsTemplate() {
+    if (!quickMedia || quickMedia.scope === 'global') return;
+    setPromoting(true);
+    const updated = await saveMediaAsTemplate(quickMedia.id);
+    if (updated) {
+      setQuickMedia(updated);
+    } else {
+      setQuickMediaErr('Could not save as template — please try again.');
+    }
+    setPromoting(false);
+  }
+
+  const captureQuickMedia = useCallback(async (file: File) => {
+    setQuickMediaErr('');
+    if (file.size > MEDIA_MAX_BYTES) {
+      setQuickMediaErr(`Pasted file is ${(file.size / 1024 / 1024).toFixed(1)} MB — maximum is 2 MB.`);
+      return;
+    }
+    try {
+      const b64 = await fileToB64(file);
+      const item: MediaLibraryItem = {
+        id:        uid(),
+        caseId,
+        scope:     'case',
+        filename:  defaultPasteFilename(file),
+        fileType:  file.type || 'application/octet-stream',
+        fileSize:  file.size,
+        data:      b64,
+        notes:     '',
+        createdAt: new Date().toISOString(),
+      };
+      const saved = await saveMediaItem(item);
+      if (!saved) {
+        setQuickMediaErr('Could not save to the Media Library — storage may be full.');
+        return;
+      }
+      setQuickMedia(item);
+    } catch {
+      setQuickMediaErr('Could not read the pasted item.');
+    }
+  }, [caseId]);
+
+  useEffect(() => {
+    function onWindowPaste(e: ClipboardEvent) {
+      // Don't hijack paste inside text fields — the search box, the Notes
+      // textarea in UploadPanel, etc. should keep their normal paste
+      // behaviour. Only capture when the paste lands on open space.
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      if (tag === 'TEXTAREA' || tag === 'INPUT') return;
+
+      const clipItems = e.clipboardData?.items;
+      if (!clipItems || clipItems.length === 0) return;
+
+      let file: File | null = null;
+      for (let i = 0; i < clipItems.length; i++) {
+        if (clipItems[i].kind === 'file') {
+          file = clipItems[i].getAsFile();
+          if (file) break;
+        }
+      }
+      if (!file) return;
+
+      e.preventDefault();
+      captureQuickMedia(file);
+    }
+
+    window.addEventListener('paste', onWindowPaste);
+    return () => window.removeEventListener('paste', onWindowPaste);
+  }, [captureQuickMedia]);
+
   // ── Load evidence metadata on mount ──────────────────────────────────────────
   useEffect(() => {
     loadEvidenceMeta(caseId).then(loaded => {
@@ -582,6 +684,40 @@ export function EvidenceVault({ activeCase }: Props) {
           + Add Document
         </button>
       </div>
+
+      {/* Phase 8B/8C — quick paste capture, saved to media_library; "Save as Template" flips it to scope:'global' */}
+      {(quickMedia || quickMediaErr) && (
+        <div style={{
+          background: quickMediaErr ? '#1a0808' : '#08140c',
+          border: `1px solid ${quickMediaErr ? '#2a1010' : '#1a3a26'}`,
+          borderRadius: 6, padding: '10px 14px', marginBottom: 14,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+        }}>
+          {quickMediaErr ? (
+            <p style={{ fontSize: 12, color: '#d06060', fontFamily: "'Times New Roman', Times, serif" }}>
+              {quickMediaErr}
+            </p>
+          ) : (
+            <p style={{ fontSize: 12, color: '#60a878', fontFamily: "'Times New Roman', Times, serif" }}>
+              {quickMedia!.scope === 'global'
+                ? <>🌐 Saved as global template: {quickMedia!.filename} ({fmtSize(quickMedia!.fileSize)}) — available across every matter.</>
+                : <>✅ Saved to Case Media Library: {quickMedia!.filename} ({fmtSize(quickMedia!.fileSize)})</>}
+            </p>
+          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+            {quickMedia && quickMedia.scope === 'case' && (
+              <button onClick={handleSaveAsTemplate} disabled={promoting}
+                style={{ background: 'transparent', border: '1px solid #1a3a26', color: '#60a878', borderRadius: 3, padding: '4px 10px', fontSize: 10, fontFamily: "'Times New Roman', Times, serif", cursor: promoting ? 'not-allowed' : 'pointer', opacity: promoting ? .5 : 1, letterSpacing: '.03em' }}>
+                {promoting ? 'Saving…' : 'Save as Template'}
+              </button>
+            )}
+            <button onClick={() => { setQuickMedia(null); setQuickMediaErr(''); }}
+              style={{ background: 'transparent', border: '1px solid #1a1a2a', color: T.mute, borderRadius: 3, padding: '4px 9px', fontSize: 10, cursor: 'pointer' }}>
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Category Filter Chips */}
       {items.length > 0 && (
