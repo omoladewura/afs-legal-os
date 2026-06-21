@@ -147,6 +147,8 @@ export function CaseDocketTab({ activeCase }: Props) {
   // ── Entries state ─────────────────────────────────────────────────────────
   const [entries,  setEntries]  = useState<DocketEntry[]>([]);
   const [loading,  setLoading]  = useState(true);
+  // Phase 2B — offline-from-cache detection (same heuristic as CaseDocket)
+  const [fromCache, setFromCache] = useState(false);
 
   // ── Entry form ────────────────────────────────────────────────────────────
   const [showForm,     setShowForm]    = useState(false);
@@ -178,6 +180,8 @@ export function CaseDocketTab({ activeCase }: Props) {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
+    setFromCache(false);
+    const start = Date.now();
     Promise.all([
       loadEntries(activeCase.id),
       loadDeadlines(activeCase.id),
@@ -185,6 +189,8 @@ export function CaseDocketTab({ activeCase }: Props) {
       if (cancelled) return;
       setEntries(ents);
       setDeadlines(dls);
+      // Phase 2B — flag when data likely came from IndexedDB (fast return or offline)
+      setFromCache(!navigator.onLine || (Date.now() - start) < 200);
       setLoading(false);
     });
     return () => { cancelled = true; };
@@ -429,6 +435,23 @@ Provide a structured briefing:
 
   return (
     <div style={{ animation: 'fadeUp .3s ease' }}>
+
+      {/* Phase 2B — offline-from-cache badge */}
+      {fromCache && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          padding: '7px 12px', marginBottom: 14,
+          background: '#fffbf0', border: '1px solid #e0cfa0', borderRadius: 4,
+        }}>
+          <span style={{ fontSize: 13, lineHeight: 1, color: '#7a4a00' }}>◌</span>
+          <p style={{
+            fontSize: 11, margin: 0, color: '#7a4a00',
+            fontFamily: "'Times New Roman', Times, serif",
+          }}>
+            Showing locally cached docket — AI features require a connection
+          </p>
+        </div>
+      )}
 
       {/* ── Delete confirmation modal ── */}
       {deleteModal && (

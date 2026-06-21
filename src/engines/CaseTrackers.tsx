@@ -18,6 +18,7 @@ import { T } from '@/constants/tokens';
 import { callClaude, withRetry } from '@/services/api';
 import { loadBlindSpot, saveBlindSpot, uid } from '@/storage/helpers';
 import { useIntelligence } from '@/hooks/useIntelligence';
+import { LoadingBlock } from '@/components/common/ui';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -259,9 +260,10 @@ Be precise. Every observation must be actionable.`;
     await ai.run(prompt, 1000, `You are a senior Nigerian litigation counsel specialising in witness preparation and cross-examination strategy. Apply Nigerian evidence law and courtroom tactics.` + fullContext);
   }
 
+  // Phase 2B — show skeleton while loadBlindSpot resolves (IndexedDB-only, fast)
   const STATUS_OPTS = ['Pending', 'In Preparation', 'Ready', 'Testified', 'Withdrawn'];
 
-  if (!ready) return null;
+  if (!ready) return <LoadingBlock label="Loading…" />;
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr', gap: 18, alignItems: 'start' }}>
@@ -381,7 +383,7 @@ Be direct and tactical.`;
     await ai.run(prompt, 1000, `You are a senior Nigerian litigation strategist specialising in opposing counsel intelligence. Provide tactical, actionable analysis of opposing counsel's likely approach and vulnerabilities.` + fullContext);
   }
 
-  if (!ready) return null;
+  if (!ready) return <LoadingBlock label="Loading…" />;
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr', gap: 18, alignItems: 'start' }}>
@@ -468,7 +470,7 @@ General principles where specifics are unknown. Be practical — this is court i
     await ai.run(prompt, 1000, `You are a senior Nigerian litigation counsel with deep knowledge of Nigerian court practice and judicial temperament. Provide practical court intelligence grounded in Nigerian procedure and advocacy.` + fullContext);
   }
 
-  if (!ready) return null;
+  if (!ready) return <LoadingBlock label="Loading…" />;
 
   return (
     <div>
@@ -535,7 +537,7 @@ function BSComms({ caseId }: { caseId: string }) {
   const TYPES = ['Call', 'Meeting', 'Email', 'Letter', 'WhatsApp', 'Instructions', 'Update', 'Other'];
   const filtered = filter === 'All' ? comms : filter === 'Flagged' ? comms.filter(c => c.flagged) : comms.filter(c => c.type === filter);
 
-  if (!ready) return null;
+  if (!ready) return <LoadingBlock label="Loading…" />;
 
   return (
     <div>
@@ -665,7 +667,7 @@ Be precise.`;
   const APP_TYPES = ['Motion on Notice', 'Ex-Parte Application', 'Substantive Motion', 'Preliminary Objection', 'Application to Strike Out', 'Application to Amend', 'Application for Adjournment', 'Application for Stay', 'Other'];
   const STATUS_COL: Record<string, string> = { Pending: '#5a5a72', Filed: '#3a6090', Heard: '#7a6030', Adjourned: '#5a4020', Granted: '#306050', Dismissed: '#6a2020', Withdrawn: '#404050', Appealed: '#5a3080' };
 
-  if (!ready) return null;
+  if (!ready) return <LoadingBlock label="Loading…" />;
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '230px 1fr', gap: 18, alignItems: 'start' }}>
