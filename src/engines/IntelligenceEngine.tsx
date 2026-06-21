@@ -81,6 +81,20 @@ interface CommencementAuditResult {
   summary:            string;
 }
 
+// ── Step 2 — Counterclaim Detected types (Phase 6A) ───────────────────────────
+// Mirrors IntelligenceData['counterclaim_detected'] in src/types/index.ts.
+// Produced inside the same Step 2 extraction call (Phase 6A-i prompt
+// instruction) and split out into its own sibling field on save — kept
+// separate from ExtractionResult so intelligence_data.extraction stays
+// exactly the shape PleadingsEngine and other readers already expect.
+
+interface CounterclaimDetectedResult {
+  /** Whether the extraction found credible counterclaim facts */
+  flag:     boolean;
+  /** Brief description of the detected counterclaim basis (if flag is true) */
+  summary?: string;
+}
+
 // ── Step 4b — Conflict Scan types ─────────────────────────────────────────────
 
 interface ConflictHit {
@@ -148,6 +162,8 @@ interface TIEData {
   intPkg:              string;
   /** Step 2b — Commencement Audit. Auto-populated after extraction. */
   commencement_audit?: CommencementAuditResult;
+  /** Step 2 — Counterclaim Detected. Auto-populated as part of extraction (Phase 6A). */
+  counterclaim_detected?: CounterclaimDetectedResult;
   /** Step 4b — Conflict Scan. Run on-demand from Stage 4/5. */
   conflict_scan?:      ConflictScanResult;
   /** Step 5b — Risk Verdict. Auto-populated after package generation. */
@@ -192,6 +208,8 @@ export function IntelligenceEngine({ activeCase, onSave }: Props) {
   const [commencementAudit,  setCommencementAudit]  = useState<CommencementAuditResult | undefined>(saved.commencement_audit);
   const [auditLoading,       setAuditLoading]       = useState(false);
   const [auditError,         setAuditError]         = useState('');
+  // Step 2 — Counterclaim Detected (Phase 6A)
+  const [counterclaimDetected, setCounterclaimDetected] = useState<CounterclaimDetectedResult | undefined>(saved.counterclaim_detected);
 
   // Step 4b — Conflict Scan
   const [conflictScan,       setConflictScan]       = useState<ConflictScanResult | undefined>(saved.conflict_scan);
@@ -228,10 +246,11 @@ ${partyBPlural}: ${activeCase.defendants.map(d => d.name).filter(Boolean).join('
   function persist(updates: Partial<TIEData>) {
     const data: TIEData = {
       stage, rawFacts, extraction, followUpQs, followUpAs, evidenceM, intPkg,
-      commencement_audit:  commencementAudit,
-      conflict_scan:       conflictScan,
-      risk_verdict:        riskVerdict,
-      authority_grounding: authorityGrounding,
+      commencement_audit:    commencementAudit,
+      counterclaim_detected: counterclaimDetected,
+      conflict_scan:         conflictScan,
+      risk_verdict:          riskVerdict,
+      authority_grounding:   authorityGrounding,
       ...updates,
     };
     onSave(data);
@@ -259,6 +278,8 @@ Extract structured intelligence from the raw case facts provided by the user.
 Role-aware: the lawyer acts for the ${role}.
 Case context: ${caseCtx}
 
+COUNTERCLAIM DETECTION: Where this is a civil matter, actively assess whether the facts disclose a viable counterclaim — an independent cause of action arising from the same transaction or facts (available to the opposing side, or to our client if we act for the defendant) that could be raised as a cross-claim under the applicable Rules of Civil Procedure. A counterclaim is distinct from a mere defence or set-off: it seeks affirmative relief in its own right, not merely a denial of liability. Set "counterclaim_detected.flag" to true only where one is reasonably disclosed on the facts, and write a one-to-two sentence "counterclaim_detected.summary" stating who would bring it, against whom, and the cause of action. Do not fabricate a counterclaim where the facts do not support one — if this is not a civil matter, or no counterclaim is disclosed, set "flag" to false and omit "summary".
+
 Output ONLY valid JSON — no markdown fences, no preamble, no explanation. Exactly this structure:
 {
   "timeline": [{"date":"...","event":"...","significance":"..."}],
@@ -267,7 +288,8 @@ Output ONLY valid JSON — no markdown fences, no preamble, no explanation. Exac
   "legal_issues": ["..."],
   "evidence_mentioned": ["..."],
   "gaps_identified": ["..."],
-  "initial_risks": [{"risk":"...","severity":"HIGH|MEDIUM|LOW"}]
+  "initial_risks": [{"risk":"...","severity":"HIGH|MEDIUM|LOW"}],
+  "counterclaim_detected": {"flag": true|false, "summary": "..."}
 }
 
 Rules:
@@ -286,7 +308,7 @@ Rules:
       if (start === -1 || end === -1) throw new Error('No JSON object found in response. Please try again.');
       cleaned = cleaned.slice(start, end + 1);
 
-      let ext: ExtractionResult;
+      let ext: ExtractionResult & { counterclaim_detected?: CounterclaimDetectedResult };
       try {
         ext = JSON.parse(cleaned);
       } catch {
@@ -297,10 +319,20 @@ Rules:
         ext = JSON.parse(repaired);
       }
 
-      setExtraction(ext);
-      advance(2, { extraction: ext, rawFacts });
+      // Split counterclaim_detected out — it lives as a sibling of `extraction`
+      // on intelligence_data (Phase 6A-ii), not nested inside it, even though
+      // the AI returns both in the same Step 2 JSON blob.
+      const { counterclaim_detected: ccRaw, ...extractionOnly } = ext;
+      const counterclaim: CounterclaimDetectedResult =
+        ccRaw && typeof ccRaw.flag === 'boolean'
+          ? { flag: ccRaw.flag, ...(ccRaw.summary ? { summary: ccRaw.summary } : {}) }
+          : { flag: false };
+
+      setExtraction(extractionOnly);
+      setCounterclaimDetected(counterclaim);
+      advance(2, { extraction: extractionOnly, rawFacts, counterclaim_detected: counterclaim });
       // Step 2b fires automatically — non-blocking (does not await)
-      runCommencementAudit(ext);
+      runCommencementAudit(extractionOnly);
     } catch (e) {
       setError('Extraction failed: ' + ((e as Error).message || 'Please try again.'));
     } finally { setLoading(false); }
@@ -622,9 +654,10 @@ Rules:
     setStage(1); setRawFacts(''); setExtraction(null); setFollowUpQs([]);
     setFollowUpAs({}); setEvidenceM(null); setIntPkg(''); setError('');
     setCommencementAudit(undefined); setAuditError('');
+    setCounterclaimDetected(undefined);
     setConflictScan(undefined); setConflictError('');
     setRiskVerdict(undefined); setRiskError(''); setRiskAnimated(false);
-    onSave({ stage: 1, rawFacts: '', extraction: null, followUpQs: [], followUpAs: {}, evidenceM: null, intPkg: '', commencement_audit: undefined, conflict_scan: undefined, risk_verdict: undefined, authority_grounding: undefined });
+    onSave({ stage: 1, rawFacts: '', extraction: null, followUpQs: [], followUpAs: {}, evidenceM: null, intPkg: '', commencement_audit: undefined, counterclaim_detected: undefined, conflict_scan: undefined, risk_verdict: undefined, authority_grounding: undefined });
   }
 
   // ── Step progress bar ──────────────────────────────────────────────────────
@@ -885,6 +918,18 @@ Rules:
                 );
               })}
             </div>
+          </div>
+        )}
+
+        {/* Counterclaim flag (Phase 6A) — only shown when the extraction found one */}
+        {counterclaimDetected?.flag && (
+          <div style={{ background: '#180e00', border: '1px solid #4a3000', borderRadius: 8, padding: '16px 20px', marginBottom: 14 }}>
+            <p style={{ fontSize: 9, color: '#d09030', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ fontSize: 11 }}>⚑</span> Possible Counterclaim Detected
+            </p>
+            <p style={{ fontSize: 13, color: T.sub, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.65 }}>
+              {counterclaimDetected.summary || 'The facts disclose a possible independent cause of action that could be pleaded as a counterclaim — review before settling the pleadings.'}
+            </p>
           </div>
         )}
 

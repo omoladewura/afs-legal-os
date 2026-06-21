@@ -486,9 +486,12 @@ describe('buildSynthesisPrompt — appeal', () => {
       },
     });
     const prompt = buildSynthesisPrompt('appeal', cBig, makeInputs());
-    // prompt should contain at most 3000 Ps
-    const pCount = (prompt.match(/P/g) || []).length;
-    expect(pCount).toBeLessThanOrEqual(3000);
+    // Scope the match to the APPEAL PACKAGE block only — the prompt's other
+    // headings ("APPEAL PACKAGE" label, "PROCEDURAL CALENDAR", "Produce only
+    // the six sections...") also contain capital P's, so a global count
+    // overshoots 3000 even when the slice() truncation is correct.
+    const match = prompt.match(/APPEAL PACKAGE:\n([\s\S]*?)\n\nEXTRACTED GROUNDS/);
+    expect(match![1].length).toBeLessThanOrEqual(3000);
   });
 
   it('still injects authority grounding for appeal mode', () => {
