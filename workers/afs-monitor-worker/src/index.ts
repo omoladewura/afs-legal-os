@@ -495,6 +495,39 @@ async function runScan(env: Env): Promise<RunStats> {
 
         stats.alertsCreated++;
 
+        // Phase 9F — Push notification for high-priority alerts.
+        // Overruled cases and repealed instruments are immediately actionable
+        // (a matter relying on an overruled authority is at risk) so we push
+        // these through to registered devices even when the app is closed.
+        // New document alerts (type 'new') are lower priority — they surface
+        // via the SettingsPanel monitor UI on next app open instead.
+        if (
+          env.RAG_WORKER_URL && env.RAG_AUTH_TOKEN &&
+          (alertType === 'overruled' || alertType === 'repealed')
+        ) {
+          const pushBody = alertType === 'overruled'
+            ? {
+                title:    '⚠ Authority Overruled',
+                body:     `${title} — a case you may be relying on has been overruled. Review your authorities immediately.`,
+                severity: 'HIGH',
+              }
+            : {
+                title:    '⚠ Instrument Repealed',
+                body:     `${title} — a statute or rule relied upon may have been repealed. Check your submissions.`,
+                severity: 'HIGH',
+              };
+
+          // Fire-and-forget — cron must not stall waiting for push delivery
+          fetch(`${env.RAG_WORKER_URL}/push/send`, {
+            method: 'POST',
+            headers: {
+              'Content-Type':  'application/json',
+              'Authorization': `Bearer ${env.RAG_AUTH_TOKEN}`,
+            },
+            body: JSON.stringify(pushBody),
+          }).catch(() => { /* non-fatal — push failure doesn't block scan */ });
+        }
+
         // Async side-effects for overruled / repealed
         if (alertType === 'overruled') {
           await tagOverruledVectors(title, env);
