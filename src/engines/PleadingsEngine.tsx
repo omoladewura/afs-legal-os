@@ -38,6 +38,11 @@ import { COUNSEL_ROLE_COLORS } from '@/types';
 
 interface Props { activeCase: Case; }
 
+interface CounterclaimIntel {
+  flag: boolean;
+  summary?: string;
+}
+
 type ClaimSubTab = 'originating_process' | 'soc_drafter' | 'witness_statement' | 'sod_monitor' | 'counterclaim_response' | 'default_flag';
 type DefSubTab   = 'sod_drafter' | 'counterclaim_builder' | 'preliminary_objection' | 'reply_monitor';
 type SubTab      = ClaimSubTab | DefSubTab;
@@ -1038,7 +1043,7 @@ Apply the relevant Nigerian High Court Civil Procedure Rules for default judgmen
 // DEFENDANT TABS
 // ─────────────────────────────────────────────────────────────────────────────
 
-function SoDDrafter({ data, onSave, accent, ai, systemCtx }: { data: SavedData; onSave: (d: Partial<SavedData>) => void; accent: string; ai: ReturnType<typeof useAI>; systemCtx: string }) {
+function SoDDrafter({ data, onSave, accent, ai, systemCtx, ccIntel }: { data: SavedData; onSave: (d: Partial<SavedData>) => void; accent: string; ai: ReturnType<typeof useAI>; systemCtx: string; ccIntel?: CounterclaimIntel }) {
   const [context, setContext] = useState(data.sodContext ?? '');
   const [draft, setDraft]     = useState(data.sodDraft ?? '');
   const { ask, loading, error } = ai;
@@ -1047,6 +1052,16 @@ function SoDDrafter({ data, onSave, accent, ai, systemCtx }: { data: SavedData; 
     const aCase = (window as any).__afsActiveCase;
     const caseName = aCase?.caseName ?? '';
     const { partyA, partyB } = getPartyLabels(aCase);
+
+    const counterclaimInstruction = ccIntel?.flag
+      ? `4. Counterclaim section — INCLUDE: The Intelligence Engine has identified a viable counterclaim on these facts. Draft a full Counterclaim section within this Statement of Defence with:
+   a. Counterclaim heading
+   b. Material facts founding the cross-claim (numbered paragraphs)
+   c. Cause of action stated
+   d. Reliefs claimed by the ${partyB}-counterclaimant
+   Intelligence summary: ${ccIntel.summary ?? 'Independent cause of action arising from the same transaction — plead affirmative relief.'}`
+      : `4. Counterclaim section (if applicable — draft if facts warrant cross-relief)`;
+
     const prompt = `You are acting as Nigerian civil litigation counsel for the ${partyB} side.
 
 Matter: ${caseName}
@@ -1059,8 +1074,8 @@ Draft a complete Statement of Defence in Nigerian High Court format:
 2. Traverse each paragraph of the Statement of Claim:
    - Para X is admitted / denied / not admitted
 3. Affirmative defences pleaded in numbered paragraphs (e.g. limitation, accord and satisfaction, estoppel, laches)
-4. Counterclaim section (if applicable — draft if facts warrant cross-relief)
-5. Wherefore clause — claim dismissal of the action with costs
+${counterclaimInstruction}
+5. Wherefore clause — claim dismissal of the action with costs${ccIntel?.flag ? '; and judgment on the counterclaim with costs' : ''}
 
 Label the ${partyA} side as "${partyA}" and the ${partyB} side as "${partyB}" throughout.
 Nigerian pleading rules apply:
@@ -1071,12 +1086,12 @@ Nigerian pleading rules apply:
 
 Return the full draft Statement of Defence.`;
 
-    const result = await ask({ system: systemCtx, userMsg: prompt, maxTokens: 2000 });
+    const result = await ask({ system: systemCtx, userMsg: prompt, maxTokens: ccIntel?.flag ? 2800 : 2000 });
     if (result) {
       setDraft(result);
       onSave({ sodContext: context, sodDraft: result });
     }
-  }, [context, ask, onSave]);
+  }, [context, ccIntel, ask, onSave]);
 
   return (
     <div>
@@ -1098,12 +1113,29 @@ Return the full draft Statement of Defence.`;
       {draft && (
         <ResultBlock title="Statement of Defence — Draft" content={draft} onClear={() => { setDraft(''); onSave({ sodDraft: '' }); }} accent={accent} />
       )}
+      {/* Counterclaim nudge */}
+      {ccIntel?.flag && (
+        <div style={{
+          marginTop: 20, background: '#0a1a0a', border: '1px solid #40a87840',
+          borderRadius: 8, padding: '13px 17px', display: 'flex', gap: 10, alignItems: 'flex-start',
+        }}>
+          <span style={{ fontSize: 14, flexShrink: 0 }}>⚖</span>
+          <p style={{ fontSize: 12, color: '#b0d4b0', fontFamily: "'Times New Roman', Times, serif", margin: 0, lineHeight: 1.6 }}>
+            <strong style={{ color: '#40a878' }}>Counterclaim flagged by Intelligence:</strong>{' '}
+            {ccIntel.summary ?? 'Potential independent cause of action detected — consider the Counterclaim Builder tab before filing the SoD.'}
+          </p>
+        </div>
+      )}
     </div>
   );
 }
 
-function CounterclaimBuilder({ data, onSave, accent, ai, systemCtx }: { data: SavedData; onSave: (d: Partial<SavedData>) => void; accent: string; ai: ReturnType<typeof useAI>; systemCtx: string }) {
-  const [context, setContext] = useState(data.counterclaimContext ?? '');
+function CounterclaimBuilder({ data, onSave, accent, ai, systemCtx, ccIntel }: { data: SavedData; onSave: (d: Partial<SavedData>) => void; accent: string; ai: ReturnType<typeof useAI>; systemCtx: string; ccIntel?: CounterclaimIntel }) {
+  // Pre-seed context from intelligence if counsel hasn't written anything yet
+  const intelligenceSeed = ccIntel?.flag && ccIntel.summary
+    ? `Intelligence Engine detected: ${ccIntel.summary}\n\n[Expand with: specific reliefs sought, amounts, any additional facts not captured above]`
+    : '';
+  const [context, setContext] = useState(data.counterclaimContext || intelligenceSeed);
   const [draft, setDraft]     = useState(data.counterclaimDraft ?? '');
   const { ask, loading, error } = ai;
 
@@ -1111,11 +1143,16 @@ function CounterclaimBuilder({ data, onSave, accent, ai, systemCtx }: { data: Sa
     const aCase = (window as any).__afsActiveCase;
     const caseName = aCase?.caseName ?? '';
     const { partyA, partyB } = getPartyLabels(aCase);
+
+    const intelligencePrefix = ccIntel?.flag && ccIntel.summary
+      ? `INTELLIGENCE NOTE: The Intelligence Engine has already identified a viable counterclaim basis: "${ccIntel.summary}". Use this as the foundation and expand with the counsel instructions below.\n\n`
+      : '';
+
     const prompt = `You are acting as Nigerian civil litigation counsel for the ${partyB}.
 
 Matter: ${caseName}
 
-Counterclaim facts and reliefs:
+${intelligencePrefix}Counterclaim facts and reliefs:
 ${context}
 
 Draft a complete Counterclaim to be included within the Statement of Defence. Structure:
@@ -1133,7 +1170,7 @@ Apply Nigerian pleading rules. This counterclaim forms part of the Statement of 
       setDraft(result);
       onSave({ counterclaimContext: context, counterclaimDraft: result });
     }
-  }, [context, ask, onSave]);
+  }, [context, ccIntel, ask, onSave]);
 
   return (
     <div>
@@ -1141,6 +1178,25 @@ Apply Nigerian pleading rules. This counterclaim forms part of the Statement of 
       <p style={{ fontSize: 13, color: T.sub, fontFamily: "'Times New Roman', Times, serif", marginBottom: 18, lineHeight: 1.6 }}>
         Provide the facts founding the counterclaim and the reliefs the defendant seeks. The AI drafts the Counterclaim section for inclusion in the Statement of Defence.
       </p>
+
+      {/* Intelligence-sourced counterclaim flag */}
+      {ccIntel?.flag && (
+        <div style={{
+          background: '#0a1a0a', border: '1px solid #40a87840',
+          borderRadius: 8, padding: '14px 18px', marginBottom: 20,
+          display: 'flex', gap: 12, alignItems: 'flex-start',
+        }}>
+          <span style={{ fontSize: 16, flexShrink: 0 }}>⚖</span>
+          <div>
+            <div style={{ fontSize: 10, color: '#40a878', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.1em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 5 }}>
+              Intelligence — Counterclaim Detected
+            </div>
+            <p style={{ fontSize: 13, color: '#b0d4b0', fontFamily: "'Times New Roman', Times, serif", margin: 0, lineHeight: 1.6 }}>
+              {ccIntel.summary ?? 'The Intelligence Engine identified facts that may support an independent counterclaim. Review the summary below and confirm the pleading basis before drafting.'}
+            </p>
+          </div>
+        </div>
+      )}
       <div style={{ marginBottom: 16 }}>
         <Label text="Counterclaim Facts & Reliefs Sought" />
         <Textarea
@@ -1311,6 +1367,13 @@ export function PleadingsEngine({ activeCase }: Props) {
   // Store activeCase on window for sub-component access to caseName
   (window as any).__afsActiveCase = activeCase;
 
+  // ── Counterclaim intelligence from IntelligenceEngine ────────────────────
+  const ccIntel: CounterclaimIntel | undefined = (() => {
+    const cd = (activeCase as any).intelligence_data?.counterclaim_detected as { flag?: boolean; summary?: string } | undefined;
+    if (!cd) return undefined;
+    return { flag: !!cd.flag, summary: cd.summary };
+  })();
+
   const claimTabs = [
     { id: 'originating_process',   label: 'Originating Process' },
     { id: 'soc_drafter',           label: 'SoC Drafter' },
@@ -1322,7 +1385,7 @@ export function PleadingsEngine({ activeCase }: Props) {
 
   const defTabs = [
     { id: 'sod_drafter',           label: 'SoD Drafter' },
-    { id: 'counterclaim_builder',  label: 'Counterclaim Builder' },
+    { id: 'counterclaim_builder',  label: ccIntel?.flag ? 'Counterclaim Builder ⚖' : 'Counterclaim Builder' },
     { id: 'preliminary_objection', label: 'Preliminary Objection' },
     { id: 'reply_monitor',         label: 'Reply Monitor' },
   ];
@@ -1446,8 +1509,8 @@ export function PleadingsEngine({ activeCase }: Props) {
         {isClaim && activeTab === 'default_flag'          && <DefaultFlag             {...sharedProps} />}
 
         {/* DEFENDANT tabs */}
-        {!isClaim && activeTab === 'sod_drafter'           && <SoDDrafter             {...sharedProps} />}
-        {!isClaim && activeTab === 'counterclaim_builder'  && <CounterclaimBuilder    {...sharedProps} />}
+        {!isClaim && activeTab === 'sod_drafter'           && <SoDDrafter             {...sharedProps} ccIntel={ccIntel} />}
+        {!isClaim && activeTab === 'counterclaim_builder'  && <CounterclaimBuilder    {...sharedProps} ccIntel={ccIntel} />}
         {!isClaim && activeTab === 'preliminary_objection' && <PreliminaryObjDrafter  {...sharedProps} />}
         {!isClaim && activeTab === 'reply_monitor'         && <ReplyMonitor           data={data} onSave={onSave} accent={accent} />}
       </div>
