@@ -733,6 +733,41 @@ export async function hasCaseTheory(caseId: string): Promise<boolean> {
   }
 }
 
+/**
+ * Phase 0A — Intelligence Engine Gateway
+ *
+ * Returns true only when Intelligence Engine Step 5 is fully complete:
+ *   1. intPkg is present (Step 5 primary output — the narrative package)
+ *   2. risk_verdict is present (Step 5b — 8-dimension risk scoring)
+ *   3. authority_grounding is present (Step 5c — hierarchy mapping + conflict flags)
+ *
+ * This is the gate that must be satisfied before CaseTheoryBriefTab allows
+ * "Lock Theory". The dependency chain is:
+ *   isIntelligenceComplete → Lock Theory → useCaseTheory → all consumers.
+ *
+ * Sync variant (isIntelligenceCompleteSync) accepts a Case object directly
+ * for use in render paths where the case is already loaded (avoids a
+ * redundant async loadCase call inside CaseTheoryBriefTab).
+ */
+export function isIntelligenceCompleteSync(c: import('@/types').Case | null | undefined): boolean {
+  const intel = c?.intelligence_data;
+  return !!(
+    intel?.intPkg &&
+    intel?.risk_verdict &&
+    intel?.authority_grounding
+  );
+}
+
+export async function isIntelligenceComplete(caseId: string): Promise<boolean> {
+  try {
+    const c = await loadCase(caseId);
+    return isIntelligenceCompleteSync(c);
+  } catch (e) {
+    console.error('[Storage] isIntelligenceComplete failed', e);
+    return false;
+  }
+}
+
 // ── Argument Templates ───────────────────────────────────────────────────────
 // Trial Engine Consolidation, Phase 2.
 //
