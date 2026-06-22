@@ -15,7 +15,7 @@
  * MCR = Matrimonial Causes Rules 1983
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import type { Case } from '@/types';
 import { T } from '@/constants/tokens';
 import { useAI } from '@/hooks/useAI';
@@ -28,7 +28,7 @@ import type {
   FinancialPicture,
   MExtractionResult,
 } from '@/matrimonial/types';
-import { writeIntelligenceToCase } from '@/storage/helpers';
+import { writeIntelligenceToCase, loadMatrimonialData } from '@/storage/helpers';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CONSTANTS
@@ -380,6 +380,38 @@ export function MIntelligence({ activeCase }: Props) {
   };
 
   const [data, setData] = useState<MIData>(init);
+
+  // Restore persisted intelligence on mount — without this, re-opening the
+  // tab (after switching tabs, closing the app, or going offline) always
+  // resets to a blank Stage 1 form even when a completed extraction/package
+  // already exists for this case. Mirrors the load-on-mount pattern already
+  // used by MFormsEngine, DecreeEnforcementEngine, MAppeal, and MApplications.
+  useEffect(() => {
+    if (!activeCase?.id) return;
+    loadMatrimonialData(activeCase.id)
+      .then(mData => {
+        if (mData?.intelligence_package) {
+          // Full pipeline previously completed — land on the final package.
+          setData(prev => ({
+            ...prev,
+            extraction:  mData.intelligence_extraction ?? prev.extraction,
+            intPackage:  mData.intelligence_package,
+            stage:       5,
+            intelligenceSaved: true,
+          }));
+        } else if (mData?.intelligence_extraction) {
+          // Stopped after Step 2 in a previous session — land on extraction.
+          setData(prev => ({
+            ...prev,
+            extraction: mData.intelligence_extraction!,
+            stage:      2,
+            intelligenceSaved: true,
+          }));
+        }
+        // Otherwise no prior run exists — leave the blank Stage 1 form as-is.
+      })
+      .catch(() => {});
+  }, [activeCase?.id]);
 
   function upd(patch: Partial<MIData>) {
     setData(prev => ({ ...prev, ...patch }));
