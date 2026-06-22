@@ -8,6 +8,10 @@
  *   3. src/storage/crossExamHelpers.ts                  (Phase 3B — done)
  *   4. THIS FILE                                        ← Phase 4A
  *
+ * Phase 4H UX pass applied: 72 px YES/NO targets confirmed, touchAction
+ *   manipulation on tap targets, userSelect:none on question text,
+ *   no hover states, no tooltips.
+ *
  * PURPOSE:
  *   The in-courtroom tree walker. Given a single trial-ready
  *   CrossExamTreeRecord, displays the current node's question and two large
@@ -87,6 +91,8 @@ function TapTarget({
         cursor:       'pointer',
         fontFamily:   "'Times New Roman', Times, serif",
         WebkitTapHighlightColor: 'transparent',
+        touchAction:  'manipulation',
+        userSelect:   'none',
       }}
     >
       {label}
