@@ -113,6 +113,7 @@ import {
 } from '@/storage/crossExamHelpers';
 import { CrossExamTopicSwitcher } from '@/engines/trial/CrossExamTopicSwitcher';
 import { CrossExamSessionLog } from '@/engines/trial/CrossExamSessionLog';
+import { CrossExamManualOverride } from '@/engines/trial/CrossExamManualOverride';
 import { T } from '@/constants/tokens';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -577,6 +578,40 @@ export function CrossExamSessionManager({
     [persist],
   );
 
+  // ── onManualStep — fired by CrossExamManualOverride ──────────────────────
+  //
+  // Appends a manually-composed step (nodeId prefixed "manual::") to the
+  // active topic's completedSteps. Does NOT advance currentNodeId — the
+  // walker resumes from its current tree node unchanged.
+
+  const handleManualStep = useCallback(
+    (step: SessionStep) => {
+      const prev = sessionRef.current;
+      if (!prev || !prev.activeTopicId) return;
+
+      const topicId = prev.activeTopicId;
+      const tree    = trees.find(t => t.topicId === topicId);
+      const existingState: TopicWalkState =
+        prev.topicStates[topicId] ??
+        makeEmptyTopicState(topicId, tree?.rootNodeId ?? '');
+
+      const updatedState: TopicWalkState = {
+        ...existingState,
+        // currentNodeId intentionally unchanged — walker resumes at same node.
+        completedSteps: [...existingState.completedSteps, step],
+      };
+
+      const updated: CrossExamSessionRecord = {
+        ...prev,
+        topicStates: { ...prev.topicStates, [topicId]: updatedState },
+      };
+
+      setSession(updated);
+      persist(updated);
+    },
+    [trees, persist],
+  );
+
   // ── End session ───────────────────────────────────────────────────────────
 
   const handleEndSession = useCallback(async () => {
@@ -680,6 +715,9 @@ export function CrossExamSessionManager({
           // makeFallbackJumpHandler is exported for the Phase 4E upgrade step.
         />
       </div>
+
+      {/* ── Manual question override (Phase 4G) ─────────────────────────── */}
+      <CrossExamManualOverride onManualStep={handleManualStep} />
 
       {/* ── Session log drawer ───────────────────────────────────────────── */}
       <LogToggleButton
