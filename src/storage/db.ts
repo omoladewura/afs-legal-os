@@ -30,6 +30,12 @@ import type {
   EvidenceItem,
   ArgumentVersion,
 } from '@/types';
+// Phase 3A — cross-examination tree schema
+// IMPORTANT: src/types/crossExam.ts must exist before this file is compiled.
+import type {
+  CrossExamTreeRecord,
+  CrossExamSessionRecord,
+} from '@/types/crossExam';
 
 // ── Supplementary record types stored in their own tables ─────────────────────
 
@@ -153,6 +159,9 @@ export class AfsDatabase extends Dexie {
   declare argument_templates: Table<ArgumentTemplate, string>;
   declare draft_buffer:       Table<DraftBufferRecord, string>;
   declare media_library:      Table<MediaLibraryItem, string>;
+  // Phase 3A — cross-examination tree tables
+  declare cross_exam_trees:    Table<CrossExamTreeRecord,    string>;
+  declare cross_exam_sessions: Table<CrossExamSessionRecord, string>;
 
   constructor() {
     super('afs_legal_os');
@@ -209,6 +218,25 @@ export class AfsDatabase extends Dexie {
     // scanning the whole table.
     this.version(5).stores({
       media_library: '&id, caseId, scope, createdAt',
+    });
+
+    // V6 — Phase 3A. Cross-examination offline tree system.
+    //
+    // cross_exam_trees:
+    //   Primary key is a composite string `${caseId}::${witnessId}::${topicId}`.
+    //   Indexed by caseId + witnessId so the Phase 3B topic-selection UI and
+    //   Phase 4 session walker can load all trees for a witness in one query.
+    //   trialReady is indexed so a pre-flight check can confirm all selected
+    //   trees are approved without iterating every node.
+    //
+    // cross_exam_sessions:
+    //   Primary key is a UUID. Indexed by caseId + witnessId so the Phase 4
+    //   session resume logic can find the most-recent open session efficiently.
+    //   endedAt is indexed (nullable) so Phase 5A can query sessions that are
+    //   closed but not yet fed to Contradiction Mapper.
+    this.version(6).stores({
+      cross_exam_trees:    '&id, caseId, witnessId, [caseId+witnessId], trialReady, generatedAt',
+      cross_exam_sessions: '&id, caseId, witnessId, [caseId+witnessId], startedAt, endedAt',
     });
   }
 }
