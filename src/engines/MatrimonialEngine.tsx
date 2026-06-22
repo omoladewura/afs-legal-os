@@ -1,6 +1,18 @@
 /**
  * AFS Advocates — Matrimonial Causes Engine
  * Phase 2 — Full implementation
+ * Phase 9E — MIntelligence upstream pre-population for all sub-tabs
+ *
+ * Build-plan Phase 2C note: Phase 9E was originally written into a copy of
+ * this file at src/matrimonial/engines/MatrimonialEngine.tsx, which was
+ * never wired into the app — this file (the one actually imported by
+ * MatrimonialDashboard.tsx and CaseDashboard.tsx) was left on its pre-9E
+ * version. Phase 2C merged the 9E pre-population logic in here, keeping
+ * this file's centralized getPrompt() doctrinal text (the orphaned copy had
+ * dropped the s.30/s.32/condonation/nullity-bar registry references) and
+ * fixing the Petition ground pre-select to match on the s.15(2)(x) letter
+ * rather than relying on an exact string match against the AI's free-text
+ * output. THIS is the canonical file — do not edit the orphaned copy.
  *
  * Eight sub-modules under the Matrimonial Causes Act Cap M7 LFN 2004:
  *  1. Case Intake          — parties, marriage details, jurisdiction, relief assessment
@@ -18,9 +30,10 @@ import type { Case }        from '@/types';
 import { T }                from '@/constants/tokens';
 import { useAI }            from '@/hooks/useAI';
 import { useIntelligence }  from '@/hooks/useIntelligence';
-import { loadBlindSpot, saveBlindSpot } from '@/storage/helpers';
+import { loadBlindSpot, saveBlindSpot, loadMatrimonialData } from '@/storage/helpers';
 import { Md, ErrorBlock }   from '@/components/common/ui';
 import { getPrompt }        from '@/law/prompts';
+import type { MExtractionResult } from '@/matrimonial/types';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES
@@ -118,6 +131,49 @@ function ActionBtn({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// INTELLIGENCE BANNER — shown when a panel is pre-populated from MIntelligence
+// ─────────────────────────────────────────────────────────────────────────────
+
+function IntelligenceBanner({
+  runAt,
+  version,
+  onClear,
+}: {
+  runAt: string;
+  version: number;
+  onClear: () => void;
+}) {
+  const date = runAt
+    ? new Date(runAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+    : '—';
+
+  return (
+    <div style={{
+      background: '#f0f8f0', border: '1px solid #60b060', borderRadius: 6,
+      padding: '10px 16px', marginBottom: 14,
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8,
+    }}>
+      <span style={{
+        fontSize: 12, color: '#2a6a2a', fontFamily: "'Times New Roman', Times, serif",
+        letterSpacing: '.02em',
+      }}>
+        ⚡ Pre-filled from MIntelligence · Run {date} · Version {version}
+      </span>
+      <button
+        onClick={onClear}
+        style={{
+          background: 'none', border: '1px solid #2a6a2a', color: '#2a6a2a',
+          borderRadius: 4, padding: '3px 10px', fontSize: 11,
+          fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer',
+        }}
+      >
+        Clear and enter manually
+      </button>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // RESULT BLOCK
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -200,10 +256,32 @@ export function MatrimonialEngine({ activeCase }: Props) {
   const { call, loading, error, clearError } = useAI(activeCase);
   const { fullContext } = useIntelligence(activeCase);
 
+  const [intel,     setIntel]     = useState<MExtractionResult | null>(null);
+  const [intelMeta, setIntelMeta] = useState<{ runAt: string; version: number } | null>(null);
+
   useEffect(() => {
     loadBlindSpot<MatrimonialSaved>(caseId, 'matrimonial', {} as MatrimonialSaved)
       .then(setSaved);
   }, [caseId]);
+
+  // Load MIntelligence extraction on mount — Phase 9E, restored after being
+  // missing from this file (the live engine was wired to a stale copy that
+  // predated the pre-population feature; this brings it in line with
+  // MFormsEngine / DecreeEnforcementEngine / MAppeal / MApplications, which
+  // already pre-populate from the same source).
+  useEffect(() => {
+    if (!caseId || caseId === 'unknown') return;
+    loadMatrimonialData(caseId).then(mData => {
+      if (mData?.intelligence_extraction) {
+        setIntel(mData.intelligence_extraction);
+        setIntelMeta({
+          runAt:   mData.intelligence_run_at   ?? '',
+          version: mData.intelligence_version  ?? 1,
+        });
+      }
+    });
+  }, [caseId]);
+
   const save = useCallback((patch: Partial<MatrimonialSaved>) => {
     setSaved(prev => {
       const next = { ...prev, ...patch };
@@ -212,10 +290,19 @@ export function MatrimonialEngine({ activeCase }: Props) {
     });
   }, [caseId]);
 
+  // Formats children from MIntelligence extraction into the free-text shape
+  // the Intake/Custody panels expect.
+  function formatChildrenFromIntel(children: MExtractionResult['children']): string {
+    if (!children?.length) return '';
+    return children.map(c =>
+      `${c.name}${c.age ? `, ${c.age}` : ''}${c.current_arrangement ? ` — currently: ${c.current_arrangement}` : ''}`
+    ).join('\n');
+  }
+
   function buildCtx(): string {
     const ip = saved.intakeData;
     return [
-      `CASE: ${activeCase?.caseName || 'Matrimonial Matter'} | COURT: ${activeCase?.court || 'Federal High Court'}`,
+      `CASE: ${activeCase?.caseName || 'Matrimonial Matter'} | COURT: ${activeCase?.court || 'High Court (State)'}`,
       ip ? `PETITIONER: ${ip.petitioner || '—'} | RESPONDENT: ${ip.respondent || '—'}` : '',
       ip ? `DATE OF MARRIAGE: ${ip.marriageDate || '—'} | PLACE: ${ip.marriagePlace || '—'} | TYPE: ${ip.marriageType || '—'}` : '',
       ip?.children ? `CHILDREN: ${ip.children}` : '',
@@ -230,12 +317,24 @@ export function MatrimonialEngine({ activeCase }: Props) {
     const ip = saved.intakeData || {} as IntakeData;
     const [petitioner,    setPetitioner]    = useState(ip.petitioner    || '');
     const [respondent,    setRespondent]    = useState(ip.respondent    || '');
-    const [marriageDate,  setMarriageDate]  = useState(ip.marriageDate  || '');
-    const [marriagePlace, setMarriagePlace] = useState(ip.marriagePlace || '');
-    const [marriageType,  setMarriageType]  = useState(ip.marriageType  || '');
-    const [children,      setChildren]      = useState(ip.children      || '');
+    const [marriageDate,  setMarriageDate]  = useState(
+      ip.marriageDate  || intel?.marriage_timeline?.marriage_date || ''
+    );
+    const [marriagePlace, setMarriagePlace] = useState(
+      ip.marriagePlace || intel?.marriage_timeline?.marriage_place || ''
+    );
+    const [marriageType,  setMarriageType]  = useState(
+      ip.marriageType  || intel?.marriage_timeline?.marriage_type  || ''
+    );
+    const [children,      setChildren]      = useState(
+      ip.children || (intel ? formatChildrenFromIntel(intel.children) : '')
+    );
     const [jurisdiction,  setJurisdiction]  = useState(ip.jurisdiction  || '');
-    const [relief,        setRelief]        = useState(ip.relief        || '');
+    const [relief,        setRelief]        = useState(ip.relief        || intel?.relief_sought || '');
+
+    const prePopulated = !saved.intakeData && !!intel;
+    const [dismissed, setDismissed] = useState(false);
+    const showBanner = prePopulated && !dismissed && !!intelMeta;
 
     async function run() {
       if (!petitioner || !marriageDate || !relief) return;
@@ -255,6 +354,14 @@ export function MatrimonialEngine({ activeCase }: Props) {
         <div style={cardS}>
           <p style={hS}>Matrimonial Causes Intake</p>
           <p style={dimS}>Enter the parties, marriage details, children of the marriage, and relief sought. AI assesses jurisdiction, pre-conditions, proper court, and urgent interim orders.</p>
+
+          {showBanner && (
+            <IntelligenceBanner
+              runAt={intelMeta!.runAt}
+              version={intelMeta!.version}
+              onClear={() => setDismissed(true)}
+            />
+          )}
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
             <div>
@@ -333,11 +440,6 @@ export function MatrimonialEngine({ activeCase }: Props) {
   // ── PETITION BUILDER ───────────────────────────────────────────────────────
 
   function PetitionPanel() {
-    const [ground,       setGround]       = useState(saved.petGround       || '');
-    const [particulars,  setParticulars]  = useState(saved.petParticulars  || '');
-    const [childArrange, setChildArrange] = useState(saved.petChildArrange || '');
-    const [financials,   setFinancials]   = useState(saved.petFinancials   || '');
-
     const GROUNDS = [
       's.15(2)(a) — Wilful and persistent refusal to consummate the marriage',
       's.15(2)(b) — Adultery: respondent committed adultery and petitioner finds it intolerable to live with respondent',
@@ -349,6 +451,36 @@ export function MatrimonialEngine({ activeCase }: Props) {
       's.15(2)(h) — Respondent presumed dead — absent without reasonable explanation for at least seven years',
       'Multiple facts (specify)',
     ];
+
+    const prePopulated = !saved.petGround && !!intel?.dissolution_facts?.length;
+    const [dismissed, setDismissed] = useState(false);
+    const showBanner = prePopulated && !dismissed && !!intelMeta;
+
+    // Pre-select the strongest identified fact. The AI's free-text `fact`
+    // label won't reliably match a GROUNDS[] option verbatim, so match on
+    // the s.15(2)(x) letter instead of the full string.
+    const bestFact = intel?.dissolution_facts?.find(f => f.strength === 'STRONG' || f.strength === 'MODERATE');
+    function matchGroundFromFact(fact?: string): string {
+      if (!fact) return '';
+      const m = fact.match(/\(([a-h])\)/i);
+      if (!m) return '';
+      const letter = m[1].toLowerCase();
+      return GROUNDS.find(g => g.toLowerCase().includes(`s.15(2)(${letter})`)) ?? '';
+    }
+
+    const [ground,       setGround]       = useState(saved.petGround       || matchGroundFromFact(bestFact?.fact));
+    const [particulars,  setParticulars]  = useState(saved.petParticulars  || '');
+    const [childArrange, setChildArrange] = useState(saved.petChildArrange || '');
+    const [financials,   setFinancials]   = useState(
+      saved.petFinancials ||
+      (intel?.financial_picture?.assets_known?.length
+        ? `Known assets: ${intel.financial_picture.assets_known.join(', ')}`
+        : '')
+    );
+
+    // Show co-respondent warning from intelligence
+    const coRespondentAlert = intel?.co_respondent?.named && ground.includes('Adultery');
+
 
     function getParticularsPlaceholder(): string {
       if (ground.includes('Wilful'))    return 'Date of marriage. Confirmation that the marriage has not been consummated. Whether the refusal is by the petitioner or respondent. Any medical evidence. Whether the refusal is deliberate and persistent.';
@@ -403,6 +535,36 @@ Draft to court-filing standard in formal legal language. Flag any particulars re
         <div style={cardS}>
           <p style={hS}>Petition Builder — Dissolution of Marriage</p>
           <p style={dimS}>Generates a complete Petition for Dissolution of Marriage under the MCA. Select the ground, provide the particulars, and AI drafts the full petition to court-filing standard.</p>
+
+          {showBanner && (
+            <IntelligenceBanner
+              runAt={intelMeta!.runAt}
+              version={intelMeta!.version}
+              onClear={() => setDismissed(true)}
+            />
+          )}
+
+          {intel?.dissolution_facts && intel.dissolution_facts.length > 0 && !dismissed && (
+            <div style={{
+              background: '#f8f4ff', border: '1px solid #c0a8f0', borderRadius: 6,
+              padding: '10px 16px', marginBottom: 14, fontSize: 12,
+              fontFamily: "'Times New Roman', Times, serif", color: '#4a1a7a',
+            }}>
+              <strong>Facts identified by MIntelligence:</strong>{' '}
+              {intel.dissolution_facts.map(f => `${f.fact} (${f.strength})`).join(' · ')}
+            </div>
+          )}
+
+          {coRespondentAlert && (
+            <div style={{
+              background: '#fff3f3', border: '1px solid #e04040', borderRadius: 6,
+              padding: '10px 16px', marginBottom: 14, fontSize: 12,
+              fontFamily: "'Times New Roman', Times, serif", color: '#a01010',
+            }}>
+              ⚠ MIntelligence identified a co-respondent: <strong>{intel!.co_respondent.name || 'named party'}</strong>.
+              Co-respondent must be joined — s.32 MCA, O.9 rr.2–3 MCR.
+            </div>
+          )}
 
           <div style={{ marginBottom: 14 }}>
             <span style={labelS}>Ground for Dissolution (Section 15(2) MCA)</span>
@@ -527,7 +689,13 @@ Effects of decree of nullity vs dissolution — on children's legitimacy, proper
   // ── CUSTODY & GUARDIANSHIP ─────────────────────────────────────────────────
 
   function CustodyPanel() {
-    const [childrenDetails, setChildrenDetails] = useState(saved.custodyChildren || '');
+    const prePopulated = !saved.custodyChildren && !!intel?.children?.length;
+    const [dismissed, setDismissed] = useState(false);
+    const showBanner = prePopulated && !dismissed && !!intelMeta;
+
+    const [childrenDetails, setChildrenDetails] = useState(
+      saved.custodyChildren || (intel ? formatChildrenFromIntel(intel.children) : '')
+    );
     const [currentArrange,  setCurrentArrange]  = useState(saved.custodyCurrent  || '');
     const [clientSituation, setClientSituation] = useState(saved.custodyClient   || '');
     const [otherParty,      setOtherParty]      = useState(saved.custodyOther    || '');
@@ -577,6 +745,25 @@ The specific reliefs to seek in the custody application.`,
           <p style={hS}>Custody & Guardianship</p>
           <p style={dimS}>Applies the welfare-of-the-child paramount principle. Analyses custody arrangements, interim orders, contact, and generates application prayers and affidavit structure.</p>
 
+          {showBanner && (
+            <IntelligenceBanner
+              runAt={intelMeta!.runAt}
+              version={intelMeta!.version}
+              onClear={() => setDismissed(true)}
+            />
+          )}
+
+          {intel?.children?.some(c => c.welfare_concern) && !dismissed && (
+            <div style={{
+              background: '#fff8e1', border: '1px solid #f0c040', borderRadius: 6,
+              padding: '10px 16px', marginBottom: 14, fontSize: 12,
+              fontFamily: "'Times New Roman', Times, serif", color: '#8a5a00',
+            }}>
+              ⚠ <strong>Welfare concerns flagged by MIntelligence:</strong>{' '}
+              {intel.children.filter(c => c.welfare_concern).map(c => `${c.name}: ${c.welfare_concern}`).join(' · ')}
+            </div>
+          )}
+
           <div style={{ marginBottom: 14 }}>
             <span style={labelS}>Children of the Marriage — Names, Ages, Schooling</span>
             <textarea value={childrenDetails} onChange={e => setChildrenDetails(e.target.value)} rows={3}
@@ -622,11 +809,23 @@ The specific reliefs to seek in the custody application.`,
   // ── MAINTENANCE ────────────────────────────────────────────────────────────
 
   function MaintenancePanel() {
-    const [maintType,    setMaintType]    = useState(saved.maintType         || '');
+    const prePopulated = !saved.maintType && !!intel?.financial_picture;
+    const [dismissed, setDismissed] = useState(false);
+    const showBanner = prePopulated && !dismissed && !!intelMeta;
+
+    const [maintType,    setMaintType]    = useState(
+      saved.maintType ||
+      (intel?.financial_picture?.pendente_lite_urgency === 'HIGH' ? 'Maintenance Pending Suit (interim)' : '')
+    );
     const [clientIncome, setClientIncome] = useState(saved.maintClientIncome || '');
     const [otherIncome,  setOtherIncome]  = useState(saved.maintOtherIncome  || '');
-    const [needs,        setNeeds]        = useState(saved.maintNeeds        || '');
+    const [needs,        setNeeds]        = useState(
+      saved.maintNeeds || intel?.financial_picture?.maintenance_needs || ''
+    );
     const [marriage,     setMarriage]     = useState(saved.maintMarriage     || '');
+
+    // Pendente lite urgency alert
+    const pendenteLiteUrgent = intel?.financial_picture?.pendente_lite_urgency === 'HIGH' && !dismissed;
 
     async function run() {
       if (!maintType || !needs) return;
@@ -645,6 +844,25 @@ The specific reliefs to seek in the custody application.`,
         <div style={cardS}>
           <p style={hS}>Maintenance Calculator & Drafter</p>
           <p style={dimS}>Analyses maintenance obligations — maintenance pending suit, periodical payments, and lump sum. Considers earning capacity, standard of living, children's needs, and drafts the application prayers.</p>
+
+          {showBanner && (
+            <IntelligenceBanner
+              runAt={intelMeta!.runAt}
+              version={intelMeta!.version}
+              onClear={() => setDismissed(true)}
+            />
+          )}
+
+          {pendenteLiteUrgent && (
+            <div style={{
+              background: '#fff3f3', border: '1px solid #e04040', borderRadius: 6,
+              padding: '10px 16px', marginBottom: 14, fontSize: 12,
+              fontFamily: "'Times New Roman', Times, serif", color: '#a01010',
+            }}>
+              ⚠ MIntelligence flagged <strong>HIGH urgency</strong> for maintenance pending suit.
+              Immediate application recommended before financial position deteriorates further.
+            </div>
+          )}
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
             <div>
@@ -704,9 +922,21 @@ The specific reliefs to seek in the custody application.`,
   // ── PROPERTY SETTLEMENT ────────────────────────────────────────────────────
 
   function PropertyPanel() {
-    const [assets,        setAssets]        = useState(saved.propAssets        || '');
+    const prePopulated = !saved.propAssets && !!intel?.financial_picture?.assets_known?.length;
+    const [dismissed, setDismissed] = useState(false);
+    const showBanner = prePopulated && !dismissed && !!intelMeta;
+
+    const [assets,        setAssets]        = useState(
+      saved.propAssets ||
+      (intel?.financial_picture?.assets_known?.length
+        ? intel.financial_picture.assets_known.map((a, i) => `${i + 1}. ${a}`).join('\n')
+        : '')
+    );
     const [contributions, setContributions] = useState(saved.propContributions || '');
     const [postSep,       setPostSep]       = useState(saved.propPostSep       || '');
+
+    // Disclosure gaps warning
+    const disclosureGaps = intel?.financial_picture?.disclosure_gaps ?? [];
 
     async function run() {
       if (!assets) return;
@@ -750,6 +980,25 @@ Should this be litigated or negotiated? Risk assessment of litigating to judgmen
         <div style={cardS}>
           <p style={hS}>Property Settlement Analyser</p>
           <p style={dimS}>Nigerian matrimonial property analysis — ownership follows title, not automatic division. Analyses each asset by title, contributions, and non-financial contributions. Identifies settlement zones and orders available.</p>
+
+          {showBanner && (
+            <IntelligenceBanner
+              runAt={intelMeta!.runAt}
+              version={intelMeta!.version}
+              onClear={() => setDismissed(true)}
+            />
+          )}
+
+          {disclosureGaps.length > 0 && !dismissed && (
+            <div style={{
+              background: '#fff8e1', border: '1px solid #f0c040', borderRadius: 6,
+              padding: '10px 16px', marginBottom: 14, fontSize: 12,
+              fontFamily: "'Times New Roman', Times, serif", color: '#8a5a00',
+            }}>
+              ⚠ <strong>Disclosure gaps flagged by MIntelligence:</strong>{' '}
+              {disclosureGaps.join(' · ')}
+            </div>
+          )}
 
           <div style={{ marginBottom: 14 }}>
             <span style={labelS}>Matrimonial Assets (list each asset with title holder and estimated value)</span>
@@ -857,6 +1106,13 @@ The correct procedure to apply for each relief identified — ex parte or on not
     const [clientAccount,   setClientAccount]   = useState(saved.respAccount   || '');
     const [defences,        setDefences]        = useState<string[]>(saved.respDefences || []);
 
+    // Pre-suggest condonation defence if condonation risk flagged
+    useEffect(() => {
+      if (intel?.condonation_risk?.risk && !saved.respDefences?.length) {
+        setDefences(['Condonation (forgave the conduct relied upon)']);
+      }
+    }, []);
+
     const DEFENCE_OPTIONS = [
       'Condonation (forgave the conduct relied upon)',
       'Connivance (consented to or encouraged the conduct)',
@@ -944,6 +1200,18 @@ What leverage does the respondent have in any financial settlement negotiations?
               ))}
             </div>
           </div>
+
+          {/* Condonation risk alert from intelligence */}
+          {intel?.condonation_risk?.risk && (
+            <div style={{
+              background: '#fff3f3', border: '1px solid #e04040', borderRadius: 6,
+              padding: '10px 16px', marginBottom: 14, fontSize: 12,
+              fontFamily: "'Times New Roman', Times, serif", color: '#a01010',
+            }}>
+              ⚠ MIntelligence flagged condonation risk ({intel.condonation_risk.severity}):{' '}
+              {intel.condonation_risk.basis}
+            </div>
+          )}
 
           <ActionBtn onClick={run} loading={loading} disabled={!petitionSummary} label="🛡 Build Respondent's Answer" />
         </div>

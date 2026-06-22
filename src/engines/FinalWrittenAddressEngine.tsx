@@ -10,7 +10,7 @@ import { buildRoleSystemPrompt } from '@/utils/rolePrompt';
 import { getPartyLabels } from '@/utils/getPartyLabels';
 import { queryStatutes, isRagConfigured } from '@/services/statuteRag';
 import { callClaude, withRetry } from '@/services/api';
-import { loadArgVersions, saveArgVersion, deleteArgVersion } from '@/storage/helpers';
+import { loadArgVersions, saveArgVersion, deleteArgVersion, loadBlindSpot, saveBlindSpot } from '@/storage/helpers';
 import { getLawSync } from '@/law/registry';
 import { Md, Spinner, ErrorBlock, CaseTheoryBanner } from '@/components/common/ui';
 import { copyToClipboard, uid } from '@/utils';
@@ -172,16 +172,53 @@ const NIGERIAN_COURTS = [
   'High Court (State)', 'National Industrial Court', 'Other',
 ];
 
-// localStorage helpers — all keyed fwa_ to avoid collisions
-function fwaGet<T>(caseId: string, key: string, def: T): T {
+// ─── Dexie-backed persistence helpers ────────────────────────────────────────
+// Originally used localStorage (fwa_/ave_ keys). Migrated to saveBlindSpot
+// in Phase 2D — localStorage is evicted under storage pressure and is
+// unavailable after PWA reinstall, both of which occur offline.
+//
+// One-shot migration: if Dexie has no value but localStorage does, copy it
+// across so existing users don't lose their draft/status/auths.
+
+async function fwaLoad<T>(caseId: string, key: string, def: T): Promise<T> {
+  const result = await loadBlindSpot<Record<string, unknown>>(caseId, `fwa_${key}`, undefined as any);
+  if (result !== null && result !== undefined) return result as unknown as T;
+  // Migration shim — carry over from localStorage if present
   try {
-    const v = localStorage.getItem(`fwa_${caseId}_${key}`);
-    return v ? JSON.parse(v) as T : def;
-  } catch { return def; }
+    const ls = localStorage.getItem(`fwa_${caseId}_${key}`);
+    if (ls) {
+      const parsed = JSON.parse(ls) as T;
+      await saveBlindSpot(caseId, `fwa_${key}`, parsed);
+      localStorage.removeItem(`fwa_${caseId}_${key}`);
+      return parsed;
+    }
+  } catch { /**/ }
+  return def;
 }
-function fwaSet(caseId: string, key: string, val: unknown): void {
-  try { localStorage.setItem(`fwa_${caseId}_${key}`, JSON.stringify(val)); } catch { /**/ }
+
+async function fwaSave(caseId: string, key: string, val: unknown): Promise<void> {
+  await saveBlindSpot(caseId, `fwa_${key}`, val);
 }
+
+async function aveLoad<T>(caseId: string, key: string, def: T): Promise<T> {
+  const result = await loadBlindSpot<Record<string, unknown>>(caseId, `ave_${key}`, undefined as any);
+  if (result !== null && result !== undefined) return result as unknown as T;
+  try {
+    const ls = localStorage.getItem(`ave_${caseId}_${key}`);
+    if (ls) {
+      const parsed = JSON.parse(ls) as T;
+      await saveBlindSpot(caseId, `ave_${key}`, parsed);
+      localStorage.removeItem(`ave_${caseId}_${key}`);
+      return parsed;
+    }
+  } catch { /**/ }
+  return def;
+}
+
+async function aveSave(caseId: string, key: string, val: unknown): Promise<void> {
+  await saveBlindSpot(caseId, `ave_${key}`, val);
+}
+
 function defaultStatus(): FWAStatus {
   return { status: 'Not Filed', dateFiled: '', dateAdopted: '', notes: '' };
 }
@@ -978,14 +1015,16 @@ The reply must not introduce new facts or re-argue the evidence. It is confined 
 // ─────────────────────────────────────────────────────────────────────────────
 
 function StatusTab({ activeCase }: { activeCase: Case }) {
-  const [status, setStatus] = useState<FWAStatus>(
-    () => fwaGet<FWAStatus>(activeCase.id, 'status', defaultStatus()),
-  );
+  const [status, setStatus] = useState<FWAStatus>(defaultStatus());
+
+  useEffect(() => {
+    fwaLoad<FWAStatus>(activeCase.id, 'status', defaultStatus()).then(setStatus);
+  }, [activeCase.id]);
 
   function update(field: keyof FWAStatus, value: string | FilingStatus) {
     const next = { ...status, [field]: value };
     setStatus(next);
-    fwaSet(activeCase.id, 'status', next);
+    fwaSave(activeCase.id, 'status', next);
   }
 
   const col = STATUS_COLORS[status.status];
@@ -1634,15 +1673,6 @@ Rewrite the argument paragraph with the real Nigerian case citations inserted in
 // STAGE 3 — HELPERS & SYSTEM PROMPTS
 // ─────────────────────────────────────────────────────────────────────────────
 
-function aveGet<T>(caseId: string, key: string, def: T): T {
-  try {
-    const v = localStorage.getItem(`ave_${caseId}_${key}`);
-    return v ? JSON.parse(v) as T : def;
-  } catch { return def; }
-}
-function aveSet(caseId: string, key: string, val: unknown): void {
-  try { localStorage.setItem(`ave_${caseId}_${key}`, JSON.stringify(val)); } catch { /**/ }
-}
 
 const VALIDATE_SYSTEM = `You are a Nigerian litigation authority validator. You know the Nigerian court hierarchy, the NWLR, SCNLR, FWLR, and key decisions of the Supreme Court and Court of Appeal. You distinguish ratio decidendi from obiter dicta. You flag overruled, distinguished, or limited authorities. You never fabricate citations. When unsure, say so explicitly and flag for verification.`;
 
@@ -1657,9 +1687,12 @@ function Stage3Validate({ activeCase }: { activeCase: Case }) {
   const [valTab, setValTab] = useState<'library' | 'conflicts' | 'quick'>('library');
 
   // ── Authority Library state ────────────────────────────────────────────────
-  const [auths,      setAuths]      = useState<Authority[]>(
-    () => aveGet<Authority[]>(activeCase.id, 'auths', []),
-  );
+  const [auths,      setAuths]      = useState<Authority[]>([]);
+
+  useEffect(() => {
+    aveLoad<Authority[]>(activeCase.id, 'auths', []).then(setAuths);
+  }, [activeCase.id]);
+
   const [authForm,   setAuthForm]   = useState({
     caseName: '', citation: '', court: '', year: '', principle: '', bindingFor: '',
   });
@@ -1670,7 +1703,7 @@ function Stage3Validate({ activeCase }: { activeCase: Case }) {
 
   function persistAuths(list: Authority[]) {
     setAuths(list);
-    aveSet(activeCase.id, 'auths', list);
+    aveSave(activeCase.id, 'auths', list);
   }
 
   function addAuth() {
@@ -2179,15 +2212,13 @@ function synthModeLabel(mode: SynthesisMode): string {
   return 'Civil Master Case Theory';
 }
 
-function checkSynthReadiness(activeCase: Case, mode: SynthesisMode): { id: string; label: string; met: boolean; goTo: string }[] {
+function checkSynthReadiness(
+  activeCase: Case,
+  mode: SynthesisMode,
+  hasDraft: boolean,
+  hasAuths: boolean,
+): { id: string; label: string; met: boolean; goTo: string }[] {
   const hasIntelPkg = Boolean(activeCase.intelligence_data?.intPkg && activeCase.intelligence_data.intPkg.length > 50);
-  const hasDraft    = Boolean(localStorage.getItem(`fwa_${activeCase.id}_draft_saved`));
-  const hasAuths    = (() => {
-    try {
-      const v = localStorage.getItem(`ave_${activeCase.id}_auths`);
-      return v ? (JSON.parse(v) as Authority[]).length > 0 : false;
-    } catch { return false; }
-  })();
 
   if (mode === 'appeal') return [
     { id: 'intel', label: 'Intelligence Package generated',        met: hasIntelPkg, goTo: 'intelligence' },
@@ -2207,23 +2238,34 @@ function Stage4Synthesise({ activeCase, onNavigateToStage }: {
   const { fullContext } = useCaseContext(activeCase, { query: activeCase?.caseName ?? '', engine: 'FinalWrittenAddress' });
   const { ask, loading: aiLoading, error: aiError } = useAI(activeCase);
 
-  const mode      = detectSynthMode(activeCase);
-  const readiness = checkSynthReadiness(activeCase, mode);
+  const mode = detectSynthMode(activeCase);
+
+  // hasDraft and hasAuths must come from Dexie — not localStorage — so they
+  // survive offline, PWA reinstall, and storage eviction.
+  const [hasDraft, setHasDraft] = useState(false);
+  const [hasAuths, setHasAuths] = useState(false);
+
+  useEffect(() => {
+    fwaLoad<string>(activeCase.id, 'draft_saved', '').then(d => setHasDraft(!!d));
+    aveLoad<Authority[]>(activeCase.id, 'auths', []).then(a => setHasAuths(a.length > 0));
+  }, [activeCase.id]);
+
+  const readiness = checkSynthReadiness(activeCase, mode, hasDraft, hasAuths);
   const allReady  = readiness.every(r => r.met);
 
-  const [result,     setResult]     = useState<SynthesisResult | null>(
-    () => fwaGet<SynthesisResult | null>(activeCase.id, 'synthesis', null),
-  );
+  const [result,     setResult]     = useState<SynthesisResult | null>(null);
   const [generating, setGenerating] = useState(false);
   const [copied,     setCopied]     = useState(false);
+
+  useEffect(() => {
+    fwaLoad<SynthesisResult | null>(activeCase.id, 'synthesis', null).then(setResult);
+  }, [activeCase.id]);
 
   async function generate() {
     setGenerating(true);
 
-    const draftFromStorage = localStorage.getItem(`fwa_${activeCase.id}_draft_saved`) || '';
-    const authsRaw = (() => {
-      try { return JSON.parse(localStorage.getItem(`ave_${activeCase.id}_auths`) || '[]') as Authority[]; } catch { return []; }
-    })();
+    const draftFromStorage = await fwaLoad<string>(activeCase.id, 'draft_saved', '');
+    const authsRaw = await aveLoad<Authority[]>(activeCase.id, 'auths', []);
     const authorityLibrarySummary = authsRaw.map(a =>
       `${a.caseName} (${a.citation}) — ${a.court} — ${a.principle}`
     ).join('\n') || '(no authorities in library)';
@@ -2270,7 +2312,7 @@ Output only the sections. No preamble. No disclaimer.`;
       const newResult: SynthesisResult = {
         mode, theory: raw.trim(), timestamp: new Date().toISOString(), caseId: activeCase.id,
       };
-      fwaSet(activeCase.id, 'synthesis', newResult);
+      fwaSave(activeCase.id, 'synthesis', newResult);
       setResult(newResult);
     }
     setGenerating(false);
@@ -2392,7 +2434,7 @@ export function FinalWrittenAddressEngine({ activeCase }: Props) {
   // Persist draft for Stage 4 to read
   function handleDraftSaved(draft: string) {
     setCurrentDraft(draft);
-    fwaSet(activeCase.id, 'draft_saved', draft);
+    fwaSave(activeCase.id, 'draft_saved', draft);
   }
 
   const stageIndex = STAGES.findIndex(s => s.id === activeStage);

@@ -12,10 +12,11 @@
  * SynthesisEngine's Master Case Theory). Phase 5D-ii: a deep-link to the
  * 'synthesis' tab now sits where that panel used to be.
  *
- * All data is read from IndexedDB and localStorage (mirroring the original
- * app.html implementation). No data is entered here — each panel deep-links
- * to its source module. The Opponent panel is AI-generated and persists its
- * output to localStorage keyed by caseId.
+ * All data is read from IndexedDB (Dexie via loadBlindSpot). WarRoom-owned
+ * state (opponent strategy AI output, judicial notes) is persisted to Dexie
+ * via saveBlindSpot. Cross-engine read-only keys (risk scores, BriefMe,
+ * ArgumentBuilder, authority library, console posture) still use localStorage
+ * as the write-side lives in other engines — do not migrate here in isolation.
  *
  * Props:
  *   activeCase — the loaded Case object from the store
@@ -29,7 +30,7 @@ import { callClaude, withRetry } from '@/services/api';
 import { buildRoleLibraryOpts } from '@/utils/roleLibrary';
 import { Md, Spinner } from '@/components/common/ui';
 import { useAppStore } from '@/state/appStore';
-import { loadBlindSpot, loadEvidenceMeta } from '@/storage/helpers';
+import { loadBlindSpot, saveBlindSpot, loadEvidenceMeta } from '@/storage/helpers';
 import type { Case, DashTabId, EvidenceItem } from '@/types';
 import { buildRoleSystemPrompt } from '@/utils/rolePrompt';
 import { useIntelligence } from '@/hooks/useIntelligence';
@@ -72,7 +73,10 @@ interface RiskScores {
   [key: string]: number | unknown;
 }
 
-// ── localStorage helpers (AI output persistence only) ─────────────────────────
+// ── localStorage helpers (cross-engine read-only — data owned by other engines) ─
+// These keys are written by other engines (AICopilot, BriefMe, ArgumentBuilder,
+// FinalWrittenAddressEngine, RiskAnalytics). WarRoom only reads them for the
+// Hearing Readiness Board. Do not migrate here without migrating the write-side.
 
 function readLS<T>(key: string, fallback: T): T {
   try {
@@ -83,8 +87,29 @@ function readLS<T>(key: string, fallback: T): T {
   }
 }
 
-function writeLS(key: string, val: unknown): void {
-  try { localStorage.setItem(key, JSON.stringify(val)); } catch { /* ignore */ }
+// ── Dexie helpers for WarRoom-owned state ────────────────────────────────────
+// afs_wr_opp and afs_wr_judicial are authored/generated inside WarRoom and
+// must survive offline, PWA reinstall, and storage eviction.
+
+async function wrLoad<T>(caseId: string, key: string, def: T): Promise<T> {
+  const result = await loadBlindSpot<T>(caseId, `wr_${key}`, undefined as any);
+  if (result !== null && result !== undefined) return result;
+  // One-shot migration from localStorage
+  try {
+    const lsKey = key === 'opp' ? `afs_wr_opp_${caseId}` : `afs_wr_judicial_${caseId}`;
+    const ls = localStorage.getItem(lsKey);
+    if (ls) {
+      const parsed = JSON.parse(ls) as T;
+      await saveBlindSpot(caseId, `wr_${key}`, parsed);
+      localStorage.removeItem(lsKey);
+      return parsed;
+    }
+  } catch { /**/ }
+  return def;
+}
+
+async function wrSave(caseId: string, key: string, val: unknown): Promise<void> {
+  await saveBlindSpot(caseId, `wr_${key}`, val);
 }
 
 // ── Case context builder (mirrors buildCaseContext from original) ──────────────
@@ -238,10 +263,15 @@ export function WarRoom({ activeCase }: Props) {
   // ── Risk scores remain on localStorage (migrated in Fix #5) ──────────────
   const riskScores = readLS<RiskScores | null>(`risk_${caseId}_scores`, null);
 
-  // ── AI panel state (persisted to localStorage) ────────────────────────────
-  const [oppStrategy,   setOppStrategy]   = useState<string>(() => readLS(`afs_wr_opp_${caseId}`,     ''));
-  const [judicialLog,   setJudicialLog]   = useState<JudicialNote[]>(() => readLS(`afs_wr_judicial_${caseId}`, []));
+  // ── AI panel state (persisted to Dexie via wrSave) ──────────────────────────
+  const [oppStrategy,   setOppStrategy]   = useState<string>('');
+  const [judicialLog,   setJudicialLog]   = useState<JudicialNote[]>([]);
   const [judicialNote,  setJudicialNote]  = useState('');
+
+  useEffect(() => {
+    wrLoad<string>(caseId, 'opp', '').then(setOppStrategy);
+    wrLoad<JudicialNote[]>(caseId, 'judicial', []).then(setJudicialLog);
+  }, [caseId]);
 
   // ── Loading state per panel key ───────────────────────────────────────────
   const [loading, setLoading] = useState<Record<string, boolean>>({});
@@ -259,14 +289,14 @@ export function WarRoom({ activeCase }: Props) {
     system: string,
     userMsg: string,
     setter: (t: string) => void,
-    lsKey: string,
+    wrKey: string,
   ) {
     setLoad(key, true);
     setErr(key, '');
     try {
       const text = await withRetry(() => callClaude({ system, userMsg, maxTokens: 1800, matter_track: activeCase.matter_track, counsel_role: activeCase.counsel_role, libraryOpts: buildRoleLibraryOpts(activeCase.matter_track, activeCase.counsel_role, userMsg.slice(0, 150)) }));
       setter(text);
-      writeLS(lsKey, text);
+      wrSave(caseId, wrKey, text);
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Unknown error';
       setErr(key, msg);
@@ -611,7 +641,7 @@ export function WarRoom({ activeCase }: Props) {
           roleSystem + fullContext,
           `Analyse the opposing side's most likely litigation strategy on this matter.\n\nCover:\n(1) Their strongest 3 arguments against our position\n(2) Their most likely procedural moves in the next 60 days\n(3) Their evidential strategy — what they will try to admit and what they will challenge\n(4) Their vulnerabilities and the single most damaging thing we can do to their case now\n(5) Recommended counter-posture from our counsel role\n\nCASE CONTEXT:\n${ctx}\n\nBuild the opponent strategy analysis from our side's perspective.`,
           setOppStrategy,
-          `afs_wr_opp_${caseId}`,
+          'opp',
         )}
         genKey="opp" genLabel="⟳ Analyse Opponent" loading={loading['opp']}
       >
@@ -704,12 +734,12 @@ export function WarRoom({ activeCase }: Props) {
       const updated = [...judicialLog, note];
       setJudicialLog(updated);
       setJudicialNote('');
-      writeLS(`afs_wr_judicial_${caseId}`, updated);
+      wrSave(caseId, 'judicial', updated);
     }
     function delNote(id: number) {
       const updated = judicialLog.filter(n => n.id !== id);
       setJudicialLog(updated);
-      writeLS(`afs_wr_judicial_${caseId}`, updated);
+      wrSave(caseId, 'judicial', updated);
     }
     return (
       <PanelWrap title="Judicial Notes" icon="§">
