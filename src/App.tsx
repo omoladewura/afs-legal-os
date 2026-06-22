@@ -109,7 +109,165 @@ function OfflineBanner() {
   );
 }
 
-export function App() {
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase 2F — Home-screen install nudge
+//
+// iOS Safari does not fire `beforeinstallprompt` — the only path to reliable
+// offline caching on iOS is installing to the home screen via the Share Sheet.
+// Without that, Safari aggressively evicts cached assets under storage pressure,
+// breaking offline mode silently. This nudge prompts once, after the user has
+// authenticated and is actively using the app in browser (non-standalone) mode.
+//
+// Android Chrome: captures `beforeinstallprompt` and shows the native prompt
+// on tap, which is more reliable than the manual share-sheet flow.
+//
+// Dismiss flag stored in localStorage (device-level UI preference — not case
+// data, so localStorage is appropriate here and survives PWA reinstall exactly
+// when it should: a reinstalled PWA is already standalone and won't show this).
+// ─────────────────────────────────────────────────────────────────────────────
+
+const INSTALL_DISMISSED_KEY = 'afs_install_nudge_dismissed_v1';
+
+function InstallNudge() {
+  const [show,       setShow]       = useState(false);
+  const [deferredEvt, setDeferredEvt] = useState<Event | null>(null);
+  const [installed,  setInstalled]  = useState(false);
+
+  useEffect(() => {
+    // Already standalone — running as installed PWA, never show.
+    const isStandalone =
+      window.matchMedia('(display-mode: standalone)').matches ||
+      (window.navigator as any).standalone === true;
+    if (isStandalone) return;
+
+    // Already dismissed by user.
+    try {
+      if (localStorage.getItem(INSTALL_DISMISSED_KEY)) return;
+    } catch { /**/ }
+
+    // Show nudge — slight delay so it doesn't compete with app paint.
+    const t = setTimeout(() => setShow(true), 3000);
+
+    // Android: capture the native prompt event so we can trigger it on tap.
+    function onBeforeInstall(e: Event) {
+      e.preventDefault();
+      setDeferredEvt(e);
+    }
+    window.addEventListener('beforeinstallprompt', onBeforeInstall);
+
+    // Hide if app becomes standalone mid-session (Android install completes).
+    function onAppInstalled() { setInstalled(true); setShow(false); }
+    window.addEventListener('appinstalled', onAppInstalled);
+
+    return () => {
+      clearTimeout(t);
+      window.removeEventListener('beforeinstallprompt', onBeforeInstall);
+      window.removeEventListener('appinstalled', onAppInstalled);
+    };
+  }, []);
+
+  function dismiss() {
+    setShow(false);
+    try { localStorage.setItem(INSTALL_DISMISSED_KEY, '1'); } catch { /**/ }
+  }
+
+  async function handleInstall() {
+    if (deferredEvt) {
+      // Android — trigger native prompt.
+      (deferredEvt as any).prompt?.();
+      const { outcome } = await (deferredEvt as any).userChoice ?? {};
+      if (outcome === 'accepted') setInstalled(true);
+    }
+    dismiss();
+  }
+
+  if (!show || installed) return null;
+
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const SERIF = "'Times New Roman', Times, serif";
+
+  return (
+    <div style={{
+      position:     'fixed',
+      bottom:       24,
+      left:         '50%',
+      transform:    'translateX(-50%)',
+      zIndex:       99999,
+      width:        'min(92vw, 420px)',
+      background:   '#0d0d1c',
+      border:       `1px solid #3a3a5a`,
+      borderRadius: 10,
+      padding:      '18px 20px',
+      boxShadow:    '0 8px 32px rgba(0,0,0,0.6)',
+      animation:    'fadeUp .3s ease',
+    }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontSize: 20 }}>📲</span>
+          <span style={{ fontSize: 13, color: '#e8e8f8', fontFamily: SERIF, fontWeight: 600 }}>
+            Add AFS Legal OS to your home screen
+          </span>
+        </div>
+        <button
+          onClick={dismiss}
+          style={{ background: 'none', border: 'none', color: '#505068', fontSize: 16, cursor: 'pointer', padding: '0 0 0 8px', lineHeight: 1 }}
+          aria-label="Dismiss"
+        >×</button>
+      </div>
+
+      {/* Body */}
+      <p style={{ fontSize: 12, color: '#8080a0', fontFamily: SERIF, lineHeight: 1.65, marginBottom: 14 }}>
+        {isIOS
+          ? 'Required for reliable offline access on iOS. Without installation, Safari may clear cached data and break offline mode.'
+          : 'Install for reliable offline access and faster loading — works without a connection once installed.'}
+      </p>
+
+      {/* iOS instructions */}
+      {isIOS && (
+        <div style={{
+          background: '#0a0a18', border: '1px solid #2a2a40', borderRadius: 6,
+          padding: '10px 14px', marginBottom: 14,
+        }}>
+          <p style={{ fontSize: 11, color: '#c0c0d8', fontFamily: SERIF, lineHeight: 1.8, margin: 0 }}>
+            1. Tap the <strong style={{ color: '#e8e8f8' }}>Share</strong> button (□↑) in Safari's toolbar<br />
+            2. Scroll down and tap <strong style={{ color: '#e8e8f8' }}>Add to Home Screen</strong><br />
+            3. Tap <strong style={{ color: '#e8e8f8' }}>Add</strong> — then open AFS from your home screen
+          </p>
+        </div>
+      )}
+
+      {/* Action buttons */}
+      <div style={{ display: 'flex', gap: 10 }}>
+        {!isIOS && deferredEvt && (
+          <button
+            onClick={handleInstall}
+            style={{
+              flex: 1, background: '#3a3a6a', border: '1px solid #6060a0',
+              color: '#e8e8f8', borderRadius: 6, padding: '9px 14px',
+              fontSize: 12, fontFamily: SERIF, cursor: 'pointer', fontWeight: 600,
+            }}
+          >
+            Install now
+          </button>
+        )}
+        <button
+          onClick={dismiss}
+          style={{
+            flex: isIOS || !deferredEvt ? 1 : 0,
+            background: 'none', border: '1px solid #2a2a40',
+            color: '#6060a0', borderRadius: 6, padding: '9px 14px',
+            fontSize: 12, fontFamily: SERIF, cursor: 'pointer',
+          }}
+        >
+          {isIOS ? 'Got it' : 'Not now'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+
   const {
     view, docketOpen, setView, setDockOpen,
     isAuthenticated, dashTab, setDashTab,
@@ -198,6 +356,7 @@ export function App() {
   return (
     <>
       <OfflineBanner />
+      {isAuthenticated && <InstallNudge />}
       <SiteNav />
 
       <div id="root-inner">
