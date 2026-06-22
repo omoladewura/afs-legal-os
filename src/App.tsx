@@ -267,7 +267,7 @@ function InstallNudge() {
   );
 }
 
-
+export function App() {
   const {
     view, docketOpen, setView, setDockOpen,
     isAuthenticated, dashTab, setDashTab,
