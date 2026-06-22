@@ -114,6 +114,7 @@ import {
 import { CrossExamTopicSwitcher } from '@/engines/trial/CrossExamTopicSwitcher';
 import { CrossExamSessionLog } from '@/engines/trial/CrossExamSessionLog';
 import { CrossExamManualOverride } from '@/engines/trial/CrossExamManualOverride';
+import { CrossExamPostSession, CrossExamPrintPanel } from '@/engines/trial/CrossExamPostSession';
 import { T } from '@/constants/tokens';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -136,6 +137,25 @@ export interface CrossExamSessionManagerProps {
    * The parent is responsible for navigating away or showing a summary.
    */
   onSessionEnd?: (sessionId: string) => void;
+
+  /**
+   * Optional map from witnessId → display name passed into CrossExamPostSession
+   * so Contradiction Mapper entries carry the human-readable witness name.
+   * Build from cx_witnesses: new Map(witnesses.map(w => [w.id, w.name]))
+   */
+  witnessLabels?: Map<string, string>;
+
+  /**
+   * Case name — passed to CrossExamPrintPanel (Phase 5B) for the print header.
+   * Typically activeCase.caseName.
+   */
+  caseName?: string;
+
+  /**
+   * Witness display name — passed to CrossExamPrintPanel (Phase 5B).
+   * Typically resolved from cx_witnesses by witnessId.
+   */
+  witnessName?: string;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -260,15 +280,18 @@ function StatusBar({
         <button
           onClick={onNewSession}
           style={{
-            fontSize:      12,
+            minHeight:     48,
+            fontSize:      13,
             fontWeight:    600,
             color:         '#8aaccc',
             background:    'transparent',
             border:        '1px solid #1a3a6a',
             borderRadius:  6,
-            padding:       '7px 12px',
+            padding:       '0 16px',
             cursor:        'pointer',
             fontFamily:    "'Times New Roman', Times, serif",
+            touchAction:   'manipulation',
+            userSelect:    'none',
             WebkitTapHighlightColor: 'transparent',
           }}
         >
@@ -277,15 +300,18 @@ function StatusBar({
         <button
           onClick={onEnd}
           style={{
-            fontSize:      12,
+            minHeight:     48,
+            fontSize:      14,
             fontWeight:    700,
             color:         '#ffffff',
             background:    '#a02020',
             border:        'none',
             borderRadius:  6,
-            padding:       '7px 14px',
+            padding:       '0 18px',
             cursor:        'pointer',
             fontFamily:    "'Times New Roman', Times, serif",
+            touchAction:   'manipulation',
+            userSelect:    'none',
             WebkitTapHighlightColor: 'transparent',
           }}
         >
@@ -339,17 +365,22 @@ function LogToggleButton({
         display:       'flex',
         alignItems:    'center',
         gap:           6,
+        minHeight:     48,
         width:         '100%',
-        padding:       '11px 16px',
+        padding:       '0 16px',
         background:    T.card,
         border:        'none',
         borderTop:     `1px solid ${T.bdr}`,
         cursor:        'pointer',
         fontFamily:    "'Times New Roman', Times, serif",
-        fontSize:      12,
+        fontSize:      13,
         fontWeight:    600,
         color:         T.text,
         textAlign:     'left',
+        display:       'flex',
+        alignItems:    'center',
+        touchAction:   'manipulation',
+        userSelect:    'none',
         WebkitTapHighlightColor: 'transparent',
         flexShrink:    0,
       }}
@@ -371,6 +402,9 @@ export function CrossExamSessionManager({
   witnessId,
   trees,
   onSessionEnd,
+  witnessLabels,
+  caseName    = '',
+  witnessName = '',
 }: CrossExamSessionManagerProps) {
   // ── Session state ─────────────────────────────────────────────────────────
 
@@ -378,6 +412,10 @@ export function CrossExamSessionManager({
   const [loading, setLoading] = useState(true);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [logOpen, setLogOpen] = useState(false);
+
+  // Tracks the most-recently closed sessionId so CrossExamPostSession
+  // can trigger its feed when a session ends (Phase 5A).
+  const [lastEndedSessionId, setLastEndedSessionId] = useState<string | null>(null);
 
   // Keep a ref to the current session so async save callbacks always write
   // the latest state, not a stale closure copy.
@@ -620,6 +658,8 @@ export function CrossExamSessionManager({
 
     try {
       await closeSession(current.id);
+      // Phase 5A: signal CrossExamPostSession to run the feed for this session
+      setLastEndedSessionId(current.id);
       onSessionEnd?.(current.id);
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : 'Could not close session');
@@ -688,6 +728,7 @@ export function CrossExamSessionManager({
         height:         '100%',
         overflow:       'hidden',
         background:     T.bg,
+        paddingBottom:  'env(safe-area-inset-bottom, 0px)',
       }}
     >
       {/* ── Status bar ────────────────────────────────────────────────────── */}
@@ -697,6 +738,23 @@ export function CrossExamSessionManager({
         saveError={saveError}
         onEnd={handleEndSession}
         onNewSession={handleNewSession}
+      />
+
+      {/* ── Phase 5A: post-session Contradiction Mapper feed ─────────────── */}
+      {/*   Mounts once (sweeps any unfed sessions from crashes) and re-runs   */}
+      {/*   whenever a session is explicitly closed via handleEndSession.       */}
+      <CrossExamPostSession
+        caseId={caseId}
+        triggerSessionId={lastEndedSessionId}
+        witnessLabels={witnessLabels}
+      />
+
+      {/* ── Phase 5B: printable paper backup ─────────────────────────────── */}
+      {/*   One print button per topic-tree. Works fully offline.              */}
+      <CrossExamPrintPanel
+        trees={trees}
+        caseName={caseName}
+        witnessName={witnessName}
       />
 
       {/* ── Topic switcher + walker ───────────────────────────────────────── */}
