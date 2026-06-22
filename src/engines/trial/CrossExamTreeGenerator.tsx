@@ -47,7 +47,7 @@
 import { useState, useEffect, useRef } from 'react';
 import type { Case, CaseTheoryRecord } from '@/types';
 import type { CrossExamTreeRecord, CrossExamNode, CrossExamTier, NodePurpose } from '@/types/crossExam';
-import { T, S } from '@/constants/tokens';
+import { T } from '@/constants/tokens';
 import { patchTreeNodes } from '@/storage/crossExamHelpers';
 import { callClaudeText } from '@/services/api';
 import { uid } from '@/storage/helpers';

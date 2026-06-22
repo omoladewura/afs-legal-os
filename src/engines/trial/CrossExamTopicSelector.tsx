@@ -46,7 +46,7 @@ import {
   createTopicStub,
   deleteTree,
 } from '@/storage/crossExamHelpers';
-import { uid } from '@/storage/helpers';
+import { CrossExamValidatorPanel } from '@/engines/trial/CrossExamValidatorPanel';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -218,6 +218,9 @@ export function CrossExamTopicSelector({
   // Working state for the "Generate" button
   const [generating, setGenerating] = useState(false);
 
+  // Phase 3E — which topic is open in the validator panel (null = list view)
+  const [reviewingTopicId, setReviewingTopicId] = useState<string | null>(null);
+
   // ── Load from Dexie ────────────────────────────────────────────────────────
 
   const reload = useCallback(async () => {
@@ -327,6 +330,26 @@ export function CrossExamTopicSelector({
 
     setGenerating(false);
     onBeginGeneration(stubs);
+  }
+
+  // ── Phase 3E — Validator panel route ─────────────────────────────────────────
+
+  // When a topic is open in the validator panel, render it fullscreen (replaces list view)
+  const reviewingTree = reviewingTopicId ? treeMap.get(reviewingTopicId) ?? null : null;
+
+  if (reviewingTree) {
+    return (
+      <CrossExamValidatorPanel
+        tree={reviewingTree}
+        activeCase={activeCase}
+        onClose={() => setReviewingTopicId(null)}
+        onTrialReady={() => {
+          // Refresh trees from Dexie so the parent list shows the updated trialReady flag
+          reload();
+          setReviewingTopicId(null);
+        }}
+      />
+    );
   }
 
   // ── Gate checks ────────────────────────────────────────────────────────────
@@ -450,8 +473,28 @@ export function CrossExamTopicSelector({
                     <SeedBadge source={t.topicSource} />
                   </div>
 
-                  {/* Generation status */}
+                  {/* Generation status + Phase 3E validate button */}
                   <StatusPip tree={treeMap.get(t.topicId)} />
+                  {Object.keys(t.nodes).length > 0 && (
+                    <button
+                      onClick={() => setReviewingTopicId(t.topicId)}
+                      style={{
+                        fontSize:   11,
+                        color:      t.trialReady ? T.ok : '#8a1a1a',
+                        background: 'transparent',
+                        border:     `1px solid ${t.trialReady ? T.ok : '#8a1a1a'}`,
+                        borderRadius: 3,
+                        padding:    '3px 10px',
+                        cursor:     'pointer',
+                        fontFamily: "'Times New Roman', Times, serif",
+                        fontWeight: 700,
+                        whiteSpace: 'nowrap',
+                        flexShrink: 0,
+                      }}
+                    >
+                      {t.trialReady ? '✓ Validated' : 'Validate & Review'}
+                    </button>
+                  )}
 
                   {/* Remove */}
                   <button
