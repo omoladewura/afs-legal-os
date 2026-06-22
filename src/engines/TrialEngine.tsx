@@ -53,6 +53,9 @@ import type { Case, CaseTheoryRecord } from '@/types';
 import { T, S } from '@/constants/tokens';
 import { CaseTheoryBanner, Md, ErrorBlock } from '@/components/common/ui';
 import { useCaseTheory } from '@/hooks/useCaseTheory';
+import { CrossExamTopicSelector } from '@/engines/trial/CrossExamTopicSelector';
+import { CrossExamTreeGenerator } from '@/engines/trial/CrossExamTreeGenerator';
+import type { CrossExamTreeRecord } from '@/types/crossExam';
 import { useAI } from '@/hooks/useAI';
 import { useIntelligence } from '@/hooks/useIntelligence';
 import { saveCaseTheory, lockCaseTheory, unlockCaseTheory, loadBlindSpot, saveBlindSpot, uid, isIntelligenceCompleteSync } from '@/storage/helpers';
@@ -2523,6 +2526,10 @@ function CrossExaminationTab({ activeCase, role: _role }: CrossExaminationTabPro
   // Selected witness
   const [selectedId, setSelectedId] = useState('');
 
+  // Phase 3B — topic selector view
+  const [crossView, setCrossView] = useState<'select_topics' | 'generating' | 'audit'>('audit');
+  const [pendingStubs, setPendingStubs] = useState<CrossExamTreeRecord[]>([]);
+
   // Local paste fallback — only used when the register has no statement
   const [localStatement, setLocalStatement] = useState('');
 
@@ -2550,6 +2557,7 @@ function CrossExaminationTab({ activeCase, role: _role }: CrossExaminationTabPro
   // When witness selected: load any previously saved bundle
   useEffect(() => {
     if (!selectedId) return;
+    setCrossView('audit');   // ← Phase 3B reset
     loadBlindSpot<CrossExamBundle>(caseId, crossBundleKey(selectedId)).then(saved => {
       setLocalStatement(saved?.statementText ?? '');
       setAudit(saved?.audit ?? '');
@@ -2732,7 +2740,68 @@ Q[N]. [Exact question text] → Admission secured: [what it locks in]`,
             </option>
           ))}
         </select>
+      )}\n\n      {/* Phase 3B — Tab toggle */}
+      {selectedWitness && (
+        <div style={{ display: 'flex', gap: 0, marginBottom: 20,
+                      borderBottom: `1px solid ${T.bdr}` }}>
+          {(['audit', 'select_topics'] as const).map(view => (
+            <button
+              key={view}
+              onClick={() => setCrossView(view)}
+              style={{
+                fontSize: 12,
+                fontFamily: "'Times New Roman', Times, serif",
+                fontWeight: crossView === view ? 700 : 400,
+                color: crossView === view ? '#8a1a1a' : T.dim,
+                background: 'transparent',
+                border: 'none',
+                borderBottom: crossView === view ? '2px solid #8a1a1a' : '2px solid transparent',
+                padding: '8px 18px',
+                cursor: 'pointer',
+                letterSpacing: '.04em',
+              }}
+            >
+              {view === 'audit' ? 'Statement Audit & Questions' : '⚙ Topic Trees (Offline)'}
+            </button>
+          ))}
+        </div>
       )}
+
+      {/* Phase 3B — Topic selector view */}
+      {selectedWitness && crossView === 'select_topics' && (
+        <CrossExamTopicSelector
+          activeCase={activeCase}
+          witnessId={selectedWitness.id}
+          witnessName={selectedWitness.name || selectedWitness.designation || 'Witness'}
+          hasTheory={hasTheory}
+          isIntelComplete={isIntelligenceCompleteSync(activeCase)}
+          onBeginGeneration={(stubs) => {
+            setPendingStubs(stubs);
+            setCrossView('generating');
+          }}
+        />
+      )}
+
+      {/* Phase 3C — Tree generator */}
+      {selectedWitness && crossView === 'generating' && (
+        <CrossExamTreeGenerator
+          activeCase={activeCase}
+          witnessId={selectedWitness.id}
+          witnessName={selectedWitness.name || selectedWitness.designation || 'Witness'}
+          witnessStatement={(selectedWitness.statement_text ?? '').trim() || localStatement}
+          theory={theory}
+          pendingStubs={pendingStubs}
+          onComplete={(_trees) => {
+            // Trees written to Dexie inside generator; go back to topic selector
+            setCrossView('select_topics');
+          }}
+          onBack={() => setCrossView('select_topics')}
+        />
+      )}
+
+      {/* Existing audit/questions view — guarded by crossView === 'audit' */}
+      {crossView === 'audit' && (
+        <>
 
       {/* Witness profile summary */}
       {selectedWitness && (
@@ -2836,13 +2905,11 @@ Q[N]. [Exact question text] → Admission secured: [what it locks in]`,
           )}
         </>
       )}
+      </>
+      )}
     </div>
   );
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// PHASE 8 — SHARED DESIGN TOKENS (mirror CX engine accent palette)
-// ─────────────────────────────────────────────────────────────────────────────
 
 const CX_ACCENT = '#d04040';
 const CX_LIGHT  = '#e07070';
