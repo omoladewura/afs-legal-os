@@ -1402,7 +1402,7 @@ function WitnessCard({
           {witness.designation || `#${index + 1}`}
         </span>
         <span style={{
-          fontSize: 13, color: T.text, fontFamily: "'Times New Roman', Times, serif",
+          fontSize: 13, fontFamily: "'Times New Roman', Times, serif",
           fontWeight: witness.name ? 600 : 400,
           color: witness.name ? T.text : T.mute,
           flexGrow: 1, minWidth: 0,
