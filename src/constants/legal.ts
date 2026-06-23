@@ -21,11 +21,33 @@ export const JURISDICTIONS: string[] = [
 ];
 
 export const COURTS: string[] = [
-  'Magistrate Court', 'Customary Court', 'High Court (State)',
-  'High Court (Federal / FHC)', 'National Industrial Court',
-  'Court of Appeal', 'Supreme Court', 'Election Petitions Tribunal',
-  'Tribunal', 'Arbitral Panel',
+  'Magistrate Court',
+  'Customary Court',
+  'High Court (State)',
+  'High Court (FCT)',
+  'Federal High Court',
+  'National Industrial Court',
+  'Election Petitions Tribunal',
+  'Tribunal',
+  'Arbitral Panel',
 ];
+
+/**
+ * Court → valid originating processes mapping.
+ * Drives the Originating Process dropdown in New Matter form.
+ * Only shows processes valid for the selected court.
+ */
+export const COURT_ORIGINATING_PROCESSES: Record<string, string[]> = {
+  'Magistrate Court':          ['Plaint', 'Civil Summons'],
+  'Customary Court':           ['Summons', 'Plaint'],
+  'High Court (State)':        ['Writ of Summons', 'Originating Summons', 'Originating Motion', 'Petition'],
+  'High Court (FCT)':          ['Writ of Summons', 'Originating Summons', 'Originating Motion', 'Petition'],
+  'Federal High Court':        ['Writ of Summons', 'Originating Summons', 'Originating Motion', 'Petition'],
+  'National Industrial Court': ['Complaint', 'Originating Summons'],
+  'Election Petitions Tribunal': ['Election Petition'],
+  'Tribunal':                  ['Notice of Appeal', 'Originating Application', 'Petition'],
+  'Arbitral Panel':            ['Notice of Arbitration'],
+};
 
 export const CASE_STATUSES: string[] = [
   'Filed', 'Active', 'Adjourned', 'Judgment', 'Appeal', 'Settled', 'Closed',
@@ -46,16 +68,6 @@ export const DEADLINE_TYPES: string[] = [
 // FINAL WRITTEN ADDRESS — PROCEDURAL CONSTANTS
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * s.36 CFRN 1999 — Fair Hearing Reference
- *
- * Used in the FinalWrittenAddressEngine procedural-compliance banner and the
- * Adoption Denied fair-hearing alert. Cited cases are illustrative starting
- * points: VERIFY each citation before relying on it in a live submission.
- *
- * Library Rule: all citations below carry an explicit "verify" caveat per the
- * app's citation handling policy.
- */
 export const FAIR_HEARING_REFERENCE = {
   provision:   's.36(1) Constitution of the Federal Republic of Nigeria 1999 (as amended)',
   principle:   'Every person is entitled to a fair hearing within a reasonable time by a court or other tribunal. Denying a party the opportunity to file or adopt their Final Written Address may constitute a breach of the right to fair hearing.',
@@ -72,17 +84,6 @@ export const FAIR_HEARING_REFERENCE = {
   caveat: 'CITATION VERIFICATION REQUIRED — confirm case names, volumes, and holdings in LawPavilion or equivalent before filing.',
 } as const;
 
-/**
- * CIVIL_FWA_SEQUENCE — ordered filing steps for civil Final Written Address.
- *
- * This is a sequence (not a day-count), so it lives here rather than in
- * LAW_REGISTRY. Day-counts for each step live in LAW_REGISTRY under
- * civil_fwa_defendant_days / civil_fwa_claimant_days / civil_fwa_reply_days.
- *
- * Source: Standard civil High Court practice (Order 35, FCT High Court Civil
- * Procedure Rules; Federal High Court (Civil Procedure) Rules 2009 — verify
- * against the specific rules of the court seised).
- */
 export const CIVIL_FWA_SEQUENCE: readonly {
   step:    number;
   party:   string;
@@ -115,12 +116,6 @@ export const CIVIL_FWA_SEQUENCE: readonly {
   },
 ] as const;
 
-/**
- * CRIMINAL_FWA_SEQUENCE — ordered filing steps for criminal Final Written Address.
- *
- * Source: ACJA 2015 ss.293–294 and equivalent regional ACJL provisions.
- * Verify exact day-counts and sequence against the court's practice direction.
- */
 export const CRIMINAL_FWA_SEQUENCE: readonly {
   step:    number;
   party:   string;
