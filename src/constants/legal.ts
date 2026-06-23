@@ -38,15 +38,15 @@ export const COURTS: string[] = [
  * Only shows processes valid for the selected court.
  */
 export const COURT_ORIGINATING_PROCESSES: Record<string, string[]> = {
-  'Magistrate Court':          ['Plaint', 'Civil Summons'],
-  'Customary Court':           ['Summons', 'Plaint'],
-  'High Court (State)':        ['Writ of Summons', 'Originating Summons', 'Originating Motion', 'Petition'],
-  'High Court (FCT)':          ['Writ of Summons', 'Originating Summons', 'Originating Motion', 'Petition'],
-  'Federal High Court':        ['Writ of Summons', 'Originating Summons', 'Originating Motion', 'Petition'],
-  'National Industrial Court': ['Complaint', 'Originating Summons'],
+  'Magistrate Court':            ['Plaint', 'Civil Summons'],
+  'Customary Court':             ['Summons', 'Plaint'],
+  'High Court (State)':          ['Writ of Summons', 'Originating Summons', 'Originating Motion', 'Petition'],
+  'High Court (FCT)':            ['Writ of Summons', 'Originating Summons', 'Originating Motion', 'Petition'],
+  'Federal High Court':          ['Writ of Summons', 'Originating Summons', 'Originating Motion', 'Petition'],
+  'National Industrial Court':   ['Complaint', 'Originating Summons'],
   'Election Petitions Tribunal': ['Election Petition'],
-  'Tribunal':                  ['Notice of Appeal', 'Originating Application', 'Petition'],
-  'Arbitral Panel':            ['Notice of Arbitration'],
+  'Tribunal':                    ['Notice of Appeal', 'Originating Application', 'Petition'],
+  'Arbitral Panel':              ['Notice of Arbitration'],
 };
 
 export const CASE_STATUSES: string[] = [
