@@ -92,6 +92,7 @@ import type {
   CrossExamNode,
   SessionStep,
 } from '@/types/crossExam';
+import { printSide } from '@/utils/printSide';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Mirrored interface — matches ContradictionRecord in CrossExamEngine.tsx.
@@ -537,8 +538,6 @@ const styles = {
 //   Tier tag, question text, expected answer + source (if set), purpose tag,
 //   contradiction detour (citation → put-to-you → credibility), YES/NO branches.
 // ─────────────────────────────────────────────────────────────────────────────
-
-import { printSide } from '@/utils/printSide';
 
 // ── Tier labels ───────────────────────────────────────────────────────────────
 
