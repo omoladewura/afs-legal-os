@@ -471,7 +471,7 @@ const styles = {
     padding:        '8px 14px',
     borderRadius:   6,
     background:     '#1a1a1a',
-    border:         `1px solid ${T.border ?? '#2a2a2a'}`,
+    border:         `1px solid ${T.bdr}`,
     marginBottom:   10,
     fontFamily:     'Inter, sans-serif',
     fontSize:       12,
