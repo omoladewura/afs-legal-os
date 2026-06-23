@@ -11,18 +11,28 @@
  *
  * V4 CHANGES (Phase 3 — FREP & Matrimonial integration):
  * - Reads docketFilter from store to filter the case list.
- * - Auto-presets originating_process when filter is 'frep' or 'matrimonial'
- *   (skips the dropdown — it is already determined by entry point).
+ * - Auto-presets originating_process when filter is 'frep' or 'matrimonial'.
  * - Party label placeholders and role button labels reflect filter context.
  * - Header title and subtitle adapt to active filter.
+ *
+ * V5 CHANGES (UI fixes):
+ * - Search input removed.
+ * - Case list hidden while New Matter form is open.
+ * - Track toggle: "Civil / Special" → "Civil".
+ * - Form order: Track → Court → Originating Process (court-driven).
+ * - Originating Process options filtered by selected court.
+ * - Role description text no longer says "claim" for non-civil tracks.
+ * - Delete button added to each case row.
+ * - Court list: Federal High Court and High Court (FCT) are separate entries.
+ * - Court of Appeal and Supreme Court removed (appellate — not first instance).
  */
 
 import { useState, useEffect } from 'react';
 import { useAppStore } from '@/state/appStore';
-import { loadCases, saveCase } from '@/storage/helpers';
+import { loadCases, saveCase, deleteCase } from '@/storage/helpers';
 import { uid, cid, formatDate } from '@/utils';
 import { T, S } from '@/constants/tokens';
-import { COURTS } from '@/constants/legal';
+import { COURTS, COURT_ORIGINATING_PROCESSES } from '@/constants/legal';
 import type { Case, Party, CounselRole, OriginatingProcess } from '@/types';
 import {
   rolesForTrack,
@@ -40,108 +50,144 @@ const FILTER_PRESET: Record<'frep' | 'matrimonial', OriginatingProcess> = {
   matrimonial: 'petition_matrimonial',
 };
 
+// ── Court-driven originating process → OriginatingProcess id mapping ─────
+// Maps the plain string labels from COURT_ORIGINATING_PROCESSES to the
+// OriginatingProcess enum id used internally.
+const PROC_LABEL_TO_ID: Record<string, OriginatingProcess> = {
+  'Writ of Summons':      'writ_of_summons',
+  'Civil Summons':        'writ_of_summons',   // Magistrate — maps to closest type
+  'Plaint':               'writ_of_summons',   // Magistrate/Customary
+  'Summons':              'originating_summons',
+  'Originating Summons':  'originating_summons',
+  'Originating Motion':   'originating_motion',
+  'Originating Application': 'originating_motion',
+  'Petition':             'petition_matrimonial', // overridden per context below
+  'Election Petition':    'petition_election',
+  'Complaint':            'writ_of_summons',    // NIC — maps to closest civil type
+  'Notice of Appeal':     'other',
+  'Notice of Arbitration':'other',
+};
+
+function procLabelToId(label: string, court: string): OriginatingProcess {
+  if (label === 'Petition' && court === 'Election Petitions Tribunal') return 'petition_election';
+  if (label === 'Petition') return 'petition_matrimonial';
+  return PROC_LABEL_TO_ID[label] ?? 'other';
+}
+
 export function CaseDocket() {
   const { setDocketOpen, setActiveCase, setView, docketFilter } = useAppStore();
 
   const [cases,    setCases]    = useState<Case[]>([]);
-  const [search,   setSearch]   = useState('');
   const [creating, setCreating] = useState(false);
 
+  const [loadingCases, setLoadingCases] = useState(true);
+  const [fromCache,    setFromCache]    = useState(false);
+
   // ── New case form state ────────────────────────────────────────────────────
+  const [ncName,        setNcName]        = useState('');
+  const [ncCourt,       setNcCourt]       = useState('');
+  const [ncProcLabel,   setNcProcLabel]   = useState('');   // plain string label
+  const [ncSuit,        setNcSuit]        = useState('');
+  const [ncDate,        setNcDate]        = useState('');
+  const [isCriminal,    setIsCriminal]    = useState(false);
+  const [ncCustomA,     setNcCustomA]     = useState('');
+  const [ncCustomB,     setNcCustomB]     = useState('');
 
-  const [ncName,   setNcName]   = useState('');
-  const [ncCourt,  setNcCourt]  = useState('');
-  const [ncSuit,   setNcSuit]   = useState('');
-  const [ncDate,   setNcDate]   = useState('');
-
-  // Track — criminal uses buttons; civil derives from originating process
-  const [isCriminal, setIsCriminal] = useState(false);
-
-  // Originating process — civil/special matters only.
-  // When docketFilter is 'frep' or 'matrimonial', this is preset and the
-  // dropdown is hidden (the entry point already determined the process).
   const filterPreset = docketFilter !== 'all' ? FILTER_PRESET[docketFilter] : null;
-  const [ncOrigProc, setNcOrigProc] = useState<OriginatingProcess>(
-    filterPreset ?? 'writ_of_summons'
-  );
 
-  // Keep ncOrigProc in sync if user navigates between filtered entry points
-  // without unmounting the docket (e.g. unlikely but safe to handle).
+  // Derive OriginatingProcess id from court + label selection
+  const ncOrigProc: OriginatingProcess = filterPreset
+    ?? (ncCourt && ncProcLabel ? procLabelToId(ncProcLabel, ncCourt) : 'writ_of_summons');
+
+  // Available process labels for the selected court
+  const availableProcs: string[] = ncCourt ? (COURT_ORIGINATING_PROCESSES[ncCourt] ?? []) : [];
+
+  // Reset proc label when court changes
   useEffect(() => {
-    if (filterPreset) setNcOrigProc(filterPreset);
+    setNcProcLabel('');
+  }, [ncCourt]);
+
+  // Keep proc label in sync when filter preset sets the court
+  useEffect(() => {
+    if (filterPreset) setNcProcLabel('');
   }, [filterPreset]);
 
-  // Custom party labels — used when originating_process === 'other'
-  const [ncCustomA, setNcCustomA] = useState('');
-  const [ncCustomB, setNcCustomB] = useState('');
-
-  // Counsel role — default to petitioner_side for matrimonial entry point
   const [ncRole, setNcRole] = useState<CounselRole>(
     filterPreset === 'petition_matrimonial' ? 'petitioner_side' : 'claimant_side'
   );
 
-  // Parties
   const [ncPartiesA, setNcPartiesA] = useState<Party[]>([{ id: cid(), name: '' }]);
   const [ncPartiesB, setNcPartiesB] = useState<Party[]>([{ id: cid(), name: '' }]);
 
-  // Derived config from originating process
-  const origConfig = getOriginatingProcess(isCriminal ? undefined : ncOrigProc);
-
-  // Derived matter_track
+  const origConfig  = getOriginatingProcess(isCriminal ? undefined : ncOrigProc);
   const derivedTrack = isCriminal ? 'criminal' : origConfig.track;
 
-  // Party labels
-  const partyALabel   = isCriminal ? 'Complainant(s)' : (ncOrigProc === 'other' && ncCustomA ? ncCustomA : origConfig.partyAPlural);
-  const partyBLabel   = isCriminal ? 'Accused'        : (ncOrigProc === 'other' && ncCustomB ? ncCustomB : origConfig.partyBPlural);
-  const partyAHolder  = isCriminal ? 'Complainant name' : origConfig.partyALabel + ' name';
-  const partyBHolder  = isCriminal ? 'Accused name'     : origConfig.partyBLabel + ' name';
+  const partyALabel  = isCriminal ? 'Complainant(s)' : (ncOrigProc === 'other' && ncCustomA ? ncCustomA : origConfig.partyAPlural);
+  const partyBLabel  = isCriminal ? 'Accused'        : (ncOrigProc === 'other' && ncCustomB ? ncCustomB : origConfig.partyBPlural);
+  const partyAHolder = isCriminal ? 'Complainant name' : origConfig.partyALabel + ' name';
+  const partyBHolder = isCriminal ? 'Accused name'     : origConfig.partyBLabel + ' name';
 
-  // When switching criminal/civil, reset role
   function handleTrackSwitch(criminal: boolean) {
     setIsCriminal(criminal);
     if (criminal) {
       setNcRole('prosecution');
     } else {
       setNcRole('claimant_side');
-      // If a filter preset exists, honour it; otherwise fall back to writ
-      setNcOrigProc(filterPreset ?? 'writ_of_summons');
+      setNcCourt('');
+      setNcProcLabel('');
     }
   }
 
-  // When originating process changes, update role to match side
-  function handleOrigProcChange(proc: OriginatingProcess) {
-    setNcOrigProc(proc);
-    // Matrimonial petitions use petitioner_side, all others use claimant_side
-    setNcRole(proc === 'petition_matrimonial' ? 'petitioner_side' : 'claimant_side');
+  function handleProcLabelChange(label: string) {
+    setNcProcLabel(label);
+    const id = procLabelToId(label, ncCourt);
+    setNcRole(id === 'petition_matrimonial' ? 'petitioner_side' : 'claimant_side');
   }
 
-  useEffect(() => { loadCases().then(setCases); }, []);
+  // ── Role description — no "claim" language for non-civil roles ────────────
+  function roleDescription(role: CounselRole): string {
+    if (role === 'prosecution')     return 'Acting for the prosecution — building and presenting the case against the accused.';
+    if (role === 'defence')         return 'Acting for the defence — protecting the accused, challenging prosecution evidence at every stage.';
+    if (role === 'petitioner_side') return 'Acting for the Petitioner — presenting the petition, establishing the dissolution fact, and advancing ancillary relief under the MCA.';
+    if (role === 'respondent_side') return 'Acting for the Respondent — answering the petition, raising available bars, and protecting the respondent\'s interests in ancillary proceedings.';
+    if (role === 'frep_applicant')  return 'Acting for the Applicant — initiating enforcement of fundamental rights, advancing the application, and securing relief.';
+    if (role === 'frep_respondent') return 'Acting for the Respondent — opposing the application, challenging the facts deposed to, and filing necessary processes.';
+    if (role === 'claimant_side')   return `Acting for the ${origConfig.partyALabel} — advancing the matter, driving pleadings, trial, and enforcement.`;
+    if (role === 'defendant_side')  return `Acting for the ${origConfig.partyBLabel} — resisting the matter, filing defences and applications.`;
+    return '';
+  }
 
-  // ── Case list filtering ────────────────────────────────────────────────────
-  // Apply docketFilter first, then text search on top.
+  useEffect(() => {
+    setLoadingCases(true);
+    setFromCache(false);
+    const start = Date.now();
+    loadCases().then(result => {
+      setCases(result);
+      const elapsed = Date.now() - start;
+      setFromCache(!navigator.onLine || elapsed < 200);
+      setLoadingCases(false);
+    }).catch(() => {
+      setLoadingCases(false);
+      setFromCache(true);
+    });
+  }, []);
+
   const filterByCaseType = (c: Case) => {
     if (docketFilter === 'frep')        return c.originating_process === 'frep';
     if (docketFilter === 'matrimonial') return c.originating_process === 'petition_matrimonial';
-    return true; // 'all'
+    return true;
   };
 
-  const filtered = cases
-    .filter(filterByCaseType)
-    .filter(c =>
-      !search.trim() ||
-      c.caseName.toLowerCase().includes(search.toLowerCase()) ||
-      (c.suitNo  || '').toLowerCase().includes(search.toLowerCase()) ||
-      (c.court   || '').toLowerCase().includes(search.toLowerCase())
-    );
+  const filtered = cases.filter(filterByCaseType);
 
   async function createCase() {
     if (!ncName.trim()) return;
     const now = new Date().toISOString();
 
     const legacyRole: Case['role'] =
-      ncRole === 'claimant_side'   ? 'Claimant'  :
-      ncRole === 'defendant_side'  ? 'Defendant' :
-      ncRole === 'prosecution'     ? 'Prosecution' :
+      ncRole === 'claimant_side'   ? 'Claimant'   :
+      ncRole === 'defendant_side'  ? 'Defendant'  :
+      ncRole === 'prosecution'     ? 'Prosecution':
       ncRole === 'petitioner_side' ? 'Petitioner' :
       ncRole === 'respondent_side' ? 'Respondent' :
       'Defence';
@@ -170,10 +216,20 @@ export function CaseDocket() {
     openCase(nc);
   }
 
+  async function handleDelete(e: React.MouseEvent, caseId: string) {
+    e.stopPropagation();
+    if (!window.confirm('Delete this matter? This cannot be undone.')) return;
+    try {
+      await deleteCase(caseId);
+      setCases(prev => prev.filter(c => c.id !== caseId));
+    } catch {
+      alert('Failed to delete matter. Please try again.');
+    }
+  }
+
   function openCase(c: Case) {
     setActiveCase(c);
     setDocketOpen(false);
-    // Matrimonial cases get their own first-class workspace
     setView(c.originating_process === 'petition_matrimonial' ? 'matrimonial' : 'engine');
   }
 
@@ -189,16 +245,15 @@ export function CaseDocket() {
   }
 
   function resetForm() {
-    setNcName(''); setNcCourt(''); setNcSuit(''); setNcDate('');
+    setNcName(''); setNcCourt(''); setNcProcLabel(''); setNcSuit(''); setNcDate('');
     setIsCriminal(false);
-    setNcOrigProc(filterPreset ?? 'writ_of_summons');
     setNcRole('claimant_side');
     setNcCustomA(''); setNcCustomB('');
     setNcPartiesA([{ id: cid(), name: '' }]);
     setNcPartiesB([{ id: cid(), name: '' }]);
   }
 
-  // ── Header copy driven by docketFilter ────────────────────────────────────
+  // ── Header copy ────────────────────────────────────────────────────────────
   const headerTitle = docketFilter === 'frep'
     ? 'FREP Docket'
     : docketFilter === 'matrimonial'
@@ -209,14 +264,15 @@ export function CaseDocket() {
     ? 'Fundamental Rights Enforcement Proceedings — Applicant / Respondent matters.'
     : docketFilter === 'matrimonial'
       ? 'Matrimonial causes and ancillary relief — Petitioner / Respondent matters.'
-      : 'All matters — open, search, and manage your full docket.';
+      : 'All matters — open and manage your full docket.';
 
   const emptyMsg = cases.filter(filterByCaseType).length === 0
-    ? `No ${docketFilter === 'all' ? '' : docketFilter === 'frep' ? 'FREP ' : 'matrimonial '}matters yet. Create your first matter above.`
-    : 'No matters match your search.';
+    ? fromCache
+      ? `No ${docketFilter === 'all' ? '' : docketFilter === 'frep' ? 'FREP ' : 'matrimonial '}matters found in local cache.`
+      : `No ${docketFilter === 'all' ? '' : docketFilter === 'frep' ? 'FREP ' : 'matrimonial '}matters yet. Create your first matter above.`
+    : 'No matters found.';
 
   // ── Styles ─────────────────────────────────────────────────────────────────
-
   const ROLE_LIGHT: Record<CounselRole, { bg: string; bdr: string; col: string }> = {
     claimant_side:   { bg: '#edf3fb', bdr: '#b8cfe8', col: '#1a4a8a' },
     defendant_side:  { bg: '#fbeaea', bdr: '#e0b8b8', col: '#7a1a1a' },
@@ -224,6 +280,8 @@ export function CaseDocket() {
     defence:         { bg: '#e8f5ee', bdr: '#a8d0b8', col: '#1a5a30' },
     petitioner_side: { bg: '#f5edfb', bdr: '#ccb8e8', col: '#4a1a7a' },
     respondent_side: { bg: '#fbedf5', bdr: '#e8b8d4', col: '#7a1a4a' },
+    frep_applicant:  { bg: '#edf5f0', bdr: '#a8d4bc', col: '#1a5a38' },
+    frep_respondent: { bg: '#fdf0ea', bdr: '#e0c0a8', col: '#7a3010' },
   };
 
   const overlayStyle: React.CSSProperties = {
@@ -308,8 +366,26 @@ export function CaseDocket() {
           </button>
         </div>
 
-        {/* Action row */}
-        <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
+        {/* Offline badge */}
+        {fromCache && !loadingCases && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            padding: '7px 12px', marginBottom: 16,
+            background: '#fffbf0', border: '1px solid #e0cfa0',
+            borderRadius: 4,
+          }}>
+            <span style={{ fontSize: 13, lineHeight: 1 }}>◌</span>
+            <p style={{
+              fontSize: 11, margin: 0, color: '#7a4a00',
+              fontFamily: "'Times New Roman', Times, serif",
+            }}>
+              Showing locally cached matters — changes made here will sync when you're back online
+            </p>
+          </div>
+        )}
+
+        {/* Action row — New Matter button only, no search */}
+        <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
           <button
             onClick={() => { if (creating) resetForm(); setCreating(c => !c); }}
             style={{
@@ -323,12 +399,6 @@ export function CaseDocket() {
           >
             {creating ? '✕ Cancel' : '+ New Matter'}
           </button>
-          <input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Search matters…"
-            style={{ ...S.inp, width: 240, marginBottom: 0, fontSize: 13, padding: '9px 14px' }}
-          />
         </div>
 
         {/* ── New matter form ──────────────────────────────────────────────── */}
@@ -352,9 +422,7 @@ export function CaseDocket() {
               )}
             </p>
 
-            {/* ── STEP 1: Criminal vs Civil/Special ──
-                Hidden when filter is 'frep' or 'matrimonial' — those are
-                always civil/special. The track is already determined. */}
+            {/* STEP 1: Track — Civil or Criminal */}
             {!filterPreset && (
               <div style={{ marginBottom: 18 }}>
                 <label style={{ ...S.label, marginBottom: 8, display: 'block' }}>
@@ -365,7 +433,7 @@ export function CaseDocket() {
                 </label>
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button onClick={() => handleTrackSwitch(false)} style={trackBtnStyle(!isCriminal)}>
-                    ⚖ Civil / Special
+                    ⚖ Civil
                   </button>
                   <button onClick={() => handleTrackSwitch(true)} style={trackBtnStyle(isCriminal)}>
                     ⚖ Criminal
@@ -374,82 +442,87 @@ export function CaseDocket() {
               </div>
             )}
 
-            {/* ── STEP 2: Originating Process (civil/special only) ──
-                Hidden when docketFilter presets the process — the entry
-                point has already determined it. Shown for 'all' filter. */}
-            {!isCriminal && !filterPreset && (
+            {/* STEP 2: Court */}
+            {!filterPreset && (
+              <div style={{ marginBottom: 18 }}>
+                <label style={{ ...S.label, marginBottom: 8, display: 'block' }}>
+                  Court <span style={{ color: '#111111' }}>*</span>
+                </label>
+                <select
+                  value={ncCourt}
+                  onChange={e => setNcCourt(e.target.value)}
+                  style={{ ...S.sel, padding: '10px 14px', fontSize: 13, width: '100%' }}
+                >
+                  <option value="">Select court…</option>
+                  {COURTS.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+            )}
+
+            {/* STEP 3: Originating Process — driven by court selection */}
+            {!isCriminal && !filterPreset && ncCourt && (
               <div style={{ marginBottom: 18 }}>
                 <label style={{ ...S.label, marginBottom: 8, display: 'block' }}>
                   Originating Process <span style={{ color: '#111111' }}>*</span>
                 </label>
                 <select
-                  value={ncOrigProc}
-                  onChange={e => handleOrigProcChange(e.target.value as OriginatingProcess)}
+                  value={ncProcLabel}
+                  onChange={e => handleProcLabelChange(e.target.value)}
                   style={{ ...S.sel, padding: '10px 14px', fontSize: 13, width: '100%' }}
                 >
-                  {ORIGINATING_PROCESSES.map(proc => (
-                    <option key={proc.id} value={proc.id}>{proc.label}</option>
+                  <option value="">Select process…</option>
+                  {availableProcs.map(proc => (
+                    <option key={proc} value={proc}>{proc}</option>
                   ))}
                 </select>
 
-                {/* Description + court authority */}
-                <div style={{
-                  marginTop: 8, padding: '8px 12px',
-                  background: trackColor.bg,
-                  border: `1px solid ${trackColor.bdr}`,
-                  borderRadius: 3, fontSize: 12, color: trackColor.col,
-                  fontFamily: "'Times New Roman', Times, serif",
-                }}>
-                  <span style={{ fontStyle: 'italic' }}>{origConfig.description}</span>
-                  <span style={{ color: '#888888', marginLeft: 8, fontSize: 11 }}>
-                    — {origConfig.courtNote}
-                  </span>
-                </div>
+                {ncProcLabel && (
+                  <div style={{
+                    marginTop: 8, padding: '8px 12px',
+                    background: trackColor.bg,
+                    border: `1px solid ${trackColor.bdr}`,
+                    borderRadius: 3, fontSize: 12, color: trackColor.col,
+                    fontFamily: "'Times New Roman', Times, serif",
+                  }}>
+                    <span style={{ fontStyle: 'italic' }}>{origConfig.description ?? ncProcLabel}</span>
+                    {origConfig.courtNote && (
+                      <span style={{ color: '#888888', marginLeft: 8, fontSize: 11 }}>
+                        — {origConfig.courtNote}
+                      </span>
+                    )}
+                  </div>
+                )}
 
-                {/* Custom party labels for 'other' */}
+                {/* Custom labels for 'other' */}
                 {ncOrigProc === 'other' && (
                   <div style={{ marginTop: 10, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                     <div>
                       <label style={{ ...S.label, fontSize: 11 }}>Party A designation (plural)</label>
-                      <input
-                        value={ncCustomA}
-                        onChange={e => setNcCustomA(e.target.value)}
-                        placeholder="e.g. Applicants"
-                        style={{ ...S.inp, fontSize: 12 }}
-                      />
+                      <input value={ncCustomA} onChange={e => setNcCustomA(e.target.value)} placeholder="e.g. Applicants" style={{ ...S.inp, fontSize: 12 }} />
                     </div>
                     <div>
                       <label style={{ ...S.label, fontSize: 11 }}>Party B designation (plural)</label>
-                      <input
-                        value={ncCustomB}
-                        onChange={e => setNcCustomB(e.target.value)}
-                        placeholder="e.g. Respondents"
-                        style={{ ...S.inp, fontSize: 12 }}
-                      />
+                      <input value={ncCustomB} onChange={e => setNcCustomB(e.target.value)} placeholder="e.g. Respondents" style={{ ...S.inp, fontSize: 12 }} />
                     </div>
                   </div>
                 )}
               </div>
             )}
 
-            {/* When filter preset is active, show a read-only process badge instead */}
+            {/* Filter preset badge */}
             {!isCriminal && filterPreset && (
               <div style={{
                 marginBottom: 18, padding: '8px 12px',
-                background: trackColor.bg,
-                border: `1px solid ${trackColor.bdr}`,
+                background: trackColor.bg, border: `1px solid ${trackColor.bdr}`,
                 borderRadius: 3, fontSize: 12, color: trackColor.col,
                 fontFamily: "'Times New Roman', Times, serif",
               }}>
                 <span style={{ fontWeight: 700 }}>{origConfig.label}</span>
                 <span style={{ fontStyle: 'italic', marginLeft: 8 }}>{origConfig.description}</span>
-                <span style={{ color: '#888888', marginLeft: 8, fontSize: 11 }}>
-                  — {origConfig.courtNote}
-                </span>
               </div>
             )}
 
-            {/* ── STEP 3: Our Role ── */}
+            {/* STEP 4: Our Role */}
             <div style={{ marginBottom: 18 }}>
               <label style={{ ...S.label, marginBottom: 8, display: 'block' }}>
                 Our Role <span style={{ color: '#111111' }}>*</span>
@@ -466,7 +539,7 @@ export function CaseDocket() {
                   >
                     {isCriminal
                       ? COUNSEL_ROLE_LABELS[role]
-                      : role === 'claimant_side'
+                      : role === 'claimant_side' || role === 'petitioner_side' || role === 'frep_applicant'
                         ? `For ${origConfig.partyALabel}`
                         : `For ${origConfig.partyBLabel}`
                     }
@@ -475,54 +548,46 @@ export function CaseDocket() {
               </div>
               <div style={{
                 marginTop: 8, padding: '8px 12px',
-                background: ROLE_LIGHT[ncRole].bg,
-                border: `1px solid ${ROLE_LIGHT[ncRole].bdr}`,
-                borderRadius: 3, fontSize: 12, color: ROLE_LIGHT[ncRole].col,
-                fontFamily: "'Times New Roman', Times, serif",
-                fontStyle: 'italic',
+                background: ROLE_LIGHT[ncRole]?.bg ?? '#f5f5f5',
+                border: `1px solid ${ROLE_LIGHT[ncRole]?.bdr ?? '#cccccc'}`,
+                borderRadius: 3, fontSize: 12, color: ROLE_LIGHT[ncRole]?.col ?? '#444444',
+                fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic',
               }}>
-                {ncRole === 'claimant_side'   && `Acting for the ${origConfig.partyALabel.toLowerCase()} — advancing the claim, driving pleadings, trial, and enforcement.`}
-                {ncRole === 'defendant_side'  && `Acting for the ${origConfig.partyBLabel.toLowerCase()} — resisting or managing the claim, filing defences and applications.`}
-                {ncRole === 'prosecution'     && 'Acting for the prosecution — building and presenting the case against the accused.'}
-                {ncRole === 'defence'         && 'Acting for the defence — protecting the accused, challenging prosecution evidence at every stage.'}
-                {ncRole === 'petitioner_side' && 'Acting for the Petitioner — presenting the petition, establishing the dissolution fact, and advancing ancillary relief under the MCA.'}
-                {ncRole === 'respondent_side' && 'Acting for the Respondent — answering the petition, raising available bars, and protecting the respondent\'s interests in ancillary proceedings.'}
+                {roleDescription(ncRole)}
               </div>
             </div>
 
-            {/* ── Matter details ── */}
+            {/* Matter details */}
             <div style={{ marginBottom: 12 }}>
               <label style={S.label}>Matter Name *</label>
               <input
                 value={ncName}
                 onChange={e => setNcName(e.target.value)}
                 placeholder={
-                  isCriminal
-                    ? 'e.g. FRN v Adeyemi'
-                    : ncOrigProc === 'petition_matrimonial'
-                      ? 'e.g. Okonkwo v Okonkwo'
-                      : ncOrigProc === 'petition_election'
-                        ? 'e.g. Bello v INEC & Ors'
-                        : ncOrigProc === 'frep'
-                          ? 'e.g. Chukwu v AGF & Ors'
-                          : 'e.g. Okonkwo v First Bank PLC'
+                  isCriminal ? 'e.g. FRN v Adeyemi'
+                  : ncOrigProc === 'petition_matrimonial' ? 'e.g. Okonkwo v Okonkwo'
+                  : ncOrigProc === 'petition_election'    ? 'e.g. Bello v INEC & Ors'
+                  : ncOrigProc === 'frep'                 ? 'e.g. Chukwu v AGF & Ors'
+                  : 'e.g. Okonkwo v First Bank PLC'
                 }
                 style={S.inp}
               />
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 12, marginBottom: 12 }}>
-              <div>
+            {/* Court field — shown inline only when filter preset (court already selected above otherwise) */}
+            {filterPreset && (
+              <div style={{ marginBottom: 12 }}>
                 <label style={S.label}>Court</label>
                 <select value={ncCourt} onChange={e => setNcCourt(e.target.value)} style={{ ...S.sel, padding: '10px 14px' }}>
                   <option value="">Select court…</option>
                   {COURTS.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
+            )}
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
               <div>
-                <label style={S.label}>
-                  {isCriminal ? 'Charge / Case No.' : 'Suit Number'}
-                </label>
+                <label style={S.label}>{isCriminal ? 'Charge / Case No.' : 'Suit Number'}</label>
                 <input
                   value={ncSuit}
                   onChange={e => setNcSuit(e.target.value)}
@@ -530,14 +595,13 @@ export function CaseDocket() {
                   style={S.inp}
                 />
               </div>
+              <div>
+                <label style={S.label}>Date Commenced</label>
+                <input type="date" value={ncDate} onChange={e => setNcDate(e.target.value)} style={S.inp} />
+              </div>
             </div>
 
-            <div style={{ marginBottom: 16 }}>
-              <label style={S.label}>Date Commenced</label>
-              <input type="date" value={ncDate} onChange={e => setNcDate(e.target.value)} style={{ ...S.inp, maxWidth: 220 }} />
-            </div>
-
-            {/* ── Parties (labels derive from originating process) ── */}
+            {/* Parties */}
             <div style={{ marginBottom: 12 }}>
               <label style={S.label}>{partyALabel}</label>
               {ncPartiesA.map(p => (
@@ -564,7 +628,7 @@ export function CaseDocket() {
               </button>
             </div>
 
-            {/* ── Summary strip before create ── */}
+            {/* Summary strip */}
             {ncName.trim() && (
               <div style={{
                 marginBottom: 18, padding: '10px 14px',
@@ -573,17 +637,15 @@ export function CaseDocket() {
                 color: T.mute, lineHeight: 1.7,
               }}>
                 <span style={{ color: trackColor.col, fontWeight: 700 }}>
-                  {isCriminal ? 'Criminal' : origConfig.label}
+                  {isCriminal ? 'Criminal' : (ncProcLabel || origConfig.label)}
                 </span>
                 {' · '}
-                <span style={{ color: ROLE_LIGHT[ncRole].col, fontWeight: 700 }}>
+                <span style={{ color: ROLE_LIGHT[ncRole]?.col ?? '#888888', fontWeight: 700 }}>
                   {isCriminal
                     ? COUNSEL_ROLE_LABELS[ncRole]
-                    : (ncRole === 'petitioner_side' || ncRole === 'respondent_side')
-                      ? COUNSEL_ROLE_LABELS[ncRole]
-                      : ncRole === 'claimant_side'
-                        ? `For ${origConfig.partyALabel}`
-                        : `For ${origConfig.partyBLabel}`
+                    : ncRole === 'claimant_side' || ncRole === 'frep_applicant'
+                      ? `For ${origConfig.partyALabel}`
+                      : `For ${origConfig.partyBLabel}`
                   }
                 </span>
                 {ncCourt && <span> · {ncCourt}</span>}
@@ -610,94 +672,141 @@ export function CaseDocket() {
           </div>
         )}
 
-        {/* ── Matter list ─────────────────────────────────────────────────── */}
-        {filtered.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '60px 24px', borderTop: '1px solid #cccccc' }}>
-            <p style={{ fontSize: 14, color: '#888888', fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic' }}>
-              {emptyMsg}
-            </p>
-          </div>
-        ) : (
-          <div style={{ borderTop: '1px solid #cccccc' }}>
-            {filtered.map(c => {
-              const track = c.matter_track ?? 'civil';
-              const role  = c.counsel_role;
-              const roleL = role ? ROLE_LIGHT[role] : null;
-              const tColor = MATTER_TRACK_COLORS[track] ?? MATTER_TRACK_COLORS['civil'];
-              const origProc = c.originating_process ? getOriginatingProcess(c.originating_process) : null;
-              return (
-                <button
-                  key={c.id}
-                  onClick={() => openCase(c)}
-                  style={{
-                    background: '#ffffff', border: 'none',
-                    borderBottom: '1px solid #eeeeee',
-                    padding: '16px 4px',
-                    textAlign: 'left', cursor: 'pointer',
-                    transition: 'background .12s',
-                    display: 'block', width: '100%',
-                  }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#f7f7f5'; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '#ffffff'; }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{
-                        fontSize: 15, color: '#111111',
-                        fontFamily: "'Times New Roman', Times, serif",
-                        fontWeight: 700, fontStyle: 'italic', marginBottom: 4,
-                      }}>
-                        {c.caseName}
-                      </p>
-                      <p style={{
-                        fontSize: 11, color: '#888888',
-                        fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.5,
-                      }}>
-                        {[c.court, c.suitNo].filter(Boolean).join(' · ')}
-                      </p>
-                    </div>
-                    <div style={{ textAlign: 'right', flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
-                      {/* Originating process badge (civil/special) or track badge (criminal) */}
-                      <span style={{
-                        fontSize: 9, padding: '2px 7px', borderRadius: 2,
-                        fontFamily: "'Times New Roman', Times, serif", fontWeight: 700,
-                        letterSpacing: '.08em', textTransform: 'uppercase' as const,
-                        background: tColor.bg, border: `1px solid ${tColor.bdr}`, color: tColor.col,
-                      }}>
-                        {origProc ? origProc.label : (MATTER_TRACK_LABELS[track] ?? track)}
-                      </span>
-                      {/* Role badge */}
-                      {role && roleL ? (
-                        <span style={{
-                          fontSize: 9, padding: '2px 7px', borderRadius: 2,
-                          fontFamily: "'Times New Roman', Times, serif", fontWeight: 700,
-                          letterSpacing: '.06em', textTransform: 'uppercase' as const,
-                          background: roleL.bg, border: `1px solid ${roleL.bdr}`, color: roleL.col,
-                        }}>
-                          {origProc
-                            ? role === 'claimant_side' ? `For ${origProc.partyALabel}` : `For ${origProc.partyBLabel}`
-                            : COUNSEL_ROLE_LABELS[role]
-                          }
-                        </span>
-                      ) : (
-                        <span style={{
-                          fontSize: 9, padding: '2px 7px', borderRadius: 2,
-                          fontFamily: "'Times New Roman', Times, serif", fontWeight: 600,
-                          letterSpacing: '.08em', textTransform: 'uppercase' as const,
-                          background: '#f5f5f5', border: '1px solid #cccccc', color: '#888888',
-                        }}>
-                          {c.role}
-                        </span>
-                      )}
-                      <p style={{ fontSize: 10, color: '#888888', fontFamily: "'Times New Roman', Times, serif", marginTop: 2 }}>
-                        {formatDate(c.createdAt?.slice(0, 10) || '')}
-                      </p>
-                    </div>
+        {/* ── Matter list — hidden while form is open ──────────────────────── */}
+        {!creating && (
+          loadingCases ? (
+            <div style={{ borderTop: '1px solid #cccccc' }}>
+              {[1, 2, 3].map(i => (
+                <div key={i} style={{
+                  padding: '18px 4px', borderBottom: '1px solid #eeeeee',
+                  display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12,
+                }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ height: 15, width: `${55 + i * 12}%`, borderRadius: 3, background: '#f0f0ee', marginBottom: 8 }} />
+                    <div style={{ height: 11, width: '35%', borderRadius: 3, background: '#f5f5f3' }} />
                   </div>
-                </button>
-              );
-            })}
-          </div>
+                  <div style={{ textAlign: 'right', flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+                    <div style={{ height: 16, width: 80, borderRadius: 3, background: '#f0f0ee' }} />
+                    <div style={{ height: 16, width: 60, borderRadius: 3, background: '#f5f5f3' }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : filtered.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '60px 24px', borderTop: '1px solid #cccccc' }}>
+              <p style={{ fontSize: 14, color: '#888888', fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic' }}>
+                {emptyMsg}
+              </p>
+            </div>
+          ) : (
+            <div style={{ borderTop: '1px solid #cccccc' }}>
+              {filtered.map(c => {
+                const track  = c.matter_track ?? 'civil';
+                const role   = c.counsel_role;
+                const roleL  = role ? ROLE_LIGHT[role] : null;
+                const tColor = MATTER_TRACK_COLORS[track] ?? MATTER_TRACK_COLORS['civil'];
+                const origProc = c.originating_process ? getOriginatingProcess(c.originating_process) : null;
+                return (
+                  <div
+                    key={c.id}
+                    style={{
+                      borderBottom: '1px solid #eeeeee',
+                      padding: '16px 4px',
+                      display: 'flex', alignItems: 'flex-start',
+                      gap: 8, background: '#ffffff',
+                      transition: 'background .12s',
+                    }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#f7f7f5'; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '#ffffff'; }}
+                  >
+                    {/* Clickable case info */}
+                    <button
+                      onClick={() => openCase(c)}
+                      style={{
+                        background: 'transparent', border: 'none',
+                        textAlign: 'left', cursor: 'pointer', flex: 1, padding: 0,
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <p style={{
+                            fontSize: 15, color: '#111111',
+                            fontFamily: "'Times New Roman', Times, serif",
+                            fontWeight: 700, fontStyle: 'italic', marginBottom: 4,
+                          }}>
+                            {c.caseName}
+                          </p>
+                          <p style={{
+                            fontSize: 11, color: '#888888',
+                            fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.5,
+                          }}>
+                            {[c.court, c.suitNo].filter(Boolean).join(' · ')}
+                          </p>
+                        </div>
+                        <div style={{ textAlign: 'right', flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+                          <span style={{
+                            fontSize: 9, padding: '2px 7px', borderRadius: 2,
+                            fontFamily: "'Times New Roman', Times, serif", fontWeight: 700,
+                            letterSpacing: '.08em', textTransform: 'uppercase' as const,
+                            background: tColor.bg, border: `1px solid ${tColor.bdr}`, color: tColor.col,
+                          }}>
+                            {origProc ? origProc.label : (MATTER_TRACK_LABELS[track] ?? track)}
+                          </span>
+                          {role && roleL ? (
+                            <span style={{
+                              fontSize: 9, padding: '2px 7px', borderRadius: 2,
+                              fontFamily: "'Times New Roman', Times, serif", fontWeight: 700,
+                              letterSpacing: '.06em', textTransform: 'uppercase' as const,
+                              background: roleL.bg, border: `1px solid ${roleL.bdr}`, color: roleL.col,
+                            }}>
+                              {origProc
+                                ? role === 'claimant_side' || role === 'frep_applicant' || role === 'petitioner_side'
+                                  ? `For ${origProc.partyALabel}`
+                                  : `For ${origProc.partyBLabel}`
+                                : COUNSEL_ROLE_LABELS[role]
+                              }
+                            </span>
+                          ) : (
+                            <span style={{
+                              fontSize: 9, padding: '2px 7px', borderRadius: 2,
+                              fontFamily: "'Times New Roman', Times, serif", fontWeight: 600,
+                              letterSpacing: '.08em', textTransform: 'uppercase' as const,
+                              background: '#f5f5f5', border: '1px solid #cccccc', color: '#888888',
+                            }}>
+                              {c.role}
+                            </span>
+                          )}
+                          <p style={{ fontSize: 10, color: '#888888', fontFamily: "'Times New Roman', Times, serif", marginTop: 2 }}>
+                            {formatDate(c.createdAt?.slice(0, 10) || '')}
+                          </p>
+                        </div>
+                      </div>
+                    </button>
+
+                    {/* Delete button */}
+                    <button
+                      onClick={e => handleDelete(e, c.id)}
+                      title="Delete matter"
+                      style={{
+                        background: 'transparent',
+                        border: '1px solid #e0b8b8',
+                        color: '#c05050',
+                        borderRadius: 3,
+                        padding: '6px 9px',
+                        cursor: 'pointer',
+                        fontSize: 13,
+                        lineHeight: 1,
+                        flexShrink: 0,
+                        marginTop: 2,
+                      }}
+                    >
+                      🗑
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )
         )}
       </div>
     </div>
