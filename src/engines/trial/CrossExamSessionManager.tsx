@@ -14,11 +14,14 @@
  *  ⑤ src/engines/trial/CrossExamTopicSwitcher.tsx    (Phase 4B — done)
  *  ⑥ src/engines/trial/CrossExamSessionLog.tsx       (Phase 4C — done)
  *  ⑦ src/engines/trial/CrossExamWalkerWithFallback.tsx (Phase 4E — done)
- *  ⑧ THIS FILE  ← Phase 4F
+ *  ⑧ THIS FILE  ← Phase 4F / Phase 4D live contradiction write
  *
  * ─── PURPOSE ────────────────────────────────────────────────────────────────
  *
  * Owns ALL session state for a live cross-examination session.
+ * Phase 4D live contradiction write is implemented in handleStep:
+ * when e.answer !== node.expectedAnswer, fires immediately to cx_contradictions
+ * via loadBlindSpot/saveBlindSpot. Phase 5A deduplicates via sentinel.
  */
 
 import {
@@ -42,6 +45,7 @@ import {
   saveSession,
   closeSession,
 } from '@/storage/crossExamHelpers';
+import { loadBlindSpot, saveBlindSpot, uid } from '@/storage/helpers';
 import { CrossExamTopicSwitcher } from '@/engines/trial/CrossExamTopicSwitcher';
 import { CrossExamSessionLog } from '@/engines/trial/CrossExamSessionLog';
 import { CrossExamManualOverride } from '@/engines/trial/CrossExamManualOverride';
@@ -199,10 +203,51 @@ export function CrossExamSessionManager({
     if (!prev) return;
     const tree = trees.find(t => t.topicId === e.topicId);
     if (!tree) return;
+
+    // Phase 4D — detect mismatch against expectedAnswer for live contradiction write.
+    const node = e.node;
+    const expectedAnswer = node.expectedAnswer;
+    const contradictionFired = !!(
+      expectedAnswer &&
+      e.answer !== expectedAnswer
+    );
+
+    const loggedAt = new Date().toISOString();
     const step: SessionStep = {
-      nodeId: e.node.id, questionSnapshot: e.node.question, answer: e.answer,
-      contradictionFired: false, notes: '', loggedAt: new Date().toISOString(),
+      nodeId: node.id, questionSnapshot: node.question, answer: e.answer,
+      contradictionFired, notes: '', loggedAt,
     };
+
+    // Phase 4D live write — fires immediately, before session state update.
+    // Deduplication uses the same [AUTO:sessionId:nodeId] sentinel as Phase 5A.
+    if (contradictionFired) {
+      const sentinel = `[AUTO:${prev.id}:${node.id}]`;
+      const detour = node.contradictionDetour;
+      loadBlindSpot<Array<{
+        id: string; witness: string;
+        stmt1: string; stmt1Src: string;
+        stmt2: string; stmt2Src: string;
+        impact: string; notes: string;
+      }>>(prev.caseId, 'contradictions', []).then(existing => {
+        const list = existing ?? [];
+        const alreadyWritten = list.some(r => r.notes?.includes(sentinel));
+        if (alreadyWritten) return;
+        const record = {
+          id:       uid(),
+          witness:  prev.witnessId,
+          stmt1:    node.question,
+          stmt1Src: node.contradictionDetour?.citationRef ?? 'Witness statement',
+          stmt2:    `Witness answered ${e.answer} (expected ${expectedAnswer})`,
+          stmt2Src: `Session log — ${loggedAt}`,
+          impact:   detour
+            ? [detour.putToYouQuestion, detour.credibilityQuestion].filter(Boolean).join(' | ')
+            : '',
+          notes: `${sentinel} Phase 4D live write`,
+        };
+        saveBlindSpot(prev.caseId, 'contradictions', [...list, record]).catch(() => {/* offline — Phase 5A will catch on session close */});
+      }).catch(() => {/* safe to ignore — Phase 5A is the authoritative feed */});
+    }
+
     const existingState: TopicWalkState = prev.topicStates[e.topicId] ?? makeEmptyTopicState(e.topicId, tree.rootNodeId);
     const updatedState: TopicWalkState = { ...existingState, currentNodeId: e.nextId, completedSteps: [...existingState.completedSteps, step], finished: e.nextId === null };
     const updated: CrossExamSessionRecord = { ...prev, topicStates: { ...prev.topicStates, [e.topicId]: updatedState } };
