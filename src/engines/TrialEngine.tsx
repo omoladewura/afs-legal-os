@@ -3729,7 +3729,7 @@ export function TrialEngine({ activeCase }: Props) {
         }}>
           Unified examination and cross-examination engine. Case Theory Brief ·
           Witness Register · Examination-in-Chief · Cross-Examination ·
-          Contradiction Mapper · Impeachment Arsenal · Live Courtroom Mode.
+          Contradiction Mapper · Impeachment Arsenal · Courtroom Walker.
         </p>
       </div>
 
