@@ -956,13 +956,32 @@ export type DashTabId =
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type OriginatingProcess =
+  // ── Existing ──────────────────────────────────────────────────────────────
   | 'writ_of_summons'
   | 'originating_summons'
   | 'originating_motion'
   | 'petition_matrimonial'
   | 'petition_election'
   | 'frep'
-  | 'other';
+  | 'other'
+  // ── Phase 1B additions — Civil Matter Tree ────────────────────────────────
+  // Federal High Court
+  | 'winding_up_petition'
+  // NICN
+  | 'nicn_complaint'
+  | 'nicn_originating_summons'
+  | 'nicn_judicial_review'
+  | 'nicn_appeal'
+  // Lower Courts
+  | 'customary_summons'
+  | 'magistrate_plaint'
+  | 'magistrate_default'
+  | 'small_claims'
+  // Specialized Tribunals & Panels
+  | 'election_petition'
+  | 'tax_appeal'
+  | 'ist_application'
+  | 'arbitration_notice';
 
 export interface OriginatingProcessConfig {
   id:           OriginatingProcess;
@@ -976,6 +995,7 @@ export interface OriginatingProcessConfig {
 }
 
 export const ORIGINATING_PROCESSES: OriginatingProcessConfig[] = [
+  // ── Existing ──────────────────────────────────────────────────────────────
   {
     id:           'writ_of_summons',
     label:        'Writ of Summons',
@@ -1037,6 +1057,131 @@ export const ORIGINATING_PROCESSES: OriginatingProcessConfig[] = [
     partyBLabel:  'Party B',
     partyAPlural: 'Party A',
     partyBPlural: 'Party B',
+    track:        'civil',
+  },
+
+  // ── Phase 1B additions — Federal High Court ───────────────────────────────
+  {
+    id:           'winding_up_petition',
+    label:        'Winding-Up Petition (CAMA)',
+    partyALabel:  'Petitioner',
+    partyBLabel:  'Respondent Company',
+    partyAPlural: 'Petitioners',
+    partyBPlural: 'Respondent Companies',
+    track:        'civil',
+  },
+
+  // ── Phase 1B additions — NICN ─────────────────────────────────────────────
+  {
+    id:           'nicn_complaint',
+    label:        'NICN — Complaint Form 1',
+    partyALabel:  'Claimant',
+    partyBLabel:  'Defendant',
+    partyAPlural: 'Claimants',
+    partyBPlural: 'Defendants',
+    track:        'civil',
+  },
+  {
+    id:           'nicn_originating_summons',
+    label:        'NICN — Originating Summons Form 2',
+    partyALabel:  'Applicant',
+    partyBLabel:  'Respondent',
+    partyAPlural: 'Applicants',
+    partyBPlural: 'Respondents',
+    track:        'civil',
+  },
+  {
+    id:           'nicn_judicial_review',
+    label:        'NICN — Application for Judicial Review',
+    partyALabel:  'Applicant',
+    partyBLabel:  'Respondent',
+    partyAPlural: 'Applicants',
+    partyBPlural: 'Respondents',
+    track:        'civil',
+  },
+  {
+    id:           'nicn_appeal',
+    label:        'NICN — Notice of Appeal',
+    partyALabel:  'Appellant',
+    partyBLabel:  'Respondent',
+    partyAPlural: 'Appellants',
+    partyBPlural: 'Respondents',
+    track:        'civil',
+  },
+
+  // ── Phase 1B additions — Lower Courts ────────────────────────────────────
+  {
+    id:           'customary_summons',
+    label:        'Customary Court — Civil Summons',
+    partyALabel:  'Complainant',
+    partyBLabel:  'Defendant',
+    partyAPlural: 'Complainants',
+    partyBPlural: 'Defendants',
+    track:        'civil',
+  },
+  {
+    id:           'magistrate_plaint',
+    label:        'Magistrate Court — Ordinary Summons',
+    partyALabel:  'Complainant',
+    partyBLabel:  'Defendant',
+    partyAPlural: 'Complainants',
+    partyBPlural: 'Defendants',
+    track:        'civil',
+  },
+  {
+    id:           'magistrate_default',
+    label:        'Magistrate Court — Default Summons (Debt)',
+    partyALabel:  'Claimant',
+    partyBLabel:  'Defendant',
+    partyAPlural: 'Claimants',
+    partyBPlural: 'Defendants',
+    track:        'civil',
+  },
+  {
+    id:           'small_claims',
+    label:        'Small Claims Court',
+    partyALabel:  'Claimant',
+    partyBLabel:  'Defendant',
+    partyAPlural: 'Claimants',
+    partyBPlural: 'Defendants',
+    track:        'civil',
+  },
+
+  // ── Phase 1B additions — Specialized Tribunals & Panels ──────────────────
+  {
+    id:           'election_petition',
+    label:        'Election Petitions Tribunal',
+    partyALabel:  'Petitioner',
+    partyBLabel:  'Respondent',
+    partyAPlural: 'Petitioners',
+    partyBPlural: 'Respondents',
+    track:        'civil',
+  },
+  {
+    id:           'tax_appeal',
+    label:        'Tax Appeal Tribunal',
+    partyALabel:  'Appellant',
+    partyBLabel:  'Respondent',
+    partyAPlural: 'Appellants',
+    partyBPlural: 'Respondents',
+    track:        'civil',
+  },
+  {
+    id:           'ist_application',
+    label:        'Investments & Securities Tribunal (IST)',
+    partyALabel:  'Applicant',
+    partyBLabel:  'Respondent',
+    partyAPlural: 'Applicants',
+    partyBPlural: 'Respondents',
+    track:        'civil',
+  },
+  {
+    id:           'arbitration_notice',
+    label:        'Arbitral Panel (AMA)',
+    partyALabel:  'Claimant',
+    partyBLabel:  'Respondent',
+    partyAPlural: 'Claimants',
+    partyBPlural: 'Respondents',
     track:        'civil',
   },
 ];
