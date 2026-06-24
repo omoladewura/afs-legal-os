@@ -949,7 +949,18 @@ export type DashTabId =
   | 'strategy_hub'       // Phase 1A rename of case_intelligence
   | 'written_address'    // Phase 3 — replaces builder + final_address
   // Trial Engine Consolidation (Build Plan v2, Phase 3)
-  | 'trial';             // unified trial engine — replaces crossexam
+  | 'trial'              // unified trial engine — replaces crossexam
+  // Phase 2C — Civil Matter Tree engine tabs
+  | 'winding_up'
+  | 'nicn_pleadings'
+  | 'customary_pleadings'
+  | 'magistrate_pleadings'
+  | 'small_claims_pleadings'
+  | 'election_petition_pleadings'
+  | 'tax_appeal_pleadings'
+  | 'ist_pleadings'
+  | 'arbitration_pleadings'
+  | 'matrimonial_engine';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ORIGINATING PROCESS
