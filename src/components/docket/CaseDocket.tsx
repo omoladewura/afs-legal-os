@@ -51,26 +51,38 @@ const FILTER_PRESET: Record<'frep' | 'matrimonial', OriginatingProcess> = {
 };
 
 // ── Court-driven originating process → OriginatingProcess id mapping ─────
-// Maps the plain string labels from COURT_ORIGINATING_PROCESSES to the
-// OriginatingProcess enum id used internally.
+// Maps the plain string labels from COURT_ORIGINATING_PROCESSES (legal.ts)
+// to the OriginatingProcess id used internally.
+// Labels must match COURT_ORIGINATING_PROCESSES values exactly.
 const PROC_LABEL_TO_ID: Record<string, OriginatingProcess> = {
-  'Writ of Summons':      'writ_of_summons',
-  'Civil Summons':        'writ_of_summons',   // Magistrate — maps to closest type
-  'Plaint':               'writ_of_summons',   // Magistrate/Customary
-  'Summons':              'originating_summons',
-  'Originating Summons':  'originating_summons',
-  'Originating Motion':   'originating_motion',
-  'Originating Application': 'originating_motion',
-  'Petition':             'petition_matrimonial', // overridden per context below
-  'Election Petition':    'petition_election',
-  'Complaint':            'writ_of_summons',    // NIC — maps to closest civil type
-  'Notice of Appeal':     'other',
-  'Notice of Arbitration':'other',
+  // ── High Court (State / FCT) & Federal High Court — general civil ─────────
+  'Writ of Summons':          'writ_of_summons',
+  'Originating Summons':      'originating_summons',
+  'Matrimonial Petition':     'petition_matrimonial',
+
+  // ── Federal High Court — specialist track ─────────────────────────────────
+  'Winding-Up Petition':      'winding_up_petition',
+
+  // ── National Industrial Court ─────────────────────────────────────────────
+  'NICN Complaint':           'nicn_complaint',
+  'NICN Originating Summons': 'nicn_originating_summons',
+  'NICN Judicial Review':     'nicn_judicial_review',
+  'NICN Notice of Appeal':    'nicn_appeal',
+
+  // ── Lower Courts ──────────────────────────────────────────────────────────
+  'Customary Summons':        'customary_summons',
+  'Magistrate Plaint':        'magistrate_plaint',
+  'Magistrate Default':       'magistrate_default',
+  'Small Claims':             'small_claims',
+
+  // ── Specialized Tribunals & Panels ────────────────────────────────────────
+  'Election Petition':        'election_petition',
+  'Tax Appeal':               'tax_appeal',
+  'IST Application':          'ist_application',
+  'Notice of Arbitration':    'arbitration_notice',
 };
 
-function procLabelToId(label: string, court: string): OriginatingProcess {
-  if (label === 'Petition' && court === 'Election Petitions Tribunal') return 'petition_election';
-  if (label === 'Petition') return 'petition_matrimonial';
+function procLabelToId(label: string, _court: string): OriginatingProcess {
   return PROC_LABEL_TO_ID[label] ?? 'other';
 }
 
