@@ -19,6 +19,14 @@
  *   `briefme` → strategy_hub, `builder`/`final_address`/`authority`/
  *   `research`/`synthesis` → written_address, `console` → copilot (AICopilot).
  * - `Timeline →` shortcut in Next Action strip rerouted to `case_command`.
+ *
+ * Phase 2C (Civil Matter Tree):
+ * - Added 9 new cases to EngineContent switch — all route to PleadingsEngine:
+ *   winding_up, nicn_pleadings, customary_pleadings, magistrate_pleadings,
+ *   small_claims_pleadings, election_petition_pleadings, tax_appeal_pleadings,
+ *   ist_pleadings, arbitration_pleadings.
+ * - getTabsForOriginatingProcess import verified correct (Phase 2A output).
+ * - New DashTabId values added to index.ts union to match Phase 2A tab sets.
  */
 
 import { Suspense, lazy, useCallback, useState, useEffect } from 'react';
@@ -128,6 +136,17 @@ function EngineContent({
     // Phase 7 — Civil Engines
     case 'pleadings':          return <PleadingsEngine    activeCase={activeCase} />;
     case 'enforcement':        return <EnforcementEngine   activeCase={activeCase} />;
+    // Phase 2C — Civil Matter Tree engine tabs (all route to PleadingsEngine)
+    case 'winding_up':
+    case 'nicn_pleadings':
+    case 'customary_pleadings':
+    case 'magistrate_pleadings':
+    case 'small_claims_pleadings':
+    case 'election_petition_pleadings':
+    case 'tax_appeal_pleadings':
+    case 'ist_pleadings':
+    case 'arbitration_pleadings':
+                               return <PleadingsEngine    activeCase={activeCase} />;
     // Phase B — Applications Engine
     case 'applications':       return <ApplicationsEngine  activeCase={activeCase} />;
     case 'arg_templates':      return <ArgumentTemplateManager activeCase={activeCase} />;
