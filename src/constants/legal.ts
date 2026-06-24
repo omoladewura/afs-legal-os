@@ -20,15 +20,32 @@ export const JURISDICTIONS: string[] = [
   'South Africa', 'United Kingdom', 'India', 'General / Common Law',
 ];
 
+// Tree order:
+//   SUPERIOR COURTS OF RECORD
+//     1. High Court (State)
+//     2. High Court (FCT)
+//     3. Federal High Court
+//     4. National Industrial Court (NICN)
+//   LOWER COURTS OF SUMMARY JURISDICTION
+//     5. Customary Court          ← before Magistrate Court
+//     6. Magistrate Court (Southern Nigeria)
+//     7. Small Claims Court
+//   SPECIALIZED TRIBUNALS & PANELS
+//     8. Election Petitions Tribunal
+//     9. Tax Appeal Tribunal
+//    10. Investments & Securities Tribunal (IST)
+//    11. Arbitral Panel (AMA)
 export const COURTS: string[] = [
-  'Magistrate Court',
-  'Customary Court',
   'High Court (State)',
   'High Court (FCT)',
   'Federal High Court',
   'National Industrial Court',
+  'Customary Court',
+  'Magistrate Court',
+  'Small Claims Court',
   'Election Petitions Tribunal',
-  'Tribunal',
+  'Tax Appeal Tribunal',
+  'Investments & Securities Tribunal',
   'Arbitral Panel',
 ];
 
@@ -36,17 +53,69 @@ export const COURTS: string[] = [
  * Court → valid originating processes mapping.
  * Drives the Originating Process dropdown in New Matter form.
  * Only shows processes valid for the selected court.
+ *
+ * Values must align 1-to-1 with OriginatingProcess union in src/types/index.ts.
  */
 export const COURT_ORIGINATING_PROCESSES: Record<string, string[]> = {
-  'Magistrate Court':            ['Plaint', 'Civil Summons'],
-  'Customary Court':             ['Summons', 'Plaint'],
-  'High Court (State)':          ['Writ of Summons', 'Originating Summons', 'Originating Motion', 'Petition'],
-  'High Court (FCT)':            ['Writ of Summons', 'Originating Summons', 'Originating Motion', 'Petition'],
-  'Federal High Court':          ['Writ of Summons', 'Originating Summons', 'Originating Motion', 'Petition'],
-  'National Industrial Court':   ['Complaint', 'Originating Summons'],
-  'Election Petitions Tribunal': ['Election Petition'],
-  'Tribunal':                    ['Notice of Appeal', 'Originating Application', 'Petition'],
-  'Arbitral Panel':              ['Notice of Arbitration'],
+  // ── Superior Courts of Record ──────────────────────────────────────────────
+
+  'High Court (State)': [
+    'Writ of Summons',          // Mode 1 — Writ Track
+    'Originating Summons',      // Mode 2 — Originating Summons Track
+    'Matrimonial Petition',     // Mode 3 — Matrimonial Causes Track (MatrimonialEngine)
+  ],
+
+  'High Court (FCT)': [
+    'Writ of Summons',
+    'Originating Summons',
+    'Matrimonial Petition',
+  ],
+
+  'Federal High Court': [
+    'Writ of Summons',          // General Civil — Writ Track
+    'Originating Summons',      // General Civil — Originating Summons Track
+    'Winding-Up Petition',      // Winding Up Petition (CAMA Framework)
+  ],
+
+  'National Industrial Court': [
+    'NICN Complaint',           // Mode 1 — Complaint Form 1 (employment disputes)
+    'NICN Originating Summons', // Mode 2 — Originating Summons Form 2 (CBA/Contract)
+    'NICN Judicial Review',     // Mode 3 — Application for Judicial Review
+    'NICN Notice of Appeal',    // Mode 4 — Notice of Appeal
+  ],
+
+  // ── Lower Courts of Summary Jurisdiction ──────────────────────────────────
+
+  'Customary Court': [
+    'Customary Summons',        // Application for Civil Summons
+  ],
+
+  'Magistrate Court': [
+    'Magistrate Plaint',        // Track A — Ordinary Summons
+    'Magistrate Default',       // Track B — Default Summons (Debt Recovery)
+  ],
+
+  'Small Claims Court': [
+    'Small Claims',             // Form SCA 2 / SCA 3 track
+  ],
+
+  // ── Specialized Tribunals & Panels ────────────────────────────────────────
+
+  'Election Petitions Tribunal': [
+    'Election Petition',        // Form TF 001
+  ],
+
+  'Tax Appeal Tribunal': [
+    'Tax Appeal',               // Notice of Appeal (TAT Form 1)
+  ],
+
+  'Investments & Securities Tribunal': [
+    'IST Application',          // Originating Application / Notice of Appeal
+  ],
+
+  'Arbitral Panel': [
+    'Notice of Arbitration',    // Phase 1 — Pre-Panel
+  ],
 };
 
 export const CASE_STATUSES: string[] = [
