@@ -1,15 +1,12 @@
 /**
- * AFS Legal OS V2 — Pleadings Engine (Phase 7A → Phase 3A)
+ * AFS Legal OS V2 — Pleadings Engine (Phase 3D)
  *
- * Phase 3A — full court-router replacing the "Writ only" guard:
- *   TRACK 1: Writ of Summons
- *     Claimant: Originating Process · SoC · Witness Statement
- *               · SoD Monitor · Counterclaim Response · Default Flag
- *     Defendant: SoD Drafter · Counterclaim Builder · Prelim Objection · Reply Monitor
- *   TRACK 2: Originating Summons
- *     FOR:     Originating Summons + Affidavit in Support + Written Address
- *     AGAINST: Counter-Affidavit + Written Address in Opposition
- *   FALLTHROUGH: Named holding panel for 3B-3E processes
+ * Phase 3D — Specialized Tribunals
+ *   ELECTION PETITIONS TRIBUNAL: Pre-Filing window · For (Petitioner) · Against (Respondent)
+ *   TAX APPEAL TRIBUNAL: Pre-Filing window · For (Appellant) · Against (Respondent)
+ *   INVESTMENTS & SECURITIES TRIBUNAL (IST): For (Applicant) · Against (Respondent)
+ *
+ * All Phase 3A / 3B / 3C functionality preserved intact.
  */
 
 import React, { useState, useCallback, useEffect } from 'react';
@@ -50,6 +47,104 @@ interface SavedData {
   osOppAddressContext?: string; osOppAddressDraft?: string;
   pleadingItems?: PleadingItem[];
   serviceDate?: string; lastUpdated?: string;
+  // 3B — Winding Up
+  wuDemandContext?: string; wuDemandDraft?: string;
+  wuPetitionContext?: string; wuPetitionDraft?: string;
+  wuAffirmContext?: string; wuAffirmDraft?: string;
+  wuLiquidatorContext?: string; wuLiquidatorDraft?: string;
+  wuGazetteContext?: string; wuGazetteDraft?: string;
+  wuOppMemoContext?: string; wuOppMemoDraft?: string;
+  wuOppAffidavitContext?: string; wuOppAffidavitDraft?: string;
+  wuOppAddressContext?: string; wuOppAddressDraft?: string;
+  wuThirdPartyContext?: string; wuThirdPartyDraft?: string;
+  wuThirdPartyAffContext?: string; wuThirdPartyAffDraft?: string;
+  // 3B — NICN Complaint Form 1
+  nicnComplaintContext?: string; nicnComplaintDraft?: string;
+  nicnWitnessListContext?: string; nicnWitnessListDraft?: string;
+  nicnWitnessStmtContext?: string; nicnWitnessStmtDraft?: string;
+  nicnDocScheduleContext?: string; nicnDocScheduleDraft?: string;
+  nicnDefMemoContext?: string; nicnDefMemoDraft?: string;
+  nicnDefStmtContext?: string; nicnDefStmtDraft?: string;
+  nicnDefWitnessContext?: string; nicnDefWitnessDraft?: string;
+  nicnDefDocContext?: string; nicnDefDocDraft?: string;
+  // 3B — NICN Originating Summons Form 2
+  nicnOSDraftContext?: string; nicnOSDraft?: string;
+  nicnOSAffidavitContext?: string; nicnOSAffidavitDraft?: string;
+  nicnOSAddressContext?: string; nicnOSAddressDraft?: string;
+  nicnOSCounterContext?: string; nicnOSCounterDraft?: string;
+  nicnOSOppAddressContext?: string; nicnOSOppAddressDraft?: string;
+  // 3B — NICN Judicial Review
+  nicnJRMotionContext?: string; nicnJRMotionDraft?: string;
+  nicnJRStmtContext?: string; nicnJRStmtDraft?: string;
+  nicnJRAffidavitContext?: string; nicnJRAffidavitDraft?: string;
+  nicnJRAddressContext?: string; nicnJRAddressDraft?: string;
+  nicnJRCounterContext?: string; nicnJRCounterDraft?: string;
+  nicnJROppAddressContext?: string; nicnJROppAddressDraft?: string;
+  // 3B — NICN Appeal
+  nicnAplNoticeContext?: string; nicnAplNoticeDraft?: string;
+  nicnAplGroundsContext?: string; nicnAplGroundsDraft?: string;
+  nicnAplBriefContext?: string; nicnAplBriefDraft?: string;
+  nicnRespBriefContext?: string; nicnRespBriefDraft?: string;
+  // 3C — Customary Court
+  custSummonsContext?: string; custSummonsDraft?: string;
+  custComplaintContext?: string; custComplaintDraft?: string;
+  custWrapperContext?: string; custWrapperDraft?: string;
+  custDefAppearanceContext?: string; custDefAppearanceDraft?: string;
+  custDefStmtContext?: string; custDefStmtDraft?: string;
+  // 3C — Magistrate Court Track A (Ordinary Summons)
+  magAPraecipeContext?: string; magAPraecipeDraft?: string;
+  magAParticularsContext?: string; magAParticularsDraft?: string;
+  magAPlaintNoteContext?: string; magAPlaintNoteDraft?: string;
+  magAWitnessContext?: string; magAWitnessDraft?: string;
+  magADefAppearanceContext?: string; magADefAppearanceDraft?: string;
+  magADefCounterContext?: string; magADefCounterDraft?: string;
+  // 3C — Magistrate Court Track B (Default Summons / Debt Recovery)
+  magBPraecipeContext?: string; magBPraecipeDraft?: string;
+  magBParticularsContext?: string; magBParticularsDraft?: string;
+  magBPlaintNoteContext?: string; magBPlaintNoteDraft?: string;
+  magBDefIntentContext?: string; magBDefIntentDraft?: string;
+  magBDefAffidavitContext?: string; magBDefAffidavitDraft?: string;
+  // 3C — Small Claims Court
+  scaDemandContext?: string; scaDemandDraft?: string;
+  scaClaimFormContext?: string; scaClaimFormDraft?: string;
+  scaDefResponseContext?: string; scaDefResponseDraft?: string;
+  // 3D — Election Petitions Tribunal
+  eptPetitionContext?: string; eptPetitionDraft?: string;
+  eptGroundsContext?: string; eptGroundsDraft?: string;
+  eptWitnessListContext?: string; eptWitnessListDraft?: string;
+  eptDepositionsContext?: string; eptDepositionsDraft?: string;
+  eptDocScheduleContext?: string; eptDocScheduleDraft?: string;
+  eptAddressContext?: string; eptAddressDraft?: string;
+  eptRespReplyContext?: string; eptRespReplyDraft?: string;
+  eptRespWitnessContext?: string; eptRespWitnessDraft?: string;
+  eptRespDocContext?: string; eptRespDocDraft?: string;
+  eptRespAddressContext?: string; eptRespAddressDraft?: string;
+  // 3D — Tax Appeal Tribunal
+  tatNoticeContext?: string; tatNoticeDraft?: string;
+  tatGroundsContext?: string; tatGroundsDraft?: string;
+  tatStmtFactsContext?: string; tatStmtFactsDraft?: string;
+  tatDocListContext?: string; tatDocListDraft?: string;
+  tatSubmissionContext?: string; tatSubmissionDraft?: string;
+  tatRespStmtContext?: string; tatRespStmtDraft?: string;
+  tatRespDocContext?: string; tatRespDocDraft?: string;
+  tatRespSubmissionContext?: string; tatRespSubmissionDraft?: string;
+  // 3D — IST
+  istApplicationContext?: string; istApplicationDraft?: string;
+  istStmtFactsContext?: string; istStmtFactsDraft?: string;
+  istWitnessListContext?: string; istWitnessListDraft?: string;
+  istWitnessStmtContext?: string; istWitnessStmtDraft?: string;
+  istDocScheduleContext?: string; istDocScheduleDraft?: string;
+  istAddressContext?: string; istAddressDraft?: string;
+  istRespStmtContext?: string; istRespStmtDraft?: string;
+  istRespWitnessContext?: string; istRespWitnessDraft?: string;
+  istRespDocContext?: string; istRespDocDraft?: string;
+  istRespAddressContext?: string; istRespAddressDraft?: string;
+  // 3E — Arbitral Panel (AMA)
+  arbNoticeContext?: string; arbNoticeDraft?: string;
+  arbClaimContext?: string; arbClaimDraft?: string;
+  arbDefenceContext?: string; arbDefenceDraft?: string;
+  arbClaimantAddressContext?: string; arbClaimantAddressDraft?: string;
+  arbRespondentAddressContext?: string; arbRespondentAddressDraft?: string;
 }
 
 const MODULE = 'pleadings_engine';
@@ -109,6 +204,49 @@ function Input({value,onChange,placeholder='',type='text'}:{value:string;onChang
 
 function SectionTitle({text,accent}:{text:string;accent:string}) {
   return <div style={{fontSize:11,color:accent,fontFamily:"'Times New Roman', Times, serif",letterSpacing:'.12em',textTransform:'uppercase',fontWeight:700,marginBottom:14,borderBottom:`1px solid ${accent}20`,paddingBottom:8}}>{text}</div>;
+}
+
+function ChecklistBanner({items,accent}:{items:{label:string;done:boolean}[];accent:string}) {
+  return (
+    <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:22}}>
+      {items.map(item=>(
+        <span key={item.label} style={{fontSize:11,padding:'4px 10px',borderRadius:4,fontFamily:"'Times New Roman', Times, serif",background:item.done?'#0a180a':'#f8f8f8',border:`1px solid ${item.done?'#40a87850':'#cccccc'}`,color:item.done?'#40a878':T.mute}}>
+          {item.done?'✓':'○'} {item.label}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function AIDrafter({title,description,contextLabel,contextPlaceholder,draftKey,contextKey,data,onSave,accent,ai,systemCtx,prompt,maxTokens=2000,warning}:{
+  title:string;description:string;contextLabel:string;contextPlaceholder:string;
+  draftKey:keyof SavedData;contextKey:keyof SavedData;
+  data:SavedData;onSave:(d:Partial<SavedData>)=>void;accent:string;
+  ai:ReturnType<typeof useAI>;systemCtx:string;
+  prompt:(context:string,aCase:any,labels:{partyA:string;partyB:string})=>string;
+  maxTokens?:number;warning?:string;
+}) {
+  const [context,setContext]=useState((data[contextKey]??'') as string);
+  const [draft,setDraft]=useState((data[draftKey]??'') as string);
+  const {ask,loading,error}=ai;
+  const run=useCallback(async()=>{
+    const aCase=(window as any).__afsActiveCase;
+    const labels=getPartyLabels(aCase);
+    const p=prompt(context,aCase,labels);
+    const result=await ask({system:systemCtx,userMsg:p,maxTokens});
+    if(result){setDraft(result);onSave({[contextKey]:context,[draftKey]:result} as Partial<SavedData>);}
+  },[context,prompt,ask,onSave,systemCtx,maxTokens,contextKey,draftKey]);
+  return (
+    <div>
+      <SectionTitle text={title} accent={accent}/>
+      <p style={{fontSize:13,color:T.sub,fontFamily:"'Times New Roman', Times, serif",marginBottom:18,lineHeight:1.6}}>{description}</p>
+      {warning&&<div style={{marginBottom:14,background:`${accent}08`,border:`1px solid ${accent}20`,borderRadius:7,padding:'12px 16px'}}><p style={{fontSize:12,color:accent,fontFamily:"'Times New Roman', Times, serif",margin:0,lineHeight:1.6}}>{warning}</p></div>}
+      <div style={{marginBottom:16}}><Label text={contextLabel}/><Textarea value={context} onChange={setContext} rows={8} placeholder={contextPlaceholder}/></div>
+      <Btn label={`Draft ${title}`} onClick={run} loading={loading} accent={accent} off={!context.trim()}/>
+      {error&&<ErrorBlock message={error}/>}
+      {draft&&<ResultBlock title={`${title} — Draft`} content={draft} onClear={()=>{setDraft('');onSave({[draftKey]:''} as Partial<SavedData>);}} accent={accent}/>}
+    </div>
+  );
 }
 
 function StatusBadge({status}:{status:string}) {
@@ -726,13 +864,7 @@ function OriginatingSummonsEngine({activeCase,data,onSave,accent,ai,systemCtx}:{
           {isClaim?'Draft the Originating Summons, Affidavit in Support, and Written Address for the Applicant.':'Draft the Counter-Affidavit and Written Address in Opposition for the Respondent.'}
         </p>
       </div>
-      <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:22}}>
-        {checklist.map(item=>(
-          <span key={item.label} style={{fontSize:11,padding:'4px 10px',borderRadius:4,fontFamily:"'Times New Roman', Times, serif",background:item.done?'#0a180a':'#f8f8f8',border:`1px solid ${item.done?'#40a87850':'#cccccc'}`,color:item.done?'#40a878':T.mute}}>
-            {item.done?'✓':'○'} {item.label}
-          </span>
-        ))}
-      </div>
+      <ChecklistBanner items={checklist} accent={accent}/>
       <SubTabBar tabs={tabs} active={activeTab} onSelect={setActiveTab} accent={accent}/>
       {isClaim&&activeTab==='os_drafter'&&<OSDrafter {...sp}/>}
       {isClaim&&activeTab==='os_affidavit'&&<OSAffidavitDrafter {...sp}/>}
@@ -778,6 +910,1533 @@ function WritSubTabs({isClaim,claimTabs,defTabs,accent,sharedProps,ccIntel}:{isC
   );
 }
 
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PHASE 3B — FEDERAL HIGH COURT: WINDING UP ENGINE
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function WUDemandNotice({data,onSave,accent,ai,systemCtx}:{data:SavedData;onSave:(d:Partial<SavedData>)=>void;accent:string;ai:ReturnType<typeof useAI>;systemCtx:string}) {
+  const [context,setContext]=useState(data.wuDemandContext??'');
+  const [draft,setDraft]=useState(data.wuDemandDraft??'');
+  const {ask,loading,error}=ai;
+  const run=useCallback(async()=>{
+    const aCase=(window as any).__afsActiveCase;
+    const {partyA}=getPartyLabels(aCase);
+    const prompt=`You are Nigerian insolvency counsel acting for ${partyA} (Petitioner/Creditor).\n\nMatter: ${aCase?.caseName??''}\n\nInstructions:\n${context}\n\nDraft a complete 21-Day Statutory Demand Notice under CAMA 2020 s.571-572 as pre-condition to winding-up petition on grounds of inability to pay debts.\n\nSTRUCTURE:\n1. [Petitioner letterhead / address]\n2. Date\n3. Addressee: Directors/Secretary of [Company] at [Registered Office]\n4. STATUTORY DEMAND NOTICE\n5. Body: (a) Debt basis and that company has neglected to pay (b) Debt particulars: amount, invoices, dates (c) Demand payment of ₦[amount] within 21 days of service (d) Warning: failure will result in winding-up petition in Federal High Court\n6. Signed: [Counsel/Creditor]\n\nLegal requirements: CAMA 2020 s.571(a) — debt exceeds ₦200,000; demand served at registered office; 3 weeks' neglect. State exact amounts. Flag [COUNSEL TO SUPPLY] for missing particulars.\n\nReturn complete Statutory Demand Notice only.`;
+    const result=await ask({system:systemCtx,userMsg:prompt,maxTokens:1500});
+    if(result){setDraft(result);onSave({wuDemandContext:context,wuDemandDraft:result});}
+  },[context,ask,onSave,systemCtx]);
+  return (
+    <div>
+      <SectionTitle text="21-Day Statutory Demand Notice" accent={accent}/>
+      <p style={{fontSize:13,color:T.sub,fontFamily:"'Times New Roman', Times, serif",marginBottom:18,lineHeight:1.6}}>Mandatory pre-condition under CAMA 2020 before presenting a winding-up petition on the ground of inability to pay debts. Must be served at the company's registered office. No petition may be filed until 21 days have elapsed.</p>
+      <div style={{marginBottom:14,background:`${accent}08`,border:`1px solid ${accent}20`,borderRadius:7,padding:'12px 16px'}}>
+        <p style={{fontSize:12,color:accent,fontFamily:"'Times New Roman', Times, serif",margin:0,lineHeight:1.6}}>⚠ <strong>Pre-filing:</strong> Serve at registered office. Retain proof of service (process server's affidavit). Attach as exhibit to Affidavit in Verification.</p>
+      </div>
+      <div style={{marginBottom:16}}><Label text="Creditor Details, Debt Particulars & Company Information"/><Textarea value={context} onChange={setContext} rows={8} placeholder="Provide: creditor full name/address; company name and registered office; nature and amount of debt (invoice nos., dates, judgments); how debt arose; date payment fell due."/></div>
+      <Btn label="Draft Statutory Demand Notice" onClick={run} loading={loading} accent={accent} off={!context.trim()}/>
+      {error&&<ErrorBlock message={error}/>}
+      {draft&&<ResultBlock title="Statutory Demand Notice — Draft" content={draft} onClear={()=>{setDraft('');onSave({wuDemandDraft:''}); }} accent={accent}/>}
+    </div>
+  );
+}
+
+function WUPetition({data,onSave,accent,ai,systemCtx}:{data:SavedData;onSave:(d:Partial<SavedData>)=>void;accent:string;ai:ReturnType<typeof useAI>;systemCtx:string}) {
+  const [context,setContext]=useState(data.wuPetitionContext??'');
+  const [draft,setDraft]=useState(data.wuPetitionDraft??'');
+  const {ask,loading,error}=ai;
+  const run=useCallback(async()=>{
+    const aCase=(window as any).__afsActiveCase;
+    const {partyA,partyB}=getPartyLabels(aCase);
+    const prompt=`You are Nigerian insolvency counsel for ${partyA} (Petitioner).\n\nMatter: ${aCase?.caseName??''}\n\nInstructions:\n${context}\n\nDraft a complete Winding-Up Petition under CAMA 2020 for the Federal High Court.\n\nSTRUCTURE:\n1. IN THE FEDERAL HIGH COURT OF NIGERIA\n   HOLDEN AT [CITY] — PETITION NO: [to be assigned]\n   IN THE MATTER OF [COMPANY NAME] (RC No. [Registration Number])\n   AND IN THE MATTER OF THE COMPANIES AND ALLIED MATTERS ACT 2020\n   BETWEEN: [PETITIONER] — Petitioner AND [COMPANY] — Respondent\n\n2. WINDING-UP PETITION — The Petition of [Petitioner] shows:\n\n3. Numbered paragraphs:\n   (a) Petitioner identity and capacity\n   (b) Company incorporation, registered office, objects\n   (c) The debt: how it arose, amount, when due\n   (d) Statutory Demand Notice served on [date]; 21 days elapsed; neglect confirmed\n   (e) Company's failure to pay, secure, or compound\n   (f) Company unable to pay its debts\n\n4. GROUND(S): CAMA 2020 s.571(a) and/or other applicable grounds\n\n5. PRAYERS: (a) Company wound up by order of Court (b) Liquidator appointed (c) Costs (d) Further orders\n\n6. Verification reference (Affidavit in Verification to follow)\n7. Solicitor endorsement\n\nFlag [COUNSEL TO SUPPLY] for missing particulars. Return complete Petition only.`;
+    const result=await ask({system:systemCtx,userMsg:prompt,maxTokens:2500});
+    if(result){setDraft(result);onSave({wuPetitionContext:context,wuPetitionDraft:result});}
+  },[context,ask,onSave,systemCtx]);
+  return (
+    <div>
+      <SectionTitle text="Winding-Up Petition" accent={accent}/>
+      <p style={{fontSize:13,color:T.sub,fontFamily:"'Times New Roman', Times, serif",marginBottom:18,lineHeight:1.6}}>Draft the Winding-Up Petition for presentation at the Federal High Court under CAMA 2020. The 21-day demand period must have expired before filing.</p>
+      <div style={{marginBottom:16}}><Label text="Petitioner, Company, Debt & Grounds"/><Textarea value={context} onChange={setContext} rows={9} placeholder="Provide: petitioner name/address/capacity; company name, RC number, registered office; nature and amount of debt; demand date; company's response (or none); ground relied on (inability to pay, just and equitable, etc.)."/></div>
+      <Btn label="Draft Winding-Up Petition" onClick={run} loading={loading} accent={accent} off={!context.trim()}/>
+      {error&&<ErrorBlock message={error}/>}
+      {draft&&<ResultBlock title="Winding-Up Petition — Draft" content={draft} onClear={()=>{setDraft('');onSave({wuPetitionDraft:''}); }} accent={accent}/>}
+    </div>
+  );
+}
+
+function WUAffidavitVerification({data,onSave,accent,ai,systemCtx}:{data:SavedData;onSave:(d:Partial<SavedData>)=>void;accent:string;ai:ReturnType<typeof useAI>;systemCtx:string}) {
+  const [context,setContext]=useState(data.wuAffirmContext??'');
+  const [draft,setDraft]=useState(data.wuAffirmDraft??'');
+  const {ask,loading,error}=ai;
+  const run=useCallback(async()=>{
+    const aCase=(window as any).__afsActiveCase;
+    const {partyA}=getPartyLabels(aCase);
+    const petition=data.wuPetitionDraft??'';
+    const prompt=`You are Nigerian insolvency counsel for ${partyA} (Petitioner).\n\nMatter: ${aCase?.caseName??''}\n\nPetition drafted:\n${petition?petition.substring(0,2000):'[Use facts below]'}\n\nDeponent and exhibit details:\n${context}\n\nDraft a complete Affidavit in Verification of the Winding-Up Petition.\n\nSTRUCTURE:\n1. Heading: AFFIDAVIT IN VERIFICATION OF PETITION\n2. "I, [NAME], of [address], [occupation], make oath and state:"\n3. Capacity paragraph (director/authorised officer/creditor)\n4. Numbered paragraphs:\n   - Petition prepared by or under deponent's direction\n   - Facts in petition true to deponent's knowledge\n   - Exhibit statutory demand (Exhibit A)\n   - Exhibit proof of service (Exhibit B)\n   - Exhibit debt documents (Exhibits C, D…)\n   - Debt remains unpaid\n5. Closing and Jurat\n\nReturn complete Affidavit in Verification only.`;
+    const result=await ask({system:systemCtx,userMsg:prompt,maxTokens:1800});
+    if(result){setDraft(result);onSave({wuAffirmContext:context,wuAffirmDraft:result});}
+  },[context,data.wuPetitionDraft,ask,onSave,systemCtx]);
+  return (
+    <div>
+      <SectionTitle text="Affidavit in Verification" accent={accent}/>
+      <p style={{fontSize:13,color:T.sub,fontFamily:"'Times New Roman', Times, serif",marginBottom:18,lineHeight:1.6}}>Verifies the Petition and identifies exhibits (demand notice, proof of service, debt documents). Filed simultaneously with the Petition.</p>
+      {data.wuPetitionDraft&&<div style={{marginBottom:14,background:'#0a180a',border:'1px solid #40a87830',borderRadius:7,padding:'10px 14px'}}><p style={{fontSize:11,color:'#40a878',fontFamily:"'Times New Roman', Times, serif",margin:0}}>✓ Petition draft detected — affidavit will verify its contents.</p></div>}
+      <div style={{marginBottom:16}}><Label text="Deponent Details & Exhibit List"/><Textarea value={context} onChange={setContext} rows={7} placeholder="Provide: deponent's full name, address, occupation, capacity; list of exhibits: statutory demand, proof of service, invoices/agreements, judgment debt if applicable."/></div>
+      <Btn label="Draft Affidavit in Verification" onClick={run} loading={loading} accent={accent} off={!context.trim()}/>
+      {error&&<ErrorBlock message={error}/>}
+      {draft&&<ResultBlock title="Affidavit in Verification — Draft" content={draft} onClear={()=>{setDraft('');onSave({wuAffirmDraft:''}); }} accent={accent}/>}
+    </div>
+  );
+}
+
+function WULiquidatorNotice({data,onSave,accent,ai,systemCtx}:{data:SavedData;onSave:(d:Partial<SavedData>)=>void;accent:string;ai:ReturnType<typeof useAI>;systemCtx:string}) {
+  const [context,setContext]=useState(data.wuLiquidatorContext??'');
+  const [draft,setDraft]=useState(data.wuLiquidatorDraft??'');
+  const {ask,loading,error}=ai;
+  const run=useCallback(async()=>{
+    const aCase=(window as any).__afsActiveCase;
+    const prompt=`You are Nigerian insolvency counsel.\n\nMatter: ${aCase?.caseName??''}\n\nProposed liquidator:\n${context}\n\nDraft a Notice of Proposed Liquidator for filing with the Winding-Up Petition.\n\nSTRUCTURE:\n1. IN THE FEDERAL HIGH COURT — Petition No / parties\n2. NOTICE OF PROPOSED LIQUIDATOR\n3. The Petitioner gives notice that the person proposed to act as liquidator, in the event a winding-up order is made, is:\n   - Full name\n   - Firm name\n   - Address\n   - Qualifications / ICAN/ANAN number\n4. A Consent to Act of the proposed liquidator is exhibited hereto marked Exhibit [X]\n5. Drawn and filed by: [Counsel/Firm]\n\nReturn complete Notice only.`;
+    const result=await ask({system:systemCtx,userMsg:prompt,maxTokens:800});
+    if(result){setDraft(result);onSave({wuLiquidatorContext:context,wuLiquidatorDraft:result});}
+  },[context,ask,onSave,systemCtx]);
+  return (
+    <div>
+      <SectionTitle text="Notice of Proposed Liquidator" accent={accent}/>
+      <p style={{fontSize:13,color:T.sub,fontFamily:"'Times New Roman', Times, serif",marginBottom:18,lineHeight:1.6}}>Filed with the Petition. The proposed liquidator must file a written Consent to Act and must be a registered insolvency practitioner.</p>
+      <div style={{marginBottom:16}}><Label text="Proposed Liquidator Details"/><Textarea value={context} onChange={setContext} rows={5} placeholder="Provide: proposed liquidator's full name, firm, address, professional qualifications (ICAN/ANAN number), and whether their consent to act letter is available."/></div>
+      <Btn label="Draft Liquidator Notice" onClick={run} loading={loading} accent={accent} off={!context.trim()}/>
+      {error&&<ErrorBlock message={error}/>}
+      {draft&&<ResultBlock title="Notice of Proposed Liquidator — Draft" content={draft} onClear={()=>{setDraft('');onSave({wuLiquidatorDraft:''}); }} accent={accent}/>}
+    </div>
+  );
+}
+
+function WUGazetteEvidence({data,onSave,accent,ai,systemCtx}:{data:SavedData;onSave:(d:Partial<SavedData>)=>void;accent:string;ai:ReturnType<typeof useAI>;systemCtx:string}) {
+  const [context,setContext]=useState(data.wuGazetteContext??'');
+  const [draft,setDraft]=useState(data.wuGazetteDraft??'');
+  const {ask,loading,error}=ai;
+  const run=useCallback(async()=>{
+    const aCase=(window as any).__afsActiveCase;
+    const {partyA}=getPartyLabels(aCase);
+    const prompt=`You are Nigerian insolvency counsel for ${partyA}.\n\nMatter: ${aCase?.caseName??''}\n\nPublication details:\n${context}\n\nDraft the Newspaper/Gazette Advertisement notice for a winding-up petition and provide a publication checklist.\n\nPART 1 — ADVERTISEMENT NOTICE:\nRequirement: Petition must be advertised in the Federal Government Official Gazette and at least one local newspaper not less than 7 clear days before the hearing.\n\nDraft the actual notice:\n- Court and petition number\n- Company name and registered office\n- Petitioner name\n- Hearing date, time and place\n- Invitation to creditors and contributories to attend\n- Petitioner's solicitors contact\n\nPART 2 — FILING CHECKLIST:\n- Advertisement timing (7 clear days minimum)\n- Original advertisement copies for filing\n- Affidavit of publication to be filed before hearing\n\nReturn complete notice and checklist.`;
+    const result=await ask({system:systemCtx,userMsg:prompt,maxTokens:1200});
+    if(result){setDraft(result);onSave({wuGazetteContext:context,wuGazetteDraft:result});}
+  },[context,ask,onSave,systemCtx]);
+  return (
+    <div>
+      <SectionTitle text="Newspaper / Gazette Advertisement" accent={accent}/>
+      <p style={{fontSize:13,color:T.sub,fontFamily:"'Times New Roman', Times, serif",marginBottom:18,lineHeight:1.6}}>A winding-up petition must be advertised in the Federal Gazette and a local newspaper at least 7 clear days before the hearing. This panel drafts the notice and publication checklist.</p>
+      <div style={{marginBottom:16}}><Label text="Hearing Details & Petition Particulars"/><Textarea value={context} onChange={setContext} rows={6} placeholder="Provide: company name and registered office; petition number (if assigned); hearing date, time, court; petitioner's solicitors' contact; preferred newspapers."/></div>
+      <Btn label="Draft Advertisement Notice" onClick={run} loading={loading} accent={accent} off={!context.trim()}/>
+      {error&&<ErrorBlock message={error}/>}
+      {draft&&<ResultBlock title="Advertisement Notice & Checklist — Draft" content={draft} onClear={()=>{setDraft('');onSave({wuGazetteDraft:''}); }} accent={accent}/>}
+    </div>
+  );
+}
+
+function WUOppMemo({data,onSave,accent,ai,systemCtx}:{data:SavedData;onSave:(d:Partial<SavedData>)=>void;accent:string;ai:ReturnType<typeof useAI>;systemCtx:string}) {
+  const [context,setContext]=useState(data.wuOppMemoContext??'');
+  const [draft,setDraft]=useState(data.wuOppMemoDraft??'');
+  const {ask,loading,error}=ai;
+  const run=useCallback(async()=>{
+    const aCase=(window as any).__afsActiveCase;
+    const {partyB}=getPartyLabels(aCase);
+    const prompt=`You are Nigerian insolvency counsel for ${partyB} (Respondent Company).\n\nMatter: ${aCase?.caseName??''}\n\nCompany's position:\n${context}\n\nDraft a Memorandum of Appearance and Notice to Oppose Petition at the Federal High Court.\n\nSTRUCTURE:\n1. IN THE FEDERAL HIGH COURT — Petition No / parties\n2. MEMORANDUM OF APPEARANCE AND NOTICE TO OPPOSE PETITION\n3. TAKE NOTICE that [Company] intends to appear and oppose the petition presented herein.\n4. Brief grounds: debt disputed / paid / no valid demand / abuse of process\n5. Company will file Affidavit in Opposition and Written Address\n6. Counsel endorsement for Respondent Company\n\nReturn complete Memo of Appearance only.`;
+    const result=await ask({system:systemCtx,userMsg:prompt,maxTokens:800});
+    if(result){setDraft(result);onSave({wuOppMemoContext:context,wuOppMemoDraft:result});}
+  },[context,ask,onSave,systemCtx]);
+  return (
+    <div>
+      <SectionTitle text="Memorandum of Appearance" accent={accent}/>
+      <p style={{fontSize:13,color:T.sub,fontFamily:"'Times New Roman', Times, serif",marginBottom:18,lineHeight:1.6}}>The Respondent company must file a Memorandum of Appearance to signal intention to oppose. Follow with Affidavit in Opposition and Written Address.</p>
+      <div style={{marginBottom:16}}><Label text="Company's Position & Grounds of Opposition"/><Textarea value={context} onChange={setContext} rows={6} placeholder="Provide: company's grounds for opposing (debt disputed, paid, no valid demand, abuse of process); details of partial payment; company's current trading status."/></div>
+      <Btn label="Draft Memo of Appearance" onClick={run} loading={loading} accent={accent} off={!context.trim()}/>
+      {error&&<ErrorBlock message={error}/>}
+      {draft&&<ResultBlock title="Memorandum of Appearance — Draft" content={draft} onClear={()=>{setDraft('');onSave({wuOppMemoDraft:''}); }} accent={accent}/>}
+    </div>
+  );
+}
+
+function WUOppAffidavit({data,onSave,accent,ai,systemCtx}:{data:SavedData;onSave:(d:Partial<SavedData>)=>void;accent:string;ai:ReturnType<typeof useAI>;systemCtx:string}) {
+  const [context,setContext]=useState(data.wuOppAffidavitContext??'');
+  const [draft,setDraft]=useState(data.wuOppAffidavitDraft??'');
+  const {ask,loading,error}=ai;
+  const run=useCallback(async()=>{
+    const aCase=(window as any).__afsActiveCase;
+    const {partyA,partyB}=getPartyLabels(aCase);
+    const prompt=`You are Nigerian insolvency counsel for ${partyB} (Respondent Company).\n\nMatter: ${aCase?.caseName??''}\n\nCompany's factual position:\n${context}\n\nDraft a complete Affidavit in Opposition to the Winding-Up Petition.\n\nSTRUCTURE:\n1. AFFIDAVIT IN OPPOSITION TO WINDING-UP PETITION\n2. Deponent introduction (officer of the company)\n3. Numbered paragraphs:\n   (a) Company capacity and deponent's authority\n   (b) Response to each petition paragraph: admit/deny/dispute\n   (c) Debt position: paid? Disputed? Set-off available?\n   (d) Statutory demand defects (if any): wrong address, incorrect amount\n   (e) Company solvency: assets, liabilities, ongoing business\n   (f) Exhibits: payment receipts, board resolution, accounts, correspondence\n4. Jurat\n\nReturn complete Affidavit in Opposition only.`;
+    const result=await ask({system:systemCtx,userMsg:prompt,maxTokens:2000});
+    if(result){setDraft(result);onSave({wuOppAffidavitContext:context,wuOppAffidavitDraft:result});}
+  },[context,ask,onSave,systemCtx]);
+  return (
+    <div>
+      <SectionTitle text="Affidavit in Opposition" accent={accent}/>
+      <p style={{fontSize:13,color:T.sub,fontFamily:"'Times New Roman', Times, serif",marginBottom:18,lineHeight:1.6}}>Sets out the company's factual response to every material averment in the petition. Attach exhibits (payment records, accounts, correspondence).</p>
+      <div style={{marginBottom:16}}><Label text="Company's Factual Position & Response to Petition"/><Textarea value={context} onChange={setContext} rows={9} placeholder="Provide: whether debt is admitted/disputed (and why); any payments made; solvency position (assets vs liabilities); demand defects (if any); exhibits available; deponent's name, title, capacity."/></div>
+      <Btn label="Draft Affidavit in Opposition" onClick={run} loading={loading} accent={accent} off={!context.trim()}/>
+      {error&&<ErrorBlock message={error}/>}
+      {draft&&<ResultBlock title="Affidavit in Opposition — Draft" content={draft} onClear={()=>{setDraft('');onSave({wuOppAffidavitDraft:''}); }} accent={accent}/>}
+    </div>
+  );
+}
+
+function WUOppAddress({data,onSave,accent,ai,systemCtx}:{data:SavedData;onSave:(d:Partial<SavedData>)=>void;accent:string;ai:ReturnType<typeof useAI>;systemCtx:string}) {
+  const [context,setContext]=useState(data.wuOppAddressContext??'');
+  const [draft,setDraft]=useState(data.wuOppAddressDraft??'');
+  const {ask,loading,error}=ai;
+  const run=useCallback(async()=>{
+    const aCase=(window as any).__afsActiveCase;
+    const {partyA,partyB}=getPartyLabels(aCase);
+    const prompt=`You are Nigerian insolvency counsel for ${partyB} (Respondent Company).\n\nMatter: ${aCase?.caseName??''}\n\nLegal arguments:\n${context}\n\nDraft a complete Written Address in Opposition to the Winding-Up Petition.\n\nSTRUCTURE:\n1. RESPONDENT'S WRITTEN ADDRESS IN OPPOSITION TO WINDING-UP PETITION\n2. INTRODUCTION: Respondent opposes; nature of opposition\n3. ISSUES FOR DETERMINATION (framed to support dismissal):\n   Whether debt is established / Whether demand is valid / Whether order is appropriate\n4. STATEMENT OF FACTS (company's version, cross-referencing Affidavit in Opposition)\n5. ARGUMENTS — per issue: legal principle → CAMA/Nigerian authority → apply to facts → conclude\n6. DISCRETION: Even if debt established, court has discretion to refuse — argue solvency, abuse of process, just and equitable factors\n7. CONCLUSION: petition dismissed with costs\n8. AUTHORITIES RELIED UPON\n\nReturn complete Written Address only.`;
+    const result=await ask({system:systemCtx,userMsg:prompt,maxTokens:2500});
+    if(result){setDraft(result);onSave({wuOppAddressContext:context,wuOppAddressDraft:result});}
+  },[context,ask,onSave,systemCtx]);
+  return (
+    <div>
+      <SectionTitle text="Written Address in Opposition" accent={accent}/>
+      <p style={{fontSize:13,color:T.sub,fontFamily:"'Times New Roman', Times, serif",marginBottom:18,lineHeight:1.6}}>Argues the legal case against the petition. Even where a debt exists, the court has discretion to refuse a winding-up order — address that discretion where applicable.</p>
+      <div style={{marginBottom:16}}><Label text="Legal Arguments, Authorities & Grounds"/><Textarea value={context} onChange={setContext} rows={9} placeholder="Provide: main legal grounds; solvency arguments; authorities; whether petition is abuse of process; any alternative relief (instalment payment, scheme of arrangement)."/></div>
+      <Btn label="Draft Written Address in Opposition" onClick={run} loading={loading} accent={accent} off={!context.trim()}/>
+      {error&&<ErrorBlock message={error}/>}
+      {draft&&<ResultBlock title="Written Address in Opposition — Draft" content={draft} onClear={()=>{setDraft('');onSave({wuOppAddressDraft:''}); }} accent={accent}/>}
+    </div>
+  );
+}
+
+function WUThirdPartyAppearance({data,onSave,accent,ai,systemCtx}:{data:SavedData;onSave:(d:Partial<SavedData>)=>void;accent:string;ai:ReturnType<typeof useAI>;systemCtx:string}) {
+  const [context,setContext]=useState(data.wuThirdPartyContext??'');
+  const [draft,setDraft]=useState(data.wuThirdPartyDraft??'');
+  const {ask,loading,error}=ai;
+  const run=useCallback(async()=>{
+    const aCase=(window as any).__afsActiveCase;
+    const prompt=`You are Nigerian insolvency counsel for a creditor/contributory (Third Party) in:\n\nMatter: ${aCase?.caseName??''}\n\nThird party's position:\n${context}\n\nDraft a Notice of Intention to Appear at the winding-up petition hearing.\n\nSTRUCTURE:\n1. IN THE FEDERAL HIGH COURT — Petition No / parties\n2. NOTICE OF INTENTION TO APPEAR\n3. TAKE NOTICE that [Third Party], being a [creditor/contributory/director] of [Company], intends to appear at the hearing.\n4. Intention: to SUPPORT / OPPOSE the making of a winding-up order (state which)\n5. Nature of claim/debt: brief statement\n6. Signed: [Third Party / Counsel]\n\nReturn complete Notice only.`;
+    const result=await ask({system:systemCtx,userMsg:prompt,maxTokens:700});
+    if(result){setDraft(result);onSave({wuThirdPartyContext:context,wuThirdPartyDraft:result});}
+  },[context,ask,onSave,systemCtx]);
+  return (
+    <div>
+      <SectionTitle text="Notice of Intention to Appear" accent={accent}/>
+      <p style={{fontSize:13,color:T.sub,fontFamily:"'Times New Roman', Times, serif",marginBottom:18,lineHeight:1.6}}>For creditors, contributories, or other parties wishing to appear at the petition hearing — whether to support or oppose. File before the hearing date.</p>
+      <div style={{marginBottom:16}}><Label text="Third Party Identity & Position"/><Textarea value={context} onChange={setContext} rows={5} placeholder="Provide: full name, address, capacity (creditor/contributory/director); whether supporting or opposing the petition; brief description of claim or debt."/></div>
+      <Btn label="Draft Notice of Intention to Appear" onClick={run} loading={loading} accent={accent} off={!context.trim()}/>
+      {error&&<ErrorBlock message={error}/>}
+      {draft&&<ResultBlock title="Notice of Intention to Appear — Draft" content={draft} onClear={()=>{setDraft('');onSave({wuThirdPartyDraft:''}); }} accent={accent}/>}
+    </div>
+  );
+}
+
+function WUAffidavitOfDebt({data,onSave,accent,ai,systemCtx}:{data:SavedData;onSave:(d:Partial<SavedData>)=>void;accent:string;ai:ReturnType<typeof useAI>;systemCtx:string}) {
+  const [context,setContext]=useState(data.wuThirdPartyAffContext??'');
+  const [draft,setDraft]=useState(data.wuThirdPartyAffDraft??'');
+  const {ask,loading,error}=ai;
+  const run=useCallback(async()=>{
+    const aCase=(window as any).__afsActiveCase;
+    const prompt=`You are Nigerian insolvency counsel for a supporting creditor in:\n\nMatter: ${aCase?.caseName??''}\n\nCreditor and debt details:\n${context}\n\nDraft a complete Affidavit of Debt for use in support of the winding-up petition hearing.\n\nSTRUCTURE:\n1. IN THE FEDERAL HIGH COURT — AFFIDAVIT OF DEBT OF [CREDITOR NAME]\n2. Deponent introduction\n3. Numbered paragraphs:\n   (a) Creditor identity and capacity\n   (b) Nature and amount of debt\n   (c) How debt arose (contract, services, goods, judgment)\n   (d) Date due and unpaid\n   (e) Exhibits: invoices, contracts, demand letters, judgment\n   (f) Creditor supports winding-up order\n4. Jurat\n\nReturn complete Affidavit of Debt only.`;
+    const result=await ask({system:systemCtx,userMsg:prompt,maxTokens:1200});
+    if(result){setDraft(result);onSave({wuThirdPartyAffContext:context,wuThirdPartyAffDraft:result});}
+  },[context,ask,onSave,systemCtx]);
+  return (
+    <div>
+      <SectionTitle text="Affidavit of Debt (Supporting Creditor)" accent={accent}/>
+      <p style={{fontSize:13,color:T.sub,fontFamily:"'Times New Roman', Times, serif",marginBottom:18,lineHeight:1.6}}>Filed by a creditor supporting the petition. Strengthens the case for a winding-up order where multiple creditors are owed.</p>
+      <div style={{marginBottom:16}}><Label text="Creditor Details & Debt Particulars"/><Textarea value={context} onChange={setContext} rows={7} placeholder="Provide: creditor's full name, address, occupation; nature and amount of debt; how debt arose; date due; correspondence or demand sent; exhibits available."/></div>
+      <Btn label="Draft Affidavit of Debt" onClick={run} loading={loading} accent={accent} off={!context.trim()}/>
+      {error&&<ErrorBlock message={error}/>}
+      {draft&&<ResultBlock title="Affidavit of Debt — Draft" content={draft} onClear={()=>{setDraft('');onSave({wuThirdPartyAffDraft:''}); }} accent={accent}/>}
+    </div>
+  );
+}
+
+function WindingUpEngine({activeCase,data,onSave,accent,ai,systemCtx}:{activeCase:Case;data:SavedData;onSave:(d:Partial<SavedData>)=>void;accent:string;ai:ReturnType<typeof useAI>;systemCtx:string}) {
+  const isClaim=activeCase.counsel_role==='claimant_side';
+  const sp={data,onSave,accent,ai,systemCtx};
+  const forTabs=[
+    {id:'wu_demand',label:'Statutory Demand'},
+    {id:'wu_petition',label:'Winding-Up Petition'},
+    {id:'wu_affirmation',label:'Affidavit in Verification'},
+    {id:'wu_liquidator',label:'Proposed Liquidator'},
+    {id:'wu_gazette',label:'Gazette / Newspaper'},
+  ];
+  const againstTabs=[
+    {id:'wu_memo',label:'Memo of Appearance'},
+    {id:'wu_opp_affidavit',label:'Affidavit in Opposition'},
+    {id:'wu_opp_address',label:'Written Address in Opp.'},
+    {id:'wu_tp_notice',label:'Third Party Notice'},
+    {id:'wu_tp_debt',label:'Affidavit of Debt'},
+  ];
+  const tabs=isClaim?forTabs:againstTabs;
+  const [activeTab,setActiveTab]=useState(isClaim?'wu_demand':'wu_memo');
+  const forChecklist=[
+    {label:'Statutory Demand',done:!!data.wuDemandDraft},
+    {label:'Winding-Up Petition',done:!!data.wuPetitionDraft},
+    {label:'Affidavit in Verification',done:!!data.wuAffirmDraft},
+    {label:'Proposed Liquidator Notice',done:!!data.wuLiquidatorDraft},
+    {label:'Gazette Advertisement',done:!!data.wuGazetteDraft},
+  ];
+  const againstChecklist=[
+    {label:'Memo of Appearance',done:!!data.wuOppMemoDraft},
+    {label:'Affidavit in Opposition',done:!!data.wuOppAffidavitDraft},
+    {label:'Written Address',done:!!data.wuOppAddressDraft},
+  ];
+  return (
+    <div style={{animation:'fadeUp .3s ease'}}>
+      <div style={{marginBottom:24}}>
+        <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:8}}>
+          <span style={{fontSize:18,color:accent}}>🏛</span>
+          <h3 style={{fontSize:18,color:T.text,fontFamily:"'Times New Roman', Times, serif",fontWeight:300,margin:0}}>Federal High Court — Winding-Up Petition</h3>
+          <span style={{fontSize:9,padding:'3px 8px',borderRadius:3,fontFamily:"'Times New Roman', Times, serif",fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase',background:`${accent}15`,border:`1px solid ${accent}30`,color:accent}}>
+            {isClaim?'Petitioner (For)':'Respondent / Third Party (Against)'}
+          </span>
+        </div>
+        <p style={{fontSize:13,color:T.mute,fontFamily:"'Times New Roman', Times, serif",margin:0}}>CAMA 2020 framework — compulsory winding-up by court on grounds of inability to pay debts or other statutory grounds.</p>
+      </div>
+      <ChecklistBanner items={isClaim?forChecklist:againstChecklist} accent={accent}/>
+      <SubTabBar tabs={tabs} active={activeTab} onSelect={setActiveTab} accent={accent}/>
+      {activeTab==='wu_demand'&&<WUDemandNotice {...sp}/>}
+      {activeTab==='wu_petition'&&<WUPetition {...sp}/>}
+      {activeTab==='wu_affirmation'&&<WUAffidavitVerification {...sp}/>}
+      {activeTab==='wu_liquidator'&&<WULiquidatorNotice {...sp}/>}
+      {activeTab==='wu_gazette'&&<WUGazetteEvidence {...sp}/>}
+      {activeTab==='wu_memo'&&<WUOppMemo {...sp}/>}
+      {activeTab==='wu_opp_affidavit'&&<WUOppAffidavit {...sp}/>}
+      {activeTab==='wu_opp_address'&&<WUOppAddress {...sp}/>}
+      {activeTab==='wu_tp_notice'&&<WUThirdPartyAppearance {...sp}/>}
+      {activeTab==='wu_tp_debt'&&<WUAffidavitOfDebt {...sp}/>}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PHASE 3B — NICN ENGINE (4 MODES)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function NICNComplaintEngine({activeCase,data,onSave,accent,ai,systemCtx}:{activeCase:Case;data:SavedData;onSave:(d:Partial<SavedData>)=>void;accent:string;ai:ReturnType<typeof useAI>;systemCtx:string}) {
+  const isClaim=activeCase.counsel_role==='claimant_side';
+  const sp={data,onSave,accent,ai,systemCtx};
+  const forTabs=[
+    {id:'nicn_complaint',label:'Complaint & SoF'},
+    {id:'nicn_witness_list',label:'List of Witnesses'},
+    {id:'nicn_witness_stmt',label:'Witness Statements on Oath'},
+    {id:'nicn_doc_schedule',label:'Document Schedule'},
+  ];
+  const againstTabs=[
+    {id:'nicn_def_memo',label:'Memo of Appearance (Form 11)'},
+    {id:'nicn_def_stmt',label:'Statement of Defence'},
+    {id:'nicn_def_witness',label:'Witness Statements'},
+    {id:'nicn_def_doc',label:'Document Schedule'},
+  ];
+  const tabs=isClaim?forTabs:againstTabs;
+  const [activeTab,setActiveTab]=useState(isClaim?'nicn_complaint':'nicn_def_memo');
+  const forChecklist=[
+    {label:'Complaint & SoF',done:!!data.nicnComplaintDraft},
+    {label:'List of Witnesses',done:!!data.nicnWitnessListDraft},
+    {label:'Witness Statements',done:!!data.nicnWitnessStmtDraft},
+    {label:'Document Schedule',done:!!data.nicnDocScheduleDraft},
+  ];
+  const againstChecklist=[
+    {label:'Memo of Appearance',done:!!data.nicnDefMemoDraft},
+    {label:'Statement of Defence',done:!!data.nicnDefStmtDraft},
+    {label:'Witness Statements',done:!!data.nicnDefWitnessDraft},
+    {label:'Document Schedule',done:!!data.nicnDefDocDraft},
+  ];
+  const draftKeys:Record<string,keyof SavedData>={
+    nicn_complaint:'nicnComplaintDraft',nicn_witness_list:'nicnWitnessListDraft',
+    nicn_witness_stmt:'nicnWitnessStmtDraft',nicn_doc_schedule:'nicnDocScheduleDraft',
+    nicn_def_memo:'nicnDefMemoDraft',nicn_def_stmt:'nicnDefStmtDraft',
+    nicn_def_witness:'nicnDefWitnessDraft',nicn_def_doc:'nicnDefDocDraft',
+  };
+  const ctxKeys:Record<string,keyof SavedData>={
+    nicn_complaint:'nicnComplaintContext',nicn_witness_list:'nicnWitnessListContext',
+    nicn_witness_stmt:'nicnWitnessStmtContext',nicn_doc_schedule:'nicnDocScheduleContext',
+    nicn_def_memo:'nicnDefMemoContext',nicn_def_stmt:'nicnDefStmtContext',
+    nicn_def_witness:'nicnDefWitnessContext',nicn_def_doc:'nicnDefDocContext',
+  };
+  const makePrompt=(tabId:string)=>(ctx:string,aCase:any,{partyA,partyB}:{partyA:string;partyB:string})=>{
+    const matter=aCase?.caseName??'';
+    const ps:Record<string,string>={
+      nicn_complaint:`You are labour counsel for ${partyA} (Claimant) before the NICN.\n\nMatter: ${matter}\n\nInstructions:\n${ctx}\n\nDraft a complete Integrated Complaint & Statement of Facts (NICN Form 1).\n\nSTRUCTURE:\n1. IN THE NATIONAL INDUSTRIAL COURT OF NIGERIA\n   HOLDEN AT [CITY] — SUIT NO: [to be assigned]\n   BETWEEN: [${partyA.toUpperCase()}] — Claimant AND [${partyB.toUpperCase()}] — Defendant\n\n2. COMPLAINT FORM 1\n3. Claimant details: name, address, occupation, union/employer status\n4. Defendant details: name, address\n5. STATEMENT OF FACTS (numbered):\n   - Employment relationship: commencement, position, salary\n   - CBA/contract terms\n   - Events giving rise to dispute (dates, actions)\n   - Violations of NIC Act/Labour Act/ILO conventions\n   - Attempts at resolution\n   - Loss suffered\n6. RELIEF SOUGHT (numbered): reinstatement, damages, salary arrears, declaration\n7. STATUTORY BASIS: NIC Act 2006/Labour Act/relevant statutes\n8. Signed by Claimant/Counsel\n\nFlag [COUNSEL TO SUPPLY] where needed. Return complete Form 1 only.`,
+      nicn_witness_list:`You are labour counsel for ${partyA} before the NICN.\n\nMatter: ${matter}\n\nWitness information:\n${ctx}\n\nDraft the Claimant's List of Witnesses per NICN Rules.\n\nFormat:\n1. Heading: IN THE NICN — Suit No / parties / CLAIMANT'S LIST OF WITNESSES\n2. Table: No. | Name | Address | Occupation | Summary of Evidence\n3. "[${partyA}] reserves the right to call additional witnesses with leave of court."\n4. Signed by Counsel\n\nReturn complete List of Witnesses only.`,
+      nicn_witness_stmt:`You are labour counsel for ${partyA} before the NICN.\n\nMatter: ${matter}\n\nWitness details:\n${ctx}\n\nDraft a Witness Statement on Oath (deposition format — used as evidence-in-chief before NICN).\n\nSTRUCTURE:\n1. IN THE NICN — Suit No / parties\n   WITNESS STATEMENT ON OATH OF [NAME] (CW[number])\n2. "I, [NAME], of [address], [occupation], make oath and say:"\n3. Numbered paragraphs: employment history; events (one fact per paragraph); exhibits (CW[X]-[A]…); relief sought\n4. "I make this statement knowing it may be used as evidence before this Honourable Court."\n5. Signed / Jurat\n\nReturn complete Witness Statement only.`,
+      nicn_doc_schedule:`You are labour counsel for ${partyA} before the NICN.\n\nMatter: ${matter}\n\nDocuments available:\n${ctx}\n\nDraft the Claimant's Document Schedule.\n\nFormat:\n1. Heading: IN THE NICN — CLAIMANT'S DOCUMENT SCHEDULE\n2. Table: No. | Document Description | Date | Exhibit Mark | Purpose\n3. "Claimant will rely on all documents herein at trial."\n4. Signed by Counsel\n\nReturn complete Document Schedule only.`,
+      nicn_def_memo:`You are labour counsel for ${partyB} (Defendant) before the NICN.\n\nMatter: ${matter}\n\nDefendant details:\n${ctx}\n\nDraft a Memorandum of Appearance (NICN Form 11).\n\nSTRUCTURE:\n1. IN THE NICN — Suit No / parties\n2. MEMORANDUM OF APPEARANCE (FORM 11)\n3. TAKE NOTICE that [Defendant] of [address] enters appearance in the above suit.\n4. Defendant denies liability and will file a Statement of Defence.\n5. Counsel endorsement for Defendant\n\nReturn complete Form 11 only.`,
+      nicn_def_stmt:`You are labour counsel for ${partyB} (Defendant) before the NICN.\n\nMatter: ${matter}\n\nDefence instructions:\n${ctx}\n\nDraft a complete Statement of Defence.\n\nSTRUCTURE:\n1. IN THE NICN — STATEMENT OF DEFENCE\n2. Defendant denies entitlement save as admitted herein.\n3. Paragraph-by-paragraph response to Form 1: admit/deny/not admitted\n4. Affirmative defences: voluntary resignation; valid dismissal; procedure followed; no contract breach\n5. WHEREFORE: Claim dismissed with costs\n6. Counsel endorsement\n\nReturn complete Statement of Defence only.`,
+      nicn_def_witness:`You are labour counsel for ${partyB} before the NICN.\n\nMatter: ${matter}\n\nDefendant witness details:\n${ctx}\n\nDraft a Defendant's Witness Statement on Oath (DW format). Same structure as Claimant's statement: marked DW[number]; exhibits marked DW[X]-[A]; evidence supports defence position; responds to Claimant's evidence where relevant.\n\nReturn complete DW Witness Statement only.`,
+      nicn_def_doc:`You are labour counsel for ${partyB} before the NICN.\n\nMatter: ${matter}\n\nDocuments available to Defendant:\n${ctx}\n\nDraft the Defendant's Document Schedule. Same format as Claimant's schedule but headed DEFENDANT'S DOCUMENT SCHEDULE with DW prefix on exhibits.\n\nReturn complete Defendant's Document Schedule only.`,
+    };
+    return ps[tabId]??`Draft ${tabId} for NICN employment matter: ${matter}. Instructions: ${ctx}`;
+  };
+  return (
+    <div style={{animation:'fadeUp .3s ease'}}>
+      <div style={{marginBottom:24}}>
+        <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:8}}>
+          <span style={{fontSize:18,color:accent}}>⚖</span>
+          <h3 style={{fontSize:18,color:T.text,fontFamily:"'Times New Roman', Times, serif",fontWeight:300,margin:0}}>NICN — Complaint Form 1</h3>
+          <span style={{fontSize:9,padding:'3px 8px',borderRadius:3,fontFamily:"'Times New Roman', Times, serif",fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase',background:`${accent}15`,border:`1px solid ${accent}30`,color:accent}}>
+            {isClaim?'Claimant (For)':'Defendant (Against)'}
+          </span>
+        </div>
+        <p style={{fontSize:13,color:T.mute,fontFamily:"'Times New Roman', Times, serif",margin:0}}>Employment disputes — wrongful termination, unpaid wages, unfair labour practices, breach of collective bargaining agreement.</p>
+      </div>
+      <ChecklistBanner items={isClaim?forChecklist:againstChecklist} accent={accent}/>
+      <SubTabBar tabs={tabs} active={activeTab} onSelect={setActiveTab} accent={accent}/>
+      {tabs.map(t=>activeTab===t.id&&(
+        <AIDrafter key={t.id} title={t.label}
+          description={`Draft the ${t.label} for this NICN employment matter.`}
+          contextLabel="Instructions & Facts" contextPlaceholder={`Provide details for the ${t.label}…`}
+          draftKey={draftKeys[t.id]} contextKey={ctxKeys[t.id]}
+          data={data} onSave={onSave} accent={accent} ai={ai} systemCtx={systemCtx}
+          prompt={makePrompt(t.id)} maxTokens={2000}
+        />
+      ))}
+    </div>
+  );
+}
+
+function NICNOSEngine({activeCase,data,onSave,accent,ai,systemCtx}:{activeCase:Case;data:SavedData;onSave:(d:Partial<SavedData>)=>void;accent:string;ai:ReturnType<typeof useAI>;systemCtx:string}) {
+  const isClaim=activeCase.counsel_role==='claimant_side';
+  const sp={data,onSave,accent,ai,systemCtx};
+  const forTabs=[
+    {id:'nicn_os',label:'Originating Summons'},
+    {id:'nicn_os_affidavit',label:'Supporting Affidavit'},
+    {id:'nicn_os_address',label:'Written Address'},
+  ];
+  const againstTabs=[
+    {id:'nicn_os_counter',label:'Counter-Affidavit'},
+    {id:'nicn_os_opp',label:'Written Address in Opp.'},
+  ];
+  const tabs=isClaim?forTabs:againstTabs;
+  const [activeTab,setActiveTab]=useState(isClaim?'nicn_os':'nicn_os_counter');
+  const draftKeys:Record<string,keyof SavedData>={
+    nicn_os:'nicnOSDraft',nicn_os_affidavit:'nicnOSAffidavitDraft',nicn_os_address:'nicnOSAddressDraft',
+    nicn_os_counter:'nicnOSCounterDraft',nicn_os_opp:'nicnOSOppAddressDraft',
+  };
+  const ctxKeys:Record<string,keyof SavedData>={
+    nicn_os:'nicnOSDraftContext',nicn_os_affidavit:'nicnOSAffidavitContext',nicn_os_address:'nicnOSAddressContext',
+    nicn_os_counter:'nicnOSCounterContext',nicn_os_opp:'nicnOSOppAddressContext',
+  };
+  const makePrompt=(tabId:string)=>(ctx:string,aCase:any,{partyA,partyB}:{partyA:string;partyB:string})=>{
+    const matter=aCase?.caseName??'';
+    const ps:Record<string,string>={
+      nicn_os:`You are labour counsel for ${partyA} (Applicant) before the NICN.\n\nMatter: ${matter}\n\nInstructions:\n${ctx}\n\nDraft a complete Originating Summons (NICN Form 2) for CBA/contract interpretation.\n\nSTRUCTURE:\n1. IN THE NATIONAL INDUSTRIAL COURT OF NIGERIA\n   HOLDEN AT [CITY] — Suit No: [to be assigned]\n   IN THE MATTER OF: [CBA/Contract/statute]\n   BETWEEN: [${partyA.toUpperCase()}] — Applicant AND [${partyB.toUpperCase()}] — Respondent\n2. ORIGINATING SUMMONS (FORM 2) — Let [Respondent] attend for hearing of:\n3. QUESTIONS FOR DETERMINATION (numbered legal propositions)\n4. RELIEFS SOUGHT (numbered)\n5. GROUNDS (NIC Act/Labour Act/CBA provisions)\n6. Documents relied on: Supporting Affidavit and Written Address\n7. Counsel endorsement\n\nReturn complete Form 2 only.`,
+      nicn_os_affidavit:`You are labour counsel for ${partyA} before the NICN.\n\nMatter: ${matter}\n\nDeponent and facts:\n${ctx}\n\nDraft a Supporting Affidavit for the NICN OS Form 2. Refer to the OS questions; exhibit the CBA/contract being construed; exhibit relevant correspondence; stick to facts.\n\nStandard affidavit structure with NICN heading. Return complete affidavit only.`,
+      nicn_os_address:`You are labour counsel for ${partyA} before the NICN.\n\nMatter: ${matter}\n\nLegal arguments:\n${ctx}\n\nDraft a Written Address in support of the NICN Originating Summons.\n\nStructure: Introduction · Issues for Determination · Statement of Facts · Arguments (per issue with NIC Act/Labour Act/ILO Convention authorities) · Conclusion · Authorities.\n\nReturn complete Written Address only.`,
+      nicn_os_counter:`You are labour counsel for ${partyB} (Respondent) before the NICN.\n\nMatter: ${matter}\n\nRespondent's position:\n${ctx}\n\nDraft a Counter-Affidavit responding paragraph-by-paragraph to the Supporting Affidavit. Exhibits marked R1, R2… Standard NICN affidavit heading.\n\nReturn complete Counter-Affidavit only.`,
+      nicn_os_opp:`You are labour counsel for ${partyB} before the NICN.\n\nMatter: ${matter}\n\nGrounds of opposition:\n${ctx}\n\nDraft a Written Address in Opposition to the NICN OS.\n\nStructure: Introduction · Issues (Respondent's formulation) · Facts · Arguments (with NICN/Labour Act authorities) · Conclusion · Authorities.\n\nReturn complete Written Address in Opposition only.`,
+    };
+    return ps[tabId]??`Draft ${tabId} for NICN OS matter: ${matter}. Instructions: ${ctx}`;
+  };
+  const forChecklist=[
+    {label:'Originating Summons',done:!!data.nicnOSDraft},
+    {label:'Supporting Affidavit',done:!!data.nicnOSAffidavitDraft},
+    {label:'Written Address',done:!!data.nicnOSAddressDraft},
+  ];
+  const againstChecklist=[
+    {label:'Counter-Affidavit',done:!!data.nicnOSCounterDraft},
+    {label:'Written Address in Opp.',done:!!data.nicnOSOppAddressDraft},
+  ];
+  return (
+    <div style={{animation:'fadeUp .3s ease'}}>
+      <div style={{marginBottom:24}}>
+        <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:8}}>
+          <span style={{fontSize:18,color:accent}}>⚖</span>
+          <h3 style={{fontSize:18,color:T.text,fontFamily:"'Times New Roman', Times, serif",fontWeight:300,margin:0}}>NICN — Originating Summons Form 2</h3>
+          <span style={{fontSize:9,padding:'3px 8px',borderRadius:3,fontFamily:"'Times New Roman', Times, serif",fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase',background:`${accent}15`,border:`1px solid ${accent}30`,color:accent}}>
+            {isClaim?'Applicant (For)':'Respondent (Against)'}
+          </span>
+        </div>
+        <p style={{fontSize:13,color:T.mute,fontFamily:"'Times New Roman', Times, serif",margin:0}}>CBA/collective agreement interpretation, contract construction, pure legal questions suitable for OS procedure before the NICN.</p>
+      </div>
+      <ChecklistBanner items={isClaim?forChecklist:againstChecklist} accent={accent}/>
+      <SubTabBar tabs={tabs} active={activeTab} onSelect={setActiveTab} accent={accent}/>
+      {tabs.map(t=>activeTab===t.id&&(
+        <AIDrafter key={t.id} title={t.label}
+          description={`Draft the ${t.label} for this NICN Originating Summons matter.`}
+          contextLabel="Instructions & Facts" contextPlaceholder={`Provide details for the ${t.label}…`}
+          draftKey={draftKeys[t.id]} contextKey={ctxKeys[t.id]}
+          data={data} onSave={onSave} accent={accent} ai={ai} systemCtx={systemCtx}
+          prompt={makePrompt(t.id)} maxTokens={2000}
+        />
+      ))}
+    </div>
+  );
+}
+
+function NICNJREngine({activeCase,data,onSave,accent,ai,systemCtx}:{activeCase:Case;data:SavedData;onSave:(d:Partial<SavedData>)=>void;accent:string;ai:ReturnType<typeof useAI>;systemCtx:string}) {
+  const isClaim=activeCase.counsel_role==='claimant_side';
+  const sp={data,onSave,accent,ai,systemCtx};
+  const forTabs=[
+    {id:'nicn_jr_motion',label:'Originating Motion'},
+    {id:'nicn_jr_stmt',label:'Statement of Facts'},
+    {id:'nicn_jr_affidavit',label:'Affidavit in Support'},
+    {id:'nicn_jr_address',label:'Written Address'},
+  ];
+  const againstTabs=[
+    {id:'nicn_jr_counter',label:'Counter-Affidavit'},
+    {id:'nicn_jr_opp',label:'Written Address in Opp.'},
+  ];
+  const tabs=isClaim?forTabs:againstTabs;
+  const [activeTab,setActiveTab]=useState(isClaim?'nicn_jr_motion':'nicn_jr_counter');
+  const draftKeys:Record<string,keyof SavedData>={
+    nicn_jr_motion:'nicnJRMotionDraft',nicn_jr_stmt:'nicnJRStmtDraft',nicn_jr_affidavit:'nicnJRAffidavitDraft',
+    nicn_jr_address:'nicnJRAddressDraft',nicn_jr_counter:'nicnJRCounterDraft',nicn_jr_opp:'nicnJROppAddressDraft',
+  };
+  const ctxKeys:Record<string,keyof SavedData>={
+    nicn_jr_motion:'nicnJRMotionContext',nicn_jr_stmt:'nicnJRStmtContext',nicn_jr_affidavit:'nicnJRAffidavitContext',
+    nicn_jr_address:'nicnJRAddressContext',nicn_jr_counter:'nicnJRCounterContext',nicn_jr_opp:'nicnJROppAddressContext',
+  };
+  const makePrompt=(tabId:string)=>(ctx:string,aCase:any,{partyA,partyB}:{partyA:string;partyB:string})=>{
+    const matter=aCase?.caseName??'';
+    const ps:Record<string,string>={
+      nicn_jr_motion:`You are labour counsel for ${partyA} (Applicant) before the NICN — Judicial Review.\n\nMatter: ${matter}\n\nInstructions:\n${ctx}\n\nDraft a complete Originating Motion for Judicial Review before the NICN.\n\nSTRUCTURE:\n1. IN THE NATIONAL INDUSTRIAL COURT — Suit No / parties\n2. ORIGINATING MOTION — [Applicant] will apply for:\n3. Orders sought (certiorari/mandamus/prohibition/declaration/injunction — numbered)\n4. GROUNDS (numbered): ultra vires; breach of fair hearing/natural justice; error on record; procedural impropriety\n5. Reliance: Statement of Facts + Affidavit in Support + Written Address\n6. Enabling statute (NIC Act/NICN Rules)\n7. Counsel endorsement\n\nReturn complete Originating Motion only.`,
+      nicn_jr_stmt:`You are labour counsel for ${partyA} before the NICN — Judicial Review.\n\nMatter: ${matter}\n\nFacts:\n${ctx}\n\nDraft a Statement of Facts in support of the Judicial Review.\n\nSTRUCTURE:\n1. STATEMENT OF FACTS IN SUPPORT OF APPLICATION FOR JUDICIAL REVIEW\n2. Parties\n3. Background (numbered, chronological): decision-maker identity/jurisdiction; decision/omission challenged; procedural history; how Applicant was affected\n4. Grounds: link facts to each ground in the Motion\n5. Why relief is sought\n\nReturn complete Statement of Facts only.`,
+      nicn_jr_affidavit:`You are labour counsel for ${partyA} before the NICN — Judicial Review.\n\nMatter: ${matter}\n\nDeponent and facts:\n${ctx}\n\nDraft a complete Affidavit in Support of the Application for Judicial Review. Exhibit the challenged decision/record and relevant correspondence. Facts only; Jurat included.\n\nReturn complete Affidavit in Support only.`,
+      nicn_jr_address:`You are labour counsel for ${partyA} before the NICN — Judicial Review.\n\nMatter: ${matter}\n\nLegal arguments:\n${ctx}\n\nDraft a Written Address in Support of the Judicial Review.\n\nStructure: Introduction · Issues · Facts · Arguments (per ground, citing NICN Act/admin law/Nigerian JR authorities) · Relief · Authorities.\n\nReturn complete Written Address only.`,
+      nicn_jr_counter:`You are labour counsel for ${partyB} (Respondent) before the NICN — Judicial Review.\n\nMatter: ${matter}\n\nRespondent's position:\n${ctx}\n\nDraft a Counter-Affidavit responding paragraph-by-paragraph to the Affidavit in Support. Exhibit decision record and supporting documents (R1, R2…). Jurat included.\n\nReturn complete Counter-Affidavit only.`,
+      nicn_jr_opp:`You are labour counsel for ${partyB} before the NICN — Judicial Review.\n\nMatter: ${matter}\n\nGrounds of opposition:\n${ctx}\n\nDraft a Written Address in Opposition to the Judicial Review.\n\nStructure: Introduction · Issues (Respondent's formulation) · Facts · Arguments (decision within jurisdiction; fair hearing observed; no reviewable error) · Conclusion · Authorities.\n\nReturn complete Written Address in Opposition only.`,
+    };
+    return ps[tabId]??`Draft ${tabId} for NICN JR matter: ${matter}. Instructions: ${ctx}`;
+  };
+  const forChecklist=[
+    {label:'Originating Motion',done:!!data.nicnJRMotionDraft},
+    {label:'Statement of Facts',done:!!data.nicnJRStmtDraft},
+    {label:'Affidavit in Support',done:!!data.nicnJRAffidavitDraft},
+    {label:'Written Address',done:!!data.nicnJRAddressDraft},
+  ];
+  const againstChecklist=[
+    {label:'Counter-Affidavit',done:!!data.nicnJRCounterDraft},
+    {label:'Written Address in Opp.',done:!!data.nicnJROppAddressDraft},
+  ];
+  return (
+    <div style={{animation:'fadeUp .3s ease'}}>
+      <div style={{marginBottom:24}}>
+        <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:8}}>
+          <span style={{fontSize:18,color:accent}}>⚖</span>
+          <h3 style={{fontSize:18,color:T.text,fontFamily:"'Times New Roman', Times, serif",fontWeight:300,margin:0}}>NICN — Application for Judicial Review</h3>
+          <span style={{fontSize:9,padding:'3px 8px',borderRadius:3,fontFamily:"'Times New Roman', Times, serif",fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase',background:`${accent}15`,border:`1px solid ${accent}30`,color:accent}}>
+            {isClaim?'Applicant (For)':'Respondent (Against)'}
+          </span>
+        </div>
+        <p style={{fontSize:13,color:T.mute,fontFamily:"'Times New Roman', Times, serif",margin:0}}>Review of decisions by labour bodies, employer disciplinary panels, or statutory tribunals within the NICN's supervisory jurisdiction.</p>
+      </div>
+      <ChecklistBanner items={isClaim?forChecklist:againstChecklist} accent={accent}/>
+      <SubTabBar tabs={tabs} active={activeTab} onSelect={setActiveTab} accent={accent}/>
+      {tabs.map(t=>activeTab===t.id&&(
+        <AIDrafter key={t.id} title={t.label}
+          description={`Draft the ${t.label} for this NICN Judicial Review matter.`}
+          contextLabel="Instructions & Facts" contextPlaceholder={`Provide details for the ${t.label}…`}
+          draftKey={draftKeys[t.id]} contextKey={ctxKeys[t.id]}
+          data={data} onSave={onSave} accent={accent} ai={ai} systemCtx={systemCtx}
+          prompt={makePrompt(t.id)} maxTokens={2000}
+        />
+      ))}
+    </div>
+  );
+}
+
+function NICNAppealEngine({activeCase,data,onSave,accent,ai,systemCtx}:{activeCase:Case;data:SavedData;onSave:(d:Partial<SavedData>)=>void;accent:string;ai:ReturnType<typeof useAI>;systemCtx:string}) {
+  const isClaim=activeCase.counsel_role==='claimant_side';
+  const sp={data,onSave,accent,ai,systemCtx};
+  const forTabs=[
+    {id:'nicn_apl_notice',label:'Notice of Appeal'},
+    {id:'nicn_apl_grounds',label:'Grounds of Appeal'},
+    {id:'nicn_apl_brief',label:"Appellant's Brief"},
+  ];
+  const againstTabs=[
+    {id:'nicn_resp_brief',label:"Respondent's Brief"},
+  ];
+  const tabs=isClaim?forTabs:againstTabs;
+  const [activeTab,setActiveTab]=useState(isClaim?'nicn_apl_notice':'nicn_resp_brief');
+  const draftKeys:Record<string,keyof SavedData>={
+    nicn_apl_notice:'nicnAplNoticeDraft',nicn_apl_grounds:'nicnAplGroundsDraft',
+    nicn_apl_brief:'nicnAplBriefDraft',nicn_resp_brief:'nicnRespBriefDraft',
+  };
+  const ctxKeys:Record<string,keyof SavedData>={
+    nicn_apl_notice:'nicnAplNoticeContext',nicn_apl_grounds:'nicnAplGroundsContext',
+    nicn_apl_brief:'nicnAplBriefContext',nicn_resp_brief:'nicnRespBriefContext',
+  };
+  const makePrompt=(tabId:string)=>(ctx:string,aCase:any,{partyA,partyB}:{partyA:string;partyB:string})=>{
+    const matter=aCase?.caseName??'';
+    const ps:Record<string,string>={
+      nicn_apl_notice:`You are labour counsel for ${partyA} (Appellant) appealing from a NICN/tribunal decision.\n\nMatter: ${matter}\n\nInstructions:\n${ctx}\n\nDraft a complete Notice of Appeal.\n\nSTRUCTURE:\n1. IN THE NATIONAL INDUSTRIAL COURT OF NIGERIA (APPEAL DIVISION) — Appeal No: [to be assigned]\n   BETWEEN: [${partyA.toUpperCase()}] — Appellant AND [${partyB.toUpperCase()}] — Respondent\n2. NOTICE OF APPEAL: [Appellant] appeals from the decision/judgment of [Lower Court/Tribunal] delivered on [date] in [Suit No] on the grounds in the Schedule hereto.\n3. SCHEDULE OF GROUNDS: [as set out in Grounds of Appeal]\n4. RELIEF SOUGHT: set aside / vary / substitute\n5. Signed by Appellant/Counsel/Date\n\nReturn complete Notice of Appeal only.`,
+      nicn_apl_grounds:`You are labour counsel for ${partyA} (Appellant).\n\nMatter: ${matter}\n\nGround details:\n${ctx}\n\nDraft the Grounds of Appeal (schedule to the Notice of Appeal).\n\nEach ground must: be numbered; state the error of law/fact/mixed; be self-contained; not contain argument.\n\nCommon NICN grounds: error in NIC Act/Labour Act/CBA interpretation; breach of fair hearing; perverse factual findings; excessive/inadequate award; wrong exercise of discretion.\n\nReturn complete Grounds of Appeal only.`,
+      nicn_apl_brief:`You are labour counsel for ${partyA} (Appellant) before the NICN Appeal Division.\n\nMatter: ${matter}\n\nAppellant's arguments:\n${ctx}\n\nDraft a complete Appellant's Brief of Argument.\n\nSTRUCTURE:\n1. IN THE [COURT] — Appeal No / parties / APPELLANT'S BRIEF OF ARGUMENT\n2. INTRODUCTION: nature of appeal; when judgment delivered; when notice filed\n3. ISSUES FOR DETERMINATION (distilled from grounds — not more than 5)\n4. STATEMENT OF FACTS (Appellant's account of proceedings below)\n5. ARGUMENTS — per issue: principle → Nigerian authorities (NICN/SC/CA) → apply → ground supported\n6. CONCLUSION: appeal allowed; judgment set aside; reliefs sought\n7. AUTHORITIES RELIED UPON\n\nReturn complete Appellant's Brief only.`,
+      nicn_resp_brief:`You are labour counsel for ${partyB} (Respondent) before the NICN Appeal Division.\n\nMatter: ${matter}\n\nRespondent's arguments:\n${ctx}\n\nDraft a complete Respondent's Brief of Argument.\n\nSTRUCTURE:\n1. RESPONDENT'S BRIEF OF ARGUMENT\n2. INTRODUCTION: urges dismissal of appeal\n3. PRELIMINARY OBJECTION (if any): improper grounds; out of time\n4. ISSUES FOR DETERMINATION (Respondent's formulation)\n5. STATEMENT OF FACTS (support judgment below)\n6. ARGUMENTS — per issue: principle → authorities → apply → defend lower court findings → distinguish Appellant's authorities\n7. CONCLUSION: appeal dismissed; judgment affirmed; costs\n8. AUTHORITIES RELIED UPON\n\nReturn complete Respondent's Brief only.`,
+    };
+    return ps[tabId]??`Draft ${tabId} for NICN Appeal: ${matter}. Instructions: ${ctx}`;
+  };
+  const forChecklist=[
+    {label:'Notice of Appeal',done:!!data.nicnAplNoticeDraft},
+    {label:'Grounds of Appeal',done:!!data.nicnAplGroundsDraft},
+    {label:"Appellant's Brief",done:!!data.nicnAplBriefDraft},
+  ];
+  const againstChecklist=[
+    {label:"Respondent's Brief",done:!!data.nicnRespBriefDraft},
+  ];
+  return (
+    <div style={{animation:'fadeUp .3s ease'}}>
+      <div style={{marginBottom:24}}>
+        <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:8}}>
+          <span style={{fontSize:18,color:accent}}>⚖</span>
+          <h3 style={{fontSize:18,color:T.text,fontFamily:"'Times New Roman', Times, serif",fontWeight:300,margin:0}}>NICN — Notice of Appeal</h3>
+          <span style={{fontSize:9,padding:'3px 8px',borderRadius:3,fontFamily:"'Times New Roman', Times, serif",fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase',background:`${accent}15`,border:`1px solid ${accent}30`,color:accent}}>
+            {isClaim?'Appellant (For)':'Respondent (Against)'}
+          </span>
+        </div>
+        <p style={{fontSize:13,color:T.mute,fontFamily:"'Times New Roman', Times, serif",margin:0}}>Appeal from NICN trial division decisions or labour arbitration awards within NICN appellate jurisdiction.</p>
+      </div>
+      <ChecklistBanner items={isClaim?forChecklist:againstChecklist} accent={accent}/>
+      <SubTabBar tabs={tabs} active={activeTab} onSelect={setActiveTab} accent={accent}/>
+      {tabs.map(t=>activeTab===t.id&&(
+        <AIDrafter key={t.id} title={t.label}
+          description={`Draft the ${t.label} for this NICN Appeal matter.`}
+          contextLabel="Instructions & Arguments" contextPlaceholder={`Provide details for the ${t.label}…`}
+          draftKey={draftKeys[t.id]} contextKey={ctxKeys[t.id]}
+          data={data} onSave={onSave} accent={accent} ai={ai} systemCtx={systemCtx}
+          prompt={makePrompt(t.id)} maxTokens={2500}
+        />
+      ))}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PHASE 3C — CUSTOMARY COURT ENGINE
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function CustomaryCourtEngine({activeCase,data,onSave,accent,ai,systemCtx}:{activeCase:Case;data:SavedData;onSave:(d:Partial<SavedData>)=>void;accent:string;ai:ReturnType<typeof useAI>;systemCtx:string}) {
+  const isClaim=activeCase.counsel_role==='claimant_side';
+  const sp={data,onSave,accent,ai,systemCtx};
+  const forTabs=[
+    {id:'cust_summons',label:'Application for Civil Summons'},
+    {id:'cust_complaint',label:'Substance of Complaint'},
+    {id:'cust_wrapper',label:'Customary Summons Wrapper'},
+  ];
+  const againstTabs=[
+    {id:'cust_def_appearance',label:'Notice of Appearance'},
+    {id:'cust_def_stmt',label:'Statement of Defence'},
+  ];
+  const tabs=isClaim?forTabs:againstTabs;
+  const [activeTab,setActiveTab]=useState(isClaim?'cust_summons':'cust_def_appearance');
+  const draftKeys:Record<string,keyof SavedData>={
+    cust_summons:'custSummonsDraft',cust_complaint:'custComplaintDraft',cust_wrapper:'custWrapperDraft',
+    cust_def_appearance:'custDefAppearanceDraft',cust_def_stmt:'custDefStmtDraft',
+  };
+  const ctxKeys:Record<string,keyof SavedData>={
+    cust_summons:'custSummonsContext',cust_complaint:'custComplaintContext',cust_wrapper:'custWrapperContext',
+    cust_def_appearance:'custDefAppearanceContext',cust_def_stmt:'custDefStmtContext',
+  };
+  const makePrompt=(tabId:string)=>(ctx:string,aCase:any,{partyA,partyB}:{partyA:string;partyB:string})=>{
+    const matter=aCase?.caseName??'';
+    const ps:Record<string,string>={
+      cust_summons:`You are counsel for ${partyA} (Complainant) before the Customary Court.\n\nMatter: ${matter}\n\nInstructions:\n${ctx}\n\nDraft an Application for Civil Summons (to compel the Respondent to attend and answer the complaint).\n\nSTRUCTURE:\n1. IN THE CUSTOMARY COURT — [State / Area] / SUIT NO: [to be assigned]\n   BETWEEN: [${partyA.toUpperCase()}] — Complainant AND [${partyB.toUpperCase()}] — Respondent\n2. APPLICATION FOR CIVIL SUMMONS\n3. To the Registrar: I/We apply for a summons to be issued against [Respondent] of [address].\n4. Nature of claim: brief statement of customary law right or obligation relied on\n5. Relief sought: [payment / recovery of property / declaration / injunction under customary law]\n6. Complainant's signature / address\n7. Date\n\nFlag [COUNSEL TO SUPPLY] for missing particulars. Return complete Application only.`,
+      cust_complaint:`You are counsel for ${partyA} (Complainant) before the Customary Court.\n\nMatter: ${matter}\n\nInstructions:\n${ctx}\n\nDraft the Substance of Complaint — the narrative factual statement of the customary law grievance.\n\nSTRUCTURE:\n1. Heading: SUBSTANCE OF COMPLAINT\n2. Complainant identifies themselves and states capacity (family head, landowner, party to customary transaction, etc.)\n3. Numbered paragraphs (chronological):\n   (a) Parties' relationship and the customary law context\n   (b) The subject matter (land, bride price, inheritance, chieftaincy, debt under customary law)\n   (c) Events giving rise to dispute (dates, actions, defaults)\n   (d) Attempts at resolution under custom (family meetings, community elders — if any)\n   (e) How Respondent's conduct violates customary law or the agreement between parties\n4. RELIEF SOUGHT (specific and customary): recovery of [land/property], payment of [bride price], recognition of [inheritance right], etc.\n5. Signed by Complainant/Counsel\n\nFlag [COUNSEL TO SUPPLY] where needed. Return complete Substance of Complaint only.`,
+      cust_wrapper:`You are counsel for ${partyA} before the Customary Court.\n\nMatter: ${matter}\n\nDetails:\n${ctx}\n\nDraft the Customary Summons Wrapper — the court-issued summons document commanding the Respondent to appear.\n\nSTRUCTURE:\n1. IN THE CUSTOMARY COURT — [State / Area] / SUIT NO: [to be assigned]\n2. CUSTOMARY COURT SUMMONS\n3. To: [${partyB.toUpperCase()}] of [address]:\n   YOU ARE HEREBY SUMMONED to appear before this Court on [date] at [time] at [court address] to answer the complaint of [${partyA}].\n4. Nature of claim: [brief statement]\n5. TAKE NOTICE: failure to appear may result in judgment in your absence.\n6. Dated and sealed: Registrar / President of Customary Court\n\nReturn complete Summons Wrapper only.`,
+      cust_def_appearance:`You are counsel for ${partyB} (Respondent) before the Customary Court.\n\nMatter: ${matter}\n\nRespondent details:\n${ctx}\n\nDraft a Notice of Appearance in response to the customary summons.\n\nSTRUCTURE:\n1. IN THE CUSTOMARY COURT — Suit No / parties\n2. NOTICE OF APPEARANCE\n3. TAKE NOTICE that [${partyB}] of [address] appears in answer to the summons issued herein.\n4. Respondent [intends to defend the complaint / intends to file a written Statement of Defence / will defend orally at hearing].\n5. Signed by Respondent / Counsel\n\nReturn complete Notice of Appearance only.`,
+      cust_def_stmt:`You are counsel for ${partyB} (Respondent) before the Customary Court.\n\nMatter: ${matter}\n\nDefence instructions:\n${ctx}\n\nDraft a Statement of Defence (where written defence is filed — note: oral defence is also permissible before Customary Courts).\n\nSTRUCTURE:\n1. IN THE CUSTOMARY COURT — STATEMENT OF DEFENCE OF [${partyB.toUpperCase()}]\n2. Respondent denies the complaint save as herein admitted.\n3. Numbered paragraphs responding to each allegation in the Substance of Complaint: admit / deny / explanation under customary law\n4. Respondent's version of customary law position (family meetings, recognised custom, prior agreements)\n5. WHEREFORE: complaint dismissed\n6. Signed by Respondent/Counsel\n\nReturn complete Statement of Defence only.`,
+    };
+    return ps[tabId]??`Draft ${tabId} for Customary Court matter: ${matter}. Instructions: ${ctx}`;
+  };
+  const forChecklist=[
+    {label:'Application for Civil Summons',done:!!data.custSummonsDraft},
+    {label:'Substance of Complaint',done:!!data.custComplaintDraft},
+    {label:'Customary Summons Wrapper',done:!!data.custWrapperDraft},
+  ];
+  const againstChecklist=[
+    {label:'Notice of Appearance',done:!!data.custDefAppearanceDraft},
+    {label:'Statement of Defence',done:!!data.custDefStmtDraft},
+  ];
+  return (
+    <div style={{animation:'fadeUp .3s ease'}}>
+      <div style={{marginBottom:24}}>
+        <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:8}}>
+          <span style={{fontSize:18,color:accent}}>🏡</span>
+          <h3 style={{fontSize:18,color:T.text,fontFamily:"'Times New Roman', Times, serif",fontWeight:300,margin:0}}>Customary Court — Civil Summons</h3>
+          <span style={{fontSize:9,padding:'3px 8px',borderRadius:3,fontFamily:"'Times New Roman', Times, serif",fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase',background:`${accent}15`,border:`1px solid ${accent}30`,color:accent}}>
+            {isClaim?'Complainant (For)':'Respondent (Against)'}
+          </span>
+        </div>
+        <p style={{fontSize:13,color:T.mute,fontFamily:"'Times New Roman', Times, serif",margin:0}}>Customary law disputes — land, inheritance, bride price, chieftaincy, family property, and obligations arising under native law and custom. Oral defence is permissible.</p>
+      </div>
+      <ChecklistBanner items={isClaim?forChecklist:againstChecklist} accent={accent}/>
+      <SubTabBar tabs={tabs} active={activeTab} onSelect={setActiveTab} accent={accent}/>
+      {tabs.map(t=>activeTab===t.id&&(
+        <AIDrafter key={t.id} title={t.label}
+          description={`Draft the ${t.label} for this Customary Court matter.`}
+          contextLabel="Instructions & Facts" contextPlaceholder={`Provide details for the ${t.label}…`}
+          draftKey={draftKeys[t.id]} contextKey={ctxKeys[t.id]}
+          data={data} onSave={onSave} accent={accent} ai={ai} systemCtx={systemCtx}
+          prompt={makePrompt(t.id)} maxTokens={1800}
+        />
+      ))}
+    </div>
+  );
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PHASE 3C — MAGISTRATE COURT TRACK A (ORDINARY SUMMONS)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function MagistrateTrackAEngine({activeCase,data,onSave,accent,ai,systemCtx}:{activeCase:Case;data:SavedData;onSave:(d:Partial<SavedData>)=>void;accent:string;ai:ReturnType<typeof useAI>;systemCtx:string}) {
+  const isClaim=activeCase.counsel_role==='claimant_side';
+  const sp={data,onSave,accent,ai,systemCtx};
+  const forTabs=[
+    {id:'mag_a_praecipe',label:'Praecipe for Summons (Form 1)'},
+    {id:'mag_a_particulars',label:'Particulars of Claim'},
+    {id:'mag_a_plaint',label:'Plaint Note (Form 2)'},
+    {id:'mag_a_witness',label:'Witness Statements'},
+  ];
+  const againstTabs=[
+    {id:'mag_a_def_appearance',label:'Notice of Appearance'},
+    {id:'mag_a_def_counter',label:'Counter-Claim / Special Defence'},
+  ];
+  const tabs=isClaim?forTabs:againstTabs;
+  const [activeTab,setActiveTab]=useState(isClaim?'mag_a_praecipe':'mag_a_def_appearance');
+  const draftKeys:Record<string,keyof SavedData>={
+    mag_a_praecipe:'magAPraecipeDraft',mag_a_particulars:'magAParticularsDraft',
+    mag_a_plaint:'magAPlaintNoteDraft',mag_a_witness:'magAWitnessDraft',
+    mag_a_def_appearance:'magADefAppearanceDraft',mag_a_def_counter:'magADefCounterDraft',
+  };
+  const ctxKeys:Record<string,keyof SavedData>={
+    mag_a_praecipe:'magAPraecipeContext',mag_a_particulars:'magAParticularsContext',
+    mag_a_plaint:'magAPlaintNoteContext',mag_a_witness:'magAWitnessContext',
+    mag_a_def_appearance:'magADefAppearanceContext',mag_a_def_counter:'magADefCounterContext',
+  };
+  const makePrompt=(tabId:string)=>(ctx:string,aCase:any,{partyA,partyB}:{partyA:string;partyB:string})=>{
+    const matter=aCase?.caseName??'';
+    const ps:Record<string,string>={
+      mag_a_praecipe:`You are counsel for ${partyA} (Claimant/Plaintiff) before a Magistrate Court (Southern Nigeria).\n\nMatter: ${matter}\n\nInstructions:\n${ctx}\n\nDraft a Praecipe for Summons (Magistrate Court Form 1) — the request to the registrar to issue a summons.\n\nSTRUCTURE:\n1. IN THE MAGISTRATE COURT — [State] / [Magisterial District] / SUIT NO: [to be assigned]\n   BETWEEN: [${partyA.toUpperCase()}] — Claimant AND [${partyB.toUpperCase()}] — Defendant\n2. PRAECIPE FOR SUMMONS (FORM 1)\n3. To the Registrar:\n   Issue a summons in this suit for service on [Defendant] of [address].\n4. Nature of claim: [brief]\n5. Amount claimed / relief sought\n6. Claimant's address for service\n7. Signed by Claimant/Counsel / Date\n\nFlag [COUNSEL TO SUPPLY] where needed. Return complete Praecipe only.`,
+      mag_a_particulars:`You are counsel for ${partyA} (Claimant) before the Magistrate Court.\n\nMatter: ${matter}\n\nInstructions:\n${ctx}\n\nDraft Particulars of Claim — the detailed statement of the claimant's cause of action.\n\nSTRUCTURE:\n1. PARTICULARS OF CLAIM — Suit No / parties\n2. Numbered paragraphs (one fact per paragraph):\n   (a) Parties and their relationship\n   (b) The contract/obligation/duty\n   (c) The breach or wrong\n   (d) Loss and damage suffered\n   (e) Any demand made and response (or none)\n3. CLAIM: the Claimant claims from the Defendant:\n   (a) ₦[amount] [or specific relief]\n   (b) Interest at [rate]% per annum from [date]\n   (c) Costs\n4. Signed by Claimant/Counsel\n\nFlag [COUNSEL TO SUPPLY] where needed. Return complete Particulars of Claim only.`,
+      mag_a_plaint:`You are counsel for ${partyA} (Claimant) before the Magistrate Court.\n\nMatter: ${matter}\n\nInstructions:\n${ctx}\n\nDraft the Plaint Note (Magistrate Court Form 2) — the court's record of the claim.\n\nSTRUCTURE:\n1. MAGISTRATE COURT — [State] — PLAINT NOTE (FORM 2)\n2. Suit No: [to be assigned] / Date:\n3. Claimant: Name / Address / Occupation\n4. Defendant: Name / Address / Occupation\n5. Nature of claim: [one sentence]\n6. Amount claimed: ₦[amount] (where monetary)\n7. Relief sought: [specific orders]\n8. Hearing date: [to be fixed by court]\n9. Signed: Registrar (court copy) / Counsel (service copy)\n\nReturn complete Plaint Note only.`,
+      mag_a_witness:`You are counsel for ${partyA} (Claimant) before the Magistrate Court.\n\nMatter: ${matter}\n\nWitness details:\n${ctx}\n\nDraft a Witness Statement for use at the Magistrate Court hearing.\n\nSTRUCTURE:\n1. IN THE MAGISTRATE COURT — Suit No / parties\n   WITNESS STATEMENT OF [NAME] (PW[number])\n2. \"I, [NAME], of [address], [occupation], state on oath as follows:\"\n3. Numbered paragraphs:\n   - Identity and relationship to Claimant/matter\n   - Knowledge of events (dates, facts, exhibits)\n   - Reference to documentary exhibits: Exhibit [A], [B]…\n4. \"I make this statement knowing that it may be used as evidence in these proceedings.\"\n5. Signed by witness / Jurat\n\nReturn complete Witness Statement only.`,
+      mag_a_def_appearance:`You are counsel for ${partyB} (Defendant) before the Magistrate Court.\n\nMatter: ${matter}\n\nDefendant details:\n${ctx}\n\nDraft a Notice of Appearance in response to the Magistrate Court summons.\n\nSTRUCTURE:\n1. IN THE MAGISTRATE COURT — Suit No / parties\n2. NOTICE OF APPEARANCE\n3. TAKE NOTICE that [${partyB}] of [address] appears in answer to the summons.\n4. Defendant [intends to defend the claim / will file a counterclaim / intends to raise a special defence].\n5. Address for service of Defendant/Counsel\n6. Signed by Defendant/Counsel / Date\n\nReturn complete Notice of Appearance only.`,
+      mag_a_def_counter:`You are counsel for ${partyB} (Defendant) before the Magistrate Court.\n\nMatter: ${matter}\n\nDefence / counterclaim instructions:\n${ctx}\n\nDraft a Counter-Claim and/or Special Defence for the Magistrate Court.\n\nSTRUCTURE (use whichever sections apply):\n\nPART A — SPECIAL DEFENCE (if applicable):\n1. SPECIAL DEFENCE — [nature: limitation, estoppel, payment, set-off, accord and satisfaction, etc.]\n2. Numbered paragraphs stating the defence\n3. WHEREFORE: claim dismissed\n\nPART B — COUNTER-CLAIM (if applicable):\n1. COUNTER-CLAIM\n2. Particulars of Defendant's claim against Claimant\n3. DEFENDANT CLAIMS: ₦[amount] / [specific relief] / costs\n\nCounsel endorsement for Defendant.\n\nReturn the applicable sections only.`,
+    };
+    return ps[tabId]??`Draft ${tabId} for Magistrate Court Track A matter: ${matter}. Instructions: ${ctx}`;
+  };
+  const forChecklist=[
+    {label:'Praecipe for Summons (Form 1)',done:!!data.magAPraecipeDraft},
+    {label:'Particulars of Claim',done:!!data.magAParticularsDraft},
+    {label:'Plaint Note (Form 2)',done:!!data.magAPlaintNoteDraft},
+    {label:'Witness Statements',done:!!data.magAWitnessDraft},
+  ];
+  const againstChecklist=[
+    {label:'Notice of Appearance',done:!!data.magADefAppearanceDraft},
+    {label:'Counter-Claim / Special Defence',done:!!data.magADefCounterDraft},
+  ];
+  return (
+    <div style={{animation:'fadeUp .3s ease'}}>
+      <div style={{marginBottom:24}}>
+        <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:8}}>
+          <span style={{fontSize:18,color:accent}}>⚖</span>
+          <h3 style={{fontSize:18,color:T.text,fontFamily:"'Times New Roman', Times, serif",fontWeight:300,margin:0}}>Magistrate Court — Ordinary Summons (Track A)</h3>
+          <span style={{fontSize:9,padding:'3px 8px',borderRadius:3,fontFamily:"'Times New Roman', Times, serif",fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase',background:`${accent}15`,border:`1px solid ${accent}30`,color:accent}}>
+            {isClaim?'Claimant (For)':'Defendant (Against)'}
+          </span>
+        </div>
+        <p style={{fontSize:13,color:T.mute,fontFamily:"'Times New Roman', Times, serif",margin:0}}>General civil claims within Magistrate Court jurisdiction (Southern Nigeria). Ordinary summons track for contract, tort, and property disputes below the High Court monetary threshold.</p>
+      </div>
+      <ChecklistBanner items={isClaim?forChecklist:againstChecklist} accent={accent}/>
+      <SubTabBar tabs={tabs} active={activeTab} onSelect={setActiveTab} accent={accent}/>
+      {tabs.map(t=>activeTab===t.id&&(
+        <AIDrafter key={t.id} title={t.label}
+          description={`Draft the ${t.label} for this Magistrate Court Track A matter.`}
+          contextLabel="Instructions & Facts" contextPlaceholder={`Provide details for the ${t.label}…`}
+          draftKey={draftKeys[t.id]} contextKey={ctxKeys[t.id]}
+          data={data} onSave={onSave} accent={accent} ai={ai} systemCtx={systemCtx}
+          prompt={makePrompt(t.id)} maxTokens={1800}
+        />
+      ))}
+    </div>
+  );
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PHASE 3C — MAGISTRATE COURT TRACK B (DEFAULT SUMMONS / DEBT RECOVERY)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function MagistrateTrackBEngine({activeCase,data,onSave,accent,ai,systemCtx}:{activeCase:Case;data:SavedData;onSave:(d:Partial<SavedData>)=>void;accent:string;ai:ReturnType<typeof useAI>;systemCtx:string}) {
+  const isClaim=activeCase.counsel_role==='claimant_side';
+  const sp={data,onSave,accent,ai,systemCtx};
+  const forTabs=[
+    {id:'mag_b_praecipe',label:'Praecipe'},
+    {id:'mag_b_particulars',label:'Particulars of Claim'},
+    {id:'mag_b_plaint',label:'Plaint Note'},
+  ];
+  const againstTabs=[
+    {id:'mag_b_def_intent',label:'Notice of Intention to Defend'},
+    {id:'mag_b_def_affidavit',label:'Affidavit — Good Defence on Merits'},
+  ];
+  const tabs=isClaim?forTabs:againstTabs;
+  const [activeTab,setActiveTab]=useState(isClaim?'mag_b_praecipe':'mag_b_def_intent');
+  const draftKeys:Record<string,keyof SavedData>={
+    mag_b_praecipe:'magBPraecipeDraft',mag_b_particulars:'magBParticularsDraft',mag_b_plaint:'magBPlaintNoteDraft',
+    mag_b_def_intent:'magBDefIntentDraft',mag_b_def_affidavit:'magBDefAffidavitDraft',
+  };
+  const ctxKeys:Record<string,keyof SavedData>={
+    mag_b_praecipe:'magBPraecipeContext',mag_b_particulars:'magBParticularsContext',mag_b_plaint:'magBPlaintNoteContext',
+    mag_b_def_intent:'magBDefIntentContext',mag_b_def_affidavit:'magBDefAffidavitContext',
+  };
+  const makePrompt=(tabId:string)=>(ctx:string,aCase:any,{partyA,partyB}:{partyA:string;partyB:string})=>{
+    const matter=aCase?.caseName??'';
+    const ps:Record<string,string>={
+      mag_b_praecipe:`You are counsel for ${partyA} (Claimant/Creditor) before a Magistrate Court — Default Summons (Debt Recovery) track.\n\nMatter: ${matter}\n\nInstructions:\n${ctx}\n\nDraft a Praecipe for Default Summons — application to issue a default summons for recovery of a liquidated debt.\n\nSTRUCTURE:\n1. IN THE MAGISTRATE COURT — [State] / [Magisterial District] / SUIT NO: [to be assigned]\n   BETWEEN: [${partyA.toUpperCase()}] — Claimant AND [${partyB.toUpperCase()}] — Defendant\n2. PRAECIPE FOR DEFAULT SUMMONS\n3. To the Registrar:\n   Issue a DEFAULT SUMMONS against [Defendant] of [address] for a liquidated debt of ₦[amount].\n4. Brief particulars of debt: [how it arose, when due]\n5. Claimant's address for service\n6. Signed by Claimant/Counsel / Date\n\nFlag [COUNSEL TO SUPPLY] where needed. Return complete Praecipe only.`,
+      mag_b_particulars:`You are counsel for ${partyA} (Claimant/Creditor) before the Magistrate Court — Default Summons track.\n\nMatter: ${matter}\n\nInstructions:\n${ctx}\n\nDraft Particulars of Claim for a liquidated debt recovery action.\n\nSTRUCTURE:\n1. PARTICULARS OF CLAIM (LIQUIDATED DEBT) — Suit No / parties\n2. Numbered paragraphs:\n   (a) Parties\n   (b) How the debt arose (contract, loan, services rendered, goods supplied — with dates)\n   (c) Amount due and owing\n   (d) Demand made on [date] and failure to pay\n3. CLAIM: ₦[amount] + interest at [rate]% per annum from [date] + costs\n4. NOTE: This is a liquidated demand — amount is certain and not subject to assessment.\n5. Signed by Claimant/Counsel\n\nFlag [COUNSEL TO SUPPLY] where needed. Return complete Particulars only.`,
+      mag_b_plaint:`You are counsel for ${partyA} (Claimant) before the Magistrate Court — Default Summons track.\n\nMatter: ${matter}\n\nDetails:\n${ctx}\n\nDraft the Plaint Note for a Default Summons matter. Same Form 2 structure but mark clearly as DEFAULT SUMMONS for a liquidated claim. Include: court heading; parties; amount; nature (liquidated debt); hearing date (to be fixed); registrar signature block.\n\nReturn complete Plaint Note only.`,
+      mag_b_def_intent:`You are counsel for ${partyB} (Defendant/Debtor) before the Magistrate Court — Default Summons track.\n\nMatter: ${matter}\n\nDefendant's position:\n${ctx}\n\nDraft a Notice of Intention to Defend — the document filed to prevent default judgment from being entered against the Defendant.\n\nSTRUCTURE:\n1. IN THE MAGISTRATE COURT — Suit No / parties\n2. NOTICE OF INTENTION TO DEFEND\n3. TAKE NOTICE that [${partyB}] of [address] intends to defend the claim herein.\n4. Brief grounds for defence: [debt disputed / paid / set-off / statute-barred / defective service]\n5. Defendant undertakes to file an Affidavit Disclosing a Good Defence on the Merits.\n6. Signed by Defendant/Counsel / Date\n\nReturn complete Notice only.`,
+      mag_b_def_affidavit:`You are counsel for ${partyB} (Defendant/Debtor) before the Magistrate Court — Default Summons track.\n\nMatter: ${matter}\n\nDefendant's factual position:\n${ctx}\n\nDraft an Affidavit Disclosing a Good Defence on the Merits — required to resist default judgment on a liquidated claim.\n\nSTRUCTURE:\n1. IN THE MAGISTRATE COURT — AFFIDAVIT DISCLOSING GOOD DEFENCE ON THE MERITS\n2. \"I, [NAME], of [address], [occupation], make oath and state:\"\n3. Numbered paragraphs:\n   (a) Defendant's identity and capacity\n   (b) The claim is [disputed / fully paid / partially paid]: specific facts\n   (c) Date(s) and mode(s) of payment (if any) with exhibit references\n   (d) Legal defence relied on: set-off / counterclaim / statute of limitations / invalidity of contract\n   (e) Defence is bona fide and not for delay\n4. WHEREFORE: application for leave to defend unconditionally (or conditionally)\n5. Jurat\n\nFlag [COUNSEL TO SUPPLY] where needed. Return complete Affidavit only.`,
+    };
+    return ps[tabId]??`Draft ${tabId} for Magistrate Court Track B debt recovery matter: ${matter}. Instructions: ${ctx}`;
+  };
+  const forChecklist=[
+    {label:'Praecipe',done:!!data.magBPraecipeDraft},
+    {label:'Particulars of Claim',done:!!data.magBParticularsDraft},
+    {label:'Plaint Note',done:!!data.magBPlaintNoteDraft},
+  ];
+  const againstChecklist=[
+    {label:'Notice of Intention to Defend',done:!!data.magBDefIntentDraft},
+    {label:'Affidavit — Good Defence on Merits',done:!!data.magBDefAffidavitDraft},
+  ];
+  return (
+    <div style={{animation:'fadeUp .3s ease'}}>
+      <div style={{marginBottom:24}}>
+        <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:8}}>
+          <span style={{fontSize:18,color:accent}}>💰</span>
+          <h3 style={{fontSize:18,color:T.text,fontFamily:"'Times New Roman', Times, serif",fontWeight:300,margin:0}}>Magistrate Court — Default Summons (Track B)</h3>
+          <span style={{fontSize:9,padding:'3px 8px',borderRadius:3,fontFamily:"'Times New Roman', Times, serif",fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase',background:`${accent}15`,border:`1px solid ${accent}30`,color:accent}}>
+            {isClaim?'Claimant / Creditor (For)':'Defendant / Debtor (Against)'}
+          </span>
+        </div>
+        <p style={{fontSize:13,color:T.mute,fontFamily:"'Times New Roman', Times, serif",margin:0}}>Fast-track debt recovery for liquidated claims before the Magistrate Court (Southern Nigeria). Defendant must file a Notice of Intention to Defend and Affidavit of Merits to resist default judgment.</p>
+      </div>
+      <ChecklistBanner items={isClaim?forChecklist:againstChecklist} accent={accent}/>
+      <SubTabBar tabs={tabs} active={activeTab} onSelect={setActiveTab} accent={accent}/>
+      {tabs.map(t=>activeTab===t.id&&(
+        <AIDrafter key={t.id} title={t.label}
+          description={`Draft the ${t.label} for this Magistrate Court Track B (debt) matter.`}
+          contextLabel="Instructions & Facts" contextPlaceholder={`Provide details for the ${t.label}…`}
+          draftKey={draftKeys[t.id]} contextKey={ctxKeys[t.id]}
+          data={data} onSave={onSave} accent={accent} ai={ai} systemCtx={systemCtx}
+          prompt={makePrompt(t.id)} maxTokens={1800}
+        />
+      ))}
+    </div>
+  );
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PHASE 3C — SMALL CLAIMS COURT ENGINE
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function SmallClaimsEngine({activeCase,data,onSave,accent,ai,systemCtx}:{activeCase:Case;data:SavedData;onSave:(d:Partial<SavedData>)=>void;accent:string;ai:ReturnType<typeof useAI>;systemCtx:string}) {
+  const isClaim=activeCase.counsel_role==='claimant_side';
+  const sp={data,onSave,accent,ai,systemCtx};
+  const forTabs=[
+    {id:'sca_demand',label:'Form SCA 1 — Demand Letter'},
+    {id:'sca_claim',label:'Form SCA 2 & SCA 3 — Claim Forms'},
+  ];
+  const againstTabs=[
+    {id:'sca_def_response',label:'Form SCA 5 — Defence / Counterclaim'},
+  ];
+  const tabs=isClaim?forTabs:againstTabs;
+  const [activeTab,setActiveTab]=useState(isClaim?'sca_demand':'sca_def_response');
+  const draftKeys:Record<string,keyof SavedData>={
+    sca_demand:'scaDemandDraft',sca_claim:'scaClaimFormDraft',sca_def_response:'scaDefResponseDraft',
+  };
+  const ctxKeys:Record<string,keyof SavedData>={
+    sca_demand:'scaDemandContext',sca_claim:'scaClaimFormContext',sca_def_response:'scaDefResponseContext',
+  };
+  const makePrompt=(tabId:string)=>(ctx:string,aCase:any,{partyA,partyB}:{partyA:string;partyB:string})=>{
+    const matter=aCase?.caseName??'';
+    const ps:Record<string,string>={
+      sca_demand:`You are counsel for ${partyA} (Claimant) before the Small Claims Court (Fast-Track Magistrate Division).\n\nMatter: ${matter}\n\nInstructions:\n${ctx}\n\nDraft a 7-Day Letter of Demand (Form SCA 1) — the mandatory pre-filing demand required before issuing small claims proceedings.\n\nSTRUCTURE:\n1. [${partyA}'s address]\n2. Date\n3. [${partyB}'s address]\n4. LETTER OF DEMAND (SMALL CLAIMS — FORM SCA 1)\n5. Dear Sir/Madam,\n6. RE: DEMAND FOR PAYMENT OF ₦[AMOUNT] — [BRIEF DESCRIPTION OF CLAIM]\n7. Body:\n   (a) Basis of claim: [contract, services, goods, loan — with dates and amounts]\n   (b) Total amount owed: ₦[amount] (itemise if multiple heads)\n   (c) DEMAND: payment in full within SEVEN (7) DAYS of this letter\n   (d) Consequence: failure will result in proceedings at the Small Claims Court without further notice\n8. Signed by Claimant/Counsel\n\nPre-filing note: retain proof of delivery. Flag [COUNSEL TO SUPPLY] where needed. Return complete SCA 1 only.`,
+      sca_claim:`You are counsel for ${partyA} (Claimant) before the Small Claims Court.\n\nMatter: ${matter}\n\nInstructions:\n${ctx}\n\nDraft Form SCA 2 (Claim Form) and Form SCA 3 (Statement of Claim / Particulars) for filing at the Small Claims Court.\n\nFORM SCA 2 — SMALL CLAIMS COURT CLAIM FORM:\n1. Court heading: SMALL CLAIMS COURT — [State] / [Magistrate District] / SUIT NO: [to be assigned]\n2. Claimant: Full name / address / phone / email\n3. Defendant: Full name / address / phone / email\n4. Amount claimed: ₦[amount]\n5. Brief description of claim (one sentence)\n6. Supporting documents annexed: [list receipts/contracts/invoices]\n7. Claimant's signature / Date\n\nFORM SCA 3 — PARTICULARS OF CLAIM (small claims version):\n1. Heading: PARTICULARS OF CLAIM\n2. Numbered paragraphs (plain language):\n   (a) What the Defendant owes and why\n   (b) Dates, amounts, transactions\n   (c) Demand made: SCA 1 letter dated [date]; no response / partial payment only\n3. CLAIM: ₦[amount] + costs\n4. Annexed evidence: receipts, invoices, agreements, photographs — listed as Exhibit A, B, C…\n\nFlag [COUNSEL TO SUPPLY] where needed. Return both forms clearly delineated.`,
+      sca_def_response:`You are counsel for ${partyB} (Defendant) before the Small Claims Court.\n\nMatter: ${matter}\n\nDefendant's position:\n${ctx}\n\nDraft Form SCA 5 — the combined Admission / Defence / Counterclaim response sheet for the Small Claims Court.\n\nFORM SCA 5 — ADMISSION / DEFENCE / COUNTERCLAIM:\n1. Court heading: SMALL CLAIMS COURT — Suit No / parties\n2. SECTION A — DEFENDANT'S RESPONSE (tick and complete the applicable option):\n   ☐ FULL ADMISSION: I admit the full claim of ₦[amount] and propose to pay by [date/instalments]\n   ☐ PARTIAL ADMISSION: I admit ₦[amount] only. Reason for partial admission: [explain]\n   ☐ FULL DEFENCE: I deny the claim entirely. Grounds:\n3. SECTION B — GROUNDS OF DEFENCE (where disputing):\n   Numbered paragraphs: deny each allegation with specific facts; state date(s) and mode(s) of payment if already paid; exhibit receipts/correspondence marked Exhibit D1, D2…\n4. SECTION C — COUNTERCLAIM (if applicable):\n   Defendant's claim against Claimant: ₦[amount] for [brief reason]\n5. Defendant's address for service / phone / email\n6. Signed by Defendant/Counsel / Date\n\nFlag [COUNSEL TO SUPPLY] where needed. Return complete Form SCA 5 only.`,
+    };
+    return ps[tabId]??`Draft ${tabId} for Small Claims Court matter: ${matter}. Instructions: ${ctx}`;
+  };
+  const forChecklist=[
+    {label:'Form SCA 1 — 7-Day Demand',done:!!data.scaDemandDraft},
+    {label:'Form SCA 2 & SCA 3 — Claim Forms',done:!!data.scaClaimFormDraft},
+  ];
+  const againstChecklist=[
+    {label:'Form SCA 5 — Defence / Counterclaim',done:!!data.scaDefResponseDraft},
+  ];
+  return (
+    <div style={{animation:'fadeUp .3s ease'}}>
+      <div style={{marginBottom:24}}>
+        <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:8}}>
+          <span style={{fontSize:18,color:accent}}>🗂</span>
+          <h3 style={{fontSize:18,color:T.text,fontFamily:"'Times New Roman', Times, serif",fontWeight:300,margin:0}}>Small Claims Court — Fast-Track</h3>
+          <span style={{fontSize:9,padding:'3px 8px',borderRadius:3,fontFamily:"'Times New Roman', Times, serif",fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase',background:`${accent}15`,border:`1px solid ${accent}30`,color:accent}}>
+            {isClaim?'Claimant (For)':'Defendant (Against)'}
+          </span>
+        </div>
+        <p style={{fontSize:13,color:T.mute,fontFamily:"'Times New Roman', Times, serif",margin:0}}>Fast-track Magistrate Division for small civil claims. 7-day pre-filing demand (SCA 1) is mandatory. Simple, plain-language forms. Parties may appear without legal representation.</p>
+        {isClaim&&<div style={{marginTop:12,background:`${accent}08`,border:`1px solid ${accent}20`,borderRadius:7,padding:'10px 14px'}}><p style={{fontSize:12,color:accent,fontFamily:"'Times New Roman', Times, serif",margin:0}}>⚠ <strong>Pre-filing:</strong> SCA 1 demand must be served and 7 days must have elapsed before filing SCA 2 & SCA 3. Retain proof of delivery.</p></div>}
+      </div>
+      <ChecklistBanner items={isClaim?forChecklist:againstChecklist} accent={accent}/>
+      <SubTabBar tabs={tabs} active={activeTab} onSelect={setActiveTab} accent={accent}/>
+      {tabs.map(t=>activeTab===t.id&&(
+        <AIDrafter key={t.id} title={t.label}
+          description={`Draft the ${t.label} for this Small Claims Court matter.`}
+          contextLabel="Instructions & Facts" contextPlaceholder={`Provide details for the ${t.label}…`}
+          draftKey={draftKeys[t.id]} contextKey={ctxKeys[t.id]}
+          data={data} onSave={onSave} accent={accent} ai={ai} systemCtx={systemCtx}
+          prompt={makePrompt(t.id)} maxTokens={1600}
+        />
+      ))}
+    </div>
+  );
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PHASE 3D — ELECTION PETITIONS TRIBUNAL ENGINE
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function ElectionPetitionEngine({activeCase,data,onSave,accent,ai,systemCtx}:{activeCase:Case;data:SavedData;onSave:(d:Partial<SavedData>)=>void;accent:string;ai:ReturnType<typeof useAI>;systemCtx:string}) {
+  const isClaim=activeCase.counsel_role==='claimant_side';
+  const sp={data,onSave,accent,ai,systemCtx};
+  const forTabs=[
+    {id:'ept_petition',label:'Election Petition (TF 001)'},
+    {id:'ept_grounds',label:'Grounds of Petition'},
+    {id:'ept_witness_list',label:'List of Witnesses'},
+    {id:'ept_depositions',label:'Pre-trial Witness Depositions'},
+    {id:'ept_doc_schedule',label:'Documentary Evidence Schedule'},
+    {id:'ept_address',label:'Written Address'},
+  ];
+  const againstTabs=[
+    {id:'ept_resp_reply',label:"Respondent's Reply to Petition"},
+    {id:'ept_resp_witness',label:'List of Witnesses'},
+    {id:'ept_resp_dep',label:'Pre-trial Witness Depositions'},
+    {id:'ept_resp_doc',label:'Documentary Evidence Schedule'},
+    {id:'ept_resp_address',label:'Written Address in Opposition'},
+  ];
+  const tabs=isClaim?forTabs:againstTabs;
+  const [activeTab,setActiveTab]=useState(isClaim?'ept_petition':'ept_resp_reply');
+  const draftKeys:Record<string,keyof SavedData>={
+    ept_petition:'eptPetitionDraft',ept_grounds:'eptGroundsDraft',ept_witness_list:'eptWitnessListDraft',
+    ept_depositions:'eptDepositionsDraft',ept_doc_schedule:'eptDocScheduleDraft',ept_address:'eptAddressDraft',
+    ept_resp_reply:'eptRespReplyDraft',ept_resp_witness:'eptRespWitnessDraft',
+    ept_resp_dep:'eptRespWitnessDraft',ept_resp_doc:'eptRespDocDraft',ept_resp_address:'eptRespAddressDraft',
+  };
+  const ctxKeys:Record<string,keyof SavedData>={
+    ept_petition:'eptPetitionContext',ept_grounds:'eptGroundsContext',ept_witness_list:'eptWitnessListContext',
+    ept_depositions:'eptDepositionsContext',ept_doc_schedule:'eptDocScheduleContext',ept_address:'eptAddressContext',
+    ept_resp_reply:'eptRespReplyContext',ept_resp_witness:'eptRespWitnessContext',
+    ept_resp_dep:'eptRespWitnessContext',ept_resp_doc:'eptRespDocContext',ept_resp_address:'eptRespAddressContext',
+  };
+  const makePrompt=(tabId:string)=>(ctx:string,aCase:any,{partyA,partyB}:{partyA:string;partyB:string})=>{
+    const matter=aCase?.caseName??'';
+    const ps:Record<string,string>={
+      ept_petition:`You are Nigerian election litigation counsel acting for ${partyA} (Petitioner) before the Election Petitions Tribunal.\n\nMatter: ${matter}\n\nInstructions:\n${ctx}\n\nDraft a complete Election Petition (Form TF 001) under the Electoral Act 2022 and the First Schedule (Election Tribunal and Court Practice Directions).\n\nSTRUCTURE:\n1. ELECTION PETITIONS TRIBUNAL — [State / Federal Constituency / Senatorial District] — EPT/[STATE]/[NO]/[YEAR]\n2. PARTIES: [${partyA}] — Petitioner; [${partyB}] — 1st Respondent; INEC — 2nd Respondent; Returning Officer — 3rd Respondent (as applicable)\n3. ELECTION PETITION\n4. Introduction: office contested, date of election, date of declaration of result\n5. Petitioner's qualification and interest (candidate / political party)\n6. GROUNDS OF PETITION (reserved for Grounds document — reference them here)\n7. PARTICULARS: detailed factual particulars supporting each ground\n8. RELIEFS SOUGHT:\n   (a) Declaration that the election is void / Petitioner was duly elected\n   (b) Cancellation of return of ${partyB}\n   (c) Issuance of certificate of return to Petitioner\n   (d) Costs\n9. Certificate of compliance (Practice Directions requirement)\n10. Signed: ${partyA} / Counsel\n\nFiling note: must be presented within 21 days of declaration of result (Electoral Act 2022 s.134). Flag [COUNSEL TO SUPPLY] where needed. Return complete Petition only.`,
+      ept_grounds:`You are election litigation counsel for ${partyA} (Petitioner) before the Election Petitions Tribunal.\n\nMatter: ${matter}\n\nInstructions:\n${ctx}\n\nDraft detailed Grounds of Petition under the Electoral Act 2022.\n\nAnalyse and draft each applicable ground:\nGROUND 1 — NON-QUALIFICATION: ${partyB} was at the time of the election not qualified to contest (specify disqualification under s.137 CFRN / party constitution)\nGROUND 2 — CORRUPT PRACTICES: votes were procured by bribery, treating, undue influence (Electoral Act 2022 s.149; with specific acts, dates, locations, agents)\nGROUND 3 — NON-COMPLIANCE WITH ELECTORAL ACT: election was not conducted substantially in accordance with the Electoral Act 2022 (failure to use BVAS / IReV; unlawful exclusion; over-voting — with polling unit details)\nGROUND 4 — INVALID RETURN: return of ${partyB} was invalid as the majority of lawful votes were cast in favour of the Petitioner\n\nFor each applicable ground:\n(a) State the ground in clear terms\n(b) Provide detailed particulars (polling units, ward codes, figures, agents, dates, witnesses)\n(c) Reference the Electoral Act 2022 provision\n\nFlag [COUNSEL TO SUPPLY] where needed. Return Grounds document only.`,
+      ept_witness_list:`You are election litigation counsel for ${partyA} (Petitioner).\n\nMatter: ${matter}\n\nWitness details:\n${ctx}\n\nDraft the formal List of Witnesses for the Election Petitions Tribunal.\n\nSTRUCTURE:\n1. Heading: ELECTION PETITIONS TRIBUNAL — Suit No / Parties\n2. PETITIONER'S LIST OF WITNESSES\n3. Numbered table:\n   No. | Witness Name | Address | Subject of Testimony (brief — polling unit, role, what observed)\n4. Note: Pre-trial witness depositions will be filed separately per the Practice Directions.\n5. Signed: Counsel for Petitioner / Date\n\nFlag [COUNSEL TO SUPPLY] where needed. Return List only.`,
+      ept_depositions:`You are election litigation counsel for ${partyA} (Petitioner).\n\nMatter: ${matter}\n\nWitness details and facts to be deposed:\n${ctx}\n\nDraft Pre-trial Witness Depositions (sworn written statements) for the Election Petitions Tribunal, in compliance with the Election Tribunal Practice Directions.\n\nFor EACH witness, draft a complete deposition:\n1. DEPOSITION OF [WITNESS NAME] — WITNESS NO [X]\n2. \"I, [NAME], of [address], [occupation], make oath and state as follows:\"\n3. Numbered paragraphs:\n   (a) Identity and role on election day (agent / observer / party official / voter)\n   (b) Polling unit / ward / LGA / constituency\n   (c) Specific observations of irregularities, malpractice, or non-compliance (BVAS malfunction; ballot stuffing; unlawful exclusion; result alteration)\n   (d) Figures: votes cast, voided, announced, actual\n   (e) Exhibits referred to: Exhibit [P1], [P2]…\n4. JURAT: sworn before [Commissioner for Oaths / Magistrate] at [place] on [date]\n\nFlag [COUNSEL TO SUPPLY] for missing particulars. Return all depositions.`,
+      ept_doc_schedule:`You are election litigation counsel for ${partyA} (Petitioner).\n\nMatter: ${matter}\n\nDocuments available:\n${ctx}\n\nDraft the Documentary Evidence Schedule for the Election Petitions Tribunal.\n\nSTRUCTURE:\n1. Heading: PETITIONER'S DOCUMENTARY EVIDENCE SCHEDULE — Suit No / Parties\n2. Table:\n   Exhibit No | Description | Date | Relevance to Ground(s)\n3. Standard election petition exhibits to include (as applicable):\n   P1 — Result Sheet (Form EC8A) for affected polling units\n   P2 — Collation Sheet (Form EC8B)\n   P3 — INEC Declaration of Result (Form EC8E / EC9)\n   P4 — Certificate of Return issued to ${partyB}\n   P5 — Party's nomination form / Certificate of Return (Petitioner)\n   P6 — BVAS machine printout / IReV screenshots\n   P7 — Voters' Register extract\n   P8 — Police / military deployment records\n   P9 — Photographs / video evidence\n   P10 — Witness statements not yet filed as depositions\n4. Signed: Counsel for Petitioner / Date\n\nFlag [COUNSEL TO SUPPLY] where needed. Return Schedule only.`,
+      ept_address:`You are election litigation counsel for ${partyA} (Petitioner).\n\nMatter: ${matter}\n\nArguments and evidence summary:\n${ctx}\n\nDraft a comprehensive Written Address in support of the Election Petition.\n\nSTRUCTURE:\n1. Heading: WRITTEN ADDRESS IN SUPPORT OF ELECTION PETITION — Suit No / Parties\n2. INTRODUCTION: nature of petition and reliefs sought\n3. ISSUES FOR DETERMINATION: formulate 3–6 issues distilled from grounds\n4. ARGUMENTS on each issue:\n   (a) Legal framework: Electoral Act 2022 provisions; Supreme Court / Court of Appeal decisions on the issue\n   (b) Factual application: evidence from depositions and documents\n   (c) Effect of non-compliance: whether substantial non-compliance affected result\n5. CONCLUSION AND RELIEFS SOUGHT\n6. Signed: Counsel for Petitioner / Date\n\nIncorporate recent INEC v [Petitioner] / [Petitioner] v INEC authorities where relevant. Flag [COUNSEL TO SUPPLY] where needed. Return complete Written Address only.`,
+      ept_resp_reply:`You are election litigation counsel for ${partyB} (Respondent) before the Election Petitions Tribunal.\n\nMatter: ${matter}\n\nRespondent's position:\n${ctx}\n\nDraft a complete Respondent's Reply to the Election Petition.\n\nSTRUCTURE:\n1. Heading: RESPONDENT'S REPLY TO ELECTION PETITION — Suit No / Parties\n2. PRELIMINARY OBJECTION (if any): challenge jurisdiction, competence, locus standi, or time-bar (21-day rule)\n3. REPLY TO PETITION:\n   For each paragraph of the Petition — admit, deny, or state Respondent has no knowledge\n4. AFFIRMATIVE DEFENCE:\n   (a) The election was free, fair, and conducted substantially in accordance with the Electoral Act 2022\n   (b) ${partyB} was duly qualified and validly returned\n   (c) BVAS and IReV results are presumed correct and were not challenged at primary source\n   (d) Petitioner lacks credible evidence of alleged non-compliance\n5. RELIEFS SOUGHT: Petition dismissed; Respondent's return confirmed; costs\n6. Signed: Counsel for Respondent / Date\n\nFlag [COUNSEL TO SUPPLY] where needed. Return complete Reply only.`,
+      ept_resp_doc:`You are election litigation counsel for ${partyB} (Respondent).\n\nMatter: ${matter}\n\nRespondent's documents:\n${ctx}\n\nDraft the Respondent's Documentary Evidence Schedule for the Election Petitions Tribunal.\n\nSTRUCTURE:\n1. Heading: RESPONDENT'S DOCUMENTARY EVIDENCE SCHEDULE — Suit No / Parties\n2. Table:\n   Exhibit No | Description | Date | Relevance\n3. Standard respondent exhibits (as applicable):\n   R1 — Certificate of Return issued to Respondent\n   R2 — INEC Declaration of Result (Form EC8E / EC9)\n   R3 — Nomination / screening clearance documents\n   R4 — Certified True Copy of BVAS printout for affected units\n   R5 — Affidavit of non-manipulation from Returning Officer (if available)\n   R6 — Security forces deployment orders (no intimidation)\n   R7 — Voter accreditation records for disputed units\n4. Signed: Counsel for Respondent / Date\n\nFlag [COUNSEL TO SUPPLY] where needed. Return Schedule only.`,
+      ept_resp_address:`You are election litigation counsel for ${partyB} (Respondent).\n\nMatter: ${matter}\n\nRespondent's arguments:\n${ctx}\n\nDraft a Written Address in Opposition to the Election Petition.\n\nSTRUCTURE:\n1. Heading: RESPONDENT'S WRITTEN ADDRESS IN OPPOSITION — Suit No / Parties\n2. INTRODUCTION\n3. PRELIMINARY OBJECTION ARGUMENT (if filed): jurisdiction / competence / time-bar / locus\n4. ISSUES FOR DETERMINATION: adopt Petitioner's issues or reformulate in Respondent's favour\n5. ARGUMENTS:\n   (a) Burden of proof in election petitions lies on the Petitioner — Buhari v INEC\n   (b) Standard: proof beyond balance of probabilities for corrupt practices; substantial compliance standard for procedural non-compliance\n   (c) BVAS/IReV data are presumed authentic unless specifically challenged at unit level\n   (d) Petitioner's witnesses unreliable / depositions defective\n   (e) No credible evidence of scores sufficient to alter result\n6. CONCLUSION: Petition lacks merit; dismiss with costs\n7. Signed: Counsel for Respondent / Date\n\nFlag [COUNSEL TO SUPPLY] where needed. Return complete Written Address only.`,
+    };
+    return ps[tabId]??`Draft ${tabId} for Election Petitions Tribunal matter: ${matter}. Instructions: ${ctx}`;
+  };
+  const forChecklist=[
+    {label:'Election Petition (TF 001)',done:!!data.eptPetitionDraft},
+    {label:'Grounds of Petition',done:!!data.eptGroundsDraft},
+    {label:'List of Witnesses',done:!!data.eptWitnessListDraft},
+    {label:'Pre-trial Depositions',done:!!data.eptDepositionsDraft},
+    {label:'Doc Evidence Schedule',done:!!data.eptDocScheduleDraft},
+    {label:'Written Address',done:!!data.eptAddressDraft},
+  ];
+  const againstChecklist=[
+    {label:"Reply to Petition",done:!!data.eptRespReplyDraft},
+    {label:'List of Witnesses',done:!!data.eptRespWitnessDraft},
+    {label:'Doc Evidence Schedule',done:!!data.eptRespDocDraft},
+    {label:'Written Address in Opposition',done:!!data.eptRespAddressDraft},
+  ];
+  return (
+    <div style={{animation:'fadeUp .3s ease'}}>
+      <div style={{marginBottom:24}}>
+        <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:8}}>
+          <span style={{fontSize:18,color:accent}}>🗳</span>
+          <h3 style={{fontSize:18,color:T.text,fontFamily:"'Times New Roman', Times, serif",fontWeight:300,margin:0}}>Election Petitions Tribunal</h3>
+          <span style={{fontSize:9,padding:'3px 8px',borderRadius:3,fontFamily:"'Times New Roman', Times, serif",fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase',background:`${accent}15`,border:`1px solid ${accent}30`,color:accent}}>
+            {isClaim?'Petitioner (For)':'Respondent (Against)'}
+          </span>
+        </div>
+        <p style={{fontSize:13,color:T.mute,fontFamily:"'Times New Roman', Times, serif",margin:0}}>Election Petitions Tribunal — Electoral Act 2022. Governed by the Election Tribunal and Court Practice Directions. Pre-trial depositions replace live oral evidence in chief.</p>
+        {isClaim&&<div style={{marginTop:12,background:`${accent}08`,border:`1px solid ${accent}20`,borderRadius:7,padding:'10px 14px'}}><p style={{fontSize:12,color:accent,fontFamily:"'Times New Roman', Times, serif",margin:0}}>⚠ <strong>Jurisdictional deadline:</strong> Election petition must be filed within 21 days of the declaration of result (Electoral Act 2022 s.134). This deadline is absolute and non-extendable.</p></div>}
+      </div>
+      <ChecklistBanner items={isClaim?forChecklist:againstChecklist} accent={accent}/>
+      <SubTabBar tabs={tabs} active={activeTab} onSelect={setActiveTab} accent={accent}/>
+      {tabs.map(t=>activeTab===t.id&&(
+        <AIDrafter key={t.id} title={t.label}
+          description={`Draft the ${t.label} for this Election Petition matter.`}
+          contextLabel="Instructions & Facts" contextPlaceholder={`Provide details for the ${t.label}…`}
+          draftKey={draftKeys[t.id]} contextKey={ctxKeys[t.id]}
+          data={data} onSave={onSave} accent={accent} ai={ai} systemCtx={systemCtx}
+          prompt={makePrompt(t.id)} maxTokens={2200}
+        />
+      ))}
+    </div>
+  );
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PHASE 3D — TAX APPEAL TRIBUNAL ENGINE
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function TaxAppealEngine({activeCase,data,onSave,accent,ai,systemCtx}:{activeCase:Case;data:SavedData;onSave:(d:Partial<SavedData>)=>void;accent:string;ai:ReturnType<typeof useAI>;systemCtx:string}) {
+  const isClaim=activeCase.counsel_role==='claimant_side';
+  const sp={data,onSave,accent,ai,systemCtx};
+  const forTabs=[
+    {id:'tat_notice',label:'Notice of Appeal (TAT Form 1)'},
+    {id:'tat_grounds',label:'Grounds of Appeal'},
+    {id:'tat_stmt_facts',label:'Statement of Facts'},
+    {id:'tat_doc_list',label:'List of Documents'},
+    {id:'tat_submission',label:'Written Submission'},
+  ];
+  const againstTabs=[
+    {id:'tat_resp_stmt',label:"Respondent's Statement of Facts"},
+    {id:'tat_resp_doc',label:'List of Documents'},
+    {id:'tat_resp_submission',label:'Written Submission in Opposition'},
+  ];
+  const tabs=isClaim?forTabs:againstTabs;
+  const [activeTab,setActiveTab]=useState(isClaim?'tat_notice':'tat_resp_stmt');
+  const draftKeys:Record<string,keyof SavedData>={
+    tat_notice:'tatNoticeDraft',tat_grounds:'tatGroundsDraft',tat_stmt_facts:'tatStmtFactsDraft',
+    tat_doc_list:'tatDocListDraft',tat_submission:'tatSubmissionDraft',
+    tat_resp_stmt:'tatRespStmtDraft',tat_resp_doc:'tatRespDocDraft',tat_resp_submission:'tatRespSubmissionDraft',
+  };
+  const ctxKeys:Record<string,keyof SavedData>={
+    tat_notice:'tatNoticeContext',tat_grounds:'tatGroundsContext',tat_stmt_facts:'tatStmtFactsContext',
+    tat_doc_list:'tatDocListContext',tat_submission:'tatSubmissionContext',
+    tat_resp_stmt:'tatRespStmtContext',tat_resp_doc:'tatRespDocContext',tat_resp_submission:'tatRespSubmissionContext',
+  };
+  const makePrompt=(tabId:string)=>(ctx:string,aCase:any,{partyA,partyB}:{partyA:string;partyB:string})=>{
+    const matter=aCase?.caseName??'';
+    const ps:Record<string,string>={
+      tat_notice:`You are Nigerian tax counsel acting for ${partyA} (Appellant/Taxpayer) before the Tax Appeal Tribunal (TAT).\n\nMatter: ${matter}\n\nInstructions:\n${ctx}\n\nDraft a complete Notice of Appeal (TAT Form 1) under the Federal Inland Revenue Service (Establishment) Act 2007 / Tax Appeal Tribunal (Procedure) Rules 2021.\n\nSTRUCTURE:\n1. TAX APPEAL TRIBUNAL — [Zone: Lagos / Abuja / Port Harcourt / etc.] — TAT/[ZONE]/[NO]/[YEAR]\n2. BETWEEN: [${partyA}] — Appellant AND [Tax Authority: FIRS / LIRS / State Board] — Respondent\n3. NOTICE OF APPEAL\n4. The Appellant being dissatisfied with the assessment / decision of the Respondent dated [date] gives notice of appeal to the Tax Appeal Tribunal on the grounds stated herein.\n5. PARTICULARS OF ASSESSMENT APPEALED:\n   (a) Tax type: [Companies Income Tax / VAT / Withholding Tax / Personal Income Tax / etc.]\n   (b) Assessment notice reference no: [no.]\n   (c) Tax year(s) of assessment: [year(s)]\n   (d) Amount assessed: ₦[amount]\n   (e) Amount admitted (if any): ₦[amount]\n   (f) Amount in dispute: ₦[amount]\n6. GROUNDS OF APPEAL: (summarised — full grounds in separate document)\n7. RELIEF SOUGHT: (a) Discharge of assessment; (b) Reduction of assessment to ₦[amount]; (c) Costs\n8. ADDRESS FOR SERVICE of Appellant's counsel\n9. Signed: Counsel / Date\n\nFiling note: must be filed within 30 days of receiving assessment notice (FIRS Act / relevant tax statute). Flag [COUNSEL TO SUPPLY] where needed. Return complete Notice of Appeal only.`,
+      tat_grounds:`You are Nigerian tax counsel for ${partyA} (Appellant) before the Tax Appeal Tribunal.\n\nMatter: ${matter}\n\nAssessment details and available grounds:\n${ctx}\n\nDraft comprehensive Grounds of Appeal against the tax assessment.\n\nAnalyse and draft each applicable ground:\nGROUND 1 — JURISDICTIONAL / PROCEDURAL: assessment issued outside statutory time limit; notice not served correctly; failure to issue demand notice before assessment\nGROUND 2 — INCORRECT INCOME FIGURE: Respondent included non-taxable income / receipts; failure to deduct allowable expenses under CITA / PITA / VAT Act; turnover figure incorrect\nGROUND 3 — WRONG TAX RATE / COMPUTATION: erroneous application of tax rate; incorrect relief; failure to apply pioneer status / tax holiday / treaty benefit\nGROUND 4 — DOUBLE TAXATION: income already taxed at source (WHT); assessed in wrong jurisdiction; treaty protection applies\nGROUND 5 — PENALTIES / INTEREST EXCESSIVE: penalties computed on wrong base; interest rate exceeds statutory maximum; waiver conditions met\nGROUND 6 — DOCUMENTARY EVIDENCE IGNORED: Appellant's books, records, returns, audited accounts show different figure; Respondent failed to examine submitted documents\n\nFor each ground: (a) State ground clearly; (b) Identify the statutory provision infringed; (c) Specify the tax and amounts affected.\nFlag [COUNSEL TO SUPPLY] where needed. Return Grounds document only.`,
+      tat_stmt_facts:`You are Nigerian tax counsel for ${partyA} (Appellant) before the Tax Appeal Tribunal.\n\nMatter: ${matter}\n\nFacts to be stated:\n${ctx}\n\nDraft a comprehensive Statement of Facts for the Tax Appeal Tribunal.\n\nSTRUCTURE:\n1. Heading: APPELLANT'S STATEMENT OF FACTS — TAT/[Zone]/[No]/[Year]\n2. BACKGROUND: nature of Appellant's business / employment / income source; tax registration details\n3. THE ASSESSMENT:\n   (a) Period(s) of assessment\n   (b) Assessment notice(s) issued by Respondent: reference, date, amount\n   (c) Objection filed by Appellant on [date] — grounds\n   (d) Respondent's determination on objection: [upheld / partially upheld / dismissed]\n4. THE DISPUTE: what the Appellant contends the correct tax position to be (with figures)\n5. RELEVANT FACTS IN SUPPORT OF GROUNDS:\n   For each ground of appeal — specific facts, records, transactions, dates, and amounts that support the Appellant's position\n6. DOCUMENTARY EVIDENCE: list of documents filed as exhibits\n7. CONCLUSION: correct tax liability is ₦[amount]; assessment should be discharged / reduced accordingly\n\nFlag [COUNSEL TO SUPPLY] where needed. Return Statement of Facts only.`,
+      tat_doc_list:`You are Nigerian tax counsel for ${partyA} (Appellant).\n\nMatter: ${matter}\n\nAvailable documents:\n${ctx}\n\nDraft the Appellant's List of Documents for the Tax Appeal Tribunal.\n\nSTRUCTURE:\n1. Heading: APPELLANT'S LIST OF DOCUMENTS — TAT/[Zone]/[No]/[Year] — Parties\n2. Table:\n   Exhibit No | Description | Date | Relevance\n3. Standard TAT documents to include (as applicable):\n   A1 — Assessment Notice(s) from Respondent\n   A2 — Appellant's Notice of Objection\n   A3 — Respondent's Determination on Objection\n   A4 — Audited Financial Statements for the tax year(s)\n   A5 — Tax Returns filed (CIT / VAT / WHT / PAYE)\n   A6 — Books of account / general ledger extracts\n   A7 — Payment receipts / remittance schedules\n   A8 — WHT credit notes / certificates\n   A9 — Transfer pricing documentation (if applicable)\n   A10 — Any relevant tax treaty / pioneer certificate\n4. Signed: Counsel for Appellant / Date\n\nFlag [COUNSEL TO SUPPLY] where needed. Return List only.`,
+      tat_submission:`You are Nigerian tax counsel for ${partyA} (Appellant) before the Tax Appeal Tribunal.\n\nMatter: ${matter}\n\nLegal arguments and evidence summary:\n${ctx}\n\nDraft a comprehensive Written Submission in support of the Tax Appeal.\n\nSTRUCTURE:\n1. Heading: APPELLANT'S WRITTEN SUBMISSION — TAT/[Zone]/[No]/[Year]\n2. INTRODUCTION: nature of appeal and relief sought\n3. ISSUES FOR DETERMINATION: formulate 3–6 issues distilled from grounds\n4. ARGUMENTS on each issue:\n   (a) Statutory framework: CITA 2004 (as amended) / VATA 2004 / FIRS Establishment Act / PITA / relevant regulations\n   (b) Decided tax authorities: FIRS v [Appellant] / [Appellant] v FIRS; Federal High Court tax decisions; Court of Appeal tax decisions\n   (c) Application of law to Appellant's specific facts\n   (d) Quantum: correct tax computation showing lesser liability\n5. COMPUTATION SCHEDULE: tabular reconciliation of assessed vs. correct figures\n6. CONCLUSION AND RELIEFS SOUGHT\n7. Signed: Counsel for Appellant / Date\n\nFlag [COUNSEL TO SUPPLY] where needed. Return complete Written Submission only.`,
+      tat_resp_stmt:`You are Nigerian tax counsel for ${partyB} — the Revenue Authority (FIRS / LIRS / State Board) — as Respondent before the Tax Appeal Tribunal.\n\nMatter: ${matter}\n\nRespondent's position:\n${ctx}\n\nDraft the Respondent's Statement of Facts in opposition to the tax appeal.\n\nSTRUCTURE:\n1. Heading: RESPONDENT'S STATEMENT OF FACTS — TAT/[Zone]/[No]/[Year]\n2. BACKGROUND: statutory basis for assessment; Respondent's mandate under FIRS Act / relevant tax statute\n3. THE ASSESSMENT:\n   (a) Basis of assessment: audit findings / desk review / industry benchmark / best-of-judgement\n   (b) Taxpayer's failure to maintain adequate books / file accurate returns\n   (c) Objection was considered and rightly dismissed\n4. RESPONDENT'S FACTUAL POSITION:\n   (a) Computed figures are correct; income understated\n   (b) Claimed deductions are non-allowable under CITA / VATA / PITA\n   (c) Penalties and interest are validly imposed\n5. DOCUMENTARY EVIDENCE: Audit working papers; assessment notices; prior correspondence\n6. CONCLUSION: appeal is without merit; assessment should be affirmed\n\nFlag [COUNSEL TO SUPPLY] where needed. Return Statement of Facts only.`,
+      tat_resp_doc:`You are Nigerian tax counsel for ${partyB} (Respondent / Revenue Authority).\n\nMatter: ${matter}\n\nRespondent's documents:\n${ctx}\n\nDraft the Respondent's List of Documents for the Tax Appeal Tribunal.\n\nSTRUCTURE:\n1. Heading: RESPONDENT'S LIST OF DOCUMENTS — TAT/[Zone]/[No]/[Year] — Parties\n2. Table: Exhibit No | Description | Date | Relevance\n3. Standard respondent documents:\n   R1 — Tax Audit Report / Desk Review Report\n   R2 — Assessment Notices (all years in dispute)\n   R3 — Record of taxpayer's objection and Respondent's determination\n   R4 — Industry benchmark / comparables relied upon (if best-of-judgement)\n   R5 — Taxpayer's prior returns on file\n   R6 — Demand notices / payment history\n   R7 — Any ruling or circular relied upon\n4. Signed: Counsel for Respondent / Date\n\nFlag [COUNSEL TO SUPPLY] where needed. Return List only.`,
+      tat_resp_submission:`You are Nigerian tax counsel for ${partyB} (Respondent / Revenue Authority) before the Tax Appeal Tribunal.\n\nMatter: ${matter}\n\nArguments:\n${ctx}\n\nDraft a Written Submission in Opposition to the Tax Appeal.\n\nSTRUCTURE:\n1. Heading: RESPONDENT'S WRITTEN SUBMISSION IN OPPOSITION — TAT/[Zone]/[No]/[Year]\n2. INTRODUCTION\n3. PRELIMINARY OBJECTION (if any): competence; time-bar on filing; failure to deposit disputed tax (where applicable)\n4. ISSUES FOR DETERMINATION: adopt or reformulate issues\n5. ARGUMENTS:\n   (a) Statutory basis for assessment is sound\n   (b) Appellant bears burden of proof to displace the assessment — FBIR v Halliburton\n   (c) Claimed deductions are not allowable: statutory analysis\n   (d) Books of account are inadequate; best-of-judgement assessment is permissible — FIRS Act s.65\n   (e) Penalties and interest are correctly computed and are not excessive\n6. COMPUTATION: Respondent's correct tax computation table\n7. CONCLUSION: appeal dismissed; assessment affirmed in full; costs\n8. Signed: Counsel for Respondent / Date\n\nFlag [COUNSEL TO SUPPLY] where needed. Return complete Written Submission only.`,
+    };
+    return ps[tabId]??`Draft ${tabId} for Tax Appeal Tribunal matter: ${matter}. Instructions: ${ctx}`;
+  };
+  const forChecklist=[
+    {label:'Notice of Appeal (TAT Form 1)',done:!!data.tatNoticeDraft},
+    {label:'Grounds of Appeal',done:!!data.tatGroundsDraft},
+    {label:'Statement of Facts',done:!!data.tatStmtFactsDraft},
+    {label:'List of Documents',done:!!data.tatDocListDraft},
+    {label:'Written Submission',done:!!data.tatSubmissionDraft},
+  ];
+  const againstChecklist=[
+    {label:"Respondent's Statement of Facts",done:!!data.tatRespStmtDraft},
+    {label:'List of Documents',done:!!data.tatRespDocDraft},
+    {label:'Written Submission in Opposition',done:!!data.tatRespSubmissionDraft},
+  ];
+  return (
+    <div style={{animation:'fadeUp .3s ease'}}>
+      <div style={{marginBottom:24}}>
+        <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:8}}>
+          <span style={{fontSize:18,color:accent}}>🏛</span>
+          <h3 style={{fontSize:18,color:T.text,fontFamily:"'Times New Roman', Times, serif",fontWeight:300,margin:0}}>Tax Appeal Tribunal</h3>
+          <span style={{fontSize:9,padding:'3px 8px',borderRadius:3,fontFamily:"'Times New Roman', Times, serif",fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase',background:`${accent}15`,border:`1px solid ${accent}30`,color:accent}}>
+            {isClaim?'Appellant / Taxpayer (For)':'Respondent / Revenue Authority (Against)'}
+          </span>
+        </div>
+        <p style={{fontSize:13,color:T.mute,fontFamily:"'Times New Roman', Times, serif",margin:0}}>Tax Appeal Tribunal — FIRS (Establishment) Act 2007 and TAT (Procedure) Rules 2021. Appeal lies against assessments by FIRS, LIRS, and State Revenue Authorities.</p>
+        {isClaim&&<div style={{marginTop:12,background:`${accent}08`,border:`1px solid ${accent}20`,borderRadius:7,padding:'10px 14px'}}><p style={{fontSize:12,color:accent,fontFamily:"'Times New Roman', Times, serif",margin:0}}>⚠ <strong>Pre-filing:</strong> File notice of objection with the Revenue Authority first. After determination on objection, appeal to TAT must be filed within 30 days of the assessment notice or determination. Failure to file within time is fatal.</p></div>}
+      </div>
+      <ChecklistBanner items={isClaim?forChecklist:againstChecklist} accent={accent}/>
+      <SubTabBar tabs={tabs} active={activeTab} onSelect={setActiveTab} accent={accent}/>
+      {tabs.map(t=>activeTab===t.id&&(
+        <AIDrafter key={t.id} title={t.label}
+          description={`Draft the ${t.label} for this Tax Appeal Tribunal matter.`}
+          contextLabel="Instructions & Facts" contextPlaceholder={`Provide details for the ${t.label}…`}
+          draftKey={draftKeys[t.id]} contextKey={ctxKeys[t.id]}
+          data={data} onSave={onSave} accent={accent} ai={ai} systemCtx={systemCtx}
+          prompt={makePrompt(t.id)} maxTokens={2200}
+        />
+      ))}
+    </div>
+  );
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PHASE 3D — INVESTMENTS & SECURITIES TRIBUNAL (IST) ENGINE
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function ISTEngine({activeCase,data,onSave,accent,ai,systemCtx}:{activeCase:Case;data:SavedData;onSave:(d:Partial<SavedData>)=>void;accent:string;ai:ReturnType<typeof useAI>;systemCtx:string}) {
+  const isClaim=activeCase.counsel_role==='claimant_side';
+  const sp={data,onSave,accent,ai,systemCtx};
+  const forTabs=[
+    {id:'ist_application',label:'Originating Application / Notice of Appeal'},
+    {id:'ist_stmt_facts',label:'Statement of Facts & Grounds'},
+    {id:'ist_witness_list',label:'List of Witnesses'},
+    {id:'ist_witness_stmt',label:'Witness Statements'},
+    {id:'ist_doc_schedule',label:'Documentary Evidence Schedule'},
+    {id:'ist_address',label:'Written Address'},
+  ];
+  const againstTabs=[
+    {id:'ist_resp_stmt',label:"Respondent's Statement of Defence / Reply"},
+    {id:'ist_resp_witness',label:'List of Witnesses'},
+    {id:'ist_resp_witness_stmt',label:'Witness Statements'},
+    {id:'ist_resp_doc',label:'Documentary Evidence Schedule'},
+    {id:'ist_resp_address',label:'Written Address in Opposition'},
+  ];
+  const tabs=isClaim?forTabs:againstTabs;
+  const [activeTab,setActiveTab]=useState(isClaim?'ist_application':'ist_resp_stmt');
+  const draftKeys:Record<string,keyof SavedData>={
+    ist_application:'istApplicationDraft',ist_stmt_facts:'istStmtFactsDraft',ist_witness_list:'istWitnessListDraft',
+    ist_witness_stmt:'istWitnessStmtDraft',ist_doc_schedule:'istDocScheduleDraft',ist_address:'istAddressDraft',
+    ist_resp_stmt:'istRespStmtDraft',ist_resp_witness:'istRespWitnessDraft',
+    ist_resp_witness_stmt:'istRespWitnessDraft',ist_resp_doc:'istRespDocDraft',ist_resp_address:'istRespAddressDraft',
+  };
+  const ctxKeys:Record<string,keyof SavedData>={
+    ist_application:'istApplicationContext',ist_stmt_facts:'istStmtFactsContext',ist_witness_list:'istWitnessListContext',
+    ist_witness_stmt:'istWitnessStmtContext',ist_doc_schedule:'istDocScheduleContext',ist_address:'istAddressContext',
+    ist_resp_stmt:'istRespStmtContext',ist_resp_witness:'istRespWitnessContext',
+    ist_resp_witness_stmt:'istRespWitnessContext',ist_resp_doc:'istRespDocContext',ist_resp_address:'istRespAddressContext',
+  };
+  const makePrompt=(tabId:string)=>(ctx:string,aCase:any,{partyA,partyB}:{partyA:string;partyB:string})=>{
+    const matter=aCase?.caseName??'';
+    const ps:Record<string,string>={
+      ist_application:`You are Nigerian capital markets counsel acting for ${partyA} (Applicant / Appellant) before the Investments and Securities Tribunal (IST).\n\nMatter: ${matter}\n\nInstructions:\n${ctx}\n\nDraft a complete Originating Application or Notice of Appeal as appropriate, under the Investments and Securities Act 2007 (ISA 2007) and the IST Rules 2014.\n\nSTRUCTURE:\n1. INVESTMENTS AND SECURITIES TRIBUNAL — IST/[NO]/[YEAR]\n2. BETWEEN: [${partyA}] — Applicant / Appellant AND [${partyB}] — Respondent (1st) AND [SEC / NSE / Exchange] — Respondent (2nd if applicable)\n3. ORIGINATING APPLICATION / NOTICE OF APPEAL\n4. TAKE NOTICE that the Applicant/Appellant being aggrieved by:\n   (a) [Decision / Ruling / Order / Assessment] of [SEC / NSE / FMDQ / Exchange / Registrar] dated [date]\n   (b) Brief description of the decision\n   applies to the Investments and Securities Tribunal for relief under [ISA 2007 s.274 / relevant provision]\n5. GROUNDS: (summarised)\n6. RELIEFS SOUGHT:\n   (a) Set aside / vary the decision\n   (b) Declaration as to rights\n   (c) Order of compensation / restitution: ₦[amount]\n   (d) Injunctive relief (if applicable)\n   (e) Costs\n7. Address for service\n8. Signed: Counsel for Applicant / Date\n\nFlag [COUNSEL TO SUPPLY] where needed. Return complete Application / Notice only.`,
+      ist_stmt_facts:`You are capital markets counsel for ${partyA} (Applicant) before the IST.\n\nMatter: ${matter}\n\nFacts and grounds:\n${ctx}\n\nDraft the Statement of Facts and Grounds under the IST Rules 2014.\n\nSTRUCTURE:\n1. Heading: STATEMENT OF FACTS AND GROUNDS — IST/[No]/[Year]\n2. PARTIES: identity, registration, capacity (licensee, registrant, investor, issuer, intermediary)\n3. BACKGROUND:\n   (a) Nature of the investment / securities transaction in dispute\n   (b) Regulatory relationship with Respondent\n   (c) Chronology of events leading to dispute\n4. THE DECISION CHALLENGED:\n   (a) Full particulars of the SEC / Exchange / Registrar decision\n   (b) Why it is unlawful / unreasonable / contrary to ISA 2007\n5. GROUNDS IN DETAIL:\n   For each ground — specific facts + statutory / regulatory provision infringed (ISA 2007 / SEC Rules / NSE Rules / FMDQ Rules)\n6. IMPACT: financial loss, regulatory prejudice, investor harm\n7. CONCLUSION: relief sought and legal basis\n\nFlag [COUNSEL TO SUPPLY] where needed. Return Statement of Facts and Grounds only.`,
+      ist_witness_list:`You are capital markets counsel for ${partyA} (Applicant) before the IST.\n\nMatter: ${matter}\n\nWitness details:\n${ctx}\n\nDraft the formal List of Witnesses for the IST.\n\nSTRUCTURE:\n1. Heading: APPLICANT'S LIST OF WITNESSES — IST/[No]/[Year]\n2. Table:\n   No. | Witness Name | Address / Designation | Subject of Testimony\n3. Typical IST witnesses:\n   — Company director / officer\n   — Broker / dealer representative\n   — Investment analyst\n   — Expert witness (capital markets, valuation)\n   — Aggrieved investor(s)\n4. Signed: Counsel for Applicant / Date\n\nFlag [COUNSEL TO SUPPLY] where needed. Return List only.`,
+      ist_witness_stmt:`You are capital markets counsel for ${partyA} (Applicant) before the IST.\n\nMatter: ${matter}\n\nWitness facts:\n${ctx}\n\nDraft Witness Statements on Oath for the IST proceedings.\n\nFor EACH witness:\n1. WITNESS STATEMENT OF [NAME] — WIT NO [X]\n2. \"I, [NAME], of [address], [designation/capacity], make oath and state:\"\n3. Numbered paragraphs:\n   (a) Witness identity and role in the transaction\n   (b) Chronological account of events — specific dates, transactions, communications, instructions\n   (c) The impugned decision or conduct and how it affected the witness / client\n   (d) Exhibits referred to: Exhibit [IST-A1], [IST-A2]…\n   (e) Relief the witness supports\n4. JURAT: sworn before [Commissioner for Oaths] at [place] on [date]\n\nFlag [COUNSEL TO SUPPLY] where needed. Return all Witness Statements.`,
+      ist_doc_schedule:`You are capital markets counsel for ${partyA} (Applicant) before the IST.\n\nMatter: ${matter}\n\nAvailable documents:\n${ctx}\n\nDraft the Applicant's Documentary Evidence Schedule for the IST.\n\nSTRUCTURE:\n1. Heading: APPLICANT'S DOCUMENTARY EVIDENCE SCHEDULE — IST/[No]/[Year]\n2. Table: Exhibit No | Description | Date | Relevance to Ground(s)\n3. Standard IST documents (as applicable):\n   IST-A1 — SEC / Exchange decision / ruling / order\n   IST-A2 — Applicant's application/objection to SEC/Exchange\n   IST-A3 — Transaction documents (prospectus, offer letters, subscription agreements)\n   IST-A4 — Share certificates / allotment letters / bond instruments\n   IST-A5 — Bank statements / payment confirmations\n   IST-A6 — Broker contract notes / trade confirmations\n   IST-A7 — Correspondence with Respondent\n   IST-A8 — Expert valuation / market data reports\n   IST-A9 — Regulatory licence / registration certificates\n   IST-A10 — Corporate / board resolutions\n4. Signed: Counsel for Applicant / Date\n\nFlag [COUNSEL TO SUPPLY] where needed. Return Schedule only.`,
+      ist_address:`You are capital markets counsel for ${partyA} (Applicant) before the IST.\n\nMatter: ${matter}\n\nLegal arguments:\n${ctx}\n\nDraft a comprehensive Written Address for the IST proceedings.\n\nSTRUCTURE:\n1. Heading: APPLICANT'S WRITTEN ADDRESS — IST/[No]/[Year]\n2. INTRODUCTION: nature of application; investment / capital market context\n3. ISSUES FOR DETERMINATION: 3–6 issues distilled from grounds\n4. ARGUMENTS on each issue:\n   (a) Statutory framework: ISA 2007; SEC Rules and Regulations 2013 (as amended); NSE Rules / FMDQ Rules / CAMA 2020 (for corporate securities)\n   (b) IST decisions and Court of Appeal / Supreme Court authorities on capital markets\n   (c) Applicant's factual and documentary evidence in support\n   (d) Where SEC / Exchange decision was ultra vires, unreasonable, or procedurally flawed\n5. QUANTUM: computation of loss / relief if monetary claim\n6. CONCLUSION AND RELIEFS SOUGHT\n7. Signed: Counsel for Applicant / Date\n\nFlag [COUNSEL TO SUPPLY] where needed. Return complete Written Address only.`,
+      ist_resp_stmt:`You are capital markets counsel for ${partyB} (Respondent) before the IST.\n\nMatter: ${matter}\n\nRespondent's position:\n${ctx}\n\nDraft the Respondent's Statement of Defence and Reply.\n\nSTRUCTURE:\n1. Heading: RESPONDENT'S STATEMENT OF DEFENCE AND REPLY — IST/[No]/[Year]\n2. PRELIMINARY OBJECTION (if any): jurisdiction; competence of application; limitation\n3. REPLY TO STATEMENT OF FACTS:\n   For each paragraph of Applicant's Statement — admit, deny, or no knowledge\n4. RESPONDENT'S CASE:\n   (a) Statutory mandate of Respondent (SEC / Exchange / Registrar) under ISA 2007\n   (b) Decision was intra vires, procedurally sound, and correct on the merits\n   (c) Applicant failed to comply with applicable rules / disclosure requirements\n   (d) No loss suffered; relief sought is not warranted\n5. RELIEFS SOUGHT: application dismissed; costs\n6. Signed: Counsel for Respondent / Date\n\nFlag [COUNSEL TO SUPPLY] where needed. Return complete Statement of Defence only.`,
+      ist_resp_doc:`You are capital markets counsel for ${partyB} (Respondent) before the IST.\n\nMatter: ${matter}\n\nRespondent's documents:\n${ctx}\n\nDraft the Respondent's Documentary Evidence Schedule for the IST.\n\nSTRUCTURE:\n1. Heading: RESPONDENT'S DOCUMENTARY EVIDENCE SCHEDULE — IST/[No]/[Year]\n2. Table: Exhibit No | Description | Date | Relevance\n3. Standard respondent documents:\n   IST-R1 — Respondent's decision / directive / order appealed against\n   IST-R2 — Internal investigation / examination report\n   IST-R3 — Applicant's prior submissions to Respondent\n   IST-R4 — SEC Rules / Exchange Rules / circulars relied upon\n   IST-R5 — Regulatory examination findings / audit\n   IST-R6 — Correspondence / show-cause letters / replies\n   IST-R7 — Financial / transaction data on which decision was based\n4. Signed: Counsel for Respondent / Date\n\nFlag [COUNSEL TO SUPPLY] where needed. Return Schedule only.`,
+      ist_resp_address:`You are capital markets counsel for ${partyB} (Respondent) before the IST.\n\nMatter: ${matter}\n\nRespondent's arguments:\n${ctx}\n\nDraft a Written Address in Opposition for the IST proceedings.\n\nSTRUCTURE:\n1. Heading: RESPONDENT'S WRITTEN ADDRESS IN OPPOSITION — IST/[No]/[Year]\n2. INTRODUCTION\n3. PRELIMINARY OBJECTION ARGUMENTS (if applicable): jurisdiction; competence; limitation period\n4. ISSUES FOR DETERMINATION: adopt or reformulate\n5. ARGUMENTS:\n   (a) Respondent's decision is intra vires ISA 2007 / SEC Rules / Exchange Rules\n   (b) Applicant bears burden of proof — not discharged\n   (c) Regulatory deference: IST should not lightly interfere with expert regulator's discretion\n   (d) Applicant's breach of disclosure / reporting obligations was the cause of the regulatory action\n   (e) No recoverable loss established\n6. CONCLUSION: application dismissed; regulatory decision affirmed; costs awarded\n7. Signed: Counsel for Respondent / Date\n\nFlag [COUNSEL TO SUPPLY] where needed. Return complete Written Address only.`,
+    };
+    return ps[tabId]??`Draft ${tabId} for IST matter: ${matter}. Instructions: ${ctx}`;
+  };
+  const forChecklist=[
+    {label:'Originating Application / Notice of Appeal',done:!!data.istApplicationDraft},
+    {label:'Statement of Facts & Grounds',done:!!data.istStmtFactsDraft},
+    {label:'List of Witnesses',done:!!data.istWitnessListDraft},
+    {label:'Witness Statements',done:!!data.istWitnessStmtDraft},
+    {label:'Documentary Evidence Schedule',done:!!data.istDocScheduleDraft},
+    {label:'Written Address',done:!!data.istAddressDraft},
+  ];
+  const againstChecklist=[
+    {label:"Statement of Defence / Reply",done:!!data.istRespStmtDraft},
+    {label:'List of Witnesses',done:!!data.istRespWitnessDraft},
+    {label:'Documentary Evidence Schedule',done:!!data.istRespDocDraft},
+    {label:'Written Address in Opposition',done:!!data.istRespAddressDraft},
+  ];
+  return (
+    <div style={{animation:'fadeUp .3s ease'}}>
+      <div style={{marginBottom:24}}>
+        <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:8}}>
+          <span style={{fontSize:18,color:accent}}>📈</span>
+          <h3 style={{fontSize:18,color:T.text,fontFamily:"'Times New Roman', Times, serif",fontWeight:300,margin:0}}>Investments & Securities Tribunal (IST)</h3>
+          <span style={{fontSize:9,padding:'3px 8px',borderRadius:3,fontFamily:"'Times New Roman', Times, serif",fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase',background:`${accent}15`,border:`1px solid ${accent}30`,color:accent}}>
+            {isClaim?'Applicant / Appellant (For)':'Respondent (Against)'}
+          </span>
+        </div>
+        <p style={{fontSize:13,color:T.mute,fontFamily:"'Times New Roman', Times, serif",margin:0}}>Investments and Securities Tribunal — ISA 2007 and IST Rules 2014. Jurisdiction over capital market disputes, appeals from SEC/Exchange decisions, and investor claims against operators.</p>
+      </div>
+      <ChecklistBanner items={isClaim?forChecklist:againstChecklist} accent={accent}/>
+      <SubTabBar tabs={tabs} active={activeTab} onSelect={setActiveTab} accent={accent}/>
+      {tabs.map(t=>activeTab===t.id&&(
+        <AIDrafter key={t.id} title={t.label}
+          description={`Draft the ${t.label} for this IST matter.`}
+          contextLabel="Instructions & Facts" contextPlaceholder={`Provide details for the ${t.label}…`}
+          draftKey={draftKeys[t.id]} contextKey={ctxKeys[t.id]}
+          data={data} onSave={onSave} accent={accent} ai={ai} systemCtx={systemCtx}
+          prompt={makePrompt(t.id)} maxTokens={2200}
+        />
+      ))}
+    </div>
+  );
+}
+
+
+// ─── PHASE 3E — ARBITRAL PANEL (AMA) ─────────────────────────────────────────
+
+function ArbitralPanelEngine({activeCase,data,onSave,accent,ai,systemCtx}:{activeCase:Case;data:SavedData;onSave:(d:Partial<SavedData>)=>void;accent:string;ai:ReturnType<typeof useAI>;systemCtx:string}) {
+  const isClaim=activeCase.counsel_role==='claimant_side';
+  const {partyA,partyB}=getPartyLabels(activeCase);
+  const [activeTab,setActiveTab]=useState('arb_notice');
+
+  // Phase structure: pre-panel → pleadings → closing addresses
+  // Claimant sees: Notice of Arbitration | Statement of Claim | Claimant's Written Address
+  // Respondent sees: Notice of Arbitration | Statement of Defence | Respondent's Written Address
+  const claimantTabs=[
+    {id:'arb_notice',label:'Phase 1 — Notice of Arbitration'},
+    {id:'arb_claim',label:'Phase 2 — Statement of Claim'},
+    {id:'arb_claimant_address',label:'Phase 3 — Written Address'},
+  ];
+  const respondentTabs=[
+    {id:'arb_notice',label:'Phase 1 — Notice of Arbitration'},
+    {id:'arb_defence',label:'Phase 2 — Statement of Defence'},
+    {id:'arb_respondent_address',label:'Phase 3 — Written Address'},
+  ];
+  const tabs=isClaim?claimantTabs:respondentTabs;
+
+  const draftKeys:Record<string,keyof SavedData>={
+    arb_notice:'arbNoticeDraft',
+    arb_claim:'arbClaimDraft',
+    arb_defence:'arbDefenceDraft',
+    arb_claimant_address:'arbClaimantAddressDraft',
+    arb_respondent_address:'arbRespondentAddressDraft',
+  };
+  const ctxKeys:Record<string,keyof SavedData>={
+    arb_notice:'arbNoticeContext',
+    arb_claim:'arbClaimContext',
+    arb_defence:'arbDefenceContext',
+    arb_claimant_address:'arbClaimantAddressContext',
+    arb_respondent_address:'arbRespondentAddressContext',
+  };
+
+  const makePrompt=(tabId:string)=>(ctx:string,aCase:any,{partyA,partyB}:{partyA:string;partyB:string})=>{
+    const matter=aCase?.caseName??'';
+    const ps:Record<string,string>={
+      arb_notice:`You are Nigerian arbitration counsel acting for ${partyA} (Claimant) in an AMA arbitration.
+
+Matter: ${matter}
+
+Instructions:
+${ctx}
+
+Draft a complete Notice of Arbitration (Pre-Panel) compliant with the Arbitration and Mediation Act 2023 (AMA 2023) and, where applicable, the rules of the selected arbitral institution (ICC, LCIA, ICSID, NCIA, or ad hoc).
+
+STRUCTURE:
+1. NOTICE OF ARBITRATION
+   Reference No.: [ARB/YEAR/NO]
+   Date:
+   To: [${partyB}] — Respondent
+   From: [${partyA}] — Claimant
+   c/o: [Claimant's Counsel and address]
+
+2. PARTIES:
+   (a) Claimant: full name, address, registration (if corporate), contact
+   (b) Respondent: full name, address, registration, contact
+
+3. ARBITRATION AGREEMENT:
+   (a) Agreement/contract from which dispute arises — title, date, parties
+   (b) Arbitration clause: clause no., verbatim text or accurate summary
+   (c) Seat of arbitration
+   (d) Governing law
+   (e) Number of arbitrators and method of appointment
+
+4. NATURE OF THE DISPUTE:
+   (a) Background to the transaction/relationship
+   (b) Claimant's performance
+   (c) Respondent's default or breach
+   (d) Chronology of events leading to dispute
+   (e) Claimant's prior attempts at resolution (demand letters, negotiations, mediation if attempted)
+
+5. CLAIMS AND RELIEF SOUGHT:
+   (a) Principal sum claimed: ₦[amount] / USD [amount]
+   (b) Interest: rate, period, basis (contractual or AMA 2023 s.55)
+   (c) Specific performance / declaratory relief (if applicable)
+   (d) Costs of arbitration
+   (e) Any other relief
+
+6. APPOINTMENT OF ARBITRATOR:
+   (a) Claimant's nominated arbitrator (sole or party-appointed): [Name / Institution to appoint]
+   (b) Request to Respondent to nominate its arbitrator within [period per agreement]
+   (c) Fallback appointment mechanism (institution / court under AMA 2023 s.11)
+
+7. COMMUNICATIONS:
+   All future communications to: [Claimant's Counsel name and address]
+
+8. CERTIFICATION:
+   Signed by Claimant's Counsel with date
+
+Flag [COUNSEL TO SUPPLY] for all blanks. Return complete Notice of Arbitration only.`,
+
+      arb_claim:`You are Nigerian arbitration counsel for ${partyA} (Claimant) before an Arbitral Tribunal constituted under the AMA 2023.
+
+Matter: ${matter}
+
+Instructions and facts:
+${ctx}
+
+Draft a comprehensive Statement of Claim under the AMA 2023 and applicable institutional rules.
+
+STRUCTURE:
+1. HEADING
+   IN THE MATTER OF AN ARBITRATION UNDER [AMA 2023 / ICC RULES / NCIA RULES / AD HOC]
+   ARBITRATION REFERENCE NO: [ARB/YEAR/NO]
+   BETWEEN: [${partyA}] — Claimant
+   AND [${partyB}] — Respondent
+   STATEMENT OF CLAIM
+
+2. INTRODUCTION
+   Brief summary: nature of dispute; relief sought; quantum.
+
+3. PARTIES
+   (a) Claimant: identity, incorporation, business, capacity
+   (b) Respondent: identity, incorporation, business, capacity
+
+4. ARBITRATION AGREEMENT AND JURISDICTION
+   (a) Contract details and arbitration clause
+   (b) Seat and governing law
+   (c) Tribunal properly constituted
+
+5. BACKGROUND AND FACTS
+   Numbered paragraphs — chronological, precise, dates, amounts, communications:
+   (a) Formation and terms of the agreement
+   (b) Claimant's performance of obligations
+   (c) Respondent's breach/failure with specific dates and particulars
+   (d) Claimant's attempts to remedy/resolve
+   (e) Loss suffered — direct, consequential, lost profits
+
+6. LEGAL BASIS OF CLAIMS
+   (a) Breach of contract — specific clauses breached
+   (b) Statutory basis under AMA 2023 / applicable law
+   (c) Quantum meruit (if applicable)
+   (d) Any other causes of action
+
+7. QUANTUM
+   (a) Principal claim: ₦[amount] — schedule of loss attached
+   (b) Interest: [rate]% per annum from [date] to award (AMA 2023 s.55 / contractual)
+   (c) Currency of award (AMA 2023 s.54)
+   (d) Exchange rate position (if foreign currency involved)
+
+8. RELIEF SOUGHT
+   (a) Declaration of breach
+   (b) Award of ₦[amount] / USD [amount]
+   (c) Pre-award interest
+   (d) Post-award interest
+   (e) Costs of arbitration including legal costs
+   (f) Any other relief the Tribunal deems just
+
+9. LIST OF DOCUMENTS RELIED UPON (by reference — full schedule to follow)
+
+10. SIGNATURE: Claimant's Counsel / Date
+
+Flag [COUNSEL TO SUPPLY] for all blanks. Return complete Statement of Claim only.`,
+
+      arb_defence:`You are Nigerian arbitration counsel for ${partyB} (Respondent) before an Arbitral Tribunal constituted under the AMA 2023.
+
+Matter: ${matter}
+
+Instructions and facts:
+${ctx}
+
+Draft a comprehensive Statement of Defence (and Counterclaim if instructed) under the AMA 2023 and applicable institutional rules.
+
+STRUCTURE:
+1. HEADING
+   IN THE MATTER OF AN ARBITRATION UNDER [AMA 2023 / ICC RULES / NCIA RULES / AD HOC]
+   ARBITRATION REFERENCE NO: [ARB/YEAR/NO]
+   BETWEEN: [${partyA}] — Claimant
+   AND [${partyB}] — Respondent
+   STATEMENT OF DEFENCE [AND COUNTERCLAIM]
+
+2. INTRODUCTION
+   Overview: Respondent denies liability; summarise Respondent's case.
+
+3. PRELIMINARY OBJECTIONS (if any)
+   (a) Jurisdiction / validity of arbitration agreement
+   (b) Time bar / limitation
+   (c) Failure to comply with conditions precedent (notice, negotiation, mediation)
+
+4. RESPONSE TO STATEMENT OF CLAIM
+   For each numbered paragraph of Claimant's Statement of Claim:
+   — Admit / Deny / No knowledge — with brief reasons for each denial.
+
+5. RESPONDENT'S CASE
+   Numbered paragraphs — chronological:
+   (a) Respondent's own account of the agreement and performance
+   (b) Claimant's own breach / failure / contributory fault
+   (c) Respondent's mitigation or cure attempts
+   (d) Conditions precedent not met by Claimant
+   (e) Force majeure / frustration / change of law (if applicable)
+
+6. QUANTUM CHALLENGE
+   (a) Dispute principal sum — reasons
+   (b) Dispute interest claim — incorrect rate / date / basis
+   (c) No or reduced loss — failure to mitigate
+   (d) Any set-off
+
+7. COUNTERCLAIM (if applicable)
+   (a) Facts giving rise to counterclaim
+   (b) Legal basis
+   (c) Relief sought against Claimant
+
+8. RELIEF SOUGHT
+   (a) Claims dismissed in their entirety
+   (b) Preliminary objections upheld (if advanced)
+   (c) Counterclaim award (if applicable)
+   (d) Costs
+
+9. LIST OF DOCUMENTS RELIED UPON (by reference)
+
+10. SIGNATURE: Respondent's Counsel / Date
+
+Flag [COUNSEL TO SUPPLY] for all blanks. Return complete Statement of Defence only.`,
+
+      arb_claimant_address:`You are Nigerian arbitration counsel for ${partyA} (Claimant) preparing for the final phase of AMA 2023 arbitration.
+
+Matter: ${matter}
+
+Legal arguments and evidence summary:
+${ctx}
+
+Draft a comprehensive Closing Written Address for the Claimant before the Arbitral Tribunal.
+
+STRUCTURE:
+1. HEADING
+   IN THE MATTER OF AN ARBITRATION — REFERENCE NO: [ARB/YEAR/NO]
+   CLAIMANT'S CLOSING WRITTEN ADDRESS
+
+2. INTRODUCTION
+   Procedural history; evidence adduced; purpose of address.
+
+3. ISSUES FOR DETERMINATION
+   Distil 3–6 clean issues from the pleadings and evidence for Tribunal's determination.
+
+4. STATEMENT OF FACTS AS ESTABLISHED BY EVIDENCE
+   Summarise oral and documentary evidence led, cross-referencing exhibits (Exh. C-1, C-2 …).
+
+5. ARGUMENTS ON EACH ISSUE
+   For each issue:
+   (a) Legal principle — AMA 2023 provisions; Nigerian contract law; Supreme Court / Court of Appeal authorities; ICC/ICSID/LCIA precedents where relevant
+   (b) Evidence establishing Claimant's position
+   (c) Why Respondent's case fails on the evidence and law
+
+6. QUANTUM AND INTEREST
+   (a) Schedule of loss proved — principal and particulars
+   (b) Interest: rate, period, basis (AMA 2023 s.55 / contractual / equitable)
+   (c) Currency and exchange rate (AMA 2023 s.54)
+
+7. COSTS SUBMISSION
+   (a) Claimant is entitled to costs of arbitration
+   (b) Basis: successful party principle / Respondent's unreasonable conduct
+   (c) Schedule of costs (legal fees, arbitrator fees, admin fees, expenses)
+
+8. CONCLUSION AND RELIEFS SOUGHT
+   Reproduce full relief sought in final form; invite Tribunal to issue Final Award in favour of Claimant.
+
+9. TABLE OF AUTHORITIES CITED
+
+10. SIGNATURE: Claimant's Counsel / Date
+
+Flag [COUNSEL TO SUPPLY] for all blanks. Return complete Written Address only.`,
+
+      arb_respondent_address:`You are Nigerian arbitration counsel for ${partyB} (Respondent) preparing for the final phase of AMA 2023 arbitration.
+
+Matter: ${matter}
+
+Legal arguments and evidence summary:
+${ctx}
+
+Draft a comprehensive Closing Written Address for the Respondent before the Arbitral Tribunal.
+
+STRUCTURE:
+1. HEADING
+   IN THE MATTER OF AN ARBITRATION — REFERENCE NO: [ARB/YEAR/NO]
+   RESPONDENT'S CLOSING WRITTEN ADDRESS
+
+2. INTRODUCTION
+   Procedural history; Respondent's case in brief; why claims should be dismissed.
+
+3. PRELIMINARY OBJECTION ARGUMENTS (if maintained)
+   (a) Jurisdiction / limitation / conditions precedent — develop fully
+   (b) Why Tribunal should decline to proceed or dismiss on threshold grounds
+
+4. ISSUES FOR DETERMINATION
+   Respondent's formulation of the issues (adopt or reformulate Claimant's).
+
+5. STATEMENT OF FACTS AS ESTABLISHED BY EVIDENCE
+   Summarise evidence from Respondent's perspective; challenge Claimant's witnesses and exhibits.
+
+6. ARGUMENTS ON EACH ISSUE
+   For each issue:
+   (a) Legal principle — AMA 2023; Nigerian contract law; binding authorities
+   (b) Evidence from Respondent's witnesses and documents
+   (c) Why Claimant's case fails — legal and factual basis
+
+7. RESPONSE TO QUANTUM
+   (a) Principal claim not proved — what is the actual loss if any?
+   (b) Interest: wrong rate, wrong start date, or no entitlement
+   (c) Failure to mitigate — Claimant's contributory fault
+   (d) Set-off (if raised)
+
+8. COUNTERCLAIM ARGUMENTS (if applicable)
+   (a) Facts proved for counterclaim
+   (b) Legal entitlement
+   (c) Quantum of counterclaim
+
+9. COSTS SUBMISSION
+   (a) Claims dismissed — Claimant should bear all costs
+   (b) Claimant's conduct in the arbitration warranted increased costs
+   (c) Schedule of Respondent's costs
+
+10. CONCLUSION
+    Invite Tribunal to dismiss claims; grant counterclaim if advanced; award costs to Respondent.
+
+11. TABLE OF AUTHORITIES CITED
+
+12. SIGNATURE: Respondent's Counsel / Date
+
+Flag [COUNSEL TO SUPPLY] for all blanks. Return complete Written Address only.`,
+    };
+    return ps[tabId]??`Draft ${tabId} for arbitration matter: ${matter}. Instructions: ${ctx}`;
+  };
+
+  const forChecklist=[
+    {label:'Notice of Arbitration',done:!!data.arbNoticeDraft},
+    {label:'Statement of Claim',done:!!data.arbClaimDraft},
+    {label:"Claimant's Written Address",done:!!data.arbClaimantAddressDraft},
+  ];
+  const againstChecklist=[
+    {label:'Notice of Arbitration (awareness)',done:!!data.arbNoticeDraft},
+    {label:'Statement of Defence',done:!!data.arbDefenceDraft},
+    {label:"Respondent's Written Address",done:!!data.arbRespondentAddressDraft},
+  ];
+
+  return (
+    <div style={{animation:'fadeUp .3s ease'}}>
+      <div style={{marginBottom:24}}>
+        <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:8}}>
+          <span style={{fontSize:18,color:accent}}>⚖</span>
+          <h3 style={{fontSize:18,color:T.text,fontFamily:"'Times New Roman', Times, serif",fontWeight:300,margin:0}}>Arbitral Panel</h3>
+          <span style={{fontSize:9,padding:'3px 8px',borderRadius:3,fontFamily:"'Times New Roman', Times, serif",fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase',background:`${accent}15`,border:`1px solid ${accent}30`,color:accent}}>
+            {isClaim?'Claimant (For)':'Respondent (Against)'}
+          </span>
+        </div>
+        <p style={{fontSize:13,color:T.mute,fontFamily:"'Times New Roman', Times, serif",margin:0}}>Arbitration and Mediation Act 2023 (AMA 2023). Three-phase structure: Pre-Panel Notice → Pleadings → Closing Written Addresses leading to Final Award.</p>
+      </div>
+      <div style={{background:'#08080e',border:`1px solid ${accent}20`,borderRadius:6,padding:'10px 16px',marginBottom:20,fontSize:12,color:T.mute,fontFamily:"'Times New Roman', Times, serif"}}>
+        <strong style={{color:accent}}>Phase 1</strong> — Notice of Arbitration &nbsp;→&nbsp;
+        <strong style={{color:accent}}>Phase 2</strong> — Pleadings (Claim / Defence) &nbsp;→&nbsp;
+        <strong style={{color:accent}}>Phase 3</strong> — Closing Written Addresses → Final Award
+      </div>
+      <ChecklistBanner items={isClaim?forChecklist:againstChecklist} accent={accent}/>
+      <SubTabBar tabs={tabs} active={activeTab} onSelect={setActiveTab} accent={accent}/>
+      {tabs.map(t=>activeTab===t.id&&(
+        <AIDrafter key={t.id} title={t.label}
+          description={`Draft the ${t.label} for this arbitration matter.`}
+          contextLabel="Instructions & Facts" contextPlaceholder={`Provide facts, instructions, and relevant details for the ${t.label}…`}
+          draftKey={draftKeys[t.id]} contextKey={ctxKeys[t.id]}
+          data={data} onSave={onSave} accent={accent} ai={ai} systemCtx={systemCtx}
+          prompt={makePrompt(t.id)} maxTokens={2200}
+        />
+      ))}
+    </div>
+  );
+}
+
+
 // ─── MAIN ENGINE — COURT ROUTER ──────────────────────────────────────────────
 export function PleadingsEngine({activeCase}:Props) {
   const isClaim=activeCase.counsel_role==='claimant_side';
@@ -819,12 +2478,77 @@ export function PleadingsEngine({activeCase}:Props) {
   const op=activeCase.originating_process;
   const sp={data,onSave,accent,ai,systemCtx};
 
-  // ── TRACK 2: Originating Summons ──────────────────────────────────────────
+  // ── TRACK: Winding-Up Petition (3B) ──────────────────────────────────────
+  if(op==='winding_up_petition') {
+    return <WindingUpEngine activeCase={activeCase} {...sp}/>;
+  }
+
+  // ── TRACK: NICN — Complaint Form 1 (3B) ──────────────────────────────────
+  if(op==='nicn_complaint') {
+    return <NICNComplaintEngine activeCase={activeCase} {...sp}/>;
+  }
+
+  // ── TRACK: NICN — Originating Summons Form 2 (3B) ────────────────────────
+  if(op==='nicn_originating_summons') {
+    return <NICNOSEngine activeCase={activeCase} {...sp}/>;
+  }
+
+  // ── TRACK: NICN — Judicial Review (3B) ───────────────────────────────────
+  if(op==='nicn_judicial_review') {
+    return <NICNJREngine activeCase={activeCase} {...sp}/>;
+  }
+
+  // ── TRACK: NICN — Notice of Appeal (3B) ──────────────────────────────────
+  if(op==='nicn_appeal') {
+    return <NICNAppealEngine activeCase={activeCase} {...sp}/>;
+  }
+
+  // ── TRACK: Customary Court (3C) ───────────────────────────────────────────
+  if(op==='customary_summons') {
+    return <CustomaryCourtEngine activeCase={activeCase} {...sp}/>;
+  }
+
+  // ── TRACK: Magistrate Court — Ordinary Summons / Track A (3C) ────────────
+  if(op==='magistrate_plaint') {
+    return <MagistrateTrackAEngine activeCase={activeCase} {...sp}/>;
+  }
+
+  // ── TRACK: Magistrate Court — Default Summons / Track B (3C) ─────────────
+  if(op==='magistrate_default') {
+    return <MagistrateTrackBEngine activeCase={activeCase} {...sp}/>;
+  }
+
+  // ── TRACK: Small Claims Court (3C) ────────────────────────────────────────
+  if(op==='small_claims') {
+    return <SmallClaimsEngine activeCase={activeCase} {...sp}/>;
+  }
+
+  // ── TRACK: Election Petitions Tribunal (3D) ───────────────────────────────
+  if(op==='election_petition') {
+    return <ElectionPetitionEngine activeCase={activeCase} {...sp}/>;
+  }
+
+  // ── TRACK: Tax Appeal Tribunal (3D) ──────────────────────────────────────
+  if(op==='tax_appeal') {
+    return <TaxAppealEngine activeCase={activeCase} {...sp}/>;
+  }
+
+  // ── TRACK: Investments & Securities Tribunal (3D) ────────────────────────
+  if(op==='ist_application') {
+    return <ISTEngine activeCase={activeCase} {...sp}/>;
+  }
+
+  // ── TRACK: Arbitral Panel / AMA (3E) ─────────────────────────────────────
+  if(op==='arbitration_notice') {
+    return <ArbitralPanelEngine activeCase={activeCase} {...sp}/>;
+  }
+
+  // ── TRACK 2: Originating Summons (3A) ────────────────────────────────────
   if(op==='originating_summons') {
     return <OriginatingSummonsEngine activeCase={activeCase} {...sp}/>;
   }
 
-  // ── TRACK 1: Writ of Summons (default civil track) ────────────────────────
+  // ── TRACK 1: Writ of Summons (3A default civil track) ────────────────────
   if(!op||op==='writ_of_summons') {
     const claimTabs=[
       {id:'originating_process',label:'Originating Process'},
@@ -843,19 +2567,14 @@ export function PleadingsEngine({activeCase}:Props) {
     return <WritSubTabs isClaim={isClaim} claimTabs={claimTabs} defTabs={defTabs} accent={accent} sharedProps={sp} ccIntel={ccIntel}/>;
   }
 
-  // ── FALLTHROUGH: specialist processes (3B–3E not yet deployed) ────────────
+  // ── FALLTHROUGH ──────────────────────────────────────────────────────────
   const processLabel=op.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
-  const nextPhase=
-    op==='winding_up_petition'||op.startsWith('nicn')?'3B':
-    ['customary_summons','magistrate_plaint','magistrate_default','small_claims'].includes(op)?'3C':
-    ['election_petition','tax_appeal','ist_application'].includes(op)?'3D':
-    op==='arbitration_notice'?'3E':'3B';
   return (
     <div style={{padding:'32px 28px',background:'#fafaf8',border:'1px solid #cccccc',borderRadius:6,fontFamily:"'Times New Roman', Times, serif"}}>
-      <p style={{fontSize:11,color:'#888888',letterSpacing:'.14em',textTransform:'uppercase',marginBottom:8}}>Coming in Next Phase</p>
-      <p style={{fontSize:16,color:'#111111',fontWeight:700,marginBottom:10}}>{processLabel} Engine</p>
+      <p style={{fontSize:11,color:'#888888',letterSpacing:'.14em',textTransform:'uppercase',marginBottom:8}}>Engine Unavailable</p>
+      <p style={{fontSize:16,color:'#111111',fontWeight:700,marginBottom:10}}>{processLabel}</p>
       <p style={{fontSize:13,color:'#555555',lineHeight:1.7,marginBottom:0}}>
-        The specialist engine for <strong>{processLabel}</strong> matters will be available after Phase {nextPhase} is deployed. The case record, Intelligence Package, and all other tabs are fully functional.
+        No specialist engine is configured for <strong>{processLabel}</strong>. The case record, Intelligence Package, and all other tabs remain fully functional.
       </p>
     </div>
   );
