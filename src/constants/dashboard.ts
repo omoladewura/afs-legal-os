@@ -13,6 +13,11 @@
  *   Criminal     17 → 15
  *   FREP         12 →  9
  *   Matrimonial  16 → 11
+ *
+ * Phase 2A — Civil Matter Tree tab sets added:
+ *   TABS_WINDING_UP, TABS_NICN, TABS_CUSTOMARY, TABS_MAGISTRATE,
+ *   TABS_SMALL_CLAIMS, TABS_ELECTION_PETITION, TABS_TAX_APPEAL,
+ *   TABS_IST, TABS_ARBITRATION
  */
 
 export interface DashTab {
@@ -237,6 +242,89 @@ export const DASH_TABS: DashTab[] = [
     desc:  'Decree nisi to absolute pipeline. Ancillary relief enforcement. Maintenance enforcement. Post-decree compliance monitoring.',
     step:  null,
   },
+
+  // ── Phase 2A — Civil Matter Tree tab definitions ──────────────────────────
+
+  // Winding Up
+  {
+    id:    'winding_up',
+    icon:  '⚖',
+    label: 'Winding-Up Engine',
+    desc:  'CAMA winding-up petition engine. Pre-filing: 21-day Statutory Demand Notice. For: Petition + Affidavit in Verification + Notice of Proposed Liquidator + Gazette Evidence. Against: Memo of Appearance + Affidavit in Opposition + Written Address. Third Party: Notice of Intention to Appear + Affidavit of Debt.',
+    step:  null,
+  },
+
+  // NICN
+  {
+    id:    'nicn_pleadings',
+    icon:  '📜',
+    label: 'NICN Pleadings',
+    desc:  'National Industrial Court pleadings engine. Complaint Form 1 (employment disputes), Originating Summons Form 2 (CBA/Contract Interpretation), Judicial Review, and Notice of Appeal tracks. Document checklist + AI drafter per mode.',
+    step:  null,
+  },
+
+  // Customary Court
+  {
+    id:    'customary_pleadings',
+    icon:  '📜',
+    label: 'Customary Court Pleadings',
+    desc:  'Customary Court civil summons engine. For: Application for Civil Summons + Substance of Complaint + Customary Summons Wrapper. Against: Notice of Appearance + Statement of Defence (optional — oral defence permitted).',
+    step:  null,
+  },
+
+  // Magistrate Court
+  {
+    id:    'magistrate_pleadings',
+    icon:  '📜',
+    label: 'Magistrate Court Pleadings',
+    desc:  'Magistrate Court (Southern Nigeria) pleadings engine. Track A — Ordinary Summons: Praecipe (Form 1) + Particulars of Claim + Plaint Note (Form 2) + Witness Statements. Track B — Default Summons (Debt Recovery): Praecipe + Particulars + Plaint Note / Notice of Intention to Defend + Affidavit of Good Defence.',
+    step:  null,
+  },
+
+  // Small Claims
+  {
+    id:    'small_claims_pleadings',
+    icon:  '📜',
+    label: 'Small Claims Pleadings',
+    desc:  'Small Claims Court (Fast-Track Magistrate) engine. Pre-filing: Form SCA 1 (7-Day Letter of Demand). For: Form SCA 2 + Form SCA 3 + Annexed Receipts/Evidence. Against: Form SCA 5 (Admission/Defence/Counterclaim).',
+    step:  null,
+  },
+
+  // Election Petitions Tribunal
+  {
+    id:    'election_petition_pleadings',
+    icon:  '📜',
+    label: 'Election Petition Pleadings',
+    desc:  'Election Petitions Tribunal engine. Pre-filing: 21-day window from declaration of result (Electoral Act 2022 s.134). For: Petition (Form TF 001) + Grounds + Certificates of Return + Witness List + Pre-trial Depositions + Evidence Schedule + Written Address. Against: Reply to Petition + matching witness/evidence bundle.',
+    step:  null,
+  },
+
+  // Tax Appeal Tribunal
+  {
+    id:    'tax_appeal_pleadings',
+    icon:  '📜',
+    label: 'Tax Appeal Pleadings',
+    desc:  'Tax Appeal Tribunal engine. Pre-filing: 30-day objection window from assessment notice. For: Notice of Appeal (TAT Form 1) + Grounds + Statement of Facts + List of Documents + Written Submission. Against: Respondent Statement of Facts + Documents + Written Submission in Opposition.',
+    step:  null,
+  },
+
+  // Investments & Securities Tribunal
+  {
+    id:    'ist_pleadings',
+    icon:  '📜',
+    label: 'IST Pleadings',
+    desc:  'Investments & Securities Tribunal engine. For: Originating Application / Notice of Appeal + Statement of Facts + Grounds + Witness List + Witness Statements + Evidence Schedule + Written Address. Against: Statement of Defence / Reply + matching witness/evidence bundle.',
+    step:  null,
+  },
+
+  // Arbitral Panel
+  {
+    id:    'arbitration_pleadings',
+    icon:  '📜',
+    label: 'Arbitration Pleadings',
+    desc:  'Arbitral Panel (AMA) engine. Phase 1: Notice of Arbitration (Pre-Panel). Phase 2: Statement of Claim / Statement of Defence. Phase 3: Closing Written Addresses → Final Award.',
+    step:  null,
+  },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -252,36 +340,35 @@ function tabs(...ids: string[]): DashTab[] {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// PHASE 5 — FOUR REWRITTEN TAB SETS
+// EXISTING TAB SETS (untouched)
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * CIVIL — 11 tabs (was 17)
- * Writ of Summons, Originating Summons, Originating Motion,
+ * CIVIL — Writ of Summons, Originating Summons, Originating Motion,
  * petition_election, and any other civil process not explicitly mapped.
  */
 export const TABS_WRIT: DashTab[] = tabs(
-  'case_command',       // Phase 1 — replaces overview
+  'case_command',
   'intelligence',
   'inheritance',
   'pleadings',
   'applications',
-  'arg_templates',      // Phase 2 — Argument Template Manager
+  'arg_templates',
   'evidence',
-  'trial',              // Build Plan v2 Phase 3 — replaces crossexam
-  'strategy_hub',       // Phase 1A
-  'written_address',    // Phase 3
+  'trial',
+  'strategy_hub',
+  'written_address',
   'enforcement',
   'appeal',
-  'copilot',            // Phase 4 — now includes Command Console
-  'synthesis',          // Phase 5C — Master Case Theory, always last
+  'copilot',
+  'synthesis',
 );
 
 /**
- * CRIMINAL — 15 tabs (was 17)
+ * CRIMINAL — 15 tabs
  */
 export const TABS_CRIMINAL: DashTab[] = tabs(
-  'case_command',       // Phase 1
+  'case_command',
   'intelligence',
   'inheritance',
   'charge_arraignment',
@@ -289,56 +376,218 @@ export const TABS_CRIMINAL: DashTab[] = tabs(
   'prosecution_case',
   'no_case',
   'defence_case',
-  'trial',              // Build Plan v2 Phase 3 — replaces crossexam
+  'trial',
   'evidence',
   'applications',
-  'arg_templates',      // Phase 2 — Argument Template Manager
-  'strategy_hub',       // Phase 1A
+  'arg_templates',
+  'strategy_hub',
   'appeal',
-  'copilot',            // Phase 4
-  'synthesis',          // Phase 5C — Master Case Theory, always last
+  'copilot',
+  'synthesis',
 );
 
 /**
- * FREP — 9 tabs (was 12)
- * Fundamental Rights Enforcement Proceedings.
+ * FREP — Fundamental Rights Enforcement Proceedings.
  */
 export const TABS_FREP: DashTab[] = tabs(
-  'case_command',       // Phase 1
+  'case_command',
   'intelligence',
   'inheritance',
   'applications',
-  'arg_templates',      // Phase 2 — Argument Template Manager
+  'arg_templates',
   'evidence',
-  'trial',              // Build Plan v2 Phase 3
-  'strategy_hub',       // Phase 1A
-  'written_address',    // Phase 3
+  'trial',
+  'strategy_hub',
+  'written_address',
   'appeal',
-  'copilot',            // Phase 4
-  'synthesis',          // Phase 5C — Master Case Theory, always last
+  'copilot',
+  'synthesis',
 );
 
 /**
- * MATRIMONIAL — 11 tabs (was 16)
- * petition_matrimonial → MatrimonialDashboard in App.tsx.
- * This set is used as the reference for MatrimonialDashboard's own tab wiring
- * (Phase 7 updates mTabs.ts separately).
+ * MATRIMONIAL
  */
 export const TABS_MATRIMONIAL: DashTab[] = tabs(
-  'case_command',       // Phase 1
+  'case_command',
   'intelligence',
   'inheritance',
   'petition_answer',
   'matrimonial_engine',
   'applications',
-  'arg_templates',      // Phase 2 — Argument Template Manager
+  'arg_templates',
   'forms_documents',
   'evidence',
-  'trial',              // Build Plan v2 Phase 3
-  'strategy_hub',       // Phase 1A
+  'trial',
+  'strategy_hub',
   'decree_enforcement',
   'appeal',
-  'copilot',            // Phase 4
+  'copilot',
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PHASE 2A — NEW TAB SETS (Civil Matter Tree)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * WINDING UP — Federal High Court, CAMA winding-up petition track.
+ */
+export const TABS_WINDING_UP: DashTab[] = tabs(
+  'case_command',
+  'intelligence',
+  'inheritance',
+  'winding_up',
+  'applications',
+  'arg_templates',
+  'evidence',
+  'trial',
+  'strategy_hub',
+  'written_address',
+  'appeal',
+  'copilot',
+  'synthesis',
+);
+
+/**
+ * NICN — National Industrial Court (all four modes share this set).
+ * nicn_complaint / nicn_originating_summons / nicn_judicial_review / nicn_appeal
+ */
+export const TABS_NICN: DashTab[] = tabs(
+  'case_command',
+  'intelligence',
+  'inheritance',
+  'nicn_pleadings',
+  'applications',
+  'arg_templates',
+  'evidence',
+  'trial',
+  'strategy_hub',
+  'written_address',
+  'appeal',
+  'copilot',
+  'synthesis',
+);
+
+/**
+ * CUSTOMARY COURT
+ */
+export const TABS_CUSTOMARY: DashTab[] = tabs(
+  'case_command',
+  'intelligence',
+  'inheritance',
+  'customary_pleadings',
+  'applications',
+  'arg_templates',
+  'evidence',
+  'strategy_hub',
+  'written_address',
+  'copilot',
+  'synthesis',
+);
+
+/**
+ * MAGISTRATE COURT — covers both Track A (ordinary) and Track B (default/debt).
+ * magistrate_plaint / magistrate_default
+ */
+export const TABS_MAGISTRATE: DashTab[] = tabs(
+  'case_command',
+  'intelligence',
+  'inheritance',
+  'magistrate_pleadings',
+  'applications',
+  'arg_templates',
+  'evidence',
+  'strategy_hub',
+  'written_address',
+  'copilot',
+  'synthesis',
+);
+
+/**
+ * SMALL CLAIMS COURT
+ */
+export const TABS_SMALL_CLAIMS: DashTab[] = tabs(
+  'case_command',
+  'intelligence',
+  'inheritance',
+  'small_claims_pleadings',
+  'applications',
+  'evidence',
+  'strategy_hub',
+  'copilot',
+  'synthesis',
+);
+
+/**
+ * ELECTION PETITIONS TRIBUNAL
+ */
+export const TABS_ELECTION_PETITION: DashTab[] = tabs(
+  'case_command',
+  'intelligence',
+  'inheritance',
+  'election_petition_pleadings',
+  'applications',
+  'arg_templates',
+  'evidence',
+  'trial',
+  'strategy_hub',
+  'written_address',
+  'appeal',
+  'copilot',
+  'synthesis',
+);
+
+/**
+ * TAX APPEAL TRIBUNAL
+ */
+export const TABS_TAX_APPEAL: DashTab[] = tabs(
+  'case_command',
+  'intelligence',
+  'inheritance',
+  'tax_appeal_pleadings',
+  'applications',
+  'arg_templates',
+  'evidence',
+  'strategy_hub',
+  'written_address',
+  'appeal',
+  'copilot',
+  'synthesis',
+);
+
+/**
+ * INVESTMENTS & SECURITIES TRIBUNAL (IST)
+ */
+export const TABS_IST: DashTab[] = tabs(
+  'case_command',
+  'intelligence',
+  'inheritance',
+  'ist_pleadings',
+  'applications',
+  'arg_templates',
+  'evidence',
+  'trial',
+  'strategy_hub',
+  'written_address',
+  'appeal',
+  'copilot',
+  'synthesis',
+);
+
+/**
+ * ARBITRAL PANEL (AMA)
+ */
+export const TABS_ARBITRATION: DashTab[] = tabs(
+  'case_command',
+  'intelligence',
+  'inheritance',
+  'arbitration_pleadings',
+  'applications',
+  'arg_templates',
+  'evidence',
+  'strategy_hub',
+  'written_address',
+  'copilot',
+  'synthesis',
 );
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -347,7 +596,7 @@ export const TABS_MATRIMONIAL: DashTab[] = tabs(
 
 /**
  * Returns the correct tab set for a given originating_process value.
- * Falls back to TABS_WRIT for any civil/special process not explicitly mapped.
+ * Falls back to TABS_WRIT for any civil process not explicitly mapped.
  * Criminal matters (no originating_process) → TABS_CRIMINAL.
  */
 export function getTabsForOriginatingProcess(
@@ -356,9 +605,43 @@ export function getTabsForOriginatingProcess(
   if (!originating_process) return TABS_CRIMINAL;
 
   switch (originating_process) {
+    // ── Existing ────────────────────────────────────────────────────────────
     case 'frep':
       return TABS_FREP;
     // petition_matrimonial → routed to MatrimonialDashboard in App.tsx
+
+    // ── Phase 2A — Civil Matter Tree ────────────────────────────────────────
+    case 'winding_up_petition':
+      return TABS_WINDING_UP;
+
+    case 'nicn_complaint':
+    case 'nicn_originating_summons':
+    case 'nicn_judicial_review':
+    case 'nicn_appeal':
+      return TABS_NICN;
+
+    case 'customary_summons':
+      return TABS_CUSTOMARY;
+
+    case 'magistrate_plaint':
+    case 'magistrate_default':
+      return TABS_MAGISTRATE;
+
+    case 'small_claims':
+      return TABS_SMALL_CLAIMS;
+
+    case 'election_petition':
+      return TABS_ELECTION_PETITION;
+
+    case 'tax_appeal':
+      return TABS_TAX_APPEAL;
+
+    case 'ist_application':
+      return TABS_IST;
+
+    case 'arbitration_notice':
+      return TABS_ARBITRATION;
+
     default:
       return TABS_WRIT;
   }
