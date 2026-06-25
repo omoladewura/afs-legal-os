@@ -27,6 +27,20 @@
  *   ist_pleadings, arbitration_pleadings.
  * - getTabsForOriginatingProcess import verified correct (Phase 2A output).
  * - New DashTabId values added to index.ts union to match Phase 2A tab sets.
+ *
+ * Phase 0A (Build Plan v5 — Navigation Shell, Civil only):
+ * - Forked the tab-bar computation: `matter_track === 'criminal'` keeps the
+ *   existing getTabsForOriginatingProcess() output untouched (no behaviour
+ *   change for criminal matters, including the legacy V1 fallback path).
+ * - Every other track (civil, matrimonial, and legacy matters with no
+ *   originating_process) now renders the fixed 4-tab civil pipeline:
+ *   Case Command → Pleadings → Trial → Final Address. Secondary engines
+ *   (Applications, CrossExam, Evidence, Enforcement, Intelligence,
+ *   Synthesis, MatrimonialEngine, etc.) are no longer in the main tab bar —
+ *   they move to FloatingEngines.tsx (0B) and its "More" menu (0C).
+ * - Matrimonial and FREP tabs are dropped from the visible bar here; their
+ *   engines remain mounted and reachable via EngineContent/More menu — see
+ *   0E for the actual tab removal at the source-of-truth tab-list level.
  */
 
 import { Suspense, lazy, useCallback, useState, useEffect } from 'react';
@@ -55,6 +69,17 @@ import {
   MATTER_TRACK_COLORS,
   getOriginatingProcess,
 } from '@/types';
+
+// ── Phase 0A — Civil 4-tab pipeline ────────────────────────────────────────
+// Fixed tab set for every non-criminal matter (civil, matrimonial, and
+// legacy matters). Criminal matters are untouched and keep going through
+// getTabsForOriginatingProcess() exactly as before.
+const CIVIL_PIPELINE_TABS: { id: DashTabId; label: string; icon: string }[] = [
+  { id: 'case_command',    label: 'Case Command',  icon: '⌂' },
+  { id: 'pleadings',       label: 'Pleadings',      icon: '✎' },
+  { id: 'trial',           label: 'Trial',          icon: '⚖' },
+  { id: 'written_address', label: 'Final Address',  icon: '✓' },
+];
 
 // ── Lazy engine imports ───────────────────────────────────────────────────────
 
@@ -200,17 +225,27 @@ export function CaseDashboard() {
     await saveCase({ ...activeCase, ...patch });
   }, [activeCase, updateActiveCase]);
 
-  // ── Tab set — driven by originating_process ───────────────────────────────
+  // ── Tab set — driven by originating_process (criminal) or fixed pipeline (civil) ──
   // Phase 5: replaced ROLE_TABS lookup with getTabsForOriginatingProcess().
-  // This is the single source of truth for which tabs a case sees.
+  // This is the single source of truth for which tabs a *criminal* case sees.
   // Legacy V1 matters (no originating_process, no matter_track) fall through
   // to TABS_WRIT via the default branch in getTabsForOriginatingProcess().
+  //
+  // Phase 0A: criminal is forked off unchanged here. Civil (and matrimonial,
+  // and any legacy/untracked matter) now gets the fixed 4-tab pipeline —
+  // Case Command / Pleadings / Trial / Final Address — defined in
+  // CIVIL_PIPELINE_TABS above. Everything else those matters need
+  // (Applications, CrossExam, Evidence, Enforcement, Intelligence,
+  // Synthesis, Matrimonial) lives behind FloatingEngines.tsx (0B/0C).
 
-  const visibleTabs = getTabsForOriginatingProcess(activeCase.originating_process);
+  const matterTrack  = activeCase.matter_track;
+
+  const visibleTabs = matterTrack === 'criminal'
+    ? getTabsForOriginatingProcess(activeCase.originating_process)
+    : CIVIL_PIPELINE_TABS;
 
   // ── Role / position config (still used for quick actions + accent colour) ──
   const counselRole  = activeCase.counsel_role;
-  const matterTrack  = activeCase.matter_track;
   const posConfig    = counselRole ? ROLE_POSITION_CONFIG[counselRole] : null;
   const quickActions = counselRole ? ROLE_QUICK_ACTIONS[counselRole] : null;
 
