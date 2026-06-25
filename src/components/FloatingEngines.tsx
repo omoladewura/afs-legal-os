@@ -4,6 +4,33 @@
  * AICopilot + ApplicationsEngine as floating action buttons
  * visible only inside case workspaces (engine + matrimonial views).
  * Hidden on home, gate, san, settings, resolver.
+ *
+ * Phase 0B (Build Plan v5 — Navigation Shell, Civil only):
+ * - Criminal matters (view === 'engine' && matter_track === 'criminal') keep
+ *   the original behaviour untouched: floating buttons toggle a slide-in
+ *   overlay panel rendered on top of the current screen.
+ * - Everything else (civil, matrimonial, and any matter view without a
+ *   criminal track) gets a different mechanism: the same two floating
+ *   buttons now navigate full-page via setDashTab() instead of opening an
+ *   overlay panel — no panel/backdrop/local AICopilot+ApplicationsEngine
+ *   mount, just a route into the existing EngineContent router so the
+ *   engine renders as its own full page like every other civil tab.
+ * - This is also the anchor point for 0C's "More" menu: the secondary
+ *   engines bumped out of the civil 4-tab bar in 0A (Evidence, CrossExam,
+ *   Enforcement, Intelligence, Synthesis, MatrimonialEngine) will hang off
+ *   this same civil-only nav, not off the criminal overlay.
+ *
+ * Phase 0C (Build Plan v5 — Navigation Shell, Civil only):
+ * - Added a third FAB, "More", civil/matrimonial branch only. Toggles a
+ *   lightweight dropdown list (not the criminal slide-in panel mechanism —
+ *   no backdrop-blocking modal, no inline engine mount) of secondary
+ *   engines: Intelligence, Evidence, CrossExam, Enforcement, Synthesis.
+ * - MatrimonialEngine is added to that list only when
+ *   activeCase.matter_track === 'matrimonial' — this is the actual landing
+ *   spot for the matrimonial engine now that 0E removes its dedicated tab;
+ *   the engine itself is untouched, only its entry point moved here.
+ * - Each item just calls setDashTab(id) and closes the menu — same
+ *   full-page routing mechanism as the Apps/Copilot buttons from 0B.
  */
 
 import { useState, useCallback } from 'react';
@@ -11,15 +38,33 @@ import { AICopilot } from '@/engines/AICopilot';
 import { ApplicationsEngine } from '@/engines/ApplicationsEngine';
 import { useAppStore } from '@/state/appStore';
 import { T } from '@/constants/tokens';
+import type { DashTabId } from '@/types';
 
 type OpenPanel = 'copilot' | 'applications' | null;
 
+// Phase 0C — Secondary engines for the civil/matrimonial "More" menu.
+// Matrimonial is appended conditionally (matter_track === 'matrimonial')
+// inside the component, not listed here statically.
+const MORE_MENU_ITEMS: { id: DashTabId; label: string; icon: string }[] = [
+  { id: 'intelligence', label: 'Intelligence', icon: '◎' },
+  { id: 'evidence',     label: 'Evidence',      icon: '⊞' },
+  { id: 'crossexam',    label: 'Cross-Exam',    icon: '?' },
+  { id: 'enforcement',  label: 'Enforcement',   icon: '⚑' },
+  { id: 'synthesis',    label: 'Synthesis',     icon: '∑' },
+];
+
 export function FloatingEngines() {
   const [open, setOpen] = useState<OpenPanel>(null);
-  const { activeCase, view } = useAppStore();
+  const [moreOpen, setMoreOpen] = useState(false);
+  const { activeCase, view, setDashTab } = useAppStore();
 
   // Restrict to case workspace views only
   if (view !== 'engine' && view !== 'matrimonial') return null;
+
+  // Phase 0B: criminal is the only track that still uses the overlay panel.
+  // matrimonial view and civil engine view (matter_track !== 'criminal')
+  // both fall through to the full-page nav branch below.
+  const isCriminal = view === 'engine' && activeCase?.matter_track === 'criminal';
 
   const toggle = useCallback((panel: OpenPanel) => {
     setOpen(prev => (prev === panel ? null : panel));
@@ -27,6 +72,84 @@ export function FloatingEngines() {
 
   const close = useCallback(() => setOpen(null), []);
 
+  // ── Phase 0B — Civil / matrimonial: full-page nav, no overlay ────────────
+  // Same two buttons, but they route into the dashboard's own tab content
+  // instead of toggling a slide-in panel. Secondary engines added for the
+  // 0C "More" menu will live in this branch too.
+  if (!isCriminal) {
+    // Phase 0C — append MatrimonialEngine to the More list only for
+    // matrimonial-track matters; civil matters never see it.
+    const moreItems = activeCase?.matter_track === 'matrimonial'
+      ? [...MORE_MENU_ITEMS, { id: 'matrimonial' as DashTabId, label: 'Matrimonial', icon: '⚭' }]
+      : MORE_MENU_ITEMS;
+
+    const goTo = (id: DashTabId) => {
+      setDashTab(id);
+      setMoreOpen(false);
+    };
+
+    return (
+      <>
+        <div style={fabGroup}>
+          <button
+            onClick={() => setDashTab('applications')}
+            title="Applications Engine"
+            style={{ ...fabBtn, background: T.bg, color: T.text, border: `1.5px solid ${T.bdr}` }}
+          >
+            <span style={fabIcon}>⚖</span>
+            <span style={fabLabel}>Apps</span>
+          </button>
+
+          <button
+            onClick={() => setDashTab('copilot')}
+            title="AI Copilot"
+            style={{ ...fabBtn, background: T.bg, color: T.text, border: `1.5px solid ${T.bdr}` }}
+          >
+            <span style={fabIcon}>✦</span>
+            <span style={fabLabel}>Copilot</span>
+          </button>
+
+          {/* Phase 0C — More menu for secondary engines */}
+          <button
+            onClick={() => setMoreOpen(prev => !prev)}
+            title="More engines"
+            style={{
+              ...fabBtn,
+              background: moreOpen ? T.text : T.bg,
+              color:      moreOpen ? T.bg   : T.text,
+              border: `1.5px solid ${T.bdr}`,
+            }}
+          >
+            <span style={fabIcon}>⋯</span>
+            <span style={fabLabel}>More</span>
+          </button>
+        </div>
+
+        {moreOpen && (
+          <>
+            {/* Click-outside-to-close — transparent, not the criminal modal backdrop */}
+            <div onClick={() => setMoreOpen(false)} style={moreBackdrop} />
+            <div style={moreMenu}>
+              {moreItems.map(item => (
+                <button
+                  key={item.id}
+                  onClick={() => goTo(item.id)}
+                  style={moreMenuItem}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#f0f0ee'; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+                >
+                  <span style={{ fontSize: 13 }}>{item.icon}</span>
+                  <span>{item.label}</span>
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+      </>
+    );
+  }
+
+  // ── Criminal — unchanged overlay behaviour ───────────────────────────────
   return (
     <>
       {/* ── Floating Buttons ── */}
@@ -202,4 +325,47 @@ const noCase: React.CSSProperties = {
   height:         '100%',
   padding:        32,
   textAlign:      'center',
+};
+
+// ── Phase 0C — "More" menu styles (civil/matrimonial only) ──────────────────
+
+const moreBackdrop: React.CSSProperties = {
+  position:   'fixed',
+  inset:      0,
+  background: 'transparent',
+  zIndex:     1000,
+};
+
+const moreMenu: React.CSSProperties = {
+  position:      'fixed',
+  bottom:        96,
+  right:         20,
+  background:    T.bg,
+  border:        `1.5px solid ${T.bdr}`,
+  borderRadius:  8,
+  boxShadow:     '0 4px 18px rgba(0,0,0,0.15)',
+  zIndex:        1001,
+  display:       'flex',
+  flexDirection: 'column',
+  minWidth:      160,
+  padding:       4,
+  animation:     'fadeUp .15s ease',
+};
+
+const moreMenuItem: React.CSSProperties = {
+  display:        'flex',
+  alignItems:     'center',
+  gap:            8,
+  width:          '100%',
+  background:     'transparent',
+  border:         'none',
+  borderRadius:   4,
+  padding:        '8px 10px',
+  cursor:         'pointer',
+  fontFamily:     "'Times New Roman', Times, serif",
+  fontSize:       12,
+  color:          T.text,
+  textAlign:      'left',
+  letterSpacing:  '.02em',
+  transition:     'background .15s',
 };
