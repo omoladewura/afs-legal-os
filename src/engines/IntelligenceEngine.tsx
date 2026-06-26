@@ -170,6 +170,8 @@ interface TIEData {
   risk_verdict?:       RiskVerdictResult;
   /** Step 5 — Authority Grounding. Auto-populated after package generation. */
   authority_grounding?: IntelligenceData['authority_grounding'];
+  /** Phase 2C — Served Process Analysis. Defendant Stage 0.5 output. */
+  served_process_analysis?: IntelligenceData['served_process_analysis'];
 }
 
 interface Props {
@@ -197,7 +199,10 @@ const lbS: React.CSSProperties = {
 export function IntelligenceEngine({ activeCase, onSave }: Props) {
   const saved = (activeCase.intelligence_data || {}) as unknown as Partial<TIEData>;
 
-  const [stage,              setStage]              = useState<number>(saved.stage ?? 1);
+  const isDefendant = activeCase.counsel_role === 'defendant_side';
+  const [stage,              setStage]              = useState<number>(
+    saved.stage ?? (isDefendant && !saved.rawFacts ? 0 : 1)
+  );
   const [rawFacts,           setRawFacts]           = useState<string>(saved.rawFacts ?? '');
   const [extraction,         setExtraction]         = useState<ExtractionResult | null>(saved.extraction ?? null);
   const [followUpQs,         setFollowUpQs]         = useState<TIEData['followUpQs']>(saved.followUpQs ?? []);
@@ -230,6 +235,10 @@ export function IntelligenceEngine({ activeCase, onSave }: Props) {
   const [copied,     setCopied]     = useState(false);
   // Phase 7C — set true when a mid-stream interruption was auto-resumed
   const [pkgResumed, setPkgResumed] = useState(false);
+  const [processText,   setProcessText]   = useState<string>('');
+  const [spaResult,     setSpaResult]     = useState<IntelligenceData['served_process_analysis'] | undefined>(saved.served_process_analysis);
+  const [spaLoading,    setSpaLoading]    = useState(false);
+  const [spaError,      setSpaError]      = useState('');
 
   const { partyA, partyB, partyAPlural, partyBPlural, ourSide } = getPartyLabels(activeCase);
 
@@ -248,11 +257,12 @@ ${partyBPlural}: ${activeCase.defendants.map(d => d.name).filter(Boolean).join('
   function persist(updates: Partial<TIEData>) {
     const data: TIEData = {
       stage, rawFacts, extraction, followUpQs, followUpAs, evidenceM, intPkg,
-      commencement_audit:    commencementAudit,
-      counterclaim_detected: counterclaimDetected,
-      conflict_scan:         conflictScan,
-      risk_verdict:          riskVerdict,
-      authority_grounding:   authorityGrounding,
+      commencement_audit:      commencementAudit,
+      counterclaim_detected:   counterclaimDetected,
+      conflict_scan:           conflictScan,
+      risk_verdict:            riskVerdict,
+      authority_grounding:     authorityGrounding,
+      served_process_analysis: spaResult,
       ...updates,
     };
     onSave(data);
@@ -667,7 +677,11 @@ Rules:
     setCounterclaimDetected(undefined);
     setConflictScan(undefined); setConflictError('');
     setRiskVerdict(undefined); setRiskError(''); setRiskAnimated(false);
-    onSave({ stage: 1, rawFacts: '', extraction: null, followUpQs: [], followUpAs: {}, evidenceM: null, intPkg: '', commencement_audit: undefined, counterclaim_detected: undefined, conflict_scan: undefined, risk_verdict: undefined, authority_grounding: undefined });
+    const resetStage = isDefendant ? 0 : 1;
+    onSave({ stage: resetStage, rawFacts: '', extraction: null, followUpQs: [], followUpAs: {}, evidenceM: null, intPkg: '', commencement_audit: undefined, counterclaim_detected: undefined, conflict_scan: undefined, risk_verdict: undefined, authority_grounding: undefined, served_process_analysis: undefined });
+    setSpaResult(undefined);
+    setProcessText('');
+    setStage(resetStage);
   }
 
   // ── Step progress bar ──────────────────────────────────────────────────────
@@ -736,6 +750,360 @@ Rules:
   }
 
   // ─────────────────────────────────────────────────────────────────────────
+  // ── Phase 2C — Served Process Analysis ──────────────────────────────────────
+  async function runServedProcessAnalysis() {
+    if (processText.trim().length < 80) {
+      setSpaError('Please paste more of the served process — at least 80 characters needed for meaningful analysis.');
+      return;
+    }
+    setSpaLoading(true); setSpaError('');
+    try {
+      const raw = await withRetry(() => callClaude({
+        systemMsg: `You are a Senior Advocate analysing an originating process served on our client (the Defendant/Respondent). Extract and structure the following from the document.
+
+Return ONLY valid JSON — no preamble, no markdown fences:
+{
+  "process_type": "one of: Writ of Summons | Originating Summons | Originating Motion | Petition | Charge | Other — identify from the document",
+  "claimant_theory": "2–3 sentences: the Claimant's legal theory and what they are trying to establish",
+  "claims_identified": ["each distinct claim or relief sought, as a separate string"],
+  "factual_allegations": ["each key factual allegation made against the Defendant, as a separate string"],
+  "counterclaim_hints": ["any facts that suggest the Defendant may have a counterclaim — state the basis briefly; empty array if none"],
+  "procedural_deadlines": ["any deadlines stated or implied: e.g. 'Enter appearance within 8 days of service', '30 days to file defence' — empty array if none mentioned"],
+  "summary": "one sentence: what this matter is about and what is being claimed"
+}`,
+        userMsg: `SERVED PROCESS:\n\n${processText}\n\nCase: ${activeCase.caseName}\nCourt: ${activeCase.court || 'Not specified'}`,
+      }));
+
+      let parsed: Omit<IntelligenceData['served_process_analysis'], 'run_at' | 'process_text'>;
+      try {
+        const clean = raw.replace(/\`\`\`json|\`\`\`/g, '').trim();
+        parsed = JSON.parse(clean);
+      } catch {
+        throw new Error('Analysis returned unexpected format — please try again.');
+      }
+
+      const spa: IntelligenceData['served_process_analysis'] = {
+        run_at:              new Date().toISOString(),
+        process_text:        processText,
+        process_type:        parsed.process_type ?? 'Unknown',
+        claimant_theory:     parsed.claimant_theory ?? '',
+        claims_identified:   parsed.claims_identified ?? [],
+        factual_allegations: parsed.factual_allegations ?? [],
+        counterclaim_hints:  parsed.counterclaim_hints ?? [],
+        procedural_deadlines: parsed.procedural_deadlines ?? [],
+        summary:             parsed.summary ?? '',
+      };
+
+      setSpaResult(spa);
+
+      // Seed rawFacts with the process text so Stage 1 has a starting point
+      const seededFacts = \`[SERVED PROCESS — pasted by counsel]\n\n\${processText}\`;
+      setRawFacts(seededFacts);
+
+      advance(0.5, { served_process_analysis: spa, rawFacts: seededFacts });
+    } catch (e: unknown) {
+      setSpaError(e instanceof Error ? e.message : 'Analysis failed — please try again.');
+    } finally {
+      setSpaLoading(false);
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // STAGE 0 — Entry Path Selector (Phase 2A) — Defendant side only
+  // ─────────────────────────────────────────────────────────────────────────
+  function Stage0() {
+    const A = partyA;
+    const B = partyB;
+    return (
+      <div style={{ animation: 'fadeUp .3s ease' }}>
+        <div style={{ marginBottom: 28 }}>
+          <p style={{ fontSize: 10, color: T.text, fontFamily: \"'Times New Roman', Times, serif\", letterSpacing: '.16em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 4 }}>
+            Intelligence Engine · Entry
+          </p>
+          <h2 style={{ fontSize: 22, color: '#111111', fontFamily: \"'Times New Roman', Times, serif\", fontWeight: 300, marginBottom: 8 }}>
+            How are we coming into this matter?
+          </h2>
+          <p style={{ fontSize: 13, color: T.dim, fontFamily: \"'Times New Roman', Times, serif\", lineHeight: 1.7 }}>
+            Acting for <strong style={{ color: T.text }}>{B}</strong> — choose the entry path that matches how the matter reached us.
+          </p>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+          {/* Path A — Served Process */}
+          <button
+            onClick={() => advance(0.5)}
+            style={{
+              background: '#0a0a18', border: '1px solid #2a2a48',
+              borderRadius: 10, padding: '22px 24px',
+              textAlign: 'left', cursor: 'pointer',
+              transition: 'border-color .15s, background .15s',
+              display: 'flex', alignItems: 'flex-start', gap: 18,
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#5050a0'; (e.currentTarget as HTMLButtonElement).style.background = '#0d0d22'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#2a2a48'; (e.currentTarget as HTMLButtonElement).style.background = '#0a0a18'; }}
+          >
+            <span style={{ fontSize: 26, lineHeight: 1, flexShrink: 0, marginTop: 2 }}>📨</span>
+            <div>
+              <p style={{ fontSize: 15, color: '#c8c8e8', fontFamily: \"'Times New Roman', Times, serif\", fontWeight: 700, marginBottom: 5 }}>
+                We Were Served
+              </p>
+              <p style={{ fontSize: 12, color: T.mute, fontFamily: \"'Times New Roman', Times, serif\", lineHeight: 1.65 }}>
+                A writ, originating summons, petition, or other process was served on {B}.
+                Upload or paste the originating process — the engine will analyse the claim,
+                extract the {A}'s theory, and identify counterclaim opportunities.
+              </p>
+              <p style={{ fontSize: 10, color: '#5050a0', fontFamily: \"'Times New Roman', Times, serif\", marginTop: 8, letterSpacing: '.06em', textTransform: 'uppercase', fontWeight: 700 }}>
+                Served Process Intake → Theory Extraction → Counterclaim Scan
+              </p>
+            </div>
+          </button>
+
+          {/* Path B — Raw Facts (claimant-style) */}
+          <button
+            onClick={() => advance(1)}
+            style={{
+              background: '#0a0a18', border: '1px solid #1e2a1e',
+              borderRadius: 10, padding: '22px 24px',
+              textAlign: 'left', cursor: 'pointer',
+              transition: 'border-color .15s, background .15s',
+              display: 'flex', alignItems: 'flex-start', gap: 18,
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#3a5a3a'; (e.currentTarget as HTMLButtonElement).style.background = '#0d0d18'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#1e2a1e'; (e.currentTarget as HTMLButtonElement).style.background = '#0a0a18'; }}
+          >
+            <span style={{ fontSize: 26, lineHeight: 1, flexShrink: 0, marginTop: 2 }}>📋</span>
+            <div>
+              <p style={{ fontSize: 15, color: '#c8e8c8', fontFamily: \"'Times New Roman', Times, serif\", fontWeight: 700, marginBottom: 5 }}>
+                Enter Raw Facts
+              </p>
+              <p style={{ fontSize: 12, color: T.mute, fontFamily: \"'Times New Roman', Times, serif\", lineHeight: 1.65 }}>
+                We have the client's account of events but no served process yet — or we prefer to build
+                the defence picture from our own instructions first. Proceed with the standard 5-step intelligence pipeline.
+              </p>
+              <p style={{ fontSize: 10, color: '#3a5a3a', fontFamily: \"'Times New Roman', Times, serif\", marginTop: 8, letterSpacing: '.06em', textTransform: 'uppercase', fontWeight: 700 }}>
+                Raw Facts → Extraction → Follow-Up → Evidence Map → Package
+              </p>
+            </div>
+          </button>
+
+        </div>
+      </div>
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // STAGE 0.5 — Served Process Intake (Phase 2C)
+  // ─────────────────────────────────────────────────────────────────────────
+  function Stage0_5() {
+    const spa = spaResult;
+    const A = partyA;
+    const B = partyB;
+
+    // If analysis already done — show results + proceed options
+    if (spa) {
+      return (
+        <div style={{ animation: 'fadeUp .3s ease' }}>
+          <div style={{ marginBottom: 20 }}>
+            <p style={{ fontSize: 10, color: T.text, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.16em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 4 }}>
+              Served Process Analysis · Complete
+            </p>
+            <h2 style={{ fontSize: 22, color: '#111111', fontFamily: "'Times New Roman', Times, serif", fontWeight: 300, marginBottom: 6 }}>
+              {spa.process_type} — Analysed
+            </h2>
+            <p style={{ fontSize: 12, color: T.mute, fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic' }}>
+              {spa.summary}
+            </p>
+          </div>
+
+          <div style={{ background: '#0a0a18', border: '1px solid #1a1a30', borderRadius: 10, padding: '20px 22px', marginBottom: 14 }}>
+
+            {/* Claimant Theory */}
+            <div style={{ marginBottom: 18 }}>
+              <p style={{ fontSize: 9, color: '#8080c0', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 6 }}>
+                {A}'s Theory
+              </p>
+              <p style={{ fontSize: 13, color: '#c8c8e8', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.7 }}>
+                {spa.claimant_theory}
+              </p>
+            </div>
+
+            {/* Claims */}
+            {spa.claims_identified.length > 0 && (
+              <div style={{ marginBottom: 18 }}>
+                <p style={{ fontSize: 9, color: '#8080c0', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 6 }}>
+                  Claims / Reliefs Sought
+                </p>
+                {spa.claims_identified.map((c, i) => (
+                  <div key={i} style={{ fontSize: 12, color: T.mute, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.65, paddingLeft: 12, borderLeft: '2px solid #2a2a48', marginBottom: 5 }}>
+                    {c}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Factual Allegations */}
+            {spa.factual_allegations.length > 0 && (
+              <div style={{ marginBottom: 18 }}>
+                <p style={{ fontSize: 9, color: '#c08040', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 6 }}>
+                  Allegations Against {B}
+                </p>
+                {spa.factual_allegations.map((a, i) => (
+                  <div key={i} style={{ fontSize: 12, color: T.mute, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.65, paddingLeft: 12, borderLeft: '2px solid #3a2808', marginBottom: 5 }}>
+                    {a}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Counterclaim Hints */}
+            {spa.counterclaim_hints.length > 0 && (
+              <div style={{ marginBottom: 18 }}>
+                <p style={{ fontSize: 9, color: '#40b068', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 6 }}>
+                  Counterclaim Opportunities
+                </p>
+                {spa.counterclaim_hints.map((h, i) => (
+                  <div key={i} style={{ fontSize: 12, color: T.mute, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.65, paddingLeft: 12, borderLeft: '2px solid #183028', marginBottom: 5 }}>
+                    {h}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Procedural Deadlines */}
+            {spa.procedural_deadlines.length > 0 && (
+              <div>
+                <p style={{ fontSize: 9, color: '#c05050', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 6 }}>
+                  Procedural Deadlines
+                </p>
+                {spa.procedural_deadlines.map((d, i) => (
+                  <div key={i} style={{ fontSize: 12, color: '#c05050', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.65, paddingLeft: 12, borderLeft: '2px solid #401818', marginBottom: 5 }}>
+                    {d}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button
+              onClick={() => advance(1)}
+              style={{
+                flex: 1, background: 'linear-gradient(135deg,#1a1a40,#3030a0)',
+                color: '#c8c8f8', border: 'none', borderRadius: 6,
+                padding: '13px', fontSize: 15,
+                fontFamily: "'Times New Roman', Times, serif",
+                cursor: 'pointer', fontWeight: 600,
+              }}
+            >
+              Continue → Add Client Instructions & Extract Intelligence
+            </button>
+            <button
+              onClick={() => { setSpaResult(undefined); setProcessText(''); }}
+              style={{
+                background: 'transparent', border: '1px solid #2a2a48',
+                color: T.mute, borderRadius: 6, padding: '13px 18px',
+                fontSize: 12, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer',
+              }}
+            >
+              Re-analyse
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // No analysis yet — paste intake form
+    return (
+      <div style={{ animation: 'fadeUp .3s ease' }}>
+        <div style={{ marginBottom: 20 }}>
+          <p style={{ fontSize: 10, color: T.text, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.16em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 4 }}>
+            Step 0 · Served Process Intake
+          </p>
+          <h2 style={{ fontSize: 22, color: '#111111', fontFamily: "'Times New Roman', Times, serif", fontWeight: 300, marginBottom: 6 }}>
+            Paste the Served Process
+          </h2>
+          <p style={{ fontSize: 13, color: T.dim, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.7 }}>
+            Paste the full text of the writ, originating summons, petition, or charge as served on {B}.
+            The engine will extract {A}'s theory, the claims made, allegations against {B}, and counterclaim opportunities.
+          </p>
+        </div>
+
+        <div style={{ background: '#0d0d18', border: '1px solid #181828', borderRadius: 10, padding: '20px 22px', marginBottom: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, paddingBottom: 12, borderBottom: '1px solid #131320', flexWrap: 'wrap' }}>
+            <RoleBadge role={role} />
+            <span style={{ fontSize: 11, color: T.mute, fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic' }}>
+              {activeCase.caseName}
+            </span>
+            {activeCase.court && (
+              <span style={{ fontSize: 10, color: T.bdr, fontFamily: "'Times New Roman', Times, serif" }}>· {activeCase.court}</span>
+            )}
+          </div>
+          <label style={lbS}>
+            Originating Process Text <span style={{ color: '#b06060' }}>*</span>
+          </label>
+          <p style={{ fontSize: 11, color: T.mute, fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic', marginBottom: 10, lineHeight: 1.65 }}>
+            Paste the full document — writ endorsement, statement of claim, grounds of petition, or charge sheet. The more text, the sharper the analysis.
+          </p>
+          <textarea
+            value={processText}
+            onChange={e => setProcessText(e.target.value)}
+            rows={13}
+            placeholder={
+              'Paste the served process here:\n\n• Writ of Summons — include the endorsement and any annexed statement of claim\n• Originating Summons — include all questions and the supporting affidavit if attached\n• Petition — include all grounds\n• Charge Sheet — include the charges and particulars\n\nThe more complete the text, the sharper the analysis.'
+            }
+            style={{ ...iS, resize: 'vertical', lineHeight: 1.85, minHeight: 300, fontSize: 15 }}
+          />
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
+            <span style={{ fontSize: 10, color: processText.length < 80 ? '#804040' : T.mute, fontFamily: "'Times New Roman', Times, serif" }}>
+              {processText.length} characters{processText.length < 80 ? ' · minimum 80' : ''}
+            </span>
+            <span style={{ fontSize: 10, color: T.mute, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.04em' }}>
+              More text = sharper theory extraction
+            </span>
+          </div>
+        </div>
+
+        {spaError && <div style={{ background: '#1a0808', border: '1px solid #401818', borderRadius: 6, padding: '10px 14px', marginBottom: 14, fontSize: 12, color: '#c05050', fontFamily: "'Times New Roman', Times, serif" }}>{spaError}</div>}
+
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button
+            onClick={runServedProcessAnalysis}
+            disabled={spaLoading || processText.trim().length < 80}
+            style={{
+              flex: 1,
+              background: spaLoading || processText.trim().length < 80
+                ? '#101018'
+                : 'linear-gradient(135deg,#000000,#302080)',
+              color: spaLoading || processText.trim().length < 80 ? '#2a2a38' : '#c8c8f8',
+              border: 'none', borderRadius: 6, padding: '14px',
+              fontSize: 17, fontFamily: "'Times New Roman', Times, serif",
+              cursor: spaLoading || processText.trim().length < 80 ? 'not-allowed' : 'pointer',
+              fontWeight: 600, letterSpacing: '.04em',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+            }}
+          >
+            {spaLoading ? (
+              <><Spinner size={14} /> Analysing Served Process…</>
+            ) : (
+              'Analyse Served Process →'
+            )}
+          </button>
+          <button
+            onClick={() => setStage(0)}
+            style={{
+              background: 'transparent', border: '1px solid #2a2a48',
+              color: T.mute, borderRadius: 6, padding: '14px 18px',
+              fontSize: 12, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer',
+            }}
+          >
+            ← Back
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   // STAGE 1 — Raw Facts
   // ─────────────────────────────────────────────────────────────────────────
   function Stage1() {
@@ -1714,7 +2082,7 @@ Rules:
             Intelligence Engine
           </h1>
         </div>
-        {(stage > 1 || rawFacts.trim()) && (
+        {(stage > 1 || (stage === 1 && rawFacts.trim())) && (
           <button
             onClick={resetPipeline}
             style={{ background: 'transparent', border: '1px solid #2a1818', color: '#604040', borderRadius: 4, padding: '6px 13px', fontSize: 10, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', letterSpacing: '.06em', flexShrink: 0 }}>
@@ -1725,11 +2093,13 @@ Rules:
 
       <TIESteps />
 
-      {stage === 1 && <Stage1 />}
-      {stage === 2 && <Stage2 />}
-      {stage === 3 && <Stage3 />}
-      {stage === 4 && <Stage4 />}
-      {stage === 5 && <Stage5 />}
+      {stage === 0   && <Stage0 />}
+      {stage === 0.5 && <Stage0_5 />}
+      {stage === 1   && <Stage1 />}
+      {stage === 2   && <Stage2 />}
+      {stage === 3   && <Stage3 />}
+      {stage === 4   && <Stage4 />}
+      {stage === 5   && <Stage5 />}
     </div>
   );
 }
