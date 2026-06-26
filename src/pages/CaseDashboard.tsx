@@ -176,7 +176,7 @@ function EngineContent({
     case 'applications':       return <ApplicationsEngine  activeCase={activeCase} />;
     case 'arg_templates':      return <ArgumentTemplateManager activeCase={activeCase} />;
     // Trial Engine Consolidation (Build Plan v2, Phase 3)
-    case 'trial':              return <TrialEngine            activeCase={activeCase} />;
+    case 'trial':              return <TrialEngine            activeCase={activeCase} onSetDashTab={onSetDashTab} />;
     // Phase 5C — Synthesis Engine (Master Case Theory)
     case 'synthesis':         return <SynthesisEngine activeCase={activeCase} onNavigate={(tabId) => onSetDashTab(tabId as DashTabId)} />;
     default:             return null;
@@ -563,6 +563,29 @@ export function CaseDashboard() {
               )}
               {tab.id === 'appeal' && (activeCase.appeal_data as any)?.package && (
                 <span style={{ width: 4, height: 4, borderRadius: '50%', background: '#444444', display: 'inline-block', flexShrink: 0 }} />
+              )}
+              {/* Phase 5B — trial tab: green dot when bundle complete + trial started */}
+              {tab.id === 'trial' &&
+                activeCase.intelligence_data?.intPkg &&
+                activeCase.case_theory_locked === true && (
+                <span
+                  title={activeCase.trial_stage === 'defence_case_closed'
+                    ? 'Trial concluded — proceed to Final Written Address'
+                    : 'Bundle complete — trial pipeline active'}
+                  style={{
+                    width: 4, height: 4, borderRadius: '50%',
+                    background: activeCase.trial_stage === 'defence_case_closed' ? '#1a3a6a' : '#2a6a3a',
+                    display: 'inline-block', flexShrink: 0,
+                  }}
+                />
+              )}
+              {/* Phase 5B — written_address tab: blue dot when trial is concluded */}
+              {tab.id === 'written_address' &&
+                activeCase.trial_stage === 'defence_case_closed' && (
+                <span
+                  title="Trial concluded — Final Written Address is ready to draft"
+                  style={{ width: 4, height: 4, borderRadius: '50%', background: '#1a3a6a', display: 'inline-block', flexShrink: 0 }}
+                />
               )}
               {/* Phase E — red alert count badge on Alerts tab */}
               {tab.id === 'alerts' && alertCount > 0 && (
