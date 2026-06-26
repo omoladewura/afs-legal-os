@@ -321,3 +321,4 @@ export function formatDetectedTheoryForPrompt(
   }
   return lines.join('\n');
 }
+ 
