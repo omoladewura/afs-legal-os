@@ -157,15 +157,129 @@ export function CaseDocket() {
   }
 
   // ── Role description — no "claim" language for non-civil roles ────────────
+  // Phase 1E — court + process-aware role descriptions
   function roleDescription(role: CounselRole): string {
-    if (role === 'prosecution')     return 'Acting for the prosecution — building and presenting the case against the accused.';
-    if (role === 'defence')         return 'Acting for the defence — protecting the accused, challenging prosecution evidence at every stage.';
-    if (role === 'petitioner_side') return 'Acting for the Petitioner — presenting the petition, establishing the dissolution fact, and advancing ancillary relief under the MCA.';
-    if (role === 'respondent_side') return 'Acting for the Respondent — answering the petition, raising available bars, and protecting the respondent\'s interests in ancillary proceedings.';
-    if (role === 'frep_applicant')  return 'Acting for the Applicant — initiating enforcement of fundamental rights, advancing the application, and securing relief.';
-    if (role === 'frep_respondent') return 'Acting for the Respondent — opposing the application, challenging the facts deposed to, and filing necessary processes.';
-    if (role === 'claimant_side')   return `Acting for the ${origConfig.partyALabel} — advancing the matter, driving pleadings, trial, and enforcement.`;
-    if (role === 'defendant_side')  return `Acting for the ${origConfig.partyBLabel} — resisting the matter, filing defences and applications.`;
+    const A = origConfig.partyALabel;
+    const B = origConfig.partyBLabel;
+    const op = ncOrigProc;
+
+    // ── Criminal ─────────────────────────────────────────────────────────────
+    if (role === 'prosecution') {
+      return ncCourt.includes('Magistrate')
+        ? 'Acting for the prosecution — presenting the charge, calling witnesses, and securing a conviction before the Magistrate.'
+        : 'Acting for the prosecution — building the case file, conducting examination-in-chief, and advancing the charge to verdict.';
+    }
+    if (role === 'defence') {
+      return 'Acting for the defence — protecting the accused at every stage: bail, no-case submission, cross-examination, and final address.';
+    }
+
+    // ── Matrimonial ───────────────────────────────────────────────────────────
+    if (role === 'petitioner_side' && op === 'petition_matrimonial') {
+      return 'Acting for the Petitioner — presenting the petition, establishing the dissolution fact, and advancing ancillary relief claims under the MCA.';
+    }
+    if (role === 'respondent_side' && op === 'petition_matrimonial') {
+      return 'Acting for the Respondent — answering the petition, raising available bars to dissolution, and protecting interests in ancillary proceedings.';
+    }
+
+    // ── Election Petition ─────────────────────────────────────────────────────
+    if (role === 'petitioner_side' && (op === 'petition_election' || op === 'election_petition')) {
+      return 'Acting for the Petitioner — challenging the election result, adducing electoral irregularity evidence, and advancing the petition to the Tribunal.';
+    }
+    if (role === 'respondent_side' && (op === 'petition_election' || op === 'election_petition')) {
+      return 'Acting for the Respondent — defending the declaration, challenging the Petitioner's locus and evidence, and protecting the mandate.';
+    }
+
+    // ── Winding-Up Petition ───────────────────────────────────────────────────
+    if (role === 'claimant_side' && op === 'winding_up_petition') {
+      return 'Acting for the Petitioner — establishing the ground for winding up, verifying the debt, and advancing the petition under CAMA before the Federal High Court.';
+    }
+    if (role === 'defendant_side' && op === 'winding_up_petition') {
+      return 'Acting for the Respondent Company — opposing the petition, challenging the debt or ground relied upon, and filing a counter-affidavit.';
+    }
+
+    // ── FREP ──────────────────────────────────────────────────────────────────
+    if (role === 'frep_applicant') {
+      return `Acting for the Applicant — initiating enforcement of fundamental rights${ncCourt ? ' in the ' + ncCourt : ''}, filing the application and supporting affidavit, and advancing the matter to hearing.`;
+    }
+    if (role === 'frep_respondent') {
+      return 'Acting for the Respondent — opposing the application, filing counter-affidavit, and challenging the facts and reliefs sought.';
+    }
+
+    // ── NICN ──────────────────────────────────────────────────────────────────
+    if (op === 'nicn_complaint') {
+      return role === 'claimant_side'
+        ? 'Acting for the Claimant — filing Complaint Form 1, advancing the employment claim, and driving the matter to hearing before the NICN.'
+        : 'Acting for the Defendant — filing a defence, raising jurisdictional objections if available, and resisting the employment claim.';
+    }
+    if (op === 'nicn_originating_summons') {
+      return role === 'claimant_side'
+        ? 'Acting for the Applicant — seeking the court's interpretation or determination on questions of labour law or employment rights before the NICN.'
+        : 'Acting for the Respondent — opposing the originating summons, filing counter-affidavit, and advancing the Respondent's construction of the issues.';
+    }
+    if (op === 'nicn_judicial_review') {
+      return role === 'claimant_side'
+        ? 'Acting for the Applicant — challenging the decision of an employer or body on judicial review grounds before the NICN.'
+        : 'Acting for the Respondent — defending the impugned decision and opposing leave and substantive relief.';
+    }
+    if (op === 'nicn_appeal') {
+      return role === 'claimant_side'
+        ? 'Acting for the Appellant — prosecuting the appeal, settling grounds, and filing the Appellant's brief before the NICN.'
+        : 'Acting for the Respondent — opposing the appeal, filing the Respondent's brief, and defending the decision below.';
+    }
+
+    // ── Magistrate / Lower Courts ─────────────────────────────────────────────
+    if (op === 'magistrate_plaint' || op === 'customary_summons') {
+      return role === 'claimant_side'
+        ? `Acting for the ${A} — commencing the action by summons, leading evidence, and advancing the claim to judgment.`
+        : `Acting for the ${B} — entering appearance, filing a defence, and resisting the claim at every stage.`;
+    }
+    if (op === 'magistrate_default') {
+      return role === 'claimant_side'
+        ? 'Acting for the Claimant — recovering the debt via default summons, and moving for judgment if the Defendant fails to appear or pay.'
+        : 'Acting for the Defendant — entering appearance to set aside default, filing a defence, and disputing the debt.';
+    }
+    if (op === 'small_claims') {
+      return role === 'claimant_side'
+        ? 'Acting for the Claimant — pursuing the small claim, presenting evidence informally, and securing a fast-track judgment.'
+        : 'Acting for the Defendant — contesting the claim in the small claims track, presenting the defence, and limiting the award.';
+    }
+
+    // ── Specialised Tribunals ─────────────────────────────────────────────────
+    if (op === 'tax_appeal') {
+      return role === 'claimant_side'
+        ? 'Acting for the Appellant — challenging the tax assessment, filing the appeal and grounds, and advancing the objection before the TAT.'
+        : 'Acting for the Respondent (FIRS/SIRS) — defending the assessment, filing the Respondent's reply, and justifying the tax demand.';
+    }
+    if (op === 'ist_application') {
+      return role === 'claimant_side'
+        ? 'Acting for the Applicant — bringing the capital market or securities dispute before the IST, filing the application and supporting documents.'
+        : 'Acting for the Respondent — opposing the application, filing counter-documents, and advancing the Respondent's position before the IST.';
+    }
+    if (op === 'arbitration_notice') {
+      return role === 'claimant_side'
+        ? 'Acting for the Claimant — commencing arbitration under the AMA, filing the notice and statement of claim, and driving the process to award.'
+        : 'Acting for the Respondent — filing the statement of defence, raising jurisdictional objections if available, and resisting the claim before the panel.';
+    }
+
+    // ── Originating Summons / Motion (non-NICN) ───────────────────────────────
+    if (op === 'originating_summons') {
+      return role === 'claimant_side'
+        ? `Acting for the Applicant — seeking the court's determination on questions of law or construction${ncCourt ? ' in the ' + ncCourt : ''}, by originating summons.`
+        : 'Acting for the Respondent — opposing the summons, filing counter-affidavit, and advancing the Respondent's construction of the issues.';
+    }
+    if (op === 'originating_motion') {
+      return role === 'claimant_side'
+        ? `Acting for the Applicant — initiating proceedings by originating motion${ncCourt ? ' in the ' + ncCourt : ''}, filing the motion paper and supporting affidavit.`
+        : 'Acting for the Respondent — opposing the motion, filing counter-affidavit, and advancing the Respondent's case.';
+    }
+
+    // ── Default: Writ of Summons + fallback ───────────────────────────────────
+    if (role === 'claimant_side') {
+      return `Acting for the ${A} — commencing by writ${ncCourt ? ' in the ' + ncCourt : ''}, driving pleadings, trial preparation, and enforcement of any judgment.`;
+    }
+    if (role === 'defendant_side') {
+      return `Acting for the ${B} — entering appearance, filing a statement of defence, and resisting the claim through pleadings, interlocutory applications, and trial.`;
+    }
     return '';
   }
 
@@ -558,15 +672,18 @@ export function CaseDocket() {
                   </button>
                 ))}
               </div>
-              <div style={{
-                marginTop: 8, padding: '8px 12px',
-                background: ROLE_LIGHT[ncRole]?.bg ?? '#f5f5f5',
-                border: `1px solid ${ROLE_LIGHT[ncRole]?.bdr ?? '#cccccc'}`,
-                borderRadius: 3, fontSize: 12, color: ROLE_LIGHT[ncRole]?.col ?? '#444444',
-                fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic',
-              }}>
-                {roleDescription(ncRole)}
-              </div>
+              {/* Role description — only once context is set (Phase 1D ghost-box fix) */}
+              {(filterPreset || ncCourt) && (
+                <div style={{
+                  marginTop: 8, padding: '8px 12px',
+                  background: ROLE_LIGHT[ncRole]?.bg ?? '#f5f5f5',
+                  border: `1px solid ${ROLE_LIGHT[ncRole]?.bdr ?? '#cccccc'}`,
+                  borderRadius: 3, fontSize: 12, color: ROLE_LIGHT[ncRole]?.col ?? '#444444',
+                  fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic',
+                }}>
+                  {roleDescription(ncRole)}
+                </div>
+              )}
             </div>
 
             {/* Matter details */}
@@ -597,20 +714,9 @@ export function CaseDocket() {
               </div>
             )}
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
-              <div>
-                <label style={S.label}>{isCriminal ? 'Charge / Case No.' : 'Suit Number'}</label>
-                <input
-                  value={ncSuit}
-                  onChange={e => setNcSuit(e.target.value)}
-                  placeholder={isCriminal ? 'FHC/L/CR/456/2024' : 'FHC/L/CS/123/2024'}
-                  style={S.inp}
-                />
-              </div>
-              <div>
-                <label style={S.label}>Date Commenced</label>
-                <input type="date" value={ncDate} onChange={e => setNcDate(e.target.value)} style={S.inp} />
-              </div>
+            <div style={{ marginBottom: 12 }}>
+              <label style={S.label}>Date Commenced</label>
+              <input type="date" value={ncDate} onChange={e => setNcDate(e.target.value)} style={S.inp} />
             </div>
 
             {/* Parties */}
@@ -640,13 +746,13 @@ export function CaseDocket() {
               </button>
             </div>
 
-            {/* Summary strip */}
+            {/* Summary strip — transparent preview (Phase 1C) */}
             {ncName.trim() && (
               <div style={{
                 marginBottom: 18, padding: '10px 14px',
-                background: '#060610', border: `1px solid #1a1a2e`,
+                background: 'rgba(6,6,16,0.45)', border: `1px solid rgba(26,26,46,0.6)`,
                 borderRadius: 6, fontFamily: "'Times New Roman', Times, serif", fontSize: 11,
-                color: T.mute, lineHeight: 1.7,
+                color: T.mute, lineHeight: 1.7, backdropFilter: 'blur(4px)',
               }}>
                 <span style={{ color: trackColor.col, fontWeight: 700 }}>
                   {isCriminal ? 'Criminal' : (ncProcLabel || origConfig.label)}
@@ -713,6 +819,13 @@ export function CaseDocket() {
           ) : (
             <div style={{ borderTop: '1px solid #cccccc' }}>
               {filtered.map(c => {
+                // Phase 1F — process-aware suit/petition/charge label
+                function suitNoLabelFor(cas: typeof c): string {
+                  const op = cas.originating_process ?? '';
+                  if (cas.matter_track === 'criminal') return 'Charge No.';
+                  if (op.startsWith('petition_') || op === 'election_petition' || op === 'winding_up_petition') return 'Petition No.';
+                  return 'Suit No.';
+                }
                 const track  = c.matter_track ?? 'civil';
                 const role   = c.counsel_role;
                 const roleL  = role ? ROLE_LIGHT[role] : null;
@@ -752,7 +865,7 @@ export function CaseDocket() {
                             fontSize: 11, color: '#888888',
                             fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.5,
                           }}>
-                            {[c.court, c.suitNo].filter(Boolean).join(' · ')}
+                            {[c.court, c.suitNo ? `${suitNoLabelFor(c)} ${c.suitNo}` : null].filter(Boolean).join(' · ')}
                           </p>
                         </div>
                         <div style={{ textAlign: 'right', flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
