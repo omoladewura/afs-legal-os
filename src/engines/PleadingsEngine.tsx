@@ -2471,6 +2471,21 @@ export function PleadingsEngine({activeCase}:Props) {
 
   if(!loaded) return <div style={{padding:40,color:T.mute,fontFamily:"'Times New Roman', Times, serif",fontSize:13}}>Loading Pleadings Engine…</div>;
 
+  // ── Phase 3F: FREP gate — redirect to Applications Engine ────────────────
+  if(activeCase.counsel_role==='frep_applicant'||activeCase.counsel_role==='frep_respondent') {
+    return (
+      <div style={{padding:'32px 28px',background:'#06100a',border:'1px solid #1a401a',borderRadius:8,fontFamily:"'Times New Roman', Times, serif"}}>
+        <p style={{fontSize:11,color:'#406040',letterSpacing:'.14em',textTransform:'uppercase',marginBottom:8}}>FREP Matter — Wrong Engine</p>
+        <p style={{fontSize:16,color:'#70c080',fontWeight:700,marginBottom:10}}>Fundamental Rights Enforcement Proceedings</p>
+        <p style={{fontSize:13,color:'#507060',lineHeight:1.75,marginBottom:0}}>
+          FREP originating documents are drafted via the <strong style={{color:'#90c0a0'}}>Applications Engine</strong> — not the Pleadings Engine.
+          Open the Applications Engine and select the <strong style={{color:'#90c0a0'}}>FREP</strong> filter to access:
+          Originating Motion, Originating Summons, Ex Parte/Interim Relief, Opposition (Factual or Law Only), Reply, and Preliminary Objection packages.
+        </p>
+      </div>
+    );
+  }
+
   if(activeCase.counsel_role!=='claimant_side'&&activeCase.counsel_role!=='defendant_side') {
     return <div style={{padding:32,background:'#08080e',border:'1px solid #cccccc',borderRadius:8}}><p style={{fontSize:13,color:T.mute,fontFamily:"'Times New Roman', Times, serif"}}>The Pleadings Engine is only available on civil matters. This matter is on the criminal track.</p></div>;
   }
@@ -2565,6 +2580,21 @@ export function PleadingsEngine({activeCase}:Props) {
       {id:'reply_monitor',label:'Reply Monitor'},
     ];
     return <WritSubTabs isClaim={isClaim} claimTabs={claimTabs} defTabs={defTabs} accent={accent} sharedProps={sp} ccIntel={ccIntel}/>;
+  }
+
+  // ── Phase 3F: FREP originating_process redirect ───────────────────────────
+  if(op==='frep') {
+    return (
+      <div style={{padding:'32px 28px',background:'#06100a',border:'1px solid #1a401a',borderRadius:8,fontFamily:"'Times New Roman', Times, serif"}}>
+        <p style={{fontSize:11,color:'#406040',letterSpacing:'.14em',textTransform:'uppercase',marginBottom:8}}>FREP Matter — Wrong Engine</p>
+        <p style={{fontSize:16,color:'#70c080',fontWeight:700,marginBottom:10}}>Fundamental Rights Enforcement Proceedings</p>
+        <p style={{fontSize:13,color:'#507060',lineHeight:1.75,marginBottom:0}}>
+          FREP originating documents are drafted via the <strong style={{color:'#90c0a0'}}>Applications Engine</strong>.
+          Open the Applications Engine and select the <strong style={{color:'#90c0a0'}}>FREP</strong> filter to access
+          Originating Motion, Originating Summons, Ex Parte/Interim Relief, Opposition, Reply, and Preliminary Objection packages.
+        </p>
+      </div>
+    );
   }
 
   // ── FALLTHROUGH ──────────────────────────────────────────────────────────

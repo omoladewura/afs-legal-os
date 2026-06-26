@@ -189,7 +189,7 @@ interface Props { activeCase: Case; }
 
 type MainTab         = 'new' | 'tracker' | 'templates';
 type Stage           = 1 | 2 | 3 | 4 | 5;
-type TrackFilter     = 'all' | 'civil' | 'criminal' | 'appeal';
+type TrackFilter     = 'all' | 'civil' | 'criminal' | 'appeal' | 'frep';
 type AppStatus       = 'Drafting' | 'Filed' | 'Served' | 'Awaiting Hearing' | 'Heard' | 'Granted' | 'Refused' | 'Withdrawn';
 type ApplicationRole = 'mover' | 'respondent';
 
@@ -202,7 +202,7 @@ export interface AppTypeConfig {
   id:      string;
   label:   string;
   icon:    string;
-  track:   'civil' | 'criminal' | 'appeal' | 'all';
+  track:   'civil' | 'criminal' | 'appeal' | 'all' | 'frep';
   package: string[];
   hint:    string;
   /**
@@ -405,6 +405,93 @@ export const APP_TYPES: AppTypeConfig[] = [
   { id: 'appeal_regularise', label: 'Regularise Records / Deem Notice Filed', icon: '📄', track: 'appeal',
     package: ['Motion on Notice', 'Affidavit', 'Written Address in Support', 'List of Authorities'],
     hint: 'Regularise steps in appellate proceedings — deem notice of appeal as properly filed, extend time to compile records.',
+    needsCaseTheory: false },
+
+  // ── FREP — Fundamental Rights Enforcement Proceedings ────────────────────
+  // Phase 3F: FREP originating documents via ApplicationsEngine.
+  // Order reflects filing sequence: Applicant originating process first,
+  // then interim/ex parte relief, then opposition, then reply.
+  { id: 'frep_originating_motion', label: 'FREP — Originating Motion', icon: '⚖', track: 'frep',
+    package: [
+      'Originating Motion on Notice',
+      'Statement (Facts, Grounds, Reliefs)',
+      'Supporting Affidavit',
+      'Written Address in Support',
+      'List of Authorities',
+    ],
+    hint: 'Primary originating process for FREP under the Fundamental Rights (Enforcement Procedure) Rules 2009. ' +
+          'Combines Statement + Supporting Affidavit + Written Address. Court issues Form 1 to all Respondents. ' +
+          'Plead each right violated (CFRN provision), the act/omission of each Respondent, and the specific relief sought.',
+    needsCaseTheory: true },
+
+  { id: 'frep_originating_summons', label: 'FREP — Originating Summons', icon: '📋', track: 'frep',
+    package: [
+      'Originating Summons',
+      'Statement (Facts, Grounds, Reliefs)',
+      'Supporting Affidavit',
+      'Written Address in Support',
+      'List of Authorities',
+    ],
+    hint: 'Alternative originating process where the sole or principal question turns on construction of the Constitution or a statute — ' +
+          'Order 3 r 1(b) FREP Rules 2009. Questions for determination must be enumerated precisely. ' +
+          'Preferred where the facts are not in dispute and the matter is purely a question of law.',
+    needsCaseTheory: true },
+
+  { id: 'frep_ex_parte_interim', label: 'FREP — Ex Parte / Interim Relief', icon: '⚡', track: 'frep',
+    package: [
+      'Ex Parte Originating Motion',
+      'Statement',
+      'Supporting Affidavit',
+      'Certificate of Urgency',
+      'Written Address in Support',
+      'List of Authorities',
+    ],
+    hint: 'Urgent ex parte application for interim order under Order 4 FREP Rules 2009. ' +
+          'Applicant must satisfy court that the urgency is genuine and that giving notice would defeat the purpose. ' +
+          'Certificate of Urgency required. Order must be served on Respondent immediately after grant.',
+    needsCaseTheory: true },
+
+  { id: 'frep_opposition_factual', label: 'FREP — Opposition (Factual)', icon: '↩', track: 'frep',
+    package: [
+      'Counter-Affidavit',
+      'Written Address in Opposition',
+      'List of Authorities',
+    ],
+    hint: 'Respondent opposition where the facts are disputed — Counter-Affidavit required within 5 days of service of Applicant\'s affidavit (Order 6 r 1). ' +
+          'Counter-Affidavit responds paragraph-by-paragraph: admit, deny, or not within knowledge. ' +
+          'Silence on any paragraph of the Supporting Affidavit constitutes an admission.',
+    needsCaseTheory: false },
+
+  { id: 'frep_opposition_law_only', label: 'FREP — Opposition (Law Only)', icon: '🛡', track: 'frep',
+    package: [
+      'Written Address in Opposition',
+      'List of Authorities',
+    ],
+    hint: 'Respondent opposition where no factual dispute exists — Written Address only. ' +
+          'All facts in Applicant\'s Supporting Affidavit are taken as admitted. ' +
+          'Raise only legal grounds: jurisdiction, locus standi, non-justiciability, constitutional interpretation, or that the act complained of was lawful.',
+    needsCaseTheory: false },
+
+  { id: 'frep_reply', label: 'FREP — Applicant\'s Reply', icon: '↗', track: 'frep',
+    package: [
+      'Further Affidavit (if needed)',
+      'Reply on Points of Law',
+      'List of Authorities',
+    ],
+    hint: 'Applicant\'s reply to Respondent\'s opposition. Further Affidavit responds to new facts introduced in Counter-Affidavit. ' +
+          'Reply on Points of Law addresses only new legal arguments raised by Respondent — no new reliefs or facts. ' +
+          'File within the time directed by court or 5 days after service of opposition.',
+    needsCaseTheory: true },
+
+  { id: 'frep_preliminary_objection', label: 'FREP — Preliminary Objection', icon: '🚫', track: 'frep',
+    package: [
+      'Notice of Preliminary Objection',
+      'Written Address in Support',
+      'List of Authorities',
+    ],
+    hint: 'Respondent preliminary objection challenging jurisdiction, locus standi, or competence of the application before the court engages the merits. ' +
+          'Common grounds: wrong court (State vs Federal), matter not within Chapter IV CFRN, application statute-barred, Applicant lacks standing, ' +
+          'or right not violated by the specific Respondent named.',
     needsCaseTheory: false },
 ];
 
@@ -2754,7 +2841,9 @@ export function ApplicationsEngine({ activeCase }: Props) {
 
   const [mainTab,     setMainTab]     = useState<MainTab>('new');
   const [stage,       setStage]       = useState<Stage>(1);
-  const [trackFilter, setTrackFilter] = useState<TrackFilter>('all');
+  const isFrepMatter = activeCase.originating_process === 'frep' ||
+    activeCase.counsel_role === 'frep_applicant' || activeCase.counsel_role === 'frep_respondent';
+  const [trackFilter, setTrackFilter] = useState<TrackFilter>(isFrepMatter ? 'frep' : 'all');
 
   // Stage 1
   const [selectedType,    setSelectedType]    = useState<AppTypeConfig | null>(null);
@@ -3006,7 +3095,14 @@ Begin with the first document heading now:`;
     setSelectedRecord(null);
   }, [clearError]);
 
-  const filteredTypes = APP_TYPES.filter(t => trackFilter === 'all' || t.track === trackFilter || t.track === 'all');
+  // 'frep' track types only show under the explicit 'frep' filter — they are
+  // not listed when trackFilter === 'all' to avoid cluttering the civil list.
+  // 'all' track types (custom fallbacks) show under every filter.
+  const filteredTypes = APP_TYPES.filter(t => {
+    if (t.track === 'all') return true;
+    if (trackFilter === 'all') return t.track !== 'frep';
+    return t.track === trackFilter;
+  });
   const canGoToStage2 = !!selectedType;
   const canGoToStage3 = canGoToStage2 && !!(facts.reliefSought.trim() || facts.grounds.trim());
   const stageLabels   = ['Type', 'Facts', 'Arguments', 'Assemble', 'Track'];
@@ -3099,7 +3195,7 @@ Begin with the first document heading now:`;
 
               {/* Track filter */}
               <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
-                {(['all', 'civil', 'criminal', 'appeal'] as const).map(t => (
+                {(['all', 'civil', 'criminal', 'appeal', 'frep'] as const).map(t => (
                   <button key={t} onClick={() => setTrackFilter(t)}
                     style={{
                       background: trackFilter === t ? '#181828' : 'transparent',
@@ -3108,7 +3204,7 @@ Begin with the first document heading now:`;
                       borderRadius: 4, padding: '5px 12px', fontSize: 11, cursor: 'pointer',
                       fontFamily: "'Times New Roman', Times, serif",
                     }}>
-                    {t === 'all' ? 'All' : t.charAt(0).toUpperCase() + t.slice(1)}
+                    {t === 'all' ? 'All' : t === 'frep' ? 'FREP' : t.charAt(0).toUpperCase() + t.slice(1)}
                   </button>
                 ))}
               </div>
