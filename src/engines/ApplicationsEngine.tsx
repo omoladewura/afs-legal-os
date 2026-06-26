@@ -44,6 +44,15 @@ import { ArgumentTemplateManager } from './ArgumentTemplateManager';
 import { db } from '@/storage/db';
 import type { ArgumentTemplate } from '@/storage/db';
 import { getJurisdictionDeltaSync } from '@/law/registry';
+import {
+  detectOpponentTheory,
+  confidenceLabel,
+  isMergeCandidate,
+  // formatDetectedTheoryForPrompt — used in Phase 3C (Respondent prompt injection) and 3D (merge preview)
+  formatDetectedTheoryForPrompt,
+  type DetectedOpponentTheory,
+} from '@/utils/detectOpponentTheory';
+import { unlockCaseTheory, saveCaseTheory, lockCaseTheory } from '@/storage/helpers';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CASE THEORY — Light injection helper (Phase 9D)
@@ -590,6 +599,207 @@ function StatuteChunksPanel({ chunks, error }: { chunks: StatuteChunk[]; error?:
           </p>
         </div>
       ))}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PHASE 3D — THEORY MERGE PANEL
+// unlock → diff → edit → relock + diff log
+//
+// Standalone component. Rendered by ArgumentBuilderStage in both:
+//   • Mover track  (Opposing Response tab)   — after moverDetectedTheory
+//   • Respondent track (Counter-Affidavit tab) — after respDetectedTheory
+//
+// Props:
+//   detected      — the DetectedOpponentTheory from 3B / 3C
+//   current       — current locked/unlocked CaseTheoryRecord (may be null)
+//   locked        — whether the theory is currently locked
+//   caseId        — for storage calls
+//   partyLabel    — "Opponent" (Mover track) | "Mover" (Respondent track)
+//   onDone        — called after re-lock; triggers reload + panel close
+//   onDismiss     — called when counsel cancels without merging
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface TheoryMergePanelProps {
+  detected:   DetectedOpponentTheory;
+  current:    CaseTheoryRecord | null;
+  locked:     boolean;
+  caseId:     string;
+  partyLabel: string;
+  onDone:     () => void;
+  onDismiss:  () => void;
+}
+
+function TheoryMergePanel({
+  detected, current, locked, caseId, partyLabel, onDone, onDismiss,
+}: TheoryMergePanelProps) {
+  // Editable fields — pre-filled from detected theory; counsel may adjust
+  const [editOpposing,  setEditOpposing]  = useState(detected.core_proposition);
+  const [editKiller,    setEditKiller]    = useState(detected.theory_killer_target ?? current?.theory_killer ?? '');
+  const [saving,        setSaving]        = useState(false);
+  const [error,         setError]         = useState<string | null>(null);
+  const [phase, setPhase] = useState<'review' | 'done'>('review');
+
+  // Diff helpers — compare proposed vs current
+  const prevOpposing = current?.opposing_theory ?? '(none)';
+  const prevKiller   = current?.theory_killer   ?? '(none)';
+  const opposingChanged = editOpposing.trim() !== prevOpposing && prevOpposing !== '(none)';
+  const killerChanged   = editKiller.trim()   !== prevKiller   && prevKiller   !== '(none)';
+
+  async function handleRelock() {
+    if (!editOpposing.trim()) { setError('Opposing theory cannot be empty.'); return; }
+    setSaving(true);
+    setError(null);
+    try {
+      // 1. Unlock (records history entry)
+      if (locked) {
+        await unlockCaseTheory(caseId, `Phase 3D — ${partyLabel} theory merge from detected ${detected.source.replace(/_/g, ' ')}`);
+      }
+      // 2. Save merged record
+      const base: CaseTheoryRecord = current ?? {
+        core_proposition: '',
+        elements:         [],
+        opposing_theory:  '',
+        theory_killer:    '',
+        weakest_link:     '',
+        narrative_theme:  '',
+        gap_report:       [],
+        score_breakdown:  { legal_sufficiency: 0, evidence_coverage: 0, vulnerability: 0, narrative_coherence: 0, jurisdictional_precision: 0, total: 0 },
+      };
+      await saveCaseTheory(caseId, {
+        ...base,
+        opposing_theory: editOpposing.trim(),
+        theory_killer:   editKiller.trim(),
+      });
+      // 3. Re-lock (increments version, records lock timestamp)
+      await lockCaseTheory(caseId);
+      setPhase('done');
+    } catch (e: any) {
+      setError(e?.message ?? 'Save failed. Try again.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (phase === 'done') {
+    return (
+      <div style={{ background: '#060e06', border: '1px solid #1a401a', borderRadius: 8, padding: '16px 18px', marginBottom: 18 }}>
+        <div style={{ fontSize: 13, color: '#50c060', fontWeight: 700, marginBottom: 8 }}>✓ Theory updated and re-locked</div>
+        <div style={{ fontSize: 12, color: '#407050', marginBottom: 12, lineHeight: 1.55 }}>
+          Opposing theory and theory killer updated. Version incremented. Downstream engines (Written Address, Final Address) will pick up the new lock on next load.
+        </div>
+        <button onClick={onDone}
+          style={{ background: 'transparent', border: '1px solid #1e3a1e', borderRadius: 5, padding: '6px 14px', fontSize: 12, color: '#40a060', cursor: 'pointer' }}>
+          Close
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ background: '#07101e', border: '1px solid #2a3a5a', borderRadius: 8, padding: '18px 20px', marginBottom: 18 }}>
+      {/* Header */}
+      <div style={{ fontSize: 13, fontWeight: 700, color: '#a0c0e0', marginBottom: 4 }}>
+        ⚖ Theory Merge — Phase 3D
+      </div>
+      <div style={{ fontSize: 12, color: '#505070', marginBottom: 18, lineHeight: 1.55 }}>
+        Review the detected theory below. Edit if needed, then re-lock.
+        {locked && <span style={{ color: '#c09040' }}> The current lock will be released and a new version created.</span>}
+      </div>
+
+      {/* Diff: opposing_theory */}
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: '#606080', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          Opposing Theory ({partyLabel})
+        </div>
+        {opposingChanged && (
+          <div style={{ fontSize: 11, color: '#c09040', marginBottom: 6, fontStyle: 'italic', paddingLeft: 10, borderLeft: '2px solid #5a4010' }}>
+            Was: {prevOpposing}
+          </div>
+        )}
+        <textarea
+          value={editOpposing}
+          onChange={e => setEditOpposing(e.target.value)}
+          rows={3}
+          style={{
+            width: '100%', boxSizing: 'border-box',
+            background: '#050d1a', border: '1px solid #1e2e48',
+            borderRadius: 6, padding: '10px 12px', fontSize: 13,
+            color: '#d0ccc0', lineHeight: 1.6, resize: 'vertical',
+            fontFamily: "'Times New Roman', Times, serif",
+          }}
+        />
+      </div>
+
+      {/* Diff: theory_killer */}
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: '#606080', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          Theory Killer — the one fact/document that defeats their position
+        </div>
+        {killerChanged && (
+          <div style={{ fontSize: 11, color: '#c09040', marginBottom: 6, fontStyle: 'italic', paddingLeft: 10, borderLeft: '2px solid #5a4010' }}>
+            Was: {prevKiller}
+          </div>
+        )}
+        <textarea
+          value={editKiller}
+          onChange={e => setEditKiller(e.target.value)}
+          rows={2}
+          style={{
+            width: '100%', boxSizing: 'border-box',
+            background: '#050d1a', border: '1px solid #1e2e48',
+            borderRadius: 6, padding: '10px 12px', fontSize: 13,
+            color: '#d0ccc0', lineHeight: 1.6, resize: 'vertical',
+            fontFamily: "'Times New Roman', Times, serif",
+          }}
+        />
+      </div>
+
+      {/* Key arguments — read-only reference */}
+      {detected.key_arguments.length > 0 && (
+        <div style={{ background: '#050a14', border: '1px solid #1a2030', borderRadius: 6, padding: '12px 14px', marginBottom: 18 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: '#404060', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Detected Key Arguments (reference only — not stored separately)
+          </div>
+          {detected.key_arguments.map((a, i) => (
+            <div key={i} style={{ fontSize: 12, color: '#606080', lineHeight: 1.5, marginBottom: 4 }}>
+              {i + 1}. {a}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {error && (
+        <div style={{ fontSize: 12, color: '#c06060', marginBottom: 12 }}>⚠ {error}</div>
+      )}
+
+      {/* Actions */}
+      <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+        <button
+          onClick={handleRelock}
+          disabled={saving}
+          style={{
+            background: saving ? '#0a1020' : '#0c2040',
+            border: '1px solid #2050a0', borderRadius: 6,
+            padding: '9px 18px', fontSize: 12, fontWeight: 600,
+            color: saving ? '#404060' : '#90c0f0',
+            cursor: saving ? 'not-allowed' : 'pointer',
+            fontFamily: "'Times New Roman', Times, serif",
+          }}>
+          {saving ? '⏳ Saving…' : locked ? '🔓 Unlock → Merge → 🔒 Re-lock' : '✓ Merge + Lock'}
+        </button>
+        <button
+          onClick={onDismiss}
+          disabled={saving}
+          style={{
+            background: 'transparent', border: '1px solid #1e1e34',
+            borderRadius: 6, padding: '9px 14px', fontSize: 12,
+            color: '#404060', cursor: saving ? 'not-allowed' : 'pointer',
+          }}>
+          Cancel
+        </button>
+      </div>
     </div>
   );
 }
@@ -1467,6 +1677,154 @@ function ArgumentBuilderStage({ activeCase, appType, facts, stage3, onStage3, sy
   const [editPara,    setEditPara]    = useState<AffidavitParaResponse | null>(null);
   const [editParaId,  setEditParaId]  = useState<string | null>(null);
 
+  // ── Phase 3B — Mover: Opponent Theory Detection ──────────────────────────
+  // Fires when the Mover pastes opposing counsel's counter-affidavit or
+  // written address. Surfaces a DetectedOpponentTheory card with a merge
+  // candidate prompt for the 3D unlock → merge → relock flow.
+  const [moverDetecting,      setMoverDetecting]      = useState(false);
+  const [moverDetectError,    setMoverDetectError]    = useState<string | null>(null);
+  const [moverDetectedTheory, setMoverDetectedTheory] = useState<DetectedOpponentTheory | null>(null);
+  // Which source was last used for detection (so we know which textarea to re-run on change)
+  const [moverDetectSource,   setMoverDetectSource]   = useState<'counter_affidavit' | 'written_address' | null>(null);
+  // Merge state
+  const [moverMerging,  setMoverMerging]  = useState(false);
+  const [moverMergeMsg, setMoverMergeMsg] = useState<string | null>(null);
+  // Phase 3D — controls whether the full TheoryMergePanel is open
+  const [moverShowMergePanel, setMoverShowMergePanel] = useState(false);
+  const { theory: moverTheory, locked: moverTheoryLocked, reload: reloadMoverTheory } = useCaseTheory(activeCase.id);
+
+  async function runMoverDetection(source: 'counter_affidavit' | 'written_address') {
+    const text = source === 'counter_affidavit' ? stage3.counterAffidavitIn : stage3.writtenAddressIn;
+    if (!text.trim()) return;
+    setMoverDetecting(true);
+    setMoverDetectError(null);
+    setMoverDetectedTheory(null);
+    setMoverDetectSource(source);
+    setMoverMergeMsg(null);
+    try {
+      const caseCtx = `${activeCase.case_name ?? ''}, ${activeCase.court ?? ''}, ${activeCase.counsel_role ?? ''}`.trim();
+      const result = await detectOpponentTheory(text, source === 'counter_affidavit' ? 'counter_affidavit' : 'written_address', caseCtx);
+      setMoverDetectedTheory(result);
+    } catch (e: any) {
+      setMoverDetectError(e?.message ?? 'Detection failed. Try again.');
+    } finally {
+      setMoverDetecting(false);
+    }
+  }
+
+  async function mergeMoverDetectedTheory() {
+    if (!moverDetectedTheory || !activeCase.id) return;
+    setMoverMerging(true);
+    setMoverMergeMsg(null);
+    try {
+      if (moverTheoryLocked) {
+        await unlockCaseTheory(activeCase.id, `Phase 3B — opponent theory detected from ${moverDetectSource ?? 'opposing document'}`);
+      }
+      const existing = moverTheory;
+      const merged: CaseTheoryRecord = existing
+        ? {
+            ...existing,
+            opposing_theory: moverDetectedTheory.core_proposition,
+            theory_killer:   moverDetectedTheory.theory_killer_target ?? existing.theory_killer ?? '',
+          }
+        : {
+            core_proposition: '',
+            elements:         [],
+            opposing_theory:  moverDetectedTheory.core_proposition,
+            theory_killer:    moverDetectedTheory.theory_killer_target ?? '',
+            weakest_link:     '',
+            narrative_theme:  '',
+            gap_report:       [],
+            score_breakdown:  { legal_sufficiency: 0, evidence_coverage: 0, vulnerability: 0, narrative_coherence: 0, jurisdictional_precision: 0, total: 0 },
+          };
+      await saveCaseTheory(activeCase.id, merged);
+      reloadMoverTheory();
+      setMoverMergeMsg('Opponent theory merged. Review and re-lock in Case Theory when ready.');
+    } catch (e: any) {
+      setMoverMergeMsg(`Merge failed: ${e?.message ?? 'unknown error'}`);
+    } finally {
+      setMoverMerging(false);
+    }
+  }
+  // ── End Phase 3B ─────────────────────────────────────────────────────────
+
+  // ── Phase 3C — Respondent: Mover Theory Detection ────────────────────────
+  // Fires when the Respondent pastes the applicant's Supporting Affidavit
+  // (and optionally their Written Address / motion). Extracts what the MOVER
+  // is actually arguing — feeds the 3D unlock → merge → relock flow so that
+  // the Respondent's Written Address in Opposition argues against the mover's
+  // detected theory, not a stale locked version.
+  const [respDetecting,      setRespDetecting]      = useState(false);
+  const [respDetectError,    setRespDetectError]    = useState<string | null>(null);
+  const [respDetectedTheory, setRespDetectedTheory] = useState<DetectedOpponentTheory | null>(null);
+  const [respDetectSource,   setRespDetectSource]   = useState<'affidavit' | 'written_address' | null>(null);
+  const [respMerging,        setRespMerging]        = useState(false);
+  const [respMergeMsg,       setRespMergeMsg]       = useState<string | null>(null);
+  // Phase 3D — controls whether the full TheoryMergePanel is open
+  const [respShowMergePanel, setRespShowMergePanel] = useState(false);
+  // Respondent's own "mover theory" view — same hook, same caseId, just aliased for clarity
+  const { theory: respCaseTheory, locked: respTheoryLocked, reload: reloadRespTheory } = useCaseTheory(activeCase.id);
+
+  async function runRespDetection(source: 'affidavit' | 'written_address') {
+    // For respondent track, the "written_address" source means the applicant's
+    // originating motion / written address (distinct from stage3.writtenAddressIn
+    // which is the mover's copy of opposing response). We reuse applicantAffidavit
+    // for affidavit source; for written_address we use writtenAddressIn as the
+    // applicant's motion document — field label updated in UI below.
+    const text = source === 'affidavit' ? stage3.applicantAffidavit : stage3.writtenAddressIn;
+    if (!text.trim()) return;
+    setRespDetecting(true);
+    setRespDetectError(null);
+    setRespDetectedTheory(null);
+    setRespDetectSource(source);
+    setRespMergeMsg(null);
+    try {
+      const caseCtx = `${activeCase.case_name ?? ''}, ${activeCase.court ?? ''}, ${activeCase.counsel_role ?? ''}`.trim();
+      const result = await detectOpponentTheory(text, source, caseCtx);
+      setRespDetectedTheory(result);
+    } catch (e: any) {
+      setRespDetectError(e?.message ?? 'Detection failed. Try again.');
+    } finally {
+      setRespDetecting(false);
+    }
+  }
+
+  async function mergeRespDetectedTheory() {
+    if (!respDetectedTheory || !activeCase.id) return;
+    setRespMerging(true);
+    setRespMergeMsg(null);
+    try {
+      if (respTheoryLocked) {
+        await unlockCaseTheory(activeCase.id, `Phase 3C — mover's theory detected from ${respDetectSource ?? 'applicant document'}`);
+      }
+      const existing = respCaseTheory;
+      const merged: CaseTheoryRecord = existing
+        ? {
+            ...existing,
+            opposing_theory: respDetectedTheory.core_proposition,
+            theory_killer:   respDetectedTheory.theory_killer_target ?? existing.theory_killer ?? '',
+          }
+        : {
+            core_proposition: '',
+            elements:         [],
+            opposing_theory:  respDetectedTheory.core_proposition,
+            theory_killer:    respDetectedTheory.theory_killer_target ?? '',
+            weakest_link:     '',
+            narrative_theme:  '',
+            gap_report:       [],
+            score_breakdown:  { legal_sufficiency: 0, evidence_coverage: 0, vulnerability: 0, narrative_coherence: 0, jurisdictional_precision: 0, total: 0 },
+          };
+      await saveCaseTheory(activeCase.id, merged);
+      reloadRespTheory();
+      setRespMergeMsg("Mover's theory merged. Review and re-lock in Case Theory when ready.");
+    } catch (e: any) {
+      setRespMergeMsg(`Merge failed: ${e?.message ?? 'unknown error'}`);
+    } finally {
+      setRespMerging(false);
+    }
+  }
+  // ── End Phase 3C ─────────────────────────────────────────────────────────
+
   // ── Role selection — who are we in THIS application?
   if (!stage3.applicationRole) {
     return (
@@ -1725,22 +2083,156 @@ Draft the Reply on Points of Law now:`;
 
             {stage3.opposingFiled === true && (
               <div>
+                {/* ── Counter-Affidavit input ── */}
                 <div style={{ marginBottom: 18 }}>
                   <SLabel text="Their Counter-Affidavit — paste or summarise the facts they are alleging or denying" />
                   <TA value={stage3.counterAffidavitIn}
-                    onChange={v => onStage3({ ...stage3, counterAffidavitIn: v })}
+                    onChange={v => { onStage3({ ...stage3, counterAffidavitIn: v }); setMoverDetectedTheory(null); setMoverMergeMsg(null); }}
                     placeholder="Paste or summarise the paragraphs in opposing counsel's Counter-Affidavit — what facts are they denying? What new facts are they introducing? This feeds into your Further & Better Affidavit."
                     rows={8} />
+                  {stage3.counterAffidavitIn.trim().length > 30 && (
+                    <button
+                      onClick={() => runMoverDetection('counter_affidavit')}
+                      disabled={moverDetecting}
+                      style={{
+                        marginTop: 8, background: '#0a1628', border: '1px solid #2a3a5a',
+                        borderRadius: 6, padding: '7px 14px', fontSize: 12, cursor: moverDetecting ? 'not-allowed' : 'pointer',
+                        color: moverDetecting ? '#505068' : '#6090d0', fontFamily: "'Times New Roman', Times, serif",
+                      }}>
+                      {moverDetecting && moverDetectSource === 'counter_affidavit' ? '⏳ Detecting…' : '🔍 Detect Opponent Theory from Counter-Affidavit'}
+                    </button>
+                  )}
                 </div>
+
+                {/* ── Written Address input ── */}
                 <div style={{ marginBottom: 16 }}>
                   <SLabel text="Their Written Address in Opposition — paste or summarise their legal arguments" />
                   <TA value={stage3.writtenAddressIn}
-                    onChange={v => onStage3({ ...stage3, writtenAddressIn: v })}
+                    onChange={v => { onStage3({ ...stage3, writtenAddressIn: v }); setMoverDetectedTheory(null); setMoverMergeMsg(null); }}
                     placeholder="Paste or summarise the legal points, cases, and statutory arguments made in opposing counsel's Written Address in Opposition. This feeds into your Reply on Points of Law."
                     rows={8} />
+                  {stage3.writtenAddressIn.trim().length > 30 && (
+                    <button
+                      onClick={() => runMoverDetection('written_address')}
+                      disabled={moverDetecting}
+                      style={{
+                        marginTop: 8, background: '#0a1628', border: '1px solid #2a3a5a',
+                        borderRadius: 6, padding: '7px 14px', fontSize: 12, cursor: moverDetecting ? 'not-allowed' : 'pointer',
+                        color: moverDetecting ? '#505068' : '#6090d0', fontFamily: "'Times New Roman', Times, serif",
+                      }}>
+                      {moverDetecting && moverDetectSource === 'written_address' ? '⏳ Detecting…' : '🔍 Detect Opponent Theory from Written Address'}
+                    </button>
+                  )}
                 </div>
+
+                {/* ── Phase 3B — Detected Theory Card ── */}
+                {moverDetectError && (
+                  <div style={{ background: '#1a0808', border: '1px solid #4a1a1a', borderRadius: 7, padding: '12px 16px', fontSize: 12, color: '#c06060', marginBottom: 14 }}>
+                    ⚠ {moverDetectError}
+                  </div>
+                )}
+
+                {moverDetectedTheory && (() => {
+                  const { label: confLabel, color: confColor } = confidenceLabel(moverDetectedTheory.confidence);
+                  const isCandidate = isMergeCandidate(moverDetectedTheory);
+                  return (
+                    <div style={{ background: '#07101e', border: '1px solid #1e3050', borderRadius: 8, padding: '16px 18px', marginBottom: 18 }}>
+                      {/* Header */}
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: '#a0c0e0', letterSpacing: '0.04em' }}>
+                          ⚡ OPPONENT THEORY DETECTED
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{ fontSize: 11, color: confColor, fontWeight: 600 }}>
+                            {confLabel} ({moverDetectedTheory.confidence}/100)
+                          </span>
+                          <span style={{ fontSize: 11, color: '#404058' }}>
+                            {moverDetectedTheory.source.replace(/_/g, ' ')}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Core proposition */}
+                      <div style={{ fontSize: 13, color: '#d0ccc0', marginBottom: 10, fontStyle: 'italic', lineHeight: 1.6 }}>
+                        "{moverDetectedTheory.core_proposition}"
+                      </div>
+
+                      {/* Key arguments */}
+                      {moverDetectedTheory.key_arguments.length > 0 && (
+                        <div style={{ marginBottom: 10 }}>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: '#606080', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Key Arguments</div>
+                          {moverDetectedTheory.key_arguments.map((arg, i) => (
+                            <div key={i} style={{ fontSize: 12, color: '#9090a8', lineHeight: 1.55, marginBottom: 4, paddingLeft: 12, borderLeft: '2px solid #1e2a40' }}>
+                              {i + 1}. {arg}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Theory killer */}
+                      {moverDetectedTheory.theory_killer_target && (
+                        <div style={{ background: '#0c1a10', border: '1px solid #1a3a20', borderRadius: 6, padding: '10px 14px', marginBottom: 10 }}>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: '#40a060', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Pressure Point</div>
+                          <div style={{ fontSize: 12, color: '#70c088', lineHeight: 1.55 }}>{moverDetectedTheory.theory_killer_target}</div>
+                        </div>
+                      )}
+
+                      {/* Low confidence note */}
+                      {!isCandidate && moverDetectedTheory.confidence_note && (
+                        <div style={{ fontSize: 12, color: '#906040', marginBottom: 10, fontStyle: 'italic' }}>
+                          ⚠ {moverDetectedTheory.confidence_note}
+                        </div>
+                      )}
+
+                      {/* Theory type badge */}
+                      <div style={{ fontSize: 11, color: '#404060', marginBottom: 14 }}>
+                        Theory type: <span style={{ color: '#5070a0' }}>{moverDetectedTheory.theory_type}</span>
+                      </div>
+
+                      {/* Phase 3D — open TheoryMergePanel */}
+                      {isCandidate && !moverShowMergePanel && (
+                        <div style={{ borderTop: '1px solid #1a2a40', paddingTop: 12 }}>
+                          <div style={{ fontSize: 12, color: '#707090', marginBottom: 10, lineHeight: 1.55 }}>
+                            Open the merge panel to review the diff, edit if needed, then unlock → save → re-lock in one step.
+                          </div>
+                          <div style={{ display: 'flex', gap: 10 }}>
+                            <button
+                              onClick={() => setMoverShowMergePanel(true)}
+                              style={{
+                                background: '#0c2040', border: '1px solid #2050a0',
+                                borderRadius: 6, padding: '8px 16px', fontSize: 12, fontWeight: 600,
+                                color: '#90c0f0', cursor: 'pointer',
+                                fontFamily: "'Times New Roman', Times, serif",
+                              }}>
+                              ⚖ Review &amp; Merge Theory
+                            </button>
+                            <button
+                              onClick={() => { setMoverDetectedTheory(null); }}
+                              style={{ background: 'transparent', border: '1px solid #1e1e34', borderRadius: 6, padding: '8px 14px', fontSize: 12, color: '#404060', cursor: 'pointer' }}>
+                              Dismiss
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {/* Phase 3D TheoryMergePanel — Mover track */}
+                {moverDetectedTheory && moverShowMergePanel && (
+                  <TheoryMergePanel
+                    detected={moverDetectedTheory}
+                    current={moverTheory}
+                    locked={moverTheoryLocked}
+                    caseId={activeCase.id}
+                    partyLabel="Opponent"
+                    onDone={() => { setMoverShowMergePanel(false); setMoverDetectedTheory(null); reloadMoverTheory(); }}
+                    onDismiss={() => setMoverShowMergePanel(false)}
+                  />
+                )}
+
                 <div style={{ fontSize: 12, color: '#40a060' }}>
-                  ✓ Further & Better Affidavit and Reply on Points of Law tabs are now unlocked.
+                  ✓ Further &amp; Better Affidavit and Reply on Points of Law tabs are now unlocked.
                 </div>
               </div>
             )}
@@ -1839,10 +2331,118 @@ Draft the Reply on Points of Law now:`;
           <div style={{ marginBottom: 16 }}>
             <SLabel text="Applicant's Supporting Affidavit (paste here for reference)" />
             <TA value={stage3.applicantAffidavit}
-              onChange={v => onStage3({ ...stage3, applicantAffidavit: v })}
+              onChange={v => { onStage3({ ...stage3, applicantAffidavit: v }); setRespDetectedTheory(null); setRespMergeMsg(null); }}
               placeholder="Paste the applicant's Supporting Affidavit here. This feeds your paragraph-by-paragraph responses below and the AI uses it to draft the Counter-Affidavit correctly."
               rows={6} />
+            {stage3.applicantAffidavit.trim().length > 30 && (
+              <button
+                onClick={() => runRespDetection('affidavit')}
+                disabled={respDetecting}
+                style={{
+                  marginTop: 8, background: '#0a1628', border: '1px solid #2a3a5a',
+                  borderRadius: 6, padding: '7px 14px', fontSize: 12,
+                  cursor: respDetecting ? 'not-allowed' : 'pointer',
+                  color: respDetecting ? '#505068' : '#6090d0',
+                  fontFamily: "'Times New Roman', Times, serif",
+                }}>
+                {respDetecting && respDetectSource === 'affidavit' ? '⏳ Detecting…' : '🔍 Detect Mover\'s Theory from Supporting Affidavit'}
+              </button>
+            )}
           </div>
+
+          {/* Phase 3C — Detected Theory Card (Respondent track) */}
+          {respDetectError && (
+            <div style={{ background: '#1a0808', border: '1px solid #4a1a1a', borderRadius: 7, padding: '12px 16px', fontSize: 12, color: '#c06060', marginBottom: 14 }}>
+              ⚠ {respDetectError}
+            </div>
+          )}
+
+          {respDetectedTheory && (() => {
+            const { label: confLabel, color: confColor } = confidenceLabel(respDetectedTheory.confidence);
+            const isCandidate = isMergeCandidate(respDetectedTheory);
+            return (
+              <div style={{ background: '#07101e', border: '1px solid #1e3050', borderRadius: 8, padding: '16px 18px', marginBottom: 18 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#a0c0e0', letterSpacing: '0.04em' }}>
+                    ⚡ MOVER'S THEORY DETECTED
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 11, color: confColor, fontWeight: 600 }}>{confLabel} ({respDetectedTheory.confidence}/100)</span>
+                    <span style={{ fontSize: 11, color: '#404058' }}>{respDetectedTheory.source.replace(/_/g, ' ')}</span>
+                  </div>
+                </div>
+
+                <div style={{ fontSize: 13, color: '#d0ccc0', marginBottom: 10, fontStyle: 'italic', lineHeight: 1.6 }}>
+                  "{respDetectedTheory.core_proposition}"
+                </div>
+
+                {respDetectedTheory.key_arguments.length > 0 && (
+                  <div style={{ marginBottom: 10 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: '#606080', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Key Arguments</div>
+                    {respDetectedTheory.key_arguments.map((arg, i) => (
+                      <div key={i} style={{ fontSize: 12, color: '#9090a8', lineHeight: 1.55, marginBottom: 4, paddingLeft: 12, borderLeft: '2px solid #1e2a40' }}>
+                        {i + 1}. {arg}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {respDetectedTheory.theory_killer_target && (
+                  <div style={{ background: '#0c1a10', border: '1px solid #1a3a20', borderRadius: 6, padding: '10px 14px', marginBottom: 10 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: '#40a060', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Pressure Point</div>
+                    <div style={{ fontSize: 12, color: '#70c088', lineHeight: 1.55 }}>{respDetectedTheory.theory_killer_target}</div>
+                  </div>
+                )}
+
+                {!isCandidate && respDetectedTheory.confidence_note && (
+                  <div style={{ fontSize: 12, color: '#906040', marginBottom: 10, fontStyle: 'italic' }}>⚠ {respDetectedTheory.confidence_note}</div>
+                )}
+
+                <div style={{ fontSize: 11, color: '#404060', marginBottom: 14 }}>
+                  Theory type: <span style={{ color: '#5070a0' }}>{respDetectedTheory.theory_type}</span>
+                </div>
+
+                {/* Phase 3D — open TheoryMergePanel */}
+                {isCandidate && !respShowMergePanel && (
+                  <div style={{ borderTop: '1px solid #1a2a40', paddingTop: 12 }}>
+                    <div style={{ fontSize: 12, color: '#707090', marginBottom: 10, lineHeight: 1.55 }}>
+                      Open the merge panel to review the diff, edit if needed, then unlock → save → re-lock in one step.
+                    </div>
+                    <div style={{ display: 'flex', gap: 10 }}>
+                      <button
+                        onClick={() => setRespShowMergePanel(true)}
+                        style={{
+                          background: '#0c2040', border: '1px solid #2050a0',
+                          borderRadius: 6, padding: '8px 16px', fontSize: 12, fontWeight: 600,
+                          color: '#90c0f0', cursor: 'pointer',
+                          fontFamily: "'Times New Roman', Times, serif",
+                        }}>
+                        ⚖ Review &amp; Merge Theory
+                      </button>
+                      <button
+                        onClick={() => { setRespDetectedTheory(null); }}
+                        style={{ background: 'transparent', border: '1px solid #1e1e34', borderRadius: 6, padding: '8px 14px', fontSize: 12, color: '#404060', cursor: 'pointer' }}>
+                        Dismiss
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
+          {/* Phase 3D TheoryMergePanel — Respondent track */}
+          {respDetectedTheory && respShowMergePanel && (
+            <TheoryMergePanel
+              detected={respDetectedTheory}
+              current={respCaseTheory}
+              locked={respTheoryLocked}
+              caseId={activeCase.id}
+              partyLabel="Mover"
+              onDone={() => { setRespShowMergePanel(false); setRespDetectedTheory(null); reloadRespTheory(); }}
+              onDismiss={() => setRespShowMergePanel(false)}
+            />
+          )}
 
           {/* Para responses */}
           {stage3.paraResponses.length > 0 && (
