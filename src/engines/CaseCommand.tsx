@@ -648,9 +648,42 @@ function PositionStrip({
                 ⚖ {activeCase.court}
               </span>
             )}
-            {activeCase.suitNo && (
-              <span style={{ fontSize: 11, color: T.mute, fontFamily: SERIF, fontStyle: 'italic' }}>
-                {activeCase.suitNo}
+            {/* Suit / Petition / Charge No. — always shown, inline-editable (Phase 1B) */}
+            {editingSuitNo ? (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                <input
+                  autoFocus
+                  value={suitNoDraft}
+                  onChange={e => setSuitNoDraft(e.target.value)}
+                  onBlur={handleSaveSuitNo}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') handleSaveSuitNo();
+                    if (e.key === 'Escape') setEditingSuitNo(false);
+                  }}
+                  placeholder={suitNoLabel}
+                  style={{
+                    fontSize: 11, fontFamily: SERIF, fontStyle: 'italic',
+                    color: T.text, background: T.bg,
+                    border: `1px solid ${T.bdr}`, borderRadius: 3,
+                    padding: '2px 6px', outline: 'none', width: 160,
+                  }}
+                />
+                <button
+                  onClick={handleSaveSuitNo}
+                  style={{ background: 'none', border: 'none', color: T.dim, fontSize: 10, cursor: 'pointer', padding: 0 }}
+                >✓</button>
+              </span>
+            ) : (
+              <span
+                onClick={() => { setSuitNoDraft(activeCase.suitNo ?? ''); setEditingSuitNo(true); }}
+                title={`Edit ${suitNoLabel}`}
+                style={{
+                  fontSize: 11, color: activeCase.suitNo ? T.mute : T.dim,
+                  fontFamily: SERIF, fontStyle: 'italic', cursor: 'pointer',
+                  borderBottom: `1px dashed ${T.bdr}`,
+                }}
+              >
+                {activeCase.suitNo || `+ ${suitNoLabel}`}
               </span>
             )}
             {activeCase.dateCommenced && (
@@ -985,6 +1018,8 @@ export function CaseCommand({ activeCase }: Props) {
   const [loading,        setLoading]        = useState(true);
   const [isSavingStage,  setIsSavingStage]  = useState(false);
   const [activeSection,  setActiveSection]  = useState<SectionId>('position');
+  const [editingSuitNo,  setEditingSuitNo]  = useState(false);
+  const [suitNoDraft,    setSuitNoDraft]    = useState('');
 
   // Load data
   useEffect(() => {
@@ -1016,6 +1051,25 @@ export function CaseCommand({ activeCase }: Props) {
       setIsSavingStage(false);
     }
   }, [activeCase, updateActiveCase]);
+
+  // ── Suit / Petition / Charge No. inline edit (Phase 1B) ──────────────────
+  const suitNoLabel = (() => {
+    const op = activeCase.originating_process ?? '';
+    if (activeCase.matter_track === 'criminal') return 'Charge / Case No.';
+    if (op.startsWith('petition_') || op === 'election_petition') return 'Petition No.';
+    if (op === 'originating_summons' || op === 'originating_motion') return 'Suit No.';
+    return 'Suit No.';
+  })();
+
+  const handleSaveSuitNo = useCallback(async () => {
+    const trimmed = suitNoDraft.trim();
+    setEditingSuitNo(false);
+    if (trimmed === (activeCase.suitNo ?? '')) return;
+    const patch = { suitNo: trimmed };
+    updateActiveCase(patch);
+    try { await saveCase({ ...activeCase, ...patch }); }
+    catch (e) { console.error('[CaseCommand] saveSuitNo failed', e); }
+  }, [activeCase, suitNoDraft, updateActiveCase]);
 
   // Section jump
   const handleJump = useCallback((id: SectionId) => {
