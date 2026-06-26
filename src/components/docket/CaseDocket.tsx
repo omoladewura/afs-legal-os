@@ -213,8 +213,8 @@ export function CaseDocket() {
     }
     if (op === 'nicn_originating_summons') {
       return role === 'claimant_side'
-        ? 'Acting for the Applicant — seeking the court's interpretation or determination on questions of labour law or employment rights before the NICN.'
-        : 'Acting for the Respondent — opposing the originating summons, filing counter-affidavit, and advancing the Respondent's construction of the issues.';
+        ? "Acting for the Applicant — seeking the court's interpretation or determination on questions of labour law or employment rights before the NICN."
+        : "Acting for the Respondent — opposing the originating summons, filing counter-affidavit, and advancing the Respondent's construction of the issues.";
     }
     if (op === 'nicn_judicial_review') {
       return role === 'claimant_side'
@@ -223,8 +223,8 @@ export function CaseDocket() {
     }
     if (op === 'nicn_appeal') {
       return role === 'claimant_side'
-        ? 'Acting for the Appellant — prosecuting the appeal, settling grounds, and filing the Appellant's brief before the NICN.'
-        : 'Acting for the Respondent — opposing the appeal, filing the Respondent's brief, and defending the decision below.';
+        ? "Acting for the Appellant — prosecuting the appeal, settling grounds, and filing the Appellant's brief before the NICN."
+        : "Acting for the Respondent — opposing the appeal, filing the Respondent's brief, and defending the decision below.";
     }
 
     // ── Magistrate / Lower Courts ─────────────────────────────────────────────
@@ -248,29 +248,29 @@ export function CaseDocket() {
     if (op === 'tax_appeal') {
       return role === 'claimant_side'
         ? 'Acting for the Appellant — challenging the tax assessment, filing the appeal and grounds, and advancing the objection before the TAT.'
-        : 'Acting for the Respondent (FIRS/SIRS) — defending the assessment, filing the Respondent's reply, and justifying the tax demand.';
+        : "Acting for the Respondent (FIRS/SIRS) — defending the assessment, filing the Respondent's reply, and justifying the tax demand.";
     }
     if (op === 'ist_application') {
       return role === 'claimant_side'
         ? 'Acting for the Applicant — bringing the capital market or securities dispute before the IST, filing the application and supporting documents.'
-        : 'Acting for the Respondent — opposing the application, filing counter-documents, and advancing the Respondent's position before the IST.';
+        : "Acting for the Respondent — opposing the application, filing counter-documents, and advancing the Respondent's position before the IST.";
     }
     if (op === 'arbitration_notice') {
       return role === 'claimant_side'
-        ? 'Acting for the Claimant — commencing arbitration under the AMA, filing the notice and statement of claim, and driving the process to award.'
-        : 'Acting for the Respondent — filing the statement of defence, raising jurisdictional objections if available, and resisting the claim before the panel.';
+        ? "Acting for the Claimant — commencing arbitration under the AMA, filing the notice and statement of claim, and driving the process to award."
+        : "Acting for the Respondent — filing the statement of defence, raising jurisdictional objections if available, and resisting the claim before the panel.";
     }
 
     // ── Originating Summons / Motion (non-NICN) ───────────────────────────────
     if (op === 'originating_summons') {
       return role === 'claimant_side'
         ? `Acting for the Applicant — seeking the court's determination on questions of law or construction${ncCourt ? ' in the ' + ncCourt : ''}, by originating summons.`
-        : 'Acting for the Respondent — opposing the summons, filing counter-affidavit, and advancing the Respondent's construction of the issues.';
+        : "Acting for the Respondent — opposing the summons, filing counter-affidavit, and advancing the Respondent's construction of the issues.";
     }
     if (op === 'originating_motion') {
       return role === 'claimant_side'
         ? `Acting for the Applicant — initiating proceedings by originating motion${ncCourt ? ' in the ' + ncCourt : ''}, filing the motion paper and supporting affidavit.`
-        : 'Acting for the Respondent — opposing the motion, filing counter-affidavit, and advancing the Respondent's case.';
+        : "Acting for the Respondent — opposing the motion, filing counter-affidavit, and advancing the Respondent's case.";
     }
 
     // ── Default: Writ of Summons + fallback ───────────────────────────────────
