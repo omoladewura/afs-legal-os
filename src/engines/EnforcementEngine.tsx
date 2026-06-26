@@ -229,6 +229,119 @@ function SectionHead({ text, accent }: { text: string; accent: string }) {
 // MAIN COMPONENT
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ─────────────────────────────────────────────────────────────────────────────
+// PHASE 5D — ENFORCEMENT HANDOFF BANNER
+//
+// Visible at the top of EnforcementEngine when the Final Written Address
+// has been filed and adopted (judgment obtained). Reads fwa_status from
+// the same Dexie key that FinalWrittenAddressEngine writes.
+//
+// Shows:
+//   - FWA status (Adopted / Filed / Draft Ready / Not Filed)
+//   - Judgment date (if recorded in Enforcement's own Judgment Summary)
+//   - Role-aware cue: creditor → proceed to enforcement; debtor → consider stay
+//   - Green when Adopted, amber when Filed (adopted not yet confirmed),
+//     neutral when earlier stages
+// ─────────────────────────────────────────────────────────────────────────────
+
+type FWAFilingStatus = 'Not Filed' | 'Draft Ready' | 'Filed' | 'Adopted' | 'Adoption Denied';
+
+interface FWAStatusRecord {
+  status:      FWAFilingStatus;
+  dateFiled:   string;
+  dateAdopted: string;
+  notes:       string;
+}
+
+function EnforcementHandoffBanner({ activeCase }: { activeCase: Case }) {
+  const isClaim = activeCase.counsel_role === 'claimant_side';
+
+  const [fwaStatus, setFwaStatus] = React.useState<FWAFilingStatus | null>(null);
+  const [fwaDate,   setFwaDate]   = React.useState('');
+
+  React.useEffect(() => {
+    loadBlindSpot<FWAStatusRecord>(activeCase.id, 'fwa_status', { status: 'Not Filed', dateFiled: '', dateAdopted: '', notes: '' }).then(rec => {
+      if (rec) {
+        setFwaStatus(rec.status);
+        setFwaDate(rec.dateAdopted || rec.dateFiled || '');
+      }
+    });
+  }, [activeCase.id]);
+
+  // Only show when FWA has been filed or beyond
+  if (!fwaStatus || fwaStatus === 'Not Filed' || fwaStatus === 'Draft Ready') return null;
+
+  const isAdopted = fwaStatus === 'Adopted';
+  const isDenied  = fwaStatus === 'Adoption Denied';
+
+  const bannerColor = isAdopted ? '#1a5a30' : isDenied ? '#8a1a1a' : '#7a4a00';
+  const bannerBg    = isAdopted ? '#f0f8f2' : isDenied ? '#fff0f0' : '#fdf6e8';
+  const bannerBdr   = isAdopted ? '#a8d0b8' : isDenied ? '#e0b0b0' : '#e0cfa0';
+
+  const STATUS_LABEL: Record<FWAFilingStatus, string> = {
+    'Not Filed':       'Not Filed',
+    'Draft Ready':     'Draft Ready',
+    'Filed':           'Filed — Awaiting Adoption Hearing',
+    'Adopted':         'Adopted \u2014 Judgment Obtained',
+    'Adoption Denied': 'Adoption Denied \u2014 Fair Hearing Alert Active',
+  };
+
+  return (
+    <div style={{
+      background:   bannerBg,
+      border:       `1px solid ${bannerBdr}`,
+      borderLeft:   `3px solid ${bannerColor}`,
+      borderRadius: '0 6px 6px 0',
+      padding:      '12px 16px',
+      marginBottom: 20,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: isAdopted ? 10 : 0, flexWrap: 'wrap' as const }}>
+        <span style={{
+          fontSize: 9, fontWeight: 700, letterSpacing: '.12em',
+          fontFamily: "'Times New Roman', Times, serif",
+          textTransform: 'uppercase' as const, color: bannerColor,
+        }}>
+          Final Written Address
+        </span>
+        <span style={{
+          fontSize: 11,
+          fontFamily: "'Times New Roman', Times, serif",
+          color: bannerColor, fontWeight: isAdopted ? 700 : 400,
+        }}>
+          {STATUS_LABEL[fwaStatus]}
+        </span>
+        {fwaDate && (
+          <span style={{ fontSize: 10, fontFamily: "'Times New Roman', Times, serif", color: bannerColor, marginLeft: 'auto' }}>
+            {new Date(fwaDate).toLocaleDateString('en-NG', { day: 'numeric', month: 'long', year: 'numeric' })}
+          </span>
+        )}
+      </div>
+
+      {isAdopted && (
+        <p style={{
+          fontSize: 12,
+          fontFamily: "'Times New Roman', Times, serif",
+          color: bannerColor, margin: 0, lineHeight: 1.6,
+        }}>
+          {isClaim
+            ? 'Final Written Address adopted \u2014 judgment is in force. Select enforcement mechanism and proceed to execution.'
+            : 'Final Written Address adopted \u2014 judgment entered against client. Consider Stay of Execution pending appeal, or begin managing compliance obligations.'}
+        </p>
+      )}
+
+      {fwaStatus === 'Filed' && (
+        <p style={{
+          fontSize: 12,
+          fontFamily: "'Times New Roman', Times, serif",
+          color: bannerColor, margin: 0, lineHeight: 1.6,
+        }}>
+          Address filed and awaiting adoption hearing. Update status to \u2018Adopted\u2019 in the Final Address engine once the court adopts it to unlock the full enforcement workflow.
+        </p>
+      )}
+    </div>
+  );
+}
+
 export function EnforcementEngine({ activeCase }: Props) {
   const isClaim  = activeCase.counsel_role === 'claimant_side';
   const accent   = activeCase.counsel_role ? COUNSEL_ROLE_COLORS[activeCase.counsel_role].col : '#4090d0';
@@ -899,6 +1012,9 @@ Conclude with a priority ranking of the grounds.`;
 
   return (
     <div style={{ padding: '28px 32px', maxWidth: 900 }}>
+
+      {/* Phase 5D — FWA Handoff Banner */}
+      <EnforcementHandoffBanner activeCase={activeCase} />
 
       {/* Header */}
       <div style={{ marginBottom: 28 }}>
