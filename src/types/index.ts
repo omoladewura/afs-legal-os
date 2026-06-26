@@ -323,6 +323,33 @@ export interface IntelligenceData {
     /** One-line summary for Case Command position strip */
     summary:      string;
   };
+
+  /**
+   * Served Process Analysis — Phase 2C (Defendant Stage 0.5).
+   * Produced when defendant-side counsel pastes/uploads the originating process.
+   * Seeds rawFacts for the standard pipeline and pre-populates the claimant theory
+   * for theory-clash wiring (Phases 3B/3C).
+   */
+  served_process_analysis?: {
+    /** ISO timestamp of run */
+    run_at:              string;
+    /** The raw text of the served process as entered by counsel */
+    process_text:        string;
+    /** Originating process type identified from the document */
+    process_type:        string;
+    /** Claimant's case theory extracted from the served process */
+    claimant_theory:     string;
+    /** Claims/reliefs sought as extracted */
+    claims_identified:   string[];
+    /** Key factual allegations made against the defendant */
+    factual_allegations: string[];
+    /** Potential counterclaim opportunities detected */
+    counterclaim_hints:  string[];
+    /** Procedural deadlines noted (e.g. days to enter appearance, file defence) */
+    procedural_deadlines: string[];
+    /** One-line summary for Case Command display */
+    summary:             string;
+  };
 }
 
 export interface AppealData {
