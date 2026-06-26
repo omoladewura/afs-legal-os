@@ -16,13 +16,14 @@
  */
 
 import React, { useState } from 'react';
-import type { Case } from '@/types';
+import type { Case, CaseTheoryRecord } from '@/types';
 import { T } from '@/constants/tokens';
 import { callClaude, withRetry } from '@/services/api';
 import { Spinner, ErrorBlock, RoleBadge, Md } from '@/components/common/ui';
 import { copyToClipboard } from '@/utils';
 import { getPartyLabels } from '@/utils/getPartyLabels';
 import { db } from '@/storage/db';
+import { saveCaseTheory, lockCaseTheory } from '@/storage/helpers';
 
 // ── Step definitions ───────────────────────────────────────────────────────────
 
@@ -240,6 +241,12 @@ export function IntelligenceEngine({ activeCase, onSave }: Props) {
   const [spaLoading,    setSpaLoading]    = useState(false);
   const [spaError,      setSpaError]      = useState('');
 
+  // ── Phase 2E — Theory Clash Synthesis state ──────────────────────────────
+  const [theoryClashLoading, setTheoryClashLoading] = useState(false);
+  const [theoryClashError,   setTheoryClashError]   = useState('');
+  const [theoryClashDone,    setTheoryClashDone]    = useState(false);
+  const [theoryClashRecord,  setTheoryClashRecord]  = useState<CaseTheoryRecord | null>(null);
+
   const { partyA, partyB, partyAPlural, partyBPlural, ourSide } = getPartyLabels(activeCase);
 
   const role = activeCase.counsel_role
@@ -285,30 +292,21 @@ ${partyBPlural}: ${activeCase.defendants.map(d => d.name).filter(Boolean).join('
     setLoading(true); setError('');
     try {
       const raw = await withRetry(() => callClaude({
-        system: `You are a trial intelligence extraction engine for Nigerian litigation.
-Extract structured intelligence from the raw case facts provided by the user.
-Role-aware: the lawyer acts for the ${role}.
-Case context: ${caseCtx}
+        // ── Phase 2D: Theory-aware context when defendant came through SPA (Stage 0.5) ──
+        const isDefendantWithSPA = isDefendant && !!spaResult;
+        const spaTheoryBlock = isDefendantWithSPA
+          ? `\n\nOPPONENT THEORY (from Served Process Analysis — already extracted):\n${spaResult!.claimant_theory}\n\nPRE-IDENTIFIED COUNTERCLAIM HINTS (from Served Process — evaluate and confirm or refine):\n${spaResult!.counterclaim_hints.length > 0 ? spaResult!.counterclaim_hints.map((h: string, i: number) => `${i + 1}. ${h}`).join('\n') : 'None identified from process text.'}\n\nINSTRUCTION: You already know the ${partyA}'s theory from the served process above. Your extraction must now:\n1. Frame every legal issue as a clash between that theory and the ${partyB}'s position revealed in the client instructions below.\n2. Identify which of the ${partyA}'s factual allegations are admitted, disputed, or unknown from the client's account.\n3. Re-evaluate the counterclaim hints above against the client's fuller instructions — confirm, expand, or dismiss each one with reasons in "counterclaim_detected".`
+          : '';
 
-COUNTERCLAIM DETECTION: Where this is a civil matter, actively assess whether the facts disclose a viable counterclaim — an independent cause of action arising from the same transaction or facts (available to the opposing side, or to our client if we act for the defendant) that could be raised as a cross-claim under the applicable Rules of Civil Procedure. A counterclaim is distinct from a mere defence or set-off: it seeks affirmative relief in its own right, not merely a denial of liability. Set "counterclaim_detected.flag" to true only where one is reasonably disclosed on the facts, and write a one-to-two sentence "counterclaim_detected.summary" stating who would bring it, against whom, and the cause of action. Do not fabricate a counterclaim where the facts do not support one — if this is not a civil matter, or no counterclaim is disclosed, set "flag" to false and omit "summary".
+        const counterclaimInstruction = isDefendantWithSPA
+          ? `COUNTERCLAIM EVALUATION (${partyB} path — theory-aware): The served process already surfaced counterclaim hints (listed above). Now that you have the client's full instructions, assess whether those hints ripen into a viable counterclaim. A counterclaim requires: (a) an independent cause of action, (b) arising from the same transaction or occurrence, (c) seeking affirmative relief — not merely a defence. Set "counterclaim_detected.flag" to true if one is confirmed, and write a 1–2 sentence "summary" identifying who brings it, against whom, and the cause of action. If the hints do not ripen, set flag to false and include a brief explanation in summary.`
+          : `COUNTERCLAIM DETECTION: Where this is a civil matter, actively assess whether the facts disclose a viable counterclaim — an independent cause of action arising from the same transaction or facts (available to the opposing side, or to our client if we act for the defendant) that could be raised as a cross-claim under the applicable Rules of Civil Procedure. A counterclaim is distinct from a mere defence or set-off: it seeks affirmative relief in its own right, not merely a denial of liability. Set "counterclaim_detected.flag" to true only where one is reasonably disclosed on the facts, and write a one-to-two sentence "counterclaim_detected.summary" stating who would bring it, against whom, and the cause of action. Do not fabricate a counterclaim where the facts do not support one — if this is not a civil matter, or no counterclaim is disclosed, set "flag" to false and omit "summary".`;
 
-Output ONLY valid JSON — no markdown fences, no preamble, no explanation. Exactly this structure:
-{
-  "timeline": [{"date":"...","event":"...","significance":"..."}],
-  "established_facts": ["..."],
-  "disputed_areas": ["..."],
-  "legal_issues": ["..."],
-  "evidence_mentioned": ["..."],
-  "gaps_identified": ["..."],
-  "initial_risks": [{"risk":"...","severity":"HIGH|MEDIUM|LOW"}],
-  "counterclaim_detected": {"flag": true|false, "summary": "..."}
-}
-
-Rules:
-- Every string value must be properly escaped. Never use unescaped double quotes inside string values.
-- Use single quotes or rephrase if quoting speech — never raw double quotes inside JSON strings.
-- Output ONLY the JSON object. Nothing before it, nothing after it.`,
-        userMsg: `RAW FACTS / CLIENT NARRATION:\n\n${rawFacts}`,
+        const raw = await withRetry(() => callClaude({
+        system: `You are a trial intelligence extraction engine for Nigerian litigation.\nExtract structured intelligence from the raw case facts provided by the user.\nRole-aware: the lawyer acts for the ${role}.\nCase context: ${caseCtx}${spaTheoryBlock}\n\n${counterclaimInstruction}\n\nOutput ONLY valid JSON — no markdown fences, no preamble, no explanation. Exactly this structure:\n{\n  "timeline": [{"date":"...","event":"...","significance":"..."}],\n  "established_facts": ["..."],\n  "disputed_areas": ["..."],\n  "legal_issues": ["..."],\n  "evidence_mentioned": ["..."],\n  "gaps_identified": ["..."],\n  "initial_risks": [{"risk":"...","severity":"HIGH|MEDIUM|LOW"}],\n  "counterclaim_detected": {"flag": true|false, "summary": "..."}\n}\n\nRules:\n- Every string value must be properly escaped. Never use unescaped double quotes inside string values.\n- Use single quotes or rephrase if quoting speech — never raw double quotes inside JSON strings.\n- Output ONLY the JSON object. Nothing before it, nothing after it.`,
+        userMsg: isDefendantWithSPA
+          ? `SERVED PROCESS (already analysed — use the OPPONENT THEORY block from the system prompt; do not re-extract theory from this):\n\n${spaResult!.process_text}\n\n──────────────────────────────────────\nCLIENT INSTRUCTIONS / DEFENDANT'S ACCOUNT:\n\n${rawFacts}`
+          : `RAW FACTS / CLIENT NARRATION:\n\n${rawFacts}`,
         maxTokens: 5000,
         skipLibrary: true,
       }));
@@ -345,6 +343,10 @@ Rules:
       advance(2, { extraction: extractionOnly, rawFacts, counterclaim_detected: counterclaim });
       // Step 2b fires automatically — non-blocking (does not await)
       runCommencementAudit(extractionOnly);
+      // Phase 2E — Theory Clash Synthesis fires automatically on defendant+SPA path (non-blocking)
+      if (isDefendantWithSPA) {
+        runTheoryClashSynthesis(extractionOnly, counterclaim);
+      }
     } catch (e) {
       setError('Extraction failed: ' + ((e as Error).message || 'Please try again.'));
     } finally { setLoading(false); }
@@ -454,7 +456,150 @@ Rules:
     } finally { setAuditLoading(false); }
   }
 
-  // ── Step 2b: Commencement Audit panel (rendered inside Stage2) ───────────
+  // ─────────────────────────────────────────────────────────────────────────
+  // Phase 2E — Theory Clash Synthesis
+  // Defendant + SPA path only. Runs after extraction completes (non-blocking).
+  // Produces a CaseTheoryRecord (case_theory_structured v1), saves it, and
+  // immediately locks it so downstream engines (CrossExamEngine, FinalWrittenAddressEngine,
+  // ApplicationsEngine) can consume it without a separate lock step from counsel.
+  // Counsel can unlock → edit → relock via the standard 3D flow later.
+  // ─────────────────────────────────────────────────────────────────────────
+  async function runTheoryClashSynthesis(
+    ext: ExtractionResult,
+    cc: CounterclaimDetectedResult,
+  ) {
+    if (!spaResult) return;
+    setTheoryClashLoading(true);
+    setTheoryClashError('');
+    setTheoryClashDone(false);
+    try {
+      const claimantTheory = spaResult.claimant_theory;
+      const claimsBlock    = spaResult.claims_identified.map((c, i) => `${i + 1}. ${c}`).join('\n');
+      const allegationsBlk = spaResult.factual_allegations.map((a, i) => `${i + 1}. ${a}`).join('\n');
+      const ccBlock        = cc.flag && cc.summary ? `COUNTERCLAIM CONFIRMED: ${cc.summary}` : 'No counterclaim confirmed.';
+      const issuesBlock    = (ext.legal_issues ?? []).map((v, i) => `${i + 1}. ${v}`).join('\n');
+      const factsBlock     = (ext.established_facts ?? []).slice(0, 12).map((v, i) => `${i + 1}. ${v}`).join('\n');
+      const disputedBlock  = (ext.disputed_areas ?? []).map((v, i) => `${i + 1}. ${v}`).join('\n');
+      const gapsBlock      = (ext.gaps_identified ?? []).map((v, i) => `${i + 1}. ${v}`).join('\n');
+      const risksBlock     = (ext.initial_risks ?? []).map((r, i) => `${i + 1}. [${r.severity}] ${r.risk}`).join('\n');
+
+      const raw = await withRetry(() => callClaude({
+        system: `You are a senior trial advocate synthesising a Theory of the Case for the DEFENDANT/RESPONDENT in Nigerian civil litigation.
+You have been given:
+  (A) The Claimant/Petitioner's theory as extracted from the served process.
+  (B) The Defendant's extracted intelligence — facts, disputes, issues, risks, gaps, and any confirmed counterclaim.
+
+Your task is to produce a single locked CaseTheoryRecord for the Defendant that:
+1. Names the core proposition the Defendant must establish to WIN (not merely to resist — frame it as an affirmative position).
+2. Lists every element the Defendant must prove or maintain, each with the evidence that supports it, the Nigerian statute/authority behind it, and the risk if that element fails.
+3. States the Claimant's theory in one sentence (opposing_theory).
+4. Identifies the single fact, document, or admission that — if established — defeats the Claimant's theory entirely (theory_killer).
+5. Identifies the Defendant's weakest element and the contingency if it cannot be proved (weakest_link).
+6. Crafts a human-level narrative theme for the trial judge — non-legal, story-form, one sentence.
+7. Produces a gap report: every evidentiary or procedural gap that must be closed before trial, with a specific (named, not generic) suggested action.
+8. Scores the theory on five 0–20 dimensions (total must sum to 0–100):
+   - legal_sufficiency: Are the legal elements fully identified and grounded in Nigerian authority?
+   - evidence_coverage: How well does the current evidence support each element?
+   - vulnerability: How exposed is the Defendant to the Claimant's theory? (higher = more vulnerable)
+   - narrative_coherence: How compelling and coherent is the Defendant's story?
+   - jurisdictional_precision: How precisely are the relevant Nigerian court, rules, and procedure identified?
+
+Output ONLY valid JSON — no preamble, no markdown fences, no explanation. Exactly:
+{
+  "core_proposition": "One sentence. The single thing that if proved wins for the Defendant.",
+  "elements": [
+    {"element":"...","evidence":"...","authority":"Nigerian statute or case","risk":"..."}
+  ],
+  "opposing_theory": "The Claimant's case in one sentence.",
+  "theory_killer": "The one fact/document/admission that defeats their theory.",
+  "weakest_link": "Our least confident element + contingency.",
+  "narrative_theme": "Human story for the judge, non-legal language, one sentence.",
+  "gap_report": [
+    {"element":"...","needed":"...","suggested_action":"Specific named action — e.g. 'Obtain certified copy of Deed No. X from Lands Registry'"}
+  ],
+  "score_breakdown": {
+    "legal_sufficiency": 0,
+    "evidence_coverage": 0,
+    "vulnerability": 0,
+    "narrative_coherence": 0,
+    "jurisdictional_precision": 0,
+    "total": 0
+  }
+}
+
+Rules:
+- Every element must cite a real Nigerian statute, rule, or decided case — do not invent authorities.
+- suggested_action must be specific and actionable, never "gather evidence" or "conduct research".
+- score_breakdown.total must equal the exact arithmetic sum of the five sub-scores.
+- Output ONLY the JSON object.`,
+        userMsg: `CASE: ${activeCase.caseName}
+COURT: ${activeCase.court || 'Not specified'}
+SUIT NO: ${activeCase.suitNo || 'Not specified'}
+CLAIMANTS: ${activeCase.claimants.map(c => c.name).filter(Boolean).join(', ') || 'Not named'}
+DEFENDANTS (our client): ${activeCase.defendants.map(d => d.name).filter(Boolean).join(', ') || 'Not named'}
+
+═══ (A) CLAIMANT'S THEORY (from served process) ═══
+${claimantTheory}
+
+CLAIMS / RELIEFS SOUGHT:
+${claimsBlock || 'Not specified'}
+
+FACTUAL ALLEGATIONS AGAINST DEFENDANT:
+${allegationsBlk || 'Not specified'}
+
+═══ (B) DEFENDANT'S EXTRACTED INTELLIGENCE ═══
+LEGAL ISSUES:
+${issuesBlock || 'None extracted'}
+
+ESTABLISHED FACTS (from client instructions):
+${factsBlock || 'None extracted'}
+
+DISPUTED AREAS:
+${disputedBlock || 'None extracted'}
+
+EVIDENCE GAPS:
+${gapsBlock || 'None extracted'}
+
+INITIAL RISKS:
+${risksBlock || 'None extracted'}
+
+COUNTERCLAIM STATUS:
+${ccBlock}`,
+        maxTokens: 4000,
+        skipLibrary: true,
+      }));
+
+      let cleaned = raw.trim().replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+      const s = cleaned.indexOf('{');
+      const e = cleaned.lastIndexOf('}');
+      if (s === -1 || e === -1) throw new Error('Theory Clash: no JSON found in response.');
+      cleaned = cleaned.slice(s, e + 1);
+
+      let record: CaseTheoryRecord;
+      try {
+        record = JSON.parse(cleaned);
+      } catch {
+        const repaired = cleaned
+          .replace(/[\u0000-\u001F\u007F-\u009F]/g, ' ')
+          .replace(/,\s*}/g, '}')
+          .replace(/,\s*]/g, ']');
+        record = JSON.parse(repaired);
+      }
+
+      // Save + immediately lock (v1)
+      await saveCaseTheory(activeCase.id, record);
+      await lockCaseTheory(activeCase.id);
+
+      setTheoryClashRecord(record);
+      setTheoryClashDone(true);
+    } catch (err) {
+      setTheoryClashError('Theory Clash Synthesis failed: ' + ((err as Error).message || 'Please try again.'));
+    } finally {
+      setTheoryClashLoading(false);
+    }
+  }
+
+    // ── Step 2b: Commencement Audit panel (rendered inside Stage2) ───────────
 
   function CommencementAuditPanel() {
     if (!auditLoading && !commencementAudit && !auditError) return null;
@@ -797,7 +942,7 @@ Return ONLY valid JSON — no preamble, no markdown fences:
       setSpaResult(spa);
 
       // Seed rawFacts with the process text so Stage 1 has a starting point
-      const seededFacts = `[SERVED PROCESS — pasted by counsel]\n\n${processText}`;
+      const seededFacts = \`[SERVED PROCESS — pasted by counsel]\n\n\${processText}\`;
       setRawFacts(seededFacts);
 
       advance(0.5, { served_process_analysis: spa, rawFacts: seededFacts });
@@ -817,13 +962,13 @@ Return ONLY valid JSON — no preamble, no markdown fences:
     return (
       <div style={{ animation: 'fadeUp .3s ease' }}>
         <div style={{ marginBottom: 28 }}>
-          <p style={{ fontSize: 10, color: T.text, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.16em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 4 }}>
+          <p style={{ fontSize: 10, color: T.text, fontFamily: \"'Times New Roman', Times, serif\", letterSpacing: '.16em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 4 }}>
             Intelligence Engine · Entry
           </p>
-          <h2 style={{ fontSize: 22, color: '#111111', fontFamily: "'Times New Roman', Times, serif", fontWeight: 300, marginBottom: 8 }}>
+          <h2 style={{ fontSize: 22, color: '#111111', fontFamily: \"'Times New Roman', Times, serif\", fontWeight: 300, marginBottom: 8 }}>
             How are we coming into this matter?
           </h2>
-          <p style={{ fontSize: 13, color: T.dim, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.7 }}>
+          <p style={{ fontSize: 13, color: T.dim, fontFamily: \"'Times New Roman', Times, serif\", lineHeight: 1.7 }}>
             Acting for <strong style={{ color: T.text }}>{B}</strong> — choose the entry path that matches how the matter reached us.
           </p>
         </div>
@@ -845,15 +990,15 @@ Return ONLY valid JSON — no preamble, no markdown fences:
           >
             <span style={{ fontSize: 26, lineHeight: 1, flexShrink: 0, marginTop: 2 }}>📨</span>
             <div>
-              <p style={{ fontSize: 15, color: '#c8c8e8', fontFamily: "'Times New Roman', Times, serif", fontWeight: 700, marginBottom: 5 }}>
+              <p style={{ fontSize: 15, color: '#c8c8e8', fontFamily: \"'Times New Roman', Times, serif\", fontWeight: 700, marginBottom: 5 }}>
                 We Were Served
               </p>
-              <p style={{ fontSize: 12, color: T.mute, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.65 }}>
+              <p style={{ fontSize: 12, color: T.mute, fontFamily: \"'Times New Roman', Times, serif\", lineHeight: 1.65 }}>
                 A writ, originating summons, petition, or other process was served on {B}.
                 Upload or paste the originating process — the engine will analyse the claim,
                 extract the {A}'s theory, and identify counterclaim opportunities.
               </p>
-              <p style={{ fontSize: 10, color: '#5050a0', fontFamily: "'Times New Roman', Times, serif", marginTop: 8, letterSpacing: '.06em', textTransform: 'uppercase', fontWeight: 700 }}>
+              <p style={{ fontSize: 10, color: '#5050a0', fontFamily: \"'Times New Roman', Times, serif\", marginTop: 8, letterSpacing: '.06em', textTransform: 'uppercase', fontWeight: 700 }}>
                 Served Process Intake → Theory Extraction → Counterclaim Scan
               </p>
             </div>
@@ -874,14 +1019,14 @@ Return ONLY valid JSON — no preamble, no markdown fences:
           >
             <span style={{ fontSize: 26, lineHeight: 1, flexShrink: 0, marginTop: 2 }}>📋</span>
             <div>
-              <p style={{ fontSize: 15, color: '#c8e8c8', fontFamily: "'Times New Roman', Times, serif", fontWeight: 700, marginBottom: 5 }}>
+              <p style={{ fontSize: 15, color: '#c8e8c8', fontFamily: \"'Times New Roman', Times, serif\", fontWeight: 700, marginBottom: 5 }}>
                 Enter Raw Facts
               </p>
-              <p style={{ fontSize: 12, color: T.mute, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.65 }}>
+              <p style={{ fontSize: 12, color: T.mute, fontFamily: \"'Times New Roman', Times, serif\", lineHeight: 1.65 }}>
                 We have the client's account of events but no served process yet — or we prefer to build
                 the defence picture from our own instructions first. Proceed with the standard 5-step intelligence pipeline.
               </p>
-              <p style={{ fontSize: 10, color: '#3a5a3a', fontFamily: "'Times New Roman', Times, serif", marginTop: 8, letterSpacing: '.06em', textTransform: 'uppercase', fontWeight: 700 }}>
+              <p style={{ fontSize: 10, color: '#3a5a3a', fontFamily: \"'Times New Roman', Times, serif\", marginTop: 8, letterSpacing: '.06em', textTransform: 'uppercase', fontWeight: 700 }}>
                 Raw Facts → Extraction → Follow-Up → Evidence Map → Package
               </p>
             </div>
@@ -1107,19 +1252,47 @@ Return ONLY valid JSON — no preamble, no markdown fences:
   // STAGE 1 — Raw Facts
   // ─────────────────────────────────────────────────────────────────────────
   function Stage1() {
+    const isDefendantWithSPA = isDefendant && !!spaResult;
     return (
       <div style={{ animation: 'fadeUp .3s ease' }}>
         <div style={{ marginBottom: 20 }}>
           <p style={{ fontSize: 10, color: T.text, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.16em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 4 }}>
-            Step 1 of 5 · Raw Facts
+            Step 1 of 5 · {isDefendantWithSPA ? 'Client Instructions' : 'Raw Facts'}
           </p>
           <h2 style={{ fontSize: 22, color: '#111111', fontFamily: "'Times New Roman', Times, serif", fontWeight: 300, marginBottom: 6 }}>
-            Enter the Complete Case Narrative
+            {isDefendantWithSPA ? `${partyB}'s Account & Instructions` : 'Enter the Complete Case Narrative'}
           </h2>
           <p style={{ fontSize: 13, color: T.dim, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.7 }}>
-            Do not filter or organise — give the raw client story. Include dates, parties, conversations, documents, and events in any order. The AI will extract the structure.
+            {isDefendantWithSPA
+              ? `The ${partyA}'s theory is already loaded from the served process. Now enter your client's full account — their version of events, what they dispute, what they admit, and any instructions on a counterclaim. The engine will clash both accounts to extract the defence theory.`
+              : 'Do not filter or organise — give the raw client story. Include dates, parties, conversations, documents, and events in any order. The AI will extract the structure.'
+            }
           </p>
         </div>
+
+        {/* Phase 2D — Theory context banner for defendant SPA path */}
+        {isDefendantWithSPA && spaResult && (
+          <div style={{ background: '#08100a', border: '1px solid #1a3020', borderRadius: 8, padding: '12px 16px', marginBottom: 14 }}>
+            <p style={{ fontSize: 9, color: '#40b068', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 6 }}>
+              {partyA} Theory Loaded · Theory-Aware Extraction Active
+            </p>
+            <p style={{ fontSize: 12, color: '#a0c8a8', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.65, marginBottom: spaResult.counterclaim_hints.length > 0 ? 8 : 0 }}>
+              {spaResult.claimant_theory}
+            </p>
+            {spaResult.counterclaim_hints.length > 0 && (
+              <div style={{ borderTop: '1px solid #1a3020', paddingTop: 8 }}>
+                <p style={{ fontSize: 9, color: '#60c888', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 4 }}>
+                  {spaResult.counterclaim_hints.length} Counterclaim Hint{spaResult.counterclaim_hints.length > 1 ? 's' : ''} — Will Be Re-Evaluated Against Client Instructions
+                </p>
+                {spaResult.counterclaim_hints.map((h: string, i: number) => (
+                  <p key={i} style={{ fontSize: 11, color: '#608870', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.6, marginBottom: 2 }}>
+                    {i + 1}. {h}
+                  </p>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         <div style={{ background: '#0d0d18', border: '1px solid #181828', borderRadius: 10, padding: '20px 22px', marginBottom: 14 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, paddingBottom: 12, borderBottom: '1px solid #131320', flexWrap: 'wrap' }}>
@@ -1132,17 +1305,19 @@ Return ONLY valid JSON — no preamble, no markdown fences:
             )}
           </div>
           <label style={lbS}>
-            Complete Case Narrative / Raw Facts <span style={{ color: '#b06060' }}>*</span>
+            {isDefendantWithSPA ? `${partyB} Instructions & Account` : 'Complete Case Narrative / Raw Facts'} <span style={{ color: '#b06060' }}>*</span>
           </label>
           <p style={{ fontSize: 11, color: T.mute, fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic', marginBottom: 10, lineHeight: 1.65 }}>
-            Include: what happened, when, between whom, what documents exist, what was said, what was agreed, what went wrong, who holds what evidence.
+            {isDefendantWithSPA ? `Include: what your client says happened, which allegations they admit or dispute, any documents they hold, and whether they wish to counterclaim. The ${partyA}'s theory is pre-loaded — focus on the ${partyB}'s account.` : 'Include: what happened, when, between whom, what documents exist, what was said, what was agreed, what went wrong, who holds what evidence.'}
           </p>
           <textarea
             value={rawFacts}
             onChange={e => setRawFacts(e.target.value)}
             rows={13}
             placeholder={
-              'Tell the full story of this matter:\n\n• What happened and when?\n• Who did what, to whom?\n• What documents, contracts, or communications exist?\n• What is the other side likely to say?\n• What outcome does the client want?\n\nDo not organise — give it raw. The engine will extract the intelligence.'
+              isDefendantWithSPA
+                ? `What does your client say happened?\n\n• Which of the ${partyA}'s allegations do they admit?\n• Which do they dispute — and why?\n• What is their version of events?\n• Do they have a counterclaim or cross-claim?\n• What outcome do they want?\n\nThe ${partyA}'s theory is already loaded. Give the ${partyB}'s full account — the engine will clash both positions.`
+                : 'Tell the full story of this matter:\n\n• What happened and when?\n• Who did what, to whom?\n• What documents, contracts, or communications exist?\n• What is the other side likely to say?\n• What outcome does the client want?\n\nDo not organise — give it raw. The engine will extract the intelligence.'
             }
             style={{ ...iS, resize: 'vertical', lineHeight: 1.85, minHeight: 300, fontSize: 15 }}
           />
@@ -1183,7 +1358,194 @@ Return ONLY valid JSON — no preamble, no markdown fences:
     );
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
+  // ── Phase 2E — Theory Clash Panel (defendant + SPA path) ────────────────
+  function TheoryClashPanel() {
+    const rec = theoryClashRecord;
+
+    if (theoryClashLoading) {
+      return (
+        <div style={{ background: '#080e08', border: '1px solid #183020', borderRadius: 10, padding: '20px 22px', marginTop: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ width: 16, height: 16, border: '2px solid #182818', borderTop: '2px solid #40b068', borderRadius: '50%', animation: 'spin .8s linear infinite', flexShrink: 0 }} />
+          <div>
+            <p style={{ fontSize: 11, color: '#40b068', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 2 }}>
+              Phase 2E · Theory Clash Synthesis
+            </p>
+            <p style={{ fontSize: 12, color: '#608860', fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic' }}>
+              Synthesising {partyB} theory against {partyA} claims — locking v1…
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    if (theoryClashError && !rec) {
+      return (
+        <div style={{ background: '#0e0808', border: '1px solid #3a1818', borderRadius: 8, padding: '14px 18px', marginTop: 16 }}>
+          <p style={{ fontSize: 9, color: '#c05050', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 6 }}>
+            Theory Clash Synthesis Failed
+          </p>
+          <p style={{ fontSize: 12, color: '#c05050', fontFamily: "'Times New Roman', Times, serif", marginBottom: 10 }}>{theoryClashError}</p>
+          <button
+            onClick={() => extraction && runTheoryClashSynthesis(extraction, counterclaimDetected ?? { flag: false })}
+            style={{ background: 'transparent', border: '1px solid #4a1818', color: '#c05050', borderRadius: 4, padding: '6px 14px', fontSize: 11, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer' }}
+          >
+            ↺ Retry Synthesis
+          </button>
+        </div>
+      );
+    }
+
+    if (!rec && !theoryClashDone) return null;
+    if (!rec) return null;
+
+    const total = rec.score_breakdown?.total ?? 0;
+    const scoreColor = total >= 75 ? '#40b068' : total >= 50 ? '#c0a030' : '#c05050';
+
+    return (
+      <div style={{ background: '#060e08', border: '1px solid #1a3020', borderRadius: 10, padding: '22px 24px', marginTop: 16, animation: 'fadeUp .3s ease' }}>
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 18, paddingBottom: 14, borderBottom: '1px solid #1a3020', gap: 12, flexWrap: 'wrap' }}>
+          <div>
+            <p style={{ fontSize: 9, color: '#40b068', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.16em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 4 }}>
+              Phase 2E · Theory Clash Synthesis · Locked v1
+            </p>
+            <p style={{ fontSize: 17, color: '#d8f0e0', fontFamily: "'Times New Roman', Times, serif", fontWeight: 400, lineHeight: 1.5 }}>
+              {rec.core_proposition}
+            </p>
+          </div>
+          <div style={{ textAlign: 'center', flexShrink: 0 }}>
+            <p style={{ fontSize: 8, color: '#40b068', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 2 }}>Theory Score</p>
+            <span style={{ fontSize: 36, color: scoreColor, fontFamily: "'Times New Roman', Times, serif", fontWeight: 300, lineHeight: 1 }}>{total}</span>
+            <p style={{ fontSize: 8, color: '#2a4030', fontFamily: "'Times New Roman', Times, serif", marginTop: 2 }}>/100</p>
+          </div>
+        </div>
+
+        {/* Opposing theory + killer */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
+          <div style={{ background: '#0a0a18', border: '1px solid #1a1a30', borderRadius: 7, padding: '12px 14px' }}>
+            <p style={{ fontSize: 8, color: '#6060a0', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 6 }}>
+              {partyA}'s Theory (to defeat)
+            </p>
+            <p style={{ fontSize: 12, color: '#9090b8', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.65 }}>{rec.opposing_theory}</p>
+          </div>
+          <div style={{ background: '#080e08', border: '1px solid #183020', borderRadius: 7, padding: '12px 14px' }}>
+            <p style={{ fontSize: 8, color: '#40b068', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 6 }}>
+              Theory Killer
+            </p>
+            <p style={{ fontSize: 12, color: '#a8d8b0', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.65 }}>{rec.theory_killer}</p>
+          </div>
+        </div>
+
+        {/* Narrative theme */}
+        <div style={{ background: '#0c100c', border: '1px solid #1e2a1e', borderRadius: 7, padding: '12px 14px', marginBottom: 16 }}>
+          <p style={{ fontSize: 8, color: '#508050', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 6 }}>
+            Narrative Theme for Trial Judge
+          </p>
+          <p style={{ fontSize: 13, color: '#c0d8c0', fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic', lineHeight: 1.7 }}>{rec.narrative_theme}</p>
+        </div>
+
+        {/* Elements */}
+        {rec.elements?.length > 0 && (
+          <div style={{ marginBottom: 16 }}>
+            <p style={{ fontSize: 8, color: '#40b068', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 10 }}>
+              Elements to Establish ({rec.elements.length})
+            </p>
+            {rec.elements.map((el, i) => (
+              <div key={i} style={{ background: '#07100a', border: '1px solid #1a2a1a', borderRadius: 6, padding: '12px 14px', marginBottom: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                  <span style={{ fontSize: 10, color: '#2a5030', fontFamily: "'Times New Roman', Times, serif", fontWeight: 700, flexShrink: 0, marginTop: 1 }}>{i + 1}.</span>
+                  <div style={{ flex: 1 }}>
+                    <p style={{ fontSize: 13, color: '#c8e8c8', fontFamily: "'Times New Roman', Times, serif", fontWeight: 600, marginBottom: 6 }}>{el.element}</p>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                      <div>
+                        <p style={{ fontSize: 8, color: '#3a6040', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 3 }}>Evidence</p>
+                        <p style={{ fontSize: 11, color: '#90a890', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.55 }}>{el.evidence}</p>
+                      </div>
+                      <div>
+                        <p style={{ fontSize: 8, color: '#3a6040', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 3 }}>Authority</p>
+                        <p style={{ fontSize: 11, color: '#90a890', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.55, fontStyle: 'italic' }}>{el.authority}</p>
+                      </div>
+                    </div>
+                    {el.risk && (
+                      <div style={{ marginTop: 6, paddingTop: 6, borderTop: '1px solid #182818' }}>
+                        <p style={{ fontSize: 8, color: '#804040', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 2 }}>Risk if fails</p>
+                        <p style={{ fontSize: 11, color: '#a07070', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.55 }}>{el.risk}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Weakest link */}
+        <div style={{ background: '#120808', border: '1px solid #2a1010', borderRadius: 7, padding: '12px 14px', marginBottom: 16 }}>
+          <p style={{ fontSize: 8, color: '#c05050', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 6 }}>
+            Weakest Link + Contingency
+          </p>
+          <p style={{ fontSize: 12, color: '#c09090', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.65 }}>{rec.weakest_link}</p>
+        </div>
+
+        {/* Gap report */}
+        {rec.gap_report?.length > 0 && (
+          <div style={{ marginBottom: 16 }}>
+            <p style={{ fontSize: 8, color: '#c0a030', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 8 }}>
+              Gap Report ({rec.gap_report.length} action{rec.gap_report.length > 1 ? 's' : ''} required)
+            </p>
+            {rec.gap_report.map((g, i) => (
+              <div key={i} style={{ display: 'flex', gap: 10, padding: '10px 0', borderBottom: i < rec.gap_report.length - 1 ? '1px solid #1e1a0a' : 'none' }}>
+                <span style={{ fontSize: 11, color: '#5a4a10', flexShrink: 0, fontFamily: "'Times New Roman', Times, serif", fontWeight: 700 }}>{i + 1}.</span>
+                <div>
+                  <p style={{ fontSize: 12, color: '#d0b858', fontFamily: "'Times New Roman', Times, serif", marginBottom: 3 }}>{g.element}</p>
+                  <p style={{ fontSize: 11, color: '#a09040', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.55, marginBottom: 4 }}>Needed: {g.needed}</p>
+                  <p style={{ fontSize: 11, color: '#706830', fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic', lineHeight: 1.55 }}>→ {g.suggested_action}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Score breakdown */}
+        {rec.score_breakdown && (
+          <div style={{ background: '#070e08', border: '1px solid #1a2818', borderRadius: 7, padding: '12px 14px' }}>
+            <p style={{ fontSize: 8, color: '#40b068', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 10 }}>
+              Theory Score Breakdown
+            </p>
+            {[
+              { key: 'legal_sufficiency',        label: 'Legal Sufficiency' },
+              { key: 'evidence_coverage',        label: 'Evidence Coverage' },
+              { key: 'vulnerability',            label: 'Vulnerability (↑ = more exposed)', invert: true },
+              { key: 'narrative_coherence',      label: 'Narrative Coherence' },
+              { key: 'jurisdictional_precision', label: 'Jurisdictional Precision' },
+            ].map(({ key, label, invert }) => {
+              const val = rec.score_breakdown[key as keyof typeof rec.score_breakdown] as number;
+              const barColor = invert
+                ? (val <= 8 ? '#40b068' : val <= 14 ? '#c0a030' : '#c05050')
+                : (val >= 16 ? '#40b068' : val >= 10 ? '#c0a030' : '#c05050');
+              return (
+                <div key={key} style={{ marginBottom: 8 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+                    <p style={{ fontSize: 10, color: '#608860', fontFamily: "'Times New Roman', Times, serif" }}>{label}</p>
+                    <span style={{ fontSize: 11, color: barColor, fontFamily: "'Times New Roman', Times, serif", fontWeight: 600 }}>{val}/20</span>
+                  </div>
+                  <div style={{ background: '#0f140f', borderRadius: 3, height: 4, overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: `${(val / 20) * 100}%`, background: barColor, borderRadius: 3, transition: 'width .8s ease' }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        <p style={{ fontSize: 9, color: '#1e3020', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.08em', marginTop: 12, textAlign: 'right' }}>
+          Locked v1 · case_theory_structured saved · counsel may unlock via Theory Clash (Phase 3D)
+        </p>
+      </div>
+    );
+  }
+
+    // ─────────────────────────────────────────────────────────────────────────
   // STAGE 2 — Extraction Results
   // ─────────────────────────────────────────────────────────────────────────
   function Stage2() {
@@ -1315,6 +1677,11 @@ Return ONLY valid JSON — no preamble, no markdown fences:
 
         {/* Step 2b — Commencement Audit (auto-runs after extraction) */}
         <CommencementAuditPanel />
+
+        {/* Phase 2E — Theory Clash Synthesis panel (defendant + SPA path only) */}
+        {isDefendant && !!spaResult && (
+          <TheoryClashPanel />
+        )}
 
         <div style={{ display: 'flex', gap: 10 }}>
           <button onClick={() => goBack(1)} style={{ background: 'transparent', border: '1px solid #cccccc', color: T.mute, borderRadius: 5, padding: '12px 20px', fontSize: 13, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', letterSpacing: '.04em' }}>
