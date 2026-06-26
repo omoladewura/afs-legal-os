@@ -2430,7 +2430,131 @@ Output only the sections. No preamble. No disclaimer.`;
 //   4. If trial NOT yet concluded — a soft warning (not a gate)
 // ─────────────────────────────────────────────────────────────────────────────
 
-interface FWAHandoffBannerProps {\n  activeCase: Case;\n  theory:     CaseTheoryRecord | null;\n  hasTheory:  boolean;\n}\n\nfunction FWAHandoffBanner({ activeCase, theory, hasTheory }: FWAHandoffBannerProps) {\n  const trialConcluded = activeCase.trial_stage === 'defence_case_closed';\n  const hasIntelPkg    = Boolean(activeCase.intelligence_data?.intPkg);\n  const theoryLocked   = activeCase.case_theory_locked === true;\n\n  // Unresolved cx_contradictions — loaded from storage\n  const [pendingContradictions, setPendingContradictions] = React.useState<number>(0);\n\n  React.useEffect(() => {\n    loadBlindSpot<unknown[]>(activeCase.id, 'cx_contradictions', []).then(list => {\n      if (!Array.isArray(list)) { setPendingContradictions(0); return; }\n      // Count entries that are auto-written ([AUTO:]) but not yet theory-promoted\n      // (no THEORY_QUEUED_MARKER cleared, no merge done — still in [AUTO: state)\n      const pending = list.filter((m: any) =>\n        typeof m?.notes === 'string' &&\n        m.notes.includes('[AUTO:') &&\n        !m.notes.includes('[THEORY_QUEUED]')\n      ).length;\n      setPendingContradictions(pending);\n    });\n  }, [activeCase.id]);\n\n  // Don't render if nothing to show\n  if (!hasTheory && !trialConcluded) return null;\n\n  const bannerColor = trialConcluded ? '#1a5a30' : '#7a4a00';\n  const bannerBg    = trialConcluded ? '#f0f8f2' : '#fdf6e8';\n  const bannerBdr   = trialConcluded ? '#a8d0b8' : '#e0cfa0';\n\n  const STAGE_LABEL: Record<string, string> = {\n    own_case_open:       'Own case open (examination underway)',\n    own_case_closed:     'Own case closed',\n    defence_case_open:   'Opposing case open (cross-examination underway)',\n    defence_case_closed: 'Both cases closed — trial concluded',\n  };\n\n  return (\n    <div style={{\n      background:   bannerBg,\n      border:       `1px solid ${bannerBdr}`,\n      borderLeft:   `3px solid ${bannerColor}`,\n      borderRadius: '0 6px 6px 0',\n      padding:      '14px 18px',\n      marginBottom: 16,\n    }}>\n\n      {/* Header */}\n      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>\n        <span style={{\n          fontSize: 9, fontWeight: 700, letterSpacing: '.12em',\n          fontFamily: \"'Times New Roman', Times, serif\",\n          textTransform: 'uppercase', color: bannerColor,\n        }}>\n          {trialConcluded ? '✓ Trial Concluded — Final Address Ready' : '⚠ Trial In Progress'}\n        </span>\n        {activeCase.trial_stage && (\n          <span style={{\n            fontSize: 10,\n            fontFamily: \"'Times New Roman', Times, serif\",\n            color: bannerColor,\n          }}>\n            · {STAGE_LABEL[activeCase.trial_stage] ?? activeCase.trial_stage}\n          </span>\n        )}\n      </div>\n\n      {/* What's flowing in */}\n      <div style={{\n        display: 'grid',\n        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',\n        gap: 8,\n        marginBottom: pendingContradictions > 0 || !trialConcluded ? 12 : 0,\n      }}>\n\n        {/* Intelligence package */}\n        <div style={{\n          padding: '8px 12px',\n          background: '#ffffff',\n          border: `1px solid ${hasIntelPkg ? '#a8d0b8' : '#e0cfa0'}`,\n          borderRadius: 4,\n        }}>\n          <div style={{\n            fontSize: 9, fontWeight: 700, letterSpacing: '.08em',\n            fontFamily: \"'Times New Roman', Times, serif\",\n            textTransform: 'uppercase',\n            color: hasIntelPkg ? '#1a5a30' : '#7a4a00',\n            marginBottom: 3,\n          }}>\n            {hasIntelPkg ? '✓' : '✗'} Intelligence Package\n          </div>\n          <div style={{\n            fontSize: 11,\n            fontFamily: \"'Times New Roman', Times, serif\",\n            color: hasIntelPkg ? '#2a6a3a' : '#8a5a00',\n          }}>\n            {hasIntelPkg ? 'Ready — will be injected into all AI calls' : 'Not generated — run Intelligence Engine'}\n          </div>\n        </div>\n\n        {/* Locked theory */}\n        <div style={{\n          padding: '8px 12px',\n          background: '#ffffff',\n          border: `1px solid ${theoryLocked ? '#a8d0b8' : '#e0cfa0'}`,\n          borderRadius: 4,\n        }}>\n          <div style={{\n            fontSize: 9, fontWeight: 700, letterSpacing: '.08em',\n            fontFamily: \"'Times New Roman', Times, serif\",\n            textTransform: 'uppercase',\n            color: theoryLocked ? '#1a5a30' : '#7a4a00',\n            marginBottom: 3,\n          }}>\n            {theoryLocked ? '✓' : '✗'} Case Theory\n          </div>\n          <div style={{\n            fontSize: 11,\n            fontFamily: \"'Times New Roman', Times, serif\",\n            color: theoryLocked ? '#1a5a30' : '#8a5a00',\n            lineHeight: 1.4,\n          }}>\n            {theoryLocked && theory?.core_proposition\n              ? theory.core_proposition.length > 90\n                ? theory.core_proposition.slice(0, 90) + '…'\n                : theory.core_proposition\n              : 'Not locked — lock theory in Trial Engine first'}\n          </div>\n        </div>\n\n        {/* Trial stage */}\n        <div style={{\n          padding: '8px 12px',\n          background: '#ffffff',\n          border: `1px solid ${trialConcluded ? '#a8d0b8' : '#e0cfa0'}`,\n          borderRadius: 4,\n        }}>\n          <div style={{\n            fontSize: 9, fontWeight: 700, letterSpacing: '.08em',\n            fontFamily: \"'Times New Roman', Times, serif\",\n            textTransform: 'uppercase',\n            color: trialConcluded ? '#1a5a30' : '#7a4a00',\n            marginBottom: 3,\n          }}>\n            {trialConcluded ? '✓' : '⏳'} Trial Stage\n          </div>\n          <div style={{\n            fontSize: 11,\n            fontFamily: \"'Times New Roman', Times, serif\",\n            color: trialConcluded ? '#2a6a3a' : '#8a5a00',\n          }}>\n            {activeCase.trial_stage\n              ? STAGE_LABEL[activeCase.trial_stage]\n              : 'Trial not yet started — advance stages in Trial Engine'}\n          </div>\n        </div>\n      </div>\n\n      {/* Pending contradictions warning */}\n      {pendingContradictions > 0 && (\n        <div style={{\n          padding: '8px 12px',\n          background: '#fff8f0',\n          border: '1px solid #e0b888',\n          borderRadius: 4,\n          marginBottom: 8,\n        }}>\n          <p style={{\n            fontSize: 11,\n            fontFamily: \"'Times New Roman', Times, serif\",\n            color: '#7a4a00', margin: 0, lineHeight: 1.55,\n          }}>\n            ⚠ <strong>{pendingContradictions} live contradiction{pendingContradictions !== 1 ? 's' : ''}</strong> from cross-examination\n            {' '}not yet promoted to the Case Theory. Go to{' '}\n            <strong>Trial Engine → Contradiction Mapper</strong> to promote them before drafting\n            — a theory updated by live admissions produces a sharper Final Address.\n          </p>\n        </div>\n      )}\n\n      {/* Soft warning if trial not concluded */}\n      {!trialConcluded && hasTheory && (\n        <div style={{\n          padding: '8px 12px',\n          background: '#fffbf0',\n          border: '1px solid #e8d090',\n          borderRadius: 4,\n        }}>\n          <p style={{\n            fontSize: 11,\n            fontFamily: \"'Times New Roman', Times, serif\",\n            color: '#7a5a00', margin: 0, lineHeight: 1.55,\n          }}>\n            Trial is not yet concluded. You can begin drafting now — the engine will use the\n            current locked theory — but the Final Address should be filed only after both cases\n            are closed and all live contradictions have been promoted.\n          </p>\n        </div>\n      )}\n    </div>\n  );\n}
+interface FWAHandoffBannerProps {
+  activeCase: Case;
+  theory:     CaseTheoryRecord | null;
+  hasTheory:  boolean;
+}
+
+function FWAHandoffBanner({ activeCase, theory, hasTheory }: FWAHandoffBannerProps) {
+  const trialConcluded = activeCase.trial_stage === 'defence_case_closed';
+  const hasIntelPkg    = Boolean(activeCase.intelligence_data?.intPkg);
+  const theoryLocked   = activeCase.case_theory_locked === true;
+
+  const [pendingContradictions, setPendingContradictions] = React.useState<number>(0);
+
+  React.useEffect(() => {
+    loadBlindSpot<unknown[]>(activeCase.id, 'cx_contradictions', []).then(list => {
+      if (!Array.isArray(list)) { setPendingContradictions(0); return; }
+      const pending = (list as any[]).filter((m: any) =>
+        typeof m?.notes === 'string' &&
+        m.notes.includes('[AUTO:') &&
+        !m.notes.includes('[THEORY_QUEUED]')
+      ).length;
+      setPendingContradictions(pending);
+    });
+  }, [activeCase.id]);
+
+  if (!hasTheory && !trialConcluded) return null;
+
+  const bannerColor = trialConcluded ? '#1a5a30' : '#7a4a00';
+  const bannerBg    = trialConcluded ? '#f0f8f2' : '#fdf6e8';
+  const bannerBdr   = trialConcluded ? '#a8d0b8' : '#e0cfa0';
+
+  const STAGE_LABEL: Record<string, string> = {
+    own_case_open:       'Own case open (examination underway)',
+    own_case_closed:     'Own case closed',
+    defence_case_open:   'Opposing case open (cross-examination underway)',
+    defence_case_closed: 'Both cases closed — trial concluded',
+  };
+
+  return (
+    <div style={{
+      background:   bannerBg,
+      border:       `1px solid ${bannerBdr}`,
+      borderLeft:   `3px solid ${bannerColor}`,
+      borderRadius: '0 6px 6px 0',
+      padding:      '14px 18px',
+      marginBottom: 16,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+        <span style={{
+          fontSize: 9, fontWeight: 700, letterSpacing: '.12em',
+          fontFamily: "'Times New Roman', Times, serif",
+          textTransform: 'uppercase', color: bannerColor,
+        }}>
+          {trialConcluded ? '\u2713 Trial Concluded \u2014 Final Address Ready' : '\u26a0 Trial In Progress'}
+        </span>
+        {activeCase.trial_stage && (
+          <span style={{
+            fontSize: 10,
+            fontFamily: "'Times New Roman', Times, serif",
+            color: bannerColor,
+          }}>
+            {'\u00b7'} {STAGE_LABEL[activeCase.trial_stage] ?? activeCase.trial_stage}
+          </span>
+        )}
+      </div>
+
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+        gap: 8,
+        marginBottom: pendingContradictions > 0 || !trialConcluded ? 12 : 0,
+      }}>
+        <div style={{ padding: '8px 12px', background: '#ffffff', border: `1px solid ${hasIntelPkg ? '#a8d0b8' : '#e0cfa0'}`, borderRadius: 4 }}>
+          <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '.08em', fontFamily: "'Times New Roman', Times, serif", textTransform: 'uppercase', color: hasIntelPkg ? '#1a5a30' : '#7a4a00', marginBottom: 3 }}>
+            {hasIntelPkg ? '\u2713' : '\u2717'} Intelligence Package
+          </div>
+          <div style={{ fontSize: 11, fontFamily: "'Times New Roman', Times, serif", color: hasIntelPkg ? '#2a6a3a' : '#8a5a00' }}>
+            {hasIntelPkg ? 'Ready \u2014 will be injected into all AI calls' : 'Not generated \u2014 run Intelligence Engine'}
+          </div>
+        </div>
+
+        <div style={{ padding: '8px 12px', background: '#ffffff', border: `1px solid ${theoryLocked ? '#a8d0b8' : '#e0cfa0'}`, borderRadius: 4 }}>
+          <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '.08em', fontFamily: "'Times New Roman', Times, serif", textTransform: 'uppercase', color: theoryLocked ? '#1a5a30' : '#7a4a00', marginBottom: 3 }}>
+            {theoryLocked ? '\u2713' : '\u2717'} Case Theory
+          </div>
+          <div style={{ fontSize: 11, fontFamily: "'Times New Roman', Times, serif", color: theoryLocked ? '#1a5a30' : '#8a5a00', lineHeight: 1.4 }}>
+            {theoryLocked && theory?.core_proposition
+              ? theory.core_proposition.length > 90
+                ? theory.core_proposition.slice(0, 90) + '\u2026'
+                : theory.core_proposition
+              : 'Not locked \u2014 lock theory in Trial Engine first'}
+          </div>
+        </div>
+
+        <div style={{ padding: '8px 12px', background: '#ffffff', border: `1px solid ${trialConcluded ? '#a8d0b8' : '#e0cfa0'}`, borderRadius: 4 }}>
+          <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '.08em', fontFamily: "'Times New Roman', Times, serif", textTransform: 'uppercase', color: trialConcluded ? '#1a5a30' : '#7a4a00', marginBottom: 3 }}>
+            {trialConcluded ? '\u2713' : '\u23f3'} Trial Stage
+          </div>
+          <div style={{ fontSize: 11, fontFamily: "'Times New Roman', Times, serif", color: trialConcluded ? '#2a6a3a' : '#8a5a00' }}>
+            {activeCase.trial_stage
+              ? STAGE_LABEL[activeCase.trial_stage]
+              : 'Trial not yet started \u2014 advance stages in Trial Engine'}
+          </div>
+        </div>
+      </div>
+
+      {pendingContradictions > 0 && (
+        <div style={{ padding: '8px 12px', background: '#fff8f0', border: '1px solid #e0b888', borderRadius: 4, marginBottom: 8 }}>
+          <p style={{ fontSize: 11, fontFamily: "'Times New Roman', Times, serif", color: '#7a4a00', margin: 0, lineHeight: 1.55 }}>
+            {'\u26a0'} <strong>{pendingContradictions} live contradiction{pendingContradictions !== 1 ? 's' : ''}</strong> from cross-examination not yet promoted to the Case Theory. Go to <strong>Trial Engine {'\u2192'} Contradiction Mapper</strong> to promote them before drafting.
+          </p>
+        </div>
+      )}
+
+      {!trialConcluded && hasTheory && (
+        <div style={{ padding: '8px 12px', background: '#fffbf0', border: '1px solid #e8d090', borderRadius: 4 }}>
+          <p style={{ fontSize: 11, fontFamily: "'Times New Roman', Times, serif", color: '#7a5a00', margin: 0, lineHeight: 1.55 }}>
+            Trial is not yet concluded. You can begin drafting now \u2014 the engine will use the current locked theory \u2014 but the Final Address should be filed only after both cases are closed and all live contradictions have been promoted.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 
 interface Props { activeCase: Case; }
 
