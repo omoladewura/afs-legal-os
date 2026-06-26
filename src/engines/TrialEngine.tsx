@@ -48,7 +48,7 @@
  * @see CrossExamEngine.tsx  — deprecated stub (Phase 3D)
  */
 
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import type { Case, CaseTheoryRecord } from '@/types';
 import { T, S } from '@/constants/tokens';
 import { CaseTheoryBanner, Md, ErrorBlock } from '@/components/common/ui';
@@ -60,7 +60,8 @@ import type { CrossExamTreeRecord } from '@/types/crossExam';
 import { loadWitnessTrees } from '@/storage/crossExamHelpers';
 import { useAI } from '@/hooks/useAI';
 import { useIntelligence } from '@/hooks/useIntelligence';
-import { saveCaseTheory, lockCaseTheory, unlockCaseTheory, loadBlindSpot, saveBlindSpot, uid, isIntelligenceCompleteSync } from '@/storage/helpers';
+import { saveCaseTheory, lockCaseTheory, unlockCaseTheory, loadBlindSpot, saveBlindSpot, uid, isIntelligenceCompleteSync, saveCase } from '@/storage/helpers';
+import { useAppStore } from '@/state/appStore';
 import { printSide } from '@/utils/printSide';
 import { getJurisdictionDelta } from '@/law/registry';
 import {
@@ -73,8 +74,6 @@ import {
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES
 // ─────────────────────────────────────────────────────────────────────────────
-
-interface Props { activeCase: Case; }
 
 type TrialTab =
   | 'theory_brief'
@@ -4154,10 +4153,237 @@ function TabContent({ tab, activeCase, role, theoryReload }: TabContentProps) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// PHASE 5B — TRIAL PIPELINE BANNER
+//
+// Sits between the engine header and the Case Theory Banner.
+// Visible only when Bundle Complete (intPkg present + theory locked).
+// Lets counsel advance through the 4 trial stages and surfaces the
+// → Final Address handoff button once defence_case_closed is reached.
+//
+// Stage labels adapt to counsel_role:
+//   prosecution/claimant_side  → Prosecution Case / Defence Case
+//   defence/defendant_side     → Claimant/Prosecution Case / Defence Case
+// ─────────────────────────────────────────────────────────────────────────────
+
+type TrialStage = 'own_case_open' | 'own_case_closed' | 'defence_case_open' | 'defence_case_closed';
+
+const STAGE_ORDER: TrialStage[] = [
+  'own_case_open',
+  'own_case_closed',
+  'defence_case_open',
+  'defence_case_closed',
+];
+
+function stageIndex(s: TrialStage | undefined): number {
+  if (!s) return -1;
+  return STAGE_ORDER.indexOf(s);
+}
+
+function nextStage(s: TrialStage | undefined): TrialStage | null {
+  const idx = stageIndex(s);
+  if (idx === -1) return 'own_case_open';
+  if (idx >= STAGE_ORDER.length - 1) return null;
+  return STAGE_ORDER[idx + 1];
+}
+
+interface TrialPipelineBannerProps {
+  activeCase:    Case;
+  role:          TrialRole;
+  onStageChange: (stage: TrialStage) => Promise<void>;
+  onGoFWA:       () => void;
+}
+
+function TrialPipelineBanner({ activeCase, role, onStageChange, onGoFWA }: TrialPipelineBannerProps) {
+  const isBundleReady =
+    !!(activeCase.intelligence_data?.intPkg) &&
+    activeCase.case_theory_locked === true;
+
+  if (!isBundleReady) return null;
+
+  const currentStage = activeCase.trial_stage;
+  const currentIdx   = stageIndex(currentStage);
+  const next         = nextStage(currentStage);
+  const isComplete   = currentStage === 'defence_case_closed';
+
+  // Role-aware stage labels
+  const isProsClaim = role === 'prosecution_claimant';
+  const STAGE_LABELS: Record<TrialStage, string> = {
+    own_case_open:       isProsClaim ? 'Prosecution / Claimant Case — Witnesses Being Called'     : 'Defence / Defendant Case — Witnesses Being Called',
+    own_case_closed:     isProsClaim ? 'Prosecution / Claimant Case — Closed'                     : 'Defence / Defendant Case — Closed',
+    defence_case_open:   isProsClaim ? 'Defence / Defendant Case — Witnesses Being Called'        : 'Prosecution / Claimant Case — Witnesses Being Called',
+    defence_case_closed: isProsClaim ? 'Both Cases Closed — Trial Concluded'                      : 'Both Cases Closed — Trial Concluded',
+  };
+
+  const ADVANCE_LABELS: Record<TrialStage, string> = {
+    own_case_open:     isProsClaim ? 'Close Prosecution / Claimant Case →'   : 'Close Defence / Defendant Case →',
+    own_case_closed:   isProsClaim ? 'Open Defence / Defendant Case →'       : 'Open Prosecution / Claimant Case →',
+    defence_case_open: 'Close All Cases — Trial Concluded →',
+    defence_case_closed: '',
+  };
+
+  const [advancing, setAdvancing] = React.useState(false);
+
+  async function handleAdvance() {
+    if (!next) return;
+    setAdvancing(true);
+    await onStageChange(next);
+    setAdvancing(false);
+  }
+
+  return (
+    <div style={{
+      background:   isComplete ? '#f0f8f2' : '#fafaf8',
+      border:       `1px solid ${isComplete ? '#a8d0b8' : T.bdr}`,
+      borderRadius: 5,
+      padding:      '14px 18px',
+      marginBottom: 18,
+    }}>
+      {/* Header row */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+        <span style={{
+          fontSize: 9, fontWeight: 700, letterSpacing: '.12em',
+          fontFamily: "'Times New Roman', Times, serif",
+          textTransform: 'uppercase',
+          color: isComplete ? '#1a5a30' : '#7a4a00',
+        }}>
+          Trial Pipeline
+        </span>
+        {currentStage && (
+          <span style={{
+            fontSize: 11,
+            fontFamily: "'Times New Roman', Times, serif",
+            color: isComplete ? '#1a5a30' : '#444',
+          }}>
+            {STAGE_LABELS[currentStage]}
+          </span>
+        )}
+        {!currentStage && (
+          <span style={{
+            fontSize: 11, fontStyle: 'italic',
+            fontFamily: "'Times New Roman', Times, serif",
+            color: T.mute,
+          }}>
+            Trial not yet begun — theory locked, bundle ready
+          </span>
+        )}
+      </div>
+
+      {/* Stage pipeline viz */}
+      <div style={{ display: 'flex', gap: 4, marginBottom: 14 }}>
+        {STAGE_ORDER.map((stage, idx) => {
+          const done    = idx <= currentIdx;
+          const active  = stage === currentStage;
+          return (
+            <div
+              key={stage}
+              style={{
+                flex: 1,
+                height: 4,
+                borderRadius: 2,
+                background: done ? '#1a5a30' : '#e0e0e0',
+                opacity: active ? 1 : done ? 0.7 : 0.35,
+                transition: 'background .3s',
+              }}
+            />
+          );
+        })}
+      </div>
+
+      {/* Stage dots + labels */}
+      <div style={{ display: 'flex', gap: 0, marginBottom: 14 }}>
+        {STAGE_ORDER.map((stage, idx) => {
+          const done   = idx <= currentIdx;
+          const active = stage === currentStage;
+          const labelShort = [
+            isProsClaim ? 'Pros./Claim. Open' : 'Def./Def. Open',
+            isProsClaim ? 'Pros./Claim. Closed' : 'Def./Def. Closed',
+            isProsClaim ? 'Def./Def. Open' : 'Pros./Claim. Open',
+            'Both Cases Closed',
+          ][idx];
+          return (
+            <div key={stage} style={{ flex: 1, textAlign: 'center' as const }}>
+              <div style={{
+                width: 10, height: 10, borderRadius: '50%',
+                margin: '0 auto 4px',
+                background: done ? '#1a5a30' : '#cccccc',
+                border: active ? '2px solid #0a3a20' : '2px solid transparent',
+                boxSizing: 'border-box',
+              }} />
+              <span style={{
+                fontSize: 9,
+                fontFamily: "'Times New Roman', Times, serif",
+                color: done ? '#1a5a30' : T.mute,
+                letterSpacing: '.02em',
+                display: 'block',
+                lineHeight: 1.3,
+              }}>
+                {labelShort}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Action row */}
+      <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+        {/* Advance button — only if trial is not yet concluded */}
+        {!isComplete && (
+          <button
+            onClick={handleAdvance}
+            disabled={advancing}
+            style={{
+              background:  '#1a5a30', border: 'none', color: '#fff',
+              borderRadius: 4, padding: '8px 18px', fontSize: 12,
+              fontFamily:  "'Times New Roman', Times, serif",
+              fontWeight:  700, cursor: advancing ? 'wait' : 'pointer',
+            }}
+          >
+            {advancing
+              ? 'Saving…'
+              : currentStage
+                ? ADVANCE_LABELS[currentStage]
+                : (isProsClaim ? 'Begin — Open Prosecution / Claimant Case →' : 'Begin — Open Defence / Defendant Case →')}
+          </button>
+        )}
+
+        {/* FWA handoff — only when trial is concluded */}
+        {isComplete && (
+          <button
+            onClick={onGoFWA}
+            style={{
+              background:  '#1a3a6a', border: 'none', color: '#fff',
+              borderRadius: 4, padding: '9px 22px', fontSize: 13,
+              fontFamily:  "'Times New Roman', Times, serif",
+              fontWeight:  700, cursor: 'pointer',
+              letterSpacing: '.03em',
+            }}
+          >
+            → Proceed to Final Written Address
+          </button>
+        )}
+
+        {isComplete && (
+          <span style={{
+            fontSize: 11,
+            fontFamily: "'Times New Roman', Times, serif",
+            color: '#1a5a30',
+            fontWeight: 700,
+          }}>
+            ✓ Trial Concluded — Both Cases Closed
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // TRIAL ENGINE
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function TrialEngine({ activeCase }: Props) {
+interface Props { activeCase: Case; onSetDashTab?: (tab: string) => void; }
+
+export function TrialEngine({ activeCase, onSetDashTab }: Props) {
   const [activeTab, setActiveTab] = useState<TrialTab>('theory_brief');
 
   const trialRole  = detectTrialRole(activeCase);
@@ -4171,6 +4397,15 @@ export function TrialEngine({ activeCase }: Props) {
   const handleTheoryMutation = useCallback(() => {
     caseTheory.reload();
   }, [caseTheory]);
+
+  // Phase 5B — trial stage persistence
+  const { updateActiveCase } = useAppStore();
+
+  async function handleStageChange(stage: NonNullable<Case['trial_stage']>) {
+    const patch = { trial_stage: stage } as Partial<Case>;
+    updateActiveCase(patch);
+    await saveCase({ ...activeCase, ...patch });
+  }
 
   return (
     <div>
@@ -4206,6 +4441,14 @@ export function TrialEngine({ activeCase }: Props) {
           Contradiction Mapper · Impeachment Arsenal · Courtroom Walker.
         </p>
       </div>
+
+      {/* ── Phase 5B — Trial Pipeline Banner ───────────────────────────────── */}
+      <TrialPipelineBanner
+        activeCase={activeCase}
+        role={trialRole}
+        onStageChange={handleStageChange}
+        onGoFWA={() => onSetDashTab?.('written_address')}
+      />
 
       {/* ── Case Theory Banner — always visible ───────────────────────────── */}
       <div style={{ marginBottom: 16 }}>
