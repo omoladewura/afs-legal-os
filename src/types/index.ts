@@ -494,6 +494,23 @@ export interface Case {
   case_theory_version?:    number;
   /** Append-only unlock log — one entry per unlock, oldest first. */
   case_theory_history?:    CaseTheoryHistoryEntry[];
+
+  // ── Phase 5B — Trial Pipeline Handoff ─────────────────────────────────────
+  // Tracks where counsel is in the trial process. Advances manually as each
+  // stage of examination is completed. When both sides have closed their cases,
+  // the Final Address handoff is unlocked.
+  //
+  // Stages (in order):
+  //   own_case_open      — own witnesses being called; examination-in-chief underway
+  //   own_case_closed    — all own witnesses have testified and been cross-examined
+  //   defence_case_open  — opposing party's witnesses being called and cross-examined
+  //   defence_case_closed — all opposing witnesses done; trial proper concluded
+  //
+  // Note: "own" and "defence" here are relative to counsel's role — for
+  // prosecution/claimant this is prosecution case + defence case; for
+  // defence/defendant it is defence case + prosecution case. The label
+  // rendering in TrialEngine adapts to counsel_role.
+  trial_stage?: 'own_case_open' | 'own_case_closed' | 'defence_case_open' | 'defence_case_closed';
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
