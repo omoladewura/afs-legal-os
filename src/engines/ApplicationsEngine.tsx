@@ -2833,7 +2833,11 @@ function ApplicationsTracker({ caseId }: { caseId: string }) {
 
 export function ApplicationsEngine({ activeCase }: Props) {
   const { ask, loading, error, clearError } = useAI(activeCase);
-  const { fullContext } = useIntelligence(activeCase, 'facts');
+  // Phase 4 seeding: ApplicationsEngine receives issues + locked theory (flagged).
+  // 'issues' scope = established_facts + disputed_areas + legal_issues — gives the
+  // drafting layer full legal framing without the redundant risk register / gap list
+  // (those belong to CaseCommand display, not argument generation).
+  const { fullContext } = useIntelligence(activeCase, 'issues');
   const systemCtx = buildRoleSystemPrompt(activeCase.matter_track, activeCase.counsel_role) + fullContext;
 
   // Phase 9D — locked Case Theory for needsCaseTheory appTypes
