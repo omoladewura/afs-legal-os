@@ -961,13 +961,13 @@ Return ONLY valid JSON — no preamble, no markdown fences:
     return (
       <div style={{ animation: 'fadeUp .3s ease' }}>
         <div style={{ marginBottom: 28 }}>
-          <p style={{ fontSize: 10, color: T.text, fontFamily: \"'Times New Roman', Times, serif\", letterSpacing: '.16em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 4 }}>
+          <p style={{ fontSize: 10, color: T.text, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.16em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 4 }}>
             Intelligence Engine · Entry
           </p>
-          <h2 style={{ fontSize: 22, color: '#111111', fontFamily: \"'Times New Roman', Times, serif\", fontWeight: 300, marginBottom: 8 }}>
+          <h2 style={{ fontSize: 22, color: '#111111', fontFamily: "'Times New Roman', Times, serif", fontWeight: 300, marginBottom: 8 }}>
             How are we coming into this matter?
           </h2>
-          <p style={{ fontSize: 13, color: T.dim, fontFamily: \"'Times New Roman', Times, serif\", lineHeight: 1.7 }}>
+          <p style={{ fontSize: 13, color: T.dim, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.7 }}>
             Acting for <strong style={{ color: T.text }}>{B}</strong> — choose the entry path that matches how the matter reached us.
           </p>
         </div>
@@ -989,15 +989,15 @@ Return ONLY valid JSON — no preamble, no markdown fences:
           >
             <span style={{ fontSize: 26, lineHeight: 1, flexShrink: 0, marginTop: 2 }}>📨</span>
             <div>
-              <p style={{ fontSize: 15, color: '#c8c8e8', fontFamily: \"'Times New Roman', Times, serif\", fontWeight: 700, marginBottom: 5 }}>
+              <p style={{ fontSize: 15, color: '#c8c8e8', fontFamily: "'Times New Roman', Times, serif", fontWeight: 700, marginBottom: 5 }}>
                 We Were Served
               </p>
-              <p style={{ fontSize: 12, color: T.mute, fontFamily: \"'Times New Roman', Times, serif\", lineHeight: 1.65 }}>
+              <p style={{ fontSize: 12, color: T.mute, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.65 }}>
                 A writ, originating summons, petition, or other process was served on {B}.
                 Upload or paste the originating process — the engine will analyse the claim,
                 extract the {A}'s theory, and identify counterclaim opportunities.
               </p>
-              <p style={{ fontSize: 10, color: '#5050a0', fontFamily: \"'Times New Roman', Times, serif\", marginTop: 8, letterSpacing: '.06em', textTransform: 'uppercase', fontWeight: 700 }}>
+              <p style={{ fontSize: 10, color: '#5050a0', fontFamily: "'Times New Roman', Times, serif", marginTop: 8, letterSpacing: '.06em', textTransform: 'uppercase', fontWeight: 700 }}>
                 Served Process Intake → Theory Extraction → Counterclaim Scan
               </p>
             </div>
@@ -1018,14 +1018,14 @@ Return ONLY valid JSON — no preamble, no markdown fences:
           >
             <span style={{ fontSize: 26, lineHeight: 1, flexShrink: 0, marginTop: 2 }}>📋</span>
             <div>
-              <p style={{ fontSize: 15, color: '#c8e8c8', fontFamily: \"'Times New Roman', Times, serif\", fontWeight: 700, marginBottom: 5 }}>
+              <p style={{ fontSize: 15, color: '#c8e8c8', fontFamily: "'Times New Roman', Times, serif", fontWeight: 700, marginBottom: 5 }}>
                 Enter Raw Facts
               </p>
-              <p style={{ fontSize: 12, color: T.mute, fontFamily: \"'Times New Roman', Times, serif\", lineHeight: 1.65 }}>
+              <p style={{ fontSize: 12, color: T.mute, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.65 }}>
                 We have the client's account of events but no served process yet — or we prefer to build
                 the defence picture from our own instructions first. Proceed with the standard 5-step intelligence pipeline.
               </p>
-              <p style={{ fontSize: 10, color: '#3a5a3a', fontFamily: \"'Times New Roman', Times, serif\", marginTop: 8, letterSpacing: '.06em', textTransform: 'uppercase', fontWeight: 700 }}>
+              <p style={{ fontSize: 10, color: '#3a5a3a', fontFamily: "'Times New Roman', Times, serif", marginTop: 8, letterSpacing: '.06em', textTransform: 'uppercase', fontWeight: 700 }}>
                 Raw Facts → Extraction → Follow-Up → Evidence Map → Package
               </p>
             </div>
