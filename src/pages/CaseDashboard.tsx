@@ -348,6 +348,28 @@ export function CaseDashboard() {
               {posConfig?.icon} {COUNSEL_ROLE_LABELS[counselRole]}
             </span>
           )}
+          {/* Phase 5A — Bundle Complete badge (civil only)
+              Fires when:
+                1. Intelligence package generated (stage ≥ 5 / intPkg present)
+                2. Case theory locked (case_theory_locked === true)
+              Together these mean: facts seeded + theory committed = trial-ready bundle.
+              Criminal track is excluded — it has its own pipeline gate. */}
+          {matterTrack !== 'criminal' &&
+            activeCase.intelligence_data?.intPkg &&
+            activeCase.case_theory_locked === true && (
+            <span
+              title="Intelligence package generated and Case Theory locked — matter is trial-ready"
+              style={{
+                fontSize: 9, padding: '2px 8px', borderRadius: 2,
+                fontFamily: "'Times New Roman', Times, serif", fontWeight: 700,
+                letterSpacing: '.1em', textTransform: 'uppercase',
+                background: '#e8f5ee', border: '1px solid #a8d0b8', color: '#1a5a30',
+                cursor: 'default',
+              }}
+            >
+              ✓ Bundle Complete
+            </span>
+          )}
           {/* Court and suit */}
           {(activeCase.court || activeCase.suitNo) && (
             <p style={{ fontSize: 12, color: T.mute, fontFamily: "'Times New Roman', Times, serif", margin: 0 }}>
