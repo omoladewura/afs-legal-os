@@ -797,7 +797,7 @@ Return ONLY valid JSON — no preamble, no markdown fences:
       setSpaResult(spa);
 
       // Seed rawFacts with the process text so Stage 1 has a starting point
-      const seededFacts = \`[SERVED PROCESS — pasted by counsel]\n\n\${processText}\`;
+      const seededFacts = `[SERVED PROCESS — pasted by counsel]\n\n${processText}`;
       setRawFacts(seededFacts);
 
       advance(0.5, { served_process_analysis: spa, rawFacts: seededFacts });
