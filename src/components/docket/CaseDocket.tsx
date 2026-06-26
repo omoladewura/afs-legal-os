@@ -186,7 +186,7 @@ export function CaseDocket() {
       return 'Acting for the Petitioner — challenging the election result, adducing electoral irregularity evidence, and advancing the petition to the Tribunal.';
     }
     if (role === 'respondent_side' && (op === 'petition_election' || op === 'election_petition')) {
-      return 'Acting for the Respondent — defending the declaration, challenging the Petitioner's locus and evidence, and protecting the mandate.';
+      return "Acting for the Respondent — defending the declaration, challenging the Petitioner's locus and evidence, and protecting the mandate.";
     }
 
     // ── Winding-Up Petition ───────────────────────────────────────────────────
