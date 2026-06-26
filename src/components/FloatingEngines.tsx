@@ -33,10 +33,11 @@
  *   full-page routing mechanism as the Apps/Copilot buttons from 0B.
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { AICopilot } from '@/engines/AICopilot';
 import { ApplicationsEngine } from '@/engines/ApplicationsEngine';
 import { useAppStore } from '@/state/appStore';
+import { loadBlindSpot } from '@/storage/helpers';
 import { T } from '@/constants/tokens';
 import type { DashTabId } from '@/types';
 
@@ -76,6 +77,15 @@ export function FloatingEngines() {
   // Same two buttons, but they route into the dashboard's own tab content
   // instead of toggling a slide-in panel. Secondary engines added for the
   // 0C "More" menu will live in this branch too.
+  // Phase 5D — load FWA status to badge Enforcement in More menu
+  const [fwaAdopted, setFwaAdopted] = useState(false);
+  useEffect(() => {
+    if (!activeCase?.id) return;
+    loadBlindSpot<{ status?: string }>(activeCase.id, 'fwa_status', {}).then(rec => {
+      setFwaAdopted(rec?.status === 'Adopted');
+    });
+  }, [activeCase?.id]);
+
   if (!isCriminal) {
     // Phase 0C — append MatrimonialEngine to the More list only for
     // matrimonial-track matters; civil matters never see it.
@@ -139,7 +149,16 @@ export function FloatingEngines() {
                   onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
                 >
                   <span style={{ fontSize: 13 }}>{item.icon}</span>
-                  <span>{item.label}</span>
+                  <span style={{ flex: 1 }}>{item.label}</span>
+                  {item.id === 'enforcement' && fwaAdopted && (
+                    <span
+                      title="Final Written Address adopted — enforcement ready"
+                      style={{
+                        width: 6, height: 6, borderRadius: '50%',
+                        background: '#1a5a30', display: 'inline-block', flexShrink: 0,
+                      }}
+                    />
+                  )}
                 </button>
               ))}
             </div>
