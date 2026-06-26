@@ -63,6 +63,12 @@ import { useIntelligence } from '@/hooks/useIntelligence';
 import { saveCaseTheory, lockCaseTheory, unlockCaseTheory, loadBlindSpot, saveBlindSpot, uid, isIntelligenceCompleteSync } from '@/storage/helpers';
 import { printSide } from '@/utils/printSide';
 import { getJurisdictionDelta } from '@/law/registry';
+import {
+  detectOpponentTheory,
+  confidenceLabel,
+  isMergeCandidate,
+  type DetectedOpponentTheory,
+} from '@/utils/detectOpponentTheory';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES
@@ -2998,6 +3004,466 @@ function useCxStorage<D>(caseId: string, module: string, fallback: D) {
 // PHASE 8A — TAB 5: CONTRADICTION MAPPER
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ─────────────────────────────────────────────────────────────────────────────
+// PHASE 3G — THEORY TRIGGER: INLINE MERGE PANEL (Trial Engine variant of 3D)
+// unlock → merge → relock — same mechanic as ApplicationsEngine TheoryMergePanel
+// but styled for the TrialEngine dark courtroom palette.
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface CxTheoryMergePanelProps {
+  detected:   DetectedOpponentTheory;
+  current:    CaseTheoryRecord | null;
+  locked:     boolean;
+  caseId:     string;
+  witnessId:  string;
+  onDone:     () => void;
+  onDismiss:  () => void;
+}
+
+function CxTheoryMergePanel({
+  detected, current, locked, caseId, witnessId, onDone, onDismiss,
+}: CxTheoryMergePanelProps) {
+  const [editOpposing, setEditOpposing] = useState(detected.core_proposition);
+  const [editKiller,   setEditKiller]   = useState(detected.theory_killer_target ?? current?.theory_killer ?? '');
+  const [saving,       setSaving]       = useState(false);
+  const [error,        setError]        = useState<string | null>(null);
+  const [phase,        setPhase]        = useState<'review' | 'done'>('review');
+
+  const prevOpposing = current?.opposing_theory ?? '(none)';
+  const prevKiller   = current?.theory_killer   ?? '(none)';
+  const opposingChanged = editOpposing.trim() !== prevOpposing && prevOpposing !== '(none)';
+  const killerChanged   = editKiller.trim()   !== prevKiller   && prevKiller   !== '(none)';
+
+  async function handleRelock() {
+    if (!editOpposing.trim()) { setError('Opposing theory cannot be empty.'); return; }
+    setSaving(true); setError(null);
+    try {
+      if (locked) {
+        await unlockCaseTheory(caseId, `Phase 3G — theory update from live contradiction (witness: ${witnessId})`);
+      }
+      const base: CaseTheoryRecord = current ?? {
+        core_proposition: '', elements: [], opposing_theory: '', theory_killer: '',
+        weakest_link: '', narrative_theme: '', gap_report: [],
+        score_breakdown: { legal_sufficiency: 0, evidence_coverage: 0, vulnerability: 0, narrative_coherence: 0, jurisdictional_precision: 0, total: 0 },
+      };
+      await saveCaseTheory(caseId, {
+        ...base,
+        opposing_theory: editOpposing.trim(),
+        theory_killer:   editKiller.trim(),
+      });
+      await lockCaseTheory(caseId);
+      setPhase('done');
+    } catch (e: any) {
+      setError(e?.message ?? 'Save failed. Try again.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (phase === 'done') {
+    return (
+      <div style={{ background: '#060e06', border: '1px solid #1a401a', borderRadius: 8, padding: '14px 16px', marginTop: 12 }}>
+        <div style={{ fontSize: 12, color: '#50c060', fontWeight: 700, marginBottom: 6 }}>✓ Theory updated and re-locked</div>
+        <div style={{ fontSize: 11, color: '#407050', marginBottom: 10, lineHeight: 1.55 }}>
+          Opposing theory and theory killer updated from live contradiction. Downstream engines will pick up the new lock on next load.
+        </div>
+        <CXBtn onClick={onDone} small variant="ghost">Close</CXBtn>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ background: '#07101e', border: '1px solid #2a3a5a', borderRadius: 8, padding: '16px 18px', marginTop: 12 }}>
+      <div style={{ fontSize: 12, fontWeight: 700, color: '#a0c0e0', marginBottom: 3 }}>⚖ Theory Merge — Phase 3G</div>
+      <div style={{ fontSize: 11, color: '#505070', marginBottom: 14, lineHeight: 1.55 }}>
+        Review the theory detected from this live contradiction. Edit if needed, then re-lock.
+        {locked && <span style={{ color: '#c09040' }}> Current lock will be released and a new version created.</span>}
+      </div>
+
+      {/* Confidence badge */}
+      <div style={{ fontSize: 11, color: detected.confidence >= 70 ? '#50c060' : detected.confidence >= 40 ? '#c09040' : '#c06060', marginBottom: 12 }}>
+        Confidence: {confidenceLabel(detected.confidence)} ({detected.confidence}%)
+        {detected.confidence_note && <span style={{ color: '#505070' }}> — {detected.confidence_note}</span>}
+      </div>
+
+      {/* Opposing theory */}
+      <div style={{ marginBottom: 14 }}>
+        <div style={{ fontSize: 10, fontWeight: 700, color: '#606080', marginBottom: 5, textTransform: 'uppercase' as const, letterSpacing: '0.05em' }}>
+          Opponent's Theory (from contradiction)
+        </div>
+        {opposingChanged && (
+          <div style={{ fontSize: 11, color: '#c09040', marginBottom: 5, fontStyle: 'italic', paddingLeft: 8, borderLeft: '2px solid #5a4010' }}>
+            Was: {prevOpposing}
+          </div>
+        )}
+        <textarea
+          value={editOpposing}
+          onChange={e => setEditOpposing(e.target.value)}
+          rows={3}
+          style={{ width: '100%', boxSizing: 'border-box', background: '#050d1a', border: '1px solid #1e2e48', borderRadius: 5, padding: '9px 11px', fontSize: 12, color: '#d0ccc0', lineHeight: 1.6, resize: 'vertical', fontFamily: "'Times New Roman', Times, serif" }}
+        />
+      </div>
+
+      {/* Theory killer */}
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ fontSize: 10, fontWeight: 700, color: '#606080', marginBottom: 5, textTransform: 'uppercase' as const, letterSpacing: '0.05em' }}>
+          Theory Killer — the fact that defeats their position
+        </div>
+        {killerChanged && (
+          <div style={{ fontSize: 11, color: '#c09040', marginBottom: 5, fontStyle: 'italic', paddingLeft: 8, borderLeft: '2px solid #5a4010' }}>
+            Was: {prevKiller}
+          </div>
+        )}
+        <textarea
+          value={editKiller}
+          onChange={e => setEditKiller(e.target.value)}
+          rows={2}
+          style={{ width: '100%', boxSizing: 'border-box', background: '#050d1a', border: '1px solid #1e2e48', borderRadius: 5, padding: '9px 11px', fontSize: 12, color: '#d0ccc0', lineHeight: 1.6, resize: 'vertical', fontFamily: "'Times New Roman', Times, serif" }}
+        />
+      </div>
+
+      {/* Key arguments — read only */}
+      {detected.key_arguments.length > 0 && (
+        <div style={{ background: '#050a14', border: '1px solid #1a2030', borderRadius: 5, padding: '10px 12px', marginBottom: 14 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: '#404060', marginBottom: 6, textTransform: 'uppercase' as const, letterSpacing: '0.05em' }}>Detected Arguments (reference)</div>
+          {detected.key_arguments.map((a, i) => (
+            <div key={i} style={{ fontSize: 11, color: '#505070', lineHeight: 1.5, marginBottom: 3 }}>{i + 1}. {a}</div>
+          ))}
+        </div>
+      )}
+
+      {error && <div style={{ fontSize: 11, color: '#c06060', marginBottom: 10 }}>⚠ {error}</div>}
+
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <CXBtn onClick={handleRelock} disabled={saving}>
+          {saving ? '⏳ Saving…' : locked ? '🔓 Unlock → Merge → 🔒 Re-lock' : '✓ Merge + Lock'}
+        </CXBtn>
+        <CXBtn onClick={onDismiss} disabled={saving} small variant="ghost">Cancel</CXBtn>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PHASE 3G — THEORY TRIGGER PANEL
+// Shows auto-written cx_contradictions entries (live Yes/No mismatches from
+// CrossExamSessionManager Phase 4D) as tap-to-promote candidates.
+// Counsel picks which mismatches are case-defining; not every "I don't recall"
+// needs to become an attack point.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PHASE 3H — OFFLINE-SAFE THEORY CAPTURE: STORAGE HELPERS
+// "Queued" = an [AUTO:] contradiction entry not yet run through detectOpponentTheory.
+// No new IndexedDB schema needed — entries already sit in cx_contradictions.
+// A queued entry gains a 'theory_queued' marker in its notes when counsel taps
+// "Queue for later" while offline; auto-processes on reconnect.
+// Manual fallback writes a direct attack-point string to the theory without AI.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const THEORY_QUEUED_MARKER = '[THEORY_QUEUED]';
+
+/** Mark an auto-contradiction entry as queued for theory processing */
+async function markTheoryQueued(caseId: string, entryId: string, allMaps: ContradictionRecord[]): Promise<ContradictionRecord[]> {
+  const updated = allMaps.map(m =>
+    m.id === entryId && !m.notes?.includes(THEORY_QUEUED_MARKER)
+      ? { ...m, notes: (m.notes ?? '') + ` ${THEORY_QUEUED_MARKER}` }
+      : m
+  );
+  await saveBlindSpot(caseId, 'cx_contradictions', updated);
+  return updated;
+}
+
+/** Remove queued marker after successful processing */
+async function clearTheoryQueued(caseId: string, entryId: string, allMaps: ContradictionRecord[]): Promise<ContradictionRecord[]> {
+  const updated = allMaps.map(m =>
+    m.id === entryId
+      ? { ...m, notes: (m.notes ?? '').replace(THEORY_QUEUED_MARKER, '').trim() }
+      : m
+  );
+  await saveBlindSpot(caseId, 'cx_contradictions', updated);
+  return updated;
+}
+
+/** Write a manual attack point directly to the theory, bypassing AI */
+async function applyManualAttackPoint(
+  caseId: string,
+  attackPoint: string,
+  current: CaseTheoryRecord | null,
+  locked: boolean,
+  witnessLabel: string,
+): Promise<void> {
+  if (locked) {
+    await unlockCaseTheory(caseId, `Phase 3H — manual attack point added (witness: ${witnessLabel})`);
+  }
+  const base: CaseTheoryRecord = current ?? {
+    core_proposition: '', elements: [], opposing_theory: '', theory_killer: '',
+    weakest_link: '', narrative_theme: '', gap_report: [],
+    score_breakdown: { legal_sufficiency: 0, evidence_coverage: 0, vulnerability: 0, narrative_coherence: 0, jurisdictional_precision: 0, total: 0 },
+  };
+  // Append to theory_killer — the manual attack point is the sharpest available read
+  const existing = base.theory_killer ? base.theory_killer + '\n' : '';
+  await saveCaseTheory(caseId, {
+    ...base,
+    theory_killer: existing + attackPoint.trim(),
+  });
+  await lockCaseTheory(caseId);
+}
+
+interface TheoryTriggerPanelProps {
+  activeCase: Case;
+  current:    CaseTheoryRecord | null;
+  locked:     boolean;
+  onDone:     () => void;
+}
+
+function TheoryTriggerPanel({ activeCase, current, locked, onDone }: TheoryTriggerPanelProps) {
+  const caseId = activeCase.id;
+
+  // All contradiction records — filter to auto-written ones (have [AUTO: sentinel)
+  const { data: allMaps, setData: setAllMaps } = useCxStorage<ContradictionRecord[]>(caseId, 'contradictions', []);
+  const autoEntries = allMaps.filter(m => m.notes?.includes('[AUTO:'));
+
+  const [detecting,    setDetecting]    = useState<string | null>(null);
+  const [detected,     setDetected]     = useState<{ id: string; result: DetectedOpponentTheory } | null>(null);
+  const [mergeOpen,    setMergeOpen]    = useState(false);
+  const [detError,     setDetError]     = useState<string | null>(null);
+  const [dismissed,    setDismissed]    = useState<Set<string>>(new Set());
+
+  // ── Phase 3H-ii/iii — Online/offline state + auto-process on reconnect ────
+  const [isOnline,     setIsOnline]     = useState(navigator.onLine);
+  const [autoRunning,  setAutoRunning]  = useState(false);
+
+  // ── Phase 3H-iv — Manual fallback state ───────────────────────────────────
+  const [manualOpen,   setManualOpen]   = useState<string | null>(null); // entry id
+  const [manualText,   setManualText]   = useState('');
+  const [manualSaving, setManualSaving] = useState(false);
+  const [manualError,  setManualError]  = useState<string | null>(null);
+
+  // Online/offline listeners
+  useEffect(() => {
+    const onOnline  = () => setIsOnline(true);
+    const onOffline = () => setIsOnline(false);
+    window.addEventListener('online',  onOnline);
+    window.addEventListener('offline', onOffline);
+    return () => {
+      window.removeEventListener('online',  onOnline);
+      window.removeEventListener('offline', onOffline);
+    };
+  }, []);
+
+  // Phase 3H-iii — auto-process queued entries on reconnect
+  useEffect(() => {
+    if (!isOnline) return;
+    const queued = autoEntries.filter(
+      m => m.notes?.includes(THEORY_QUEUED_MARKER) && !dismissed.has(m.id)
+    );
+    if (queued.length === 0) return;
+
+    let cancelled = false;
+    (async () => {
+      setAutoRunning(true);
+      for (const entry of queued) {
+        if (cancelled) break;
+        try {
+          const text = [
+            entry.stmt1 && `Question put to witness: ${entry.stmt1}`,
+            entry.stmt2 && `Witness response vs expected: ${entry.stmt2}`,
+            entry.impact && `Counsel's assessment: ${entry.impact}`,
+          ].filter(Boolean).join('\n\n');
+          const caseCtx = `${activeCase.caseName}, ${activeCase.court ?? ''}, ${activeCase.counsel_role ?? ''}`;
+          const result  = await detectOpponentTheory(text, 'contradiction_statement', caseCtx);
+          if (cancelled) break;
+          if (isMergeCandidate(result)) {
+            // Auto-apply high-confidence results; surface moderate-confidence for review
+            if (result.confidence >= 70) {
+              await applyManualAttackPoint(caseId, result.theory_killer_target ?? result.core_proposition, current, locked, entry.witness || 'Unknown Witness');
+              const updated = await clearTheoryQueued(caseId, entry.id, allMaps);
+              setAllMaps(updated);
+              onDone();
+            } else {
+              // Surface as a promote candidate — counsel decides
+              const updated = await clearTheoryQueued(caseId, entry.id, allMaps);
+              setAllMaps(updated);
+              setDetected({ id: entry.id, result });
+              setMergeOpen(true);
+            }
+          } else {
+            // Low confidence — clear queue marker, leave as normal entry
+            const updated = await clearTheoryQueued(caseId, entry.id, allMaps);
+            setAllMaps(updated);
+          }
+        } catch {
+          // Network hiccup during auto-run — leave queued, retry next reconnect
+        }
+      }
+      if (!cancelled) setAutoRunning(false);
+    })();
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOnline]);
+
+  const visible = autoEntries.filter(m => !dismissed.has(m.id));
+  const queuedCount = autoEntries.filter(m => m.notes?.includes(THEORY_QUEUED_MARKER)).length;
+
+  // Phase 3H-ii — offline badge only (no promote UI when offline and nothing to queue)
+  if (!isOnline && visible.length === 0 && queuedCount === 0) return null;
+  if (visible.length === 0 && queuedCount === 0) return null;
+
+  async function handlePromote(entry: ContradictionRecord) {
+    setDetecting(entry.id);
+    setDetError(null);
+    setDetected(null);
+    setMergeOpen(false);
+    try {
+      const text = [
+        entry.stmt1 && `Question put to witness: ${entry.stmt1}`,
+        entry.stmt2 && `Witness response vs expected: ${entry.stmt2}`,
+        entry.impact && `Counsel's assessment: ${entry.impact}`,
+      ].filter(Boolean).join('\n\n');
+      const caseCtx = `${activeCase.caseName}, ${activeCase.court ?? ''}, ${activeCase.counsel_role ?? ''}`;
+      const result = await detectOpponentTheory(text, 'contradiction_statement', caseCtx);
+      setDetected({ id: entry.id, result });
+      setMergeOpen(true);
+    } catch (e: any) {
+      setDetError(e?.message ?? 'Detection failed. Check connection and retry.');
+    } finally {
+      setDetecting(null);
+    }
+  }
+
+  async function handleQueue(entry: ContradictionRecord) {
+    const updated = await markTheoryQueued(caseId, entry.id, allMaps);
+    setAllMaps(updated);
+    setDismissed(prev => new Set([...prev, entry.id]));
+  }
+
+  async function handleManualSave(entry: ContradictionRecord) {
+    if (!manualText.trim()) return;
+    setManualSaving(true);
+    setManualError(null);
+    try {
+      await applyManualAttackPoint(caseId, manualText.trim(), current, locked, entry.witness || 'Unknown Witness');
+      setManualOpen(null);
+      setManualText('');
+      onDone();
+    } catch (e: any) {
+      setManualError(e?.message ?? 'Save failed.');
+    } finally {
+      setManualSaving(false);
+    }
+  }
+
+  return (
+    <div style={{ background: '#08100a', border: '1px solid #1a3a1a', borderRadius: 8, padding: '14px 16px', marginBottom: 18 }}>
+
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+        <span style={{ fontSize: 14 }}>⚡</span>
+        <div style={{ fontSize: 12, fontWeight: 700, color: '#70c080' }}>
+          {visible.length > 0
+            ? `${visible.length} Live Contradiction${visible.length !== 1 ? 's' : ''} — Sharpen Theory?`
+            : 'Theory Capture'}
+        </div>
+        {/* Phase 3H-ii — offline queue badge */}
+        {queuedCount > 0 && (
+          <span style={{ fontSize: 10, background: '#1a2a10', border: '1px solid #3a5a20', borderRadius: 10, padding: '2px 8px', color: '#90c060', marginLeft: 'auto' }}>
+            {autoRunning ? '⏳ Processing queued…' : `${queuedCount} admission${queuedCount !== 1 ? 's' : ''} queued — will sharpen theory when back online`}
+          </span>
+        )}
+        {!isOnline && queuedCount === 0 && (
+          <span style={{ fontSize: 10, background: '#1a1a10', border: '1px solid #3a3a20', borderRadius: 10, padding: '2px 8px', color: '#909060', marginLeft: 'auto' }}>
+            Offline — AI detection unavailable
+          </span>
+        )}
+      </div>
+
+      <div style={{ fontSize: 11, color: '#407050', marginBottom: 12, lineHeight: 1.6 }}>
+        These mismatches were captured during live cross-examination. Promote the ones that are case-defining — not every "I don't recall" needs to update your theory.
+      </div>
+
+      {detError && <div style={{ fontSize: 11, color: '#c06060', marginBottom: 10 }}>⚠ {detError}</div>}
+
+      {/* Entry cards */}
+      {visible.map(entry => {
+        const isQueued = entry.notes?.includes(THEORY_QUEUED_MARKER);
+        return (
+          <div key={entry.id} style={{ background: '#060e06', border: '1px solid #1a2a1a', borderRadius: 6, padding: '10px 12px', marginBottom: 8 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: '#90c090', marginBottom: 4 }}>
+              {entry.witness || 'Unknown Witness'}
+              {isQueued && <span style={{ fontSize: 10, color: '#709050', marginLeft: 8 }}>queued</span>}
+            </div>
+            <div style={{ fontSize: 11, color: '#506050', lineHeight: 1.5, marginBottom: 8 }}>
+              {entry.stmt1 ? entry.stmt1.slice(0, 100) + (entry.stmt1.length > 100 ? '…' : '') : 'No question text'}
+            </div>
+
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' as const }}>
+              {/* Online: promote via AI */}
+              {isOnline && (
+                <CXBtn onClick={() => handlePromote(entry)} disabled={detecting === entry.id} small>
+                  {detecting === entry.id ? '⏳ Detecting…' : '⚖ Promote to Theory Update'}
+                </CXBtn>
+              )}
+              {/* Offline: queue for later */}
+              {!isOnline && !isQueued && (
+                <CXBtn onClick={() => handleQueue(entry)} small>
+                  📥 Queue for Later
+                </CXBtn>
+              )}
+              {/* Phase 3H-iv — Manual fallback: always available */}
+              <CXBtn
+                onClick={() => { setManualOpen(manualOpen === entry.id ? null : entry.id); setManualText(''); setManualError(null); }}
+                small variant="ghost"
+              >
+                ✏ Manual Attack Point
+              </CXBtn>
+              <CXBtn onClick={() => setDismissed(prev => new Set([...prev, entry.id]))} small variant="ghost">
+                Dismiss
+              </CXBtn>
+            </div>
+
+            {/* Phase 3H-iv — Manual fallback panel */}
+            {manualOpen === entry.id && (
+              <div style={{ marginTop: 10, background: '#050d05', border: '1px solid #1a2a1a', borderRadius: 6, padding: '12px 14px' }}>
+                <div style={{ fontSize: 11, color: '#507050', marginBottom: 8, lineHeight: 1.55 }}>
+                  Type the attack point directly — bypasses AI. Appended to Theory Killer for same-day use in Final Written Address.
+                </div>
+                <textarea
+                  value={manualText}
+                  onChange={e => setManualText(e.target.value)}
+                  rows={3}
+                  placeholder="e.g. Witness admitted under cross that she did not witness the signing — directly contradicts para 6 of her statement."
+                  style={{ width: '100%', boxSizing: 'border-box', background: '#040a04', border: '1px solid #1a281a', borderRadius: 5, padding: '9px 11px', fontSize: 12, color: '#d0ccc0', lineHeight: 1.6, resize: 'vertical', fontFamily: "'Times New Roman', Times, serif", marginBottom: 10 }}
+                />
+                {manualError && <div style={{ fontSize: 11, color: '#c06060', marginBottom: 8 }}>⚠ {manualError}</div>}
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <CXBtn onClick={() => handleManualSave(entry)} disabled={manualSaving || !manualText.trim()} small>
+                    {manualSaving ? '⏳ Saving…' : '✓ Apply to Theory'}
+                  </CXBtn>
+                  <CXBtn onClick={() => setManualOpen(null)} small variant="ghost">Cancel</CXBtn>
+                </div>
+              </div>
+            )}
+
+            {/* Inline AI merge panel */}
+            {mergeOpen && detected?.id === entry.id && (
+              <CxTheoryMergePanel
+                detected={detected.result}
+                current={current}
+                locked={locked}
+                caseId={caseId}
+                witnessId={entry.witness || 'Unknown Witness'}
+                onDone={() => { setMergeOpen(false); setDetected(null); onDone(); }}
+                onDismiss={() => { setMergeOpen(false); setDetected(null); }}
+              />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 interface ContradictionMapperTabProps {
   activeCase: Case;
   role:       TrialRole;
@@ -3006,7 +3472,7 @@ interface ContradictionMapperTabProps {
 function ContradictionMapperTab({ activeCase }: ContradictionMapperTabProps) {
   const caseId = activeCase.id;
   const ai     = useAI(activeCase);
-  const { theory, hasTheory } = useCaseTheory(caseId);
+  const { theory, locked, hasTheory, reload: reloadTheory } = useCaseTheory(caseId);
 
   const { data: maps, setData: setMaps } = useCxStorage<ContradictionRecord[]>(caseId, 'contradictions', []);
   const [sel,     setSel]     = useState<string | null>(null);
@@ -3090,6 +3556,14 @@ Be surgical. Every word must count.`,
 
   return (
     <div>
+      {/* Phase 3G — Theory Trigger: auto-written live contradictions as promote candidates */}
+      <TheoryTriggerPanel
+        activeCase={activeCase}
+        current={theory}
+        locked={locked}
+        onDone={reloadTheory}
+      />
+
       <div style={{ marginBottom: 18 }}>
         <CaseTheoryBanner
           theory={theory}
