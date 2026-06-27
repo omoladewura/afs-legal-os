@@ -52,6 +52,7 @@ const MORE_MENU_ITEMS: { id: DashTabId; label: string; icon: string }[] = [
   { id: 'crossexam',    label: 'Cross-Exam',    icon: '?' },
   { id: 'enforcement',  label: 'Enforcement',   icon: '⚑' },
   { id: 'synthesis',    label: 'Synthesis',     icon: '∑' },
+  { id: 'inheritance',  label: 'Inheritance',   icon: '⟳' },
 ];
 
 export function FloatingEngines() {
