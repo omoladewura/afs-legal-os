@@ -269,7 +269,7 @@ function InstallNudge() {
 
 export function App() {
   const {
-    view, docketOpen, setView, setDockOpen,
+    view, docketOpen, setView,
     isAuthenticated, dashTab, setDashTab,
     activeCase, setActiveCase, setDocketOpen,
   } = useAppStore();
