@@ -1005,6 +1005,97 @@ function QuickActionsSection({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// INHERITED MATTER BANNER — Phase 3
+// ─────────────────────────────────────────────────────────────────────────────
+
+function InheritedMatterBanner({
+  activeCase,
+  onSetDashTab,
+}: {
+  activeCase: Case;
+  onSetDashTab: (tab: DashTabId) => void;
+}) {
+  if (!activeCase.is_inherited) return null;
+
+  const audit = activeCase.inheritance_data;
+
+  if (!audit) {
+    return (
+      <div style={{
+        marginBottom:  16,
+        padding:       '14px 18px',
+        background:    'rgba(196,160,48,0.12)',
+        border:        '1px solid rgba(196,160,48,0.5)',
+        borderRadius:  10,
+        display:       'flex',
+        alignItems:    'center',
+        justifyContent: 'space-between',
+        gap:           16,
+        flexWrap:      'wrap',
+      }}>
+        <span style={{
+          fontFamily: "'Times New Roman', Times, serif",
+          fontSize:   13,
+          color:      '#a07820',
+        }}>
+          ⟳ This is an inherited matter. Run the Inheritance Audit before proceeding with any engine.
+        </span>
+        <button
+          onClick={() => onSetDashTab('inheritance')}
+          style={{
+            background:   'linear-gradient(135deg,#c4a030,#a07820)',
+            color:        '#05050c',
+            border:       'none',
+            borderRadius: 6,
+            padding:      '8px 16px',
+            fontSize:     12,
+            fontWeight:   600,
+            fontFamily:   "'Times New Roman', Times, serif",
+            cursor:       'pointer',
+            whiteSpace:   'nowrap',
+          }}
+        >
+          Run Audit →
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{
+      marginBottom:  16,
+      padding:       '8px 14px',
+      background:    'rgba(56,161,105,0.12)',
+      border:        '1px solid rgba(56,161,105,0.4)',
+      borderRadius:  8,
+      display:       'inline-flex',
+      alignItems:    'center',
+      gap:           8,
+      fontFamily:    "'Times New Roman', Times, serif",
+      fontSize:      12,
+      color:         '#2f855a',
+    }}>
+      <span>⟳ Inherited · Audit complete · {fmtDate(audit._auditDate)}</span>
+      <button
+        onClick={() => onSetDashTab('inheritance')}
+        style={{
+          background: 'transparent',
+          border:     'none',
+          color:      '#2f855a',
+          textDecoration: 'underline',
+          cursor:     'pointer',
+          fontFamily: "'Times New Roman', Times, serif",
+          fontSize:   12,
+          padding:    0,
+        }}
+      >
+        View audit
+      </button>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // MAIN COMPONENT — CaseCommand
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1097,6 +1188,9 @@ export function CaseCommand({ activeCase }: Props) {
 
   return (
     <div style={{ animation: 'fadeUp .3s ease' }}>
+
+      {/* ── Inherited matter banner ──────────────────────────────────────── */}
+      <InheritedMatterBanner activeCase={activeCase} onSetDashTab={navigate} />
 
       {/* ── Jump navigator ───────────────────────────────────────────────── */}
       <SectionNav activeSection={activeSection} onJump={handleJump} />
