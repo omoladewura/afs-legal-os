@@ -115,6 +115,9 @@ export function CaseDocket() {
   const [isCriminal,    setIsCriminal]    = useState(false);
   const [ncCustomA,     setNcCustomA]     = useState('');
   const [ncCustomB,     setNcCustomB]     = useState('');
+  const [ncIsInherited, setNcIsInherited] = useState(false);
+  const [ncPriorCounsel, setNcPriorCounsel] = useState('');
+  const [ncHandoffStage, setNcHandoffStage] = useState('');
 
   const filterPreset = docketFilter !== 'all' ? FILTER_PRESET[docketFilter] : null;
 
@@ -368,6 +371,9 @@ export function CaseDocket() {
       compressed_summary:  '',
       recent_entries:      [],
       deadlines:           [],
+      is_inherited:        ncIsInherited || undefined,
+      prior_counsel_name:  ncIsInherited && ncPriorCounsel.trim() ? ncPriorCounsel.trim() : undefined,
+      handoff_stage:       ncIsInherited && ncHandoffStage.trim() ? ncHandoffStage.trim() : undefined,
     };
     await saveCase(nc);
     setCases(prev => [nc, ...prev]);
@@ -407,6 +413,7 @@ export function CaseDocket() {
     setIsCriminal(false);
     setNcRole('claimant_side');
     setNcCustomA(''); setNcCustomB('');
+    setNcIsInherited(false); setNcPriorCounsel(''); setNcHandoffStage('');
     setNcPartiesA([{ id: cid(), name: '' }]);
     setNcPartiesB([{ id: cid(), name: '' }]);
   }
@@ -815,6 +822,31 @@ export function CaseDocket() {
               <button onClick={() => addParty(ncPartiesB, setNcPartiesB)} style={{ background: 'transparent', border: `1px solid #1e1e2e`, color: T.mute, borderRadius: 4, padding: '6px 12px', fontSize: 11, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer' }}>
                 + Add {isCriminal ? 'Accused' : origConfig.partyBLabel}
               </button>
+            </div>
+
+            {/* Inherited matter toggle */}
+            <div style={{ marginBottom: 18 }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontFamily: "'Times New Roman', Times, serif", fontSize: 13, color: T.text }}>
+                <input
+                  type="checkbox"
+                  checked={ncIsInherited}
+                  onChange={e => setNcIsInherited(e.target.checked)}
+                  style={{ width: 16, height: 16, cursor: 'pointer' }}
+                />
+                Taking over from another lawyer?
+              </label>
+              {ncIsInherited && (
+                <div style={{ marginTop: 10, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <div>
+                    <label style={{ ...S.label, fontSize: 11 }}>Prior counsel name</label>
+                    <input value={ncPriorCounsel} onChange={e => setNcPriorCounsel(e.target.value)} placeholder="e.g. Chief T. Adewale SAN" style={{ ...S.inp, fontSize: 12 }} />
+                  </div>
+                  <div>
+                    <label style={{ ...S.label, fontSize: 11 }}>Stage at handoff</label>
+                    <input value={ncHandoffStage} onChange={e => setNcHandoffStage(e.target.value)} placeholder="e.g. Post-pleadings, pre-trial" style={{ ...S.inp, fontSize: 12 }} />
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Summary strip — transparent preview (Phase 1C) */}
