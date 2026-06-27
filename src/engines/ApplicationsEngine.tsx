@@ -189,7 +189,7 @@ interface Props { activeCase: Case; }
 
 type MainTab         = 'new' | 'tracker' | 'templates';
 type Stage           = 1 | 2 | 3 | 4 | 5;
-type TrackFilter     = 'all' | 'civil' | 'criminal' | 'appeal' | 'frep';
+type TrackFilter     = 'all' | 'civil' | 'criminal' | 'appeal' | 'frep' | 'matrimonial';
 type AppStatus       = 'Drafting' | 'Filed' | 'Served' | 'Awaiting Hearing' | 'Heard' | 'Granted' | 'Refused' | 'Withdrawn';
 type ApplicationRole = 'mover' | 'respondent';
 
@@ -202,7 +202,7 @@ export interface AppTypeConfig {
   id:      string;
   label:   string;
   icon:    string;
-  track:   'civil' | 'criminal' | 'appeal' | 'all' | 'frep';
+  track:   'civil' | 'criminal' | 'appeal' | 'all' | 'frep' | 'matrimonial';
   package: string[];
   hint:    string;
   /**
@@ -492,6 +492,77 @@ export const APP_TYPES: AppTypeConfig[] = [
     hint: 'Respondent preliminary objection challenging jurisdiction, locus standi, or competence of the application before the court engages the merits. ' +
           'Common grounds: wrong court (State vs Federal), matter not within Chapter IV CFRN, application statute-barred, Applicant lacks standing, ' +
           'or right not violated by the specific Respondent named.',
+    needsCaseTheory: false },
+  // ── MATRIMONIAL — MCA Applications (Phase 7A) ────────────────────────────
+  // Ports all 9 from MApplications + 2 new (mat_opposition_application, mat_make_absolute path fix).
+  // Excluded from 'all' filter — same pattern as FREP.
+  { id: 'mat_leave_s30', label: 'Leave to Present Petition', icon: '⚖', track: 'matrimonial',
+    package: ['Motion on Notice', 'Supporting Affidavit', 'Written Address in Support', 'List of Authorities'],
+    hint: 'Application for leave to present a matrimonial petition before the two-year waiting period under s.30 MCA. ' +
+          'Must invoke one of the statutory exceptions: wilful refusal to consummate; adultery; rape, sodomy or bestiality; ' +
+          'or exceptional hardship or depravity suffered by the applicant. Authority: s.30 MCA; O.4 rr.1–2 MCR.',
+    needsCaseTheory: false },
+  { id: 'mat_alimony_pendente', label: 'Maintenance Pendente Lite', icon: '💰', track: 'matrimonial',
+    package: ['Motion on Notice', 'Supporting Affidavit', 'Written Address in Support', 'Financial Disclosure Statement', 'List of Authorities'],
+    hint: 'Interim maintenance pending the determination of the matrimonial proceedings — s.70 MCA. ' +
+          'Affidavit must exhibit evidence of the applicant's needs and the respondent's means. ' +
+          'Addresses housing, food, clothing, medical, and children's needs. Court assesses means and conduct.',
+    needsCaseTheory: false },
+  { id: 'mat_custody_pendente', label: 'Interim Custody Order', icon: '👶', track: 'matrimonial',
+    package: ['Motion on Notice', 'Supporting Affidavit', 'Written Address in Support', 'Welfare Report (if ordered)', 'List of Authorities'],
+    hint: 'Interim custody and/or access order pending final determination — s.71 MCA. ' +
+          'Welfare of the child is the paramount consideration. Address: current living arrangements, ' +
+          'schooling, health, primary carer history, and any welfare concerns regarding the other party.',
+    needsCaseTheory: false },
+  { id: 'mat_restraining_injunction', label: 'Restraining Injunction — Asset Dissipation', icon: '🚫', track: 'matrimonial',
+    package: ['Motion Ex Parte', 'Supporting Affidavit', 'Written Address in Support', 'Schedule of Assets', 'Undertaking as to Damages', 'List of Authorities'],
+    hint: 'Injunction to restrain disposal, dissipation, or transfer of matrimonial assets pending ancillary relief proceedings. ' +
+          'Based on inherent jurisdiction of the court. Must show: real risk of dissipation, identified assets, ' +
+          'and that the balance of convenience favours the order. Often sought ex parte for urgency.',
+    needsCaseTheory: false },
+  { id: 'mat_occupation_order', label: 'Occupation Order — Matrimonial Home', icon: '🏠', track: 'matrimonial',
+    package: ['Motion on Notice', 'Supporting Affidavit', 'Written Address in Support', 'List of Authorities'],
+    hint: 'Order for exclusive occupation of the matrimonial home pending determination of property rights. ' +
+          'Available under MCA and inherent jurisdiction. Address: ownership, financial contributions, ' +
+          'children's needs, conduct, and hardship to each party if order is made or refused.',
+    needsCaseTheory: false },
+  { id: 'mat_financial_disclosure', label: 'Financial Disclosure Order', icon: '📊', track: 'matrimonial',
+    package: ['Motion on Notice', 'Supporting Affidavit', 'Written Address in Support', 'Draft Disclosure Order', 'List of Authorities'],
+    hint: 'Application for compulsory financial disclosure from the other party — O.11 MCR and the Compulsory Conference procedure. ' +
+          'Used where voluntary disclosure has failed or been incomplete. Must specify the documents or information sought ' +
+          'and the relevance to the ancillary relief claim.',
+    needsCaseTheory: false },
+  { id: 'mat_make_absolute', label: 'Application to Make Decree Absolute', icon: '📜', track: 'matrimonial',
+    package: ['Application (s.57 or s.58 MCA)', 'Supporting Affidavit', 'Decree Nisi Order', 'Children Welfare Compliance Certificate (s.57)', 'List of Authorities'],
+    hint: 'Application to convert decree nisi to decree absolute. Two paths under MCA: ' +
+          's.57 path — 28 days after all children welfare orders are settled; ' +
+          's.58 path — 3 months from decree nisi where no children order is required. ' +
+          'Affidavit must confirm: no appeal pending, no reconciliation, and (s.57 path) all welfare orders in place.',
+    needsCaseTheory: false },
+  { id: 'mat_variation_order', label: 'Variation of Maintenance / Custody Order', icon: '🔄', track: 'matrimonial',
+    package: ['Motion on Notice', 'Supporting Affidavit', 'Written Address in Support', 'Copy of Original Order', 'List of Authorities'],
+    hint: 'Application to vary, suspend, or discharge an existing maintenance or custody order — s.45 and s.70 MCA. ' +
+          'Must show material change in circumstances since the original order: ' +
+          'change in income, remarriage, child's welfare needs, relocation, or other supervening events.',
+    needsCaseTheory: false },
+  { id: 'mat_transfer_forum', label: 'Transfer of Forum', icon: '🏛', track: 'matrimonial',
+    package: ['Motion on Notice', 'Supporting Affidavit', 'Written Address in Support', 'List of Authorities'],
+    hint: 'Application to transfer matrimonial proceedings to a different High Court under s.9(2) MCA. ' +
+          'Grounds include: convenience of parties and witnesses, location of matrimonial home, ' +
+          'domicile or habitual residence, or administration of justice.',
+    needsCaseTheory: false },
+  { id: 'mat_substituted_svc', label: 'Substituted Service', icon: '📬', track: 'matrimonial',
+    package: ['Motion Ex Parte', 'Affidavit of Attempted Service', 'Written Address in Support', 'List of Authorities'],
+    hint: 'Application for leave to effect substituted service of the matrimonial petition — O.7 MCR. ' +
+          'Affidavit must show that personal service has been attempted and is impracticable, ' +
+          'and propose a mode of service reasonably likely to bring the petition to the respondent's notice ' +
+          '(courier, newspaper publication, last known address, or email).',
+    needsCaseTheory: false },
+  { id: 'mat_opposition_application', label: 'Opposition to Application', icon: '↩', track: 'matrimonial',
+    package: ['Counter-Affidavit', 'Written Address in Opposition', 'List of Authorities'],
+    hint: 'Respondent opposition to any matrimonial interlocutory application — MCR general procedure. ' +
+          'Counter-affidavit challenges the supporting affidavit paragraph by paragraph. ' +
+          'Written address addresses legal and factual grounds for refusing the relief sought.',
     needsCaseTheory: false },
 ];
 
@@ -2847,7 +2918,11 @@ export function ApplicationsEngine({ activeCase }: Props) {
   const [stage,       setStage]       = useState<Stage>(1);
   const isFrepMatter = activeCase.originating_process === 'frep' ||
     activeCase.counsel_role === 'frep_applicant' || activeCase.counsel_role === 'frep_respondent';
-  const [trackFilter, setTrackFilter] = useState<TrackFilter>(isFrepMatter ? 'frep' : 'all');
+  const isMatrimonialMatter = activeCase.matter_track === 'matrimonial' ||
+    activeCase.originating_process === 'petition_matrimonial';
+  const [trackFilter, setTrackFilter] = useState<TrackFilter>(
+    isFrepMatter ? 'frep' : isMatrimonialMatter ? 'matrimonial' : 'all'
+  );
 
   // Stage 1
   const [selectedType,    setSelectedType]    = useState<AppTypeConfig | null>(null);
@@ -3104,7 +3179,7 @@ Begin with the first document heading now:`;
   // 'all' track types (custom fallbacks) show under every filter.
   const filteredTypes = APP_TYPES.filter(t => {
     if (t.track === 'all') return true;
-    if (trackFilter === 'all') return t.track !== 'frep';
+    if (trackFilter === 'all') return t.track !== 'frep' && t.track !== 'matrimonial';
     return t.track === trackFilter;
   });
   const canGoToStage2 = !!selectedType;
@@ -3199,7 +3274,7 @@ Begin with the first document heading now:`;
 
               {/* Track filter */}
               <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
-                {(['all', 'civil', 'criminal', 'appeal', 'frep'] as const).map(t => (
+                {(['all', 'civil', 'criminal', 'appeal', 'frep', 'matrimonial'] as const).map(t => (
                   <button key={t} onClick={() => setTrackFilter(t)}
                     style={{
                       background: trackFilter === t ? '#181828' : 'transparent',
@@ -3208,7 +3283,7 @@ Begin with the first document heading now:`;
                       borderRadius: 4, padding: '5px 12px', fontSize: 11, cursor: 'pointer',
                       fontFamily: "'Times New Roman', Times, serif",
                     }}>
-                    {t === 'all' ? 'All' : t === 'frep' ? 'FREP' : t.charAt(0).toUpperCase() + t.slice(1)}
+                    {t === 'all' ? 'All' : t === 'frep' ? 'FREP' : t === 'matrimonial' ? 'Matrimonial' : t.charAt(0).toUpperCase() + t.slice(1)}
                   </button>
                 ))}
               </div>
