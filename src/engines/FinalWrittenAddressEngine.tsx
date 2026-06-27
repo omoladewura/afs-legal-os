@@ -495,6 +495,8 @@ For each issue or major submission in the draft, state whether it advances the C
     const validIssues = issues.filter(i => i.issue.trim());
     if (!validIssues.length) return;
 
+    const isMatrimonial = activeCase.originating_process === 'petition_matrimonial';
+
     let statuteSections = '';
     if (isRagConfigured()) {
       setRagFetching(true);
@@ -519,7 +521,61 @@ Application: ${iss.application || '[counsel to supply]'}
 Conclusion: ${iss.conclusion || '[counsel to supply]'}
 `).join('\n');
 
-    const userMsg = `Draft a Final Written Address for Nigerian court proceedings.
+    // ── Matrimonial-specific prompt branch ────────────────────────────────
+    const matrimonialData = (activeCase as any).matrimonial_data;
+    const matrimonialBlock = matrimonialData ? `
+MATRIMONIAL DATA:
+Dissolution Fact (s.15(2) MCA): ${matrimonialData.dissolution_fact ?? '[not specified]'}
+Particulars: ${matrimonialData.particulars ?? '[not specified]'}
+Two-Year Bar Status (s.30 MCA): ${matrimonialData.two_year_bar_status ?? '[not specified]'}
+Ancillary Relief Claims: ${matrimonialData.ancillary_relief ?? '[not specified]'}
+` : '';
+
+    const userMsg = isMatrimonial
+      ? `Draft a Final Written Address for matrimonial cause proceedings under the Matrimonial Causes Act (MCA).
+
+CASE: ${activeCase.caseName}
+PETITION NO: ${activeCase.suitNo || 'Not specified'}
+COURT: ${activeCase.court || 'Not specified'}
+COUNSEL ROLE: We act for the ${labels.ourSide}
+PETITIONER: ${activeCase.claimants?.map((p: any) => p.name).filter(Boolean).join(', ') || 'Not specified'}
+RESPONDENT: ${activeCase.defendants?.map((p: any) => p.name).filter(Boolean).join(', ') || 'Not specified'}
+
+${statuteSections ? `VERIFIED STATUTE SECTIONS FROM FIRM LIBRARY:\n${statuteSections}\n\nCite these directly and accurately. Format: Section [X], [Full Act Name].` : ''}
+${matrimonialBlock}
+${extraCtx.trim() ? `COUNSEL'S ADDITIONAL NOTES:\n${extraCtx.trim()}` : ''}
+
+STRUCTURE THE FINAL WRITTEN ADDRESS AS FOLLOWS:
+
+1. PRELIMINARY — identify the nature of the petition and the relief sought.
+
+2. DISSOLUTION FACT — establish the ground for dissolution under s.15(2) MCA:
+   state which fact is relied upon, the particulars proved in evidence, and why
+   the court is satisfied the marriage has broken down irretrievably.
+
+3. TWO-YEAR BAR — address s.30 MCA (whether the two-year bar applies, its
+   status on the facts, and any application to dispense with it if relevant).
+
+4. ANCILLARY RELIEF — address each head of ancillary relief claimed:
+   property settlement, maintenance, custody, and any other orders sought.
+   Apply the applicable MCA provisions and authorities to the facts.
+
+5. AUTHORITIES — cite relevant MCA provisions and Nigerian matrimonial causes
+   case law. Mark any uncertain citations [RESEARCH NEEDED].
+
+6. DECREE NISI PRAYER — close with the specific prayers sought, including
+   Decree Nisi, ancillary orders, and costs.
+
+${RESEARCH_BLOCK_INSTRUCTION}
+
+FORMAT:
+- Cover heading: IN THE [COURT] / PETITION NO: [X] / IN THE MATTER OF THE PETITION OF [PETITIONER] / FINAL WRITTEN ADDRESS
+- Use ## for major sections, ### for sub-points
+- End with: CONCLUSION AND PRAYERS
+- Sign-off block: Respectfully submitted, [Counsel], AFS Advocates
+
+Produce the complete Matrimonial Final Written Address now.`
+      : `Draft a Final Written Address for Nigerian court proceedings.
 
 CASE: ${activeCase.caseName}
 SUIT NO: ${activeCase.suitNo || 'Not specified'}
@@ -571,7 +627,7 @@ Produce the complete Final Written Address now.`;
         loading={theoryLoading}
       />
       <div style={cardS}>
-        <h3 style={hS}>Civil / FREP — Final Written Address</h3>
+        <h3 style={hS}>{activeCase.originating_process === 'petition_matrimonial' ? 'Matrimonial — Final Written Address' : 'Civil / FREP — Final Written Address'}</h3>
         <p style={dimS}>
           Build the argument issue by issue using IRAC. The engine drafts the complete
           Final Written Address from your framework. Statute RAG fires automatically.

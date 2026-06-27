@@ -4407,6 +4407,167 @@ export function TrialEngine({ activeCase, onSetDashTab }: Props) {
     await saveCase({ ...activeCase, ...patch });
   }
 
+  // ── Guard A — FREP: paper proceedings only ───────────────────────────────
+  if (activeCase.originating_process === 'frep') {
+    return (
+      <div style={{ padding: '28px 0' }}>
+        <div style={{
+          background: '#fafaf8', border: `1px solid ${T.bdr}`,
+          borderRadius: 5, padding: '28px 32px', marginBottom: 20,
+        }}>
+          <p style={{
+            fontSize: 9, color: T.mute,
+            fontFamily: "'Times New Roman', Times, serif",
+            letterSpacing: '.18em', textTransform: 'uppercase', fontWeight: 700,
+            marginBottom: 10,
+          }}>
+            Trial Engine — FREP Matter
+          </p>
+          <h3 style={{
+            fontSize: 18, color: T.text,
+            fontFamily: "'Times New Roman', Times, serif",
+            fontWeight: 700, fontStyle: 'italic', marginBottom: 10,
+          }}>
+            Paper Proceedings — Oral Evidence Suppressed
+          </h3>
+          <p style={{
+            fontSize: 13, color: T.mute,
+            fontFamily: "'Times New Roman', Times, serif",
+            lineHeight: 1.7, marginBottom: 18,
+          }}>
+            Fundamental Rights Enforcement Proceedings are conducted entirely on
+            affidavit evidence. There are no witnesses, no examination-in-chief,
+            and no cross-examination. The matter proceeds by affidavit, counter-affidavit,
+            further affidavit (if ordered), and written address.
+          </p>
+          <div style={{
+            background: '#f0f4fb', border: '1px solid #b8cfe8',
+            borderRadius: 4, padding: '14px 18px', marginBottom: 18,
+          }}>
+            <p style={{
+              fontSize: 12, color: '#1a4a8a',
+              fontFamily: "'Times New Roman', Times, serif",
+              fontWeight: 700, marginBottom: 6,
+            }}>
+              Available in this matter:
+            </p>
+            <ul style={{
+              margin: 0, paddingLeft: 18,
+              fontSize: 12, color: '#1a4a8a',
+              fontFamily: "'Times New Roman', Times, serif",
+              lineHeight: 1.8,
+            }}>
+              <li>Case Theory Brief — lock theory before Final Written Address</li>
+              <li>Final Written Address Engine — draft the FWA on completion of affidavit stage</li>
+            </ul>
+          </div>
+          <p style={{
+            fontSize: 11, color: T.dim,
+            fontFamily: "'Times New Roman', Times, serif",
+            fontStyle: 'italic',
+          }}>
+            Witness Register, Examination-in-Chief, Cross-Examination, Contradiction
+            Mapper, and Impeachment Arsenal are not applicable to FREP matters and
+            are suppressed.
+          </p>
+        </div>
+
+        {/* Case Theory Brief is still available for FREP — lock theory before FWA */}
+        <CaseTheoryBriefTab
+          activeCase={activeCase}
+          role={trialRole}
+          theoryReload={caseTheory.reload}
+        />
+      </div>
+    );
+  }
+
+  // ── Guard B — Originating Summons: paper proceedings ─────────────────────
+  if (activeCase.originating_process === 'originating_summons') {
+    return (
+      <div style={{ padding: '28px 0' }}>
+        <div style={{
+          background: '#fafaf8', border: `1px solid ${T.bdr}`,
+          borderRadius: 5, padding: '28px 32px', marginBottom: 20,
+        }}>
+          <p style={{
+            fontSize: 9, color: T.mute,
+            fontFamily: "'Times New Roman', Times, serif",
+            letterSpacing: '.18em', textTransform: 'uppercase', fontWeight: 700,
+            marginBottom: 10,
+          }}>
+            Trial Engine — Originating Summons Matter
+          </p>
+          <h3 style={{
+            fontSize: 18, color: T.text,
+            fontFamily: "'Times New Roman', Times, serif",
+            fontWeight: 700, fontStyle: 'italic', marginBottom: 10,
+          }}>
+            Paper Proceedings — Oral Evidence Suppressed
+          </h3>
+          <p style={{
+            fontSize: 13, color: T.mute,
+            fontFamily: "'Times New Roman', Times, serif",
+            lineHeight: 1.7, marginBottom: 18,
+          }}>
+            Originating Summons proceedings are determined on affidavit evidence
+            and written submissions. The court resolves questions of law or
+            construction without oral witnesses. There is no trial in the
+            conventional sense — no examination-in-chief and no cross-examination.
+          </p>
+          <div style={{
+            background: '#f0f4fb', border: '1px solid #b8cfe8',
+            borderRadius: 4, padding: '14px 18px', marginBottom: 18,
+          }}>
+            <p style={{
+              fontSize: 12, color: '#1a4a8a',
+              fontFamily: "'Times New Roman', Times, serif",
+              fontWeight: 700, marginBottom: 6,
+            }}>
+              Available in this matter:
+            </p>
+            <ul style={{
+              margin: 0, paddingLeft: 18,
+              fontSize: 12, color: '#1a4a8a',
+              fontFamily: "'Times New Roman', Times, serif",
+              lineHeight: 1.8,
+            }}>
+              <li>Case Theory Brief — structure arguments before the hearing</li>
+              <li>Final Written Address Engine — draft submissions on the questions posed</li>
+            </ul>
+          </div>
+          <div style={{
+            background: '#fff8f0', border: '1px solid #e0cfa0',
+            borderRadius: 4, padding: '12px 16px', marginBottom: 0,
+          }}>
+            <p style={{
+              fontSize: 12, color: '#7a4a00',
+              fontFamily: "'Times New Roman', Times, serif",
+              fontStyle: 'italic',
+            }}>
+              <strong>Note:</strong> If the court orders that the originating summons
+              be converted to a writ and pleadings directed, return here — the full
+              Trial Engine (witness register, examination, cross-examination) will
+              be available once the matter track is updated to Writ of Summons.
+            </p>
+          </div>
+        </div>
+
+        {/* Case Theory Brief is still available for OS matters */}
+        <CaseTheoryBriefTab
+          activeCase={activeCase}
+          role={trialRole}
+          theoryReload={caseTheory.reload}
+        />
+      </div>
+    );
+  }
+
+  // ── Guard C — Matrimonial: oral evidence compulsory — no suppression ──────
+  // Do NOT return early — fall through to the full engine.
+  // A permanent non-dismissible banner is injected above the tab nav instead.
+  const isMatrimonial = activeCase.originating_process === 'petition_matrimonial';
+
   return (
     <div>
 
@@ -4460,6 +4621,41 @@ export function TrialEngine({ activeCase, onSetDashTab }: Props) {
           onOpenTheory={() => setActiveTab('theory_brief')}
         />
       </div>
+
+      {/* ── Guard C — Matrimonial mandatory testimony banner ─────────────── */}
+      {isMatrimonial && (
+        <div style={{
+          margin: '0 0 18px',
+          padding: '14px 18px',
+          background: '#f5edfb',
+          border: '1px solid #ccb8e8',
+          borderRadius: 4,
+          display: 'flex',
+          gap: 12,
+          alignItems: 'flex-start',
+        }}>
+          <span style={{ fontSize: 16, lineHeight: 1, flexShrink: 0 }}>⚖</span>
+          <div>
+            <p style={{
+              fontSize: 12, color: '#4a1a7a',
+              fontFamily: "'Times New Roman', Times, serif",
+              fontWeight: 700, marginBottom: 4,
+            }}>
+              Matrimonial Matter — Oral Evidence Compulsory
+            </p>
+            <p style={{
+              fontSize: 12, color: '#4a1a7a',
+              fontFamily: "'Times New Roman', Times, serif",
+              lineHeight: 1.6, margin: 0,
+            }}>
+              Oral testimony of the Petitioner is mandatory in matrimonial causes —
+              s.82 Matrimonial Causes Act. The full Trial Engine is available.
+              Examination-in-Chief, Cross-Examination, and all witness tools apply
+              to this matter.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* ── Tab navigation ────────────────────────────────────────────────── */}
       <div
