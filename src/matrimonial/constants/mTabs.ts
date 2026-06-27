@@ -1,130 +1,62 @@
 /**
  * AFS Advocates — Matrimonial Dashboard Tab Constants
  *
- * Phase 7 (Engine consolidation): 16 → 11 tabs.
- * Matrimonial cases NEVER use the civil CaseDashboard tab set.
+ * Phase 2A (Pipeline consolidation): 12 → 4 tabs.
+ * Matrimonial cases now run the same 4-engine pipeline as civil cases:
+ *   Intelligence → Pleadings → Trial → Written Address
  *
- * Removed tab IDs: custody, maintenance, property (now inside MatrimonialEngine),
- *                  risk (absorbed into CaseCommand), research (absorbed into
- *                  WrittenAddressEngine), builder (absorbed into WrittenAddressEngine).
- * Added tab IDs:   case_command, strategy_hub, written_address, inheritance.
+ * Retired tabs (engines stay in codebase as background services):
+ *   case_command, inheritance, petition_answer, matrimonial, ancillary_applications,
+ *   forms_documents, evidence, strategy_hub, decree_enforcement, appeal, copilot
  *
- * New tab order matches Master Plan Phase 5 matrimonial tab set:
- *   Case Command → Intelligence → Inheritance → Petition & Answer
- *   → Matrimonial Engine → Applications → Forms & Documents
- *   → Evidence Vault → Case Intelligence → Decree & Enforcement → Appeal → Copilot
+ * Background service mapping:
+ *   MIntelligence.tsx        → called by IntelligenceEngine (Phase 3A)
+ *   MFormsEngine.tsx         → called by MatrimonialPetitionEngine (Phase 4A)
+ *   MApplications.tsx        → retired; all 9 types ported to ApplicationsEngine (Phase 7A)
+ *   DecreeEnforcementEngine  → MatrimonialDashboard reads decree_nisi_date, renders badge
+ *   MAppeal.tsx              → MatrimonialDashboard reads decree_stage, renders badge
+ *   MatrimonialEngine.tsx    → retired as tab; dead route in CaseDashboard
  *
  * MCA = Matrimonial Causes Act, Cap M7, LFN 2004
  * MCR = Matrimonial Causes Rules 1983
  */
 
 export type MTabId =
-  | 'case_command'
   | 'intelligence'
-  | 'inheritance'
-  | 'petition_answer'
-  | 'matrimonial'
-  | 'ancillary_applications'
-  | 'forms_documents'
-  | 'evidence'
-  | 'strategy_hub'
-  | 'decree_enforcement'
-  | 'appeal'
-  | 'copilot';
+  | 'pleadings'
+  | 'trial'
+  | 'written_address';
 
 export interface MTab {
   id:          MTabId;
   icon:        string;
   label:       string;
-  /** Which phase builds this engine. 'ready' = available now. */
-  phase:       'ready' | 5 | 6 | 7;
-  /** Short description shown in placeholder panels. */
   description: string;
 }
 
 export const MATRIMONIAL_TABS: MTab[] = [
   {
-    id:          'case_command',
-    icon:        '⊕',
-    label:       'Case Command',
-    phase:       'ready',
-    description: 'Position strip, next action, stage timeline, compliance audit, risk score, alerts, and quick actions — all in one scrollable view.',
-  },
-  {
     id:          'intelligence',
     icon:        '◈',
     label:       'Intelligence',
-    phase:       'ready',
-    description: 'MIntelligence — 5-step MCA-specific extraction: marriage timeline, s.15(2) facts in play, two-year bar, children, financial picture, condonation risk, co-respondent, decree stage, gaps and risks.',
+    description: 'IntelligenceEngine with MCA extraction layer — marriage timeline, s.15(2) facts in play, two-year bar, condonation risk, co-respondent, cross-petition detection, decree stage, gaps and risks. One paste; everything downstream pre-loaded.',
   },
   {
-    id:          'inheritance',
-    icon:        '⌖',
-    label:       'Inheritance',
-    phase:       'ready',
-    description: 'InheritanceMode — shared engine, as-is.',
-  },
-  {
-    id:          'petition_answer',
+    id:          'pleadings',
     icon:        '§',
-    label:       'Petition / Answer',
-    phase:       'ready',
-    description: 'Petition Builder and Respondent Defence — promoted from MatrimonialEngine sub-tabs.',
+    label:       'Pleadings',
+    description: 'PleadingsEngine (matrimonial_petition track) — Petitioner: MCR Form 1/6, Certificate of Compliance, Verifying Affidavit, Non-Collusion Affidavit, s.30 Leave Motion, Co-Respondent Notice. Respondent: Form 10 Notice of Appearance, Form 11A Answer, Condonation Plea, s.30 Bar Objection, Form 11B Cross-Petition.',
   },
   {
-    id:          'matrimonial',
+    id:          'trial',
     icon:        '⚖',
-    label:       'Matrimonial Engine',
-    phase:       'ready',
-    description: 'MatrimonialEngine — 8 sub-tabs: custody, maintenance, property, and ancillary relief. Untouched.',
+    label:       'Trial',
+    description: 'TrialEngine — role-mapped: petitioner_side → prosecution_claimant; respondent_side → defence_defendant. Full hearing preparation, examination, and evidence workflow.',
   },
   {
-    id:          'ancillary_applications',
-    icon:        '⬛',
-    label:       'Applications',
-    phase:       'ready',
-    description: 'Ancillary applications — maintenance pendente lite, interim custody, leave under s.30 MCA.',
-  },
-  {
-    id:          'forms_documents',
-    icon:        '📄',
-    label:       'Forms & Documents',
-    phase:       'ready',
-    description: 'MFormsEngine — all 14 MCR statutory forms generated to filing standard: Form 3A, 6, 7, 8/8A, 11, 15, 15A, 17, 30, 31, 32, 33, 42/43, 60.',
-  },
-  {
-    id:          'evidence',
-    icon:        '🗂',
-    label:       'Evidence',
-    phase:       'ready',
-    description: 'EvidenceVault — shared engine, as-is.',
-  },
-  {
-    id:          'strategy_hub',
-    icon:        '◉',
-    label:       'Strategy Hub',
-    phase:       'ready',
-    description: 'StrategyHub — three modes: Intelligence Layer (BlindSpots), Strategic Cockpit (WarRoom), Brief Me.',
-  },
-  {
-    id:          'decree_enforcement',
-    icon:        '⚡',
-    label:       'Decree & Enforcement',
-    phase:       'ready',
-    description: 'DecreeEnforcementEngine — tracks decree nisi date, computes s.57 (28-day) or s.58 (3-month) absolute deadline, drafts application to make absolute, handles post-absolute enforcement (maintenance arrears, property transfer, contempt, custody non-compliance).',
-  },
-  {
-    id:          'appeal',
-    icon:        '▲',
-    label:       'Appeal',
-    phase:       'ready',
-    description: 'MAppeal — hard block on appealing decree absolute (s.241(2) CFRN). As-of-right appeal against decree nisi (s.241(1)(f)(iv) CFRN). Court of Appeal matrimonial division procedure.',
-  },
-  {
-    id:          'copilot',
-    icon:        '✦',
-    label:       'AI Copilot',
-    phase:       'ready',
-    description: 'AICopilot — shared engine, role-aware via existing role prompt system.',
+    id:          'written_address',
+    icon:        '✍',
+    label:       'Written Address',
+    description: 'FinalWrittenAddressEngine — adapts to matter_track. When cross_petition_filed is true, intelligence package carries cross-petition facts and AI generates two issues streams automatically.',
   },
 ];
