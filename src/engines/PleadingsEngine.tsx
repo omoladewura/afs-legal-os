@@ -16,7 +16,8 @@ import { useAI } from '@/hooks/useAI';
 import { useCaseContext } from '@/hooks/useCaseContext';
 import { buildRoleSystemPrompt } from '@/utils/rolePrompt';
 import { getPartyLabels } from '@/utils/getPartyLabels';
-import { loadBlindSpot, saveBlindSpot } from '@/storage/helpers';
+import { loadBlindSpot, saveBlindSpot, loadMatrimonialData } from '@/storage/helpers';
+import type { MatrimonialCaseData } from '@/matrimonial/types';
 import { Md, ErrorBlock } from '@/components/common/ui';
 import { COUNSEL_ROLE_COLORS } from '@/types';
 
@@ -145,6 +146,18 @@ interface SavedData {
   arbDefenceContext?: string; arbDefenceDraft?: string;
   arbClaimantAddressContext?: string; arbClaimantAddressDraft?: string;
   arbRespondentAddressContext?: string; arbRespondentAddressDraft?: string;
+  // 4A — Matrimonial Petition (MCR)
+  matPetitionContext?: string; matPetitionDraft?: string;
+  matComplianceCertContext?: string; matComplianceCertDraft?: string;
+  matVerifyingAffContext?: string; matVerifyingAffDraft?: string;
+  matNonCollusionContext?: string; matNonCollusionDraft?: string;
+  matS30MotionContext?: string; matS30MotionDraft?: string;
+  matCoRespNoticeContext?: string; matCoRespNoticeDraft?: string;
+  matForm10Context?: string; matForm10Draft?: string;
+  matAnswerContext?: string; matAnswerDraft?: string;
+  matCondPleasContext?: string; matCondPleaDraft?: string;
+  matS30ObjContext?: string; matS30ObjDraft?: string;
+  matCrossPetitionContext?: string; matCrossPetitionDraft?: string;
 }
 
 const MODULE = 'pleadings_engine';
@@ -2438,6 +2451,526 @@ Flag [COUNSEL TO SUPPLY] for all blanks. Return complete Written Address only.`,
 
 
 // ─── MAIN ENGINE — COURT ROUTER ──────────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PHASE 4A — MATRIMONIAL PETITION ENGINE
+// Routes on counsel_role: petitioner_side → 6 petitioner tabs
+//                         respondent_side → 5 respondent tabs (cross-petition conditional)
+// All tabs pre-populated from matrimonial_data via loadMatrimonialData() on mount.
+// MCA = Matrimonial Causes Act, Cap M7 LFN 2004 | MCR = Matrimonial Causes Rules 1983
+// ─────────────────────────────────────────────────────────────────────────────
+
+type MatSubTab =
+  | 'mat_petition' | 'mat_compliance' | 'mat_verifying_aff'
+  | 'mat_non_collusion' | 'mat_s30_motion' | 'mat_co_resp'
+  | 'mat_form10' | 'mat_answer' | 'mat_condonation'
+  | 'mat_s30_obj' | 'mat_cross_petition';
+
+function MatrimonialPetitionEngine({
+  activeCase, data, onSave, accent, ai, systemCtx,
+}: {
+  activeCase: Case;
+  data: SavedData;
+  onSave: (d: Partial<SavedData>) => void;
+  accent: string;
+  ai: ReturnType<typeof useAI>;
+  systemCtx: string;
+}) {
+  const SERIF = "'Times New Roman', Times, serif";
+  const isPetitioner = activeCase.counsel_role === 'petitioner_side';
+
+  const [mData, setMData] = React.useState<MatrimonialCaseData | null>(null);
+  const [activeTab, setActiveTab] = React.useState<MatSubTab>(
+    isPetitioner ? 'mat_petition' : 'mat_form10'
+  );
+
+  React.useEffect(() => {
+    loadMatrimonialData(activeCase.id)
+      .then(setMData)
+      .catch(() => setMData(null));
+  }, [activeCase.id]);
+
+  // Derived conditional flags from matrimonial_data
+  const twoYearBar     = mData?.two_year_bar_applies === true && !mData?.leave_granted;
+  const adulteryAlleged = mData?.intelligence_extraction?.dissolution_facts
+    ?.some((f: { fact_code: string }) => f.fact_code === 'adultery') ?? false;
+  const condonationRisk = mData?.condonation_risk === true ||
+    mData?.intelligence_extraction?.condonation_risk?.risk === true;
+  const crossPetitionFiled = mData?.cross_petition_filed === true;
+  const leaveGranted   = mData?.leave_granted === true;
+
+  // Pre-populated context block from matrimonial_data for prompts
+  const mcaCtx = mData ? [
+    mData.marriage_date      ? `Marriage date: ${mData.marriage_date}` : '',
+    mData.separation_date    ? `Separation date: ${mData.separation_date}` : '',
+    mData.relief_type        ? `Relief sought: ${mData.relief_type}` : '',
+    mData.petitioner_name    ? `Petitioner: ${mData.petitioner_name}` : '',
+    mData.respondent_name    ? `Respondent: ${mData.respondent_name}` : '',
+    mData.children_count != null ? `Children: ${mData.children_count}` : '',
+  ].filter(Boolean).join(' | ') : '';
+
+  // ── Petitioner tabs ───────────────────────────────────────────────────────
+  const petitionerTabs: { id: MatSubTab; label: string; show: boolean }[] = [
+    { id: 'mat_petition',      label: 'Petition (MCR Form 1/6)',         show: true },
+    { id: 'mat_compliance',    label: 'Certificate of Compliance (F3)',  show: true },
+    { id: 'mat_verifying_aff', label: 'Verifying Affidavit',            show: true },
+    { id: 'mat_non_collusion', label: 'Non-Collusion Affidavit',        show: true },
+    { id: 'mat_s30_motion',    label: 's.30 Leave Motion',              show: twoYearBar },
+    { id: 'mat_co_resp',       label: 'Co-Respondent Notice',           show: adulteryAlleged },
+  ];
+
+  // ── Respondent tabs ───────────────────────────────────────────────────────
+  const respondentTabs: { id: MatSubTab; label: string; show: boolean }[] = [
+    { id: 'mat_form10',        label: 'Form 10 — Notice of Appearance', show: true },
+    { id: 'mat_answer',        label: 'Form 11 Pt A — Answer',          show: true },
+    { id: 'mat_condonation',   label: 'Condonation Plea',               show: condonationRisk },
+    { id: 'mat_s30_obj',       label: 's.30 Bar Preliminary Objection', show: twoYearBar && !leaveGranted },
+    { id: 'mat_cross_petition',label: 'Form 11 Pt B — Cross-Petition',  show: crossPetitionFiled },
+  ];
+
+  const tabs = (isPetitioner ? petitionerTabs : respondentTabs).filter(t => t.show);
+
+  // Ensure active tab is always valid after flags change
+  React.useEffect(() => {
+    if (!tabs.find(t => t.id === activeTab)) {
+      setActiveTab(tabs[0]?.id ?? (isPetitioner ? 'mat_petition' : 'mat_form10'));
+    }
+  }, [tabs.map(t => t.id).join(',')]);
+
+  // ── Panel renderer ────────────────────────────────────────────────────────
+  function renderPanel() {
+    const sp = { data, onSave, accent, ai, systemCtx };
+
+    const petitionerName = mData?.petitioner_name ?? activeCase.parties?.find(
+      (p: { role?: string; type?: string }) => p.role === 'petitioner_side' || p.type === 'petitioner'
+    )?.name ?? '[Petitioner]';
+
+    const respondentName = mData?.respondent_name ?? activeCase.parties?.find(
+      (p: { role?: string; type?: string }) => p.role === 'respondent_side' || p.type === 'respondent'
+    )?.name ?? '[Respondent]';
+
+    const suitNo = activeCase.suitNo ?? '[Suit No]';
+    const court  = activeCase.court  ?? 'High Court';
+
+    switch (activeTab) {
+
+      // ── PETITIONER: Petition (MCR Form 1 / Form 6) ─────────────────────
+      case 'mat_petition':
+        return (
+          <AIDrafter
+            title="Matrimonial Petition — MCR Form 1 / Form 6"
+            description={`Draft the ${mData?.relief_type ?? 'dissolution'} petition under the Matrimonial Causes Act. The petition must: plead the ground(s) under s.15(2) MCA with full particulars; identify co-respondent if adultery is alleged; include the s.30 two-year bar status; recite the jurisdictional basis (domicile / habitual residence); contain the required prayers including ancillary relief, costs, and children welfare where applicable.`}
+            contextLabel="Matrimonial facts, grounds, and particulars"
+            contextPlaceholder={`Add any additional particulars beyond what MCA intelligence already captured. Pre-loaded: ${mcaCtx || 'run Intelligence Engine first for auto-population'}`}
+            draftKey="matPetitionDraft"
+            contextKey="matPetitionContext"
+            prompt={`Draft a complete Matrimonial Petition (MCR Form 1 / Form 6 for dissolution) for filing in the ${court}.
+
+Case: ${petitionerName} v ${respondentName} — ${suitNo}
+Relief: ${mData?.relief_type ?? 'dissolution of marriage'}
+MCA Intelligence: ${mcaCtx}
+Additional facts: \${context}
+
+Requirements:
+1. Full recitation of jurisdictional basis — domicile or habitual residence under s.7 MCA
+2. Date, place and particulars of marriage
+3. Ground(s) under s.15(2) MCA with numbered particulars — cruelty, adultery, desertion, two-year separation, etc.
+4. Where adultery alleged: name co-respondent and plead with sufficient particulars
+5. Two-year bar status — if s.30 leave required, recite leave application or order
+6. Children of the marriage — ages, custody proposal
+7. Previous proceedings — recite or confirm none
+8. Prayers: dissolution decree nisi → absolute; ancillary relief; custody/maintenance; costs
+9. Verification clause
+10. Format as properly numbered paragraphs per MCR Form 1 style`}
+            maxTokens={3000}
+            {...sp}
+          />
+        );
+
+      // ── PETITIONER: Certificate of Compliance (MCR Form 3) ─────────────
+      case 'mat_compliance':
+        return (
+          <AIDrafter
+            title="Certificate of Compliance — MCR Form 3"
+            description="Reconciliation compliance certificate confirming prescribed reconciliation steps were taken before filing — required under s.11 MCA and Rule 5 MCR. Certifies that the petitioner has been informed of reconciliation facilities available and has considered them."
+            contextLabel="Reconciliation steps taken / counsellor details"
+            contextPlaceholder="Name and address of reconciliation counsellor, dates of consultations, outcome"
+            draftKey="matComplianceCertDraft"
+            contextKey="matComplianceCertContext"
+            prompt={`Draft a Certificate of Compliance (MCR Form 3) for:
+${petitionerName} v ${respondentName} — ${suitNo}
+
+Details: \${context}
+
+The certificate must:
+1. Identify the petitioner and their solicitor
+2. Certify compliance with s.11 MCA — that the petitioner was informed of and considered reconciliation
+3. Name the reconciliation counsellor or body consulted
+4. State the date(s) of consultation
+5. Confirm the marriage has broken down irretrievably and reconciliation is not feasible
+6. Be signed by the petitioner's counsel
+7. Follow MCR Form 3 format precisely`}
+            maxTokens={1500}
+            {...sp}
+          />
+        );
+
+      // ── PETITIONER: Verifying Affidavit ────────────────────────────────
+      case 'mat_verifying_aff':
+        return (
+          <AIDrafter
+            title="Verifying Affidavit"
+            description="Affidavit verifying the contents of the petition — deposed by the petitioner. Confirms all facts in the petition are true to the best of the petitioner's knowledge and belief. Required to be filed with the petition under MCR."
+            contextLabel="Any facts requiring specific verification"
+            contextPlaceholder="Leave blank to use petition facts automatically"
+            draftKey="matVerifyingAffDraft"
+            contextKey="matVerifyingAffContext"
+            prompt={`Draft a Verifying Affidavit for the matrimonial petition in:
+${petitionerName} v ${respondentName} — ${suitNo}
+
+Deponent: ${petitionerName} (Petitioner)
+Additional context: \${context}
+
+The affidavit must:
+1. Correctly introduce the deponent — name, address, capacity as Petitioner
+2. Exhibit or refer to the Petition by exhibit mark (Exhibit 'A')
+3. Verify all facts in the Petition as true to the best of the deponent's knowledge and belief
+4. Identify facts known from personal knowledge vs. information and belief
+5. Contain the standard MCR jurat clause
+6. Be properly formatted for filing in the ${court}`}
+            maxTokens={1500}
+            {...sp}
+          />
+        );
+
+      // ── PETITIONER: Affidavit of Non-Collusion / Non-Condonation ───────
+      case 'mat_non_collusion':
+        return (
+          <AIDrafter
+            title="Affidavit of Non-Collusion / Non-Condonation"
+            description="Affidavit required under MCR confirming: (1) there is no collusion between the parties regarding the petition; (2) the petitioner has not condoned the conduct complained of. Both limbs are required in a single affidavit or separate affidavits as directed by the court."
+            contextLabel="Any relevant facts on collusion / condonation history"
+            contextPlaceholder="Leave blank unless there are facts to distinguish or address"
+            draftKey="matNonCollusionDraft"
+            contextKey="matNonCollusionContext"
+            prompt={`Draft an Affidavit of Non-Collusion and Non-Condonation for:
+${petitionerName} v ${respondentName} — ${suitNo}
+
+Deponent: ${petitionerName}
+Additional context: \${context}
+
+The affidavit must:
+1. Introduce the deponent as Petitioner
+2. NON-COLLUSION LIMB: Depose that there is no agreement, understanding or collusion between the Petitioner and Respondent regarding the bringing of these proceedings or the relief sought
+3. NON-CONDONATION LIMB: Depose that the Petitioner has not condoned the conduct particularised in the Petition — and has not, after knowledge of the conduct, voluntarily resumed or continued cohabitation with the Respondent
+4. Where adultery is alleged: confirm Petitioner did not connive at or participate in the adultery
+5. Jurat and attestation
+6. Format for ${court}`}
+            maxTokens={1500}
+            {...sp}
+          />
+        );
+
+      // ── PETITIONER: s.30 Leave Motion (conditional — two-year bar) ─────
+      case 'mat_s30_motion':
+        return (
+          <AIDrafter
+            title="s.30 Leave Motion — Application to Present Petition"
+            description="Motion for leave to present a petition where the marriage has not subsisted for two years — required under s.30 MCA. Must plead the exceptional ground (wilful refusal to consummate, adultery, rape/sodomy/bestiality, or exceptional hardship / depravity) and exhibit supporting affidavit evidence."
+            contextLabel="Grounds for leave and supporting facts"
+            contextPlaceholder="Specify which s.30 exception applies and the supporting facts"
+            draftKey="matS30MotionDraft"
+            contextKey="matS30MotionContext"
+            prompt={`Draft a Motion for Leave to Present Matrimonial Petition under s.30 MCA for:
+${petitionerName} v ${respondentName} — ${suitNo}
+Two-year bar exception: ${mData?.two_year_bar_exception ?? 'to be specified'}
+
+Facts: \${context}
+
+The Motion must:
+1. Cite s.30 MCA and O.4 rr.1–2 MCR as authority
+2. Identify which statutory exception is invoked — wilful refusal to consummate; adultery; rape, sodomy or bestiality on the respondent; or exceptional hardship or depravity
+3. Narrate the facts establishing the exception with sufficient particulars
+4. Address why it would be unjust to require the petitioner to wait the two-year period
+5. Include a supporting affidavit (or direct that one is exhibited)
+6. State the relief sought: leave to present the petition; costs
+7. Identify the applicable court and judge
+8. Format as a formal motion with preamble, grounds, and prayer`}
+            maxTokens={2000}
+            {...sp}
+          />
+        );
+
+      // ── PETITIONER: Co-Respondent Joinder Notice (conditional — adultery)
+      case 'mat_co_resp':
+        return (
+          <AIDrafter
+            title="Co-Respondent Joinder Notice"
+            description="Notice of joinder of co-respondent in adultery proceedings — required where adultery is alleged and the co-respondent is named. Filed under MCR to give the co-respondent an opportunity to be heard."
+            contextLabel="Co-respondent name, address, and particulars of adultery"
+            contextPlaceholder="Full name and address of co-respondent, dates and places of adultery alleged"
+            draftKey="matCoRespNoticeDraft"
+            contextKey="matCoRespNoticeContext"
+            prompt={`Draft a Notice of Joinder of Co-Respondent for:
+${petitionerName} v ${respondentName} — ${suitNo}
+Co-respondent: ${mData?.co_respondent_name ?? '[Co-Respondent Name]'}
+
+Particulars: \${context}
+
+The Notice must:
+1. Identify the suit and parties
+2. Name the co-respondent in full and give their last known address
+3. Recite the adultery allegation from the petition with sufficient particulars (dates, places)
+4. State that the co-respondent is joined as a party to these proceedings
+5. Inform the co-respondent of the right to enter appearance and file a response
+6. State the time limit for filing a response under MCR
+7. Bear the court stamp / reference and be signed by petitioner's counsel
+8. Include proof of service endorsement space`}
+            maxTokens={1500}
+            {...sp}
+          />
+        );
+
+      // ── RESPONDENT: Form 10 — Notice of Appearance ─────────────────────
+      case 'mat_form10': {
+        const serviceDate = mData?.service_date;
+        const deadline28  = serviceDate
+          ? new Date(new Date(serviceDate).getTime() + 28 * 864e5).toLocaleDateString('en-GB')
+          : '28 days from service';
+        return (
+          <div>
+            {serviceDate && (
+              <div style={{
+                background: '#fff8e1', border: '1px solid #f0c040', borderRadius: 6,
+                padding: '10px 16px', marginBottom: 16, fontFamily: SERIF, fontSize: 12,
+              }}>
+                <strong style={{ color: '#8a5a00' }}>⏱ 28-Day Deadline:</strong>
+                {' '}Notice of Appearance must be filed by <strong>{deadline28}</strong> (MCR O.6 r.1).
+              </div>
+            )}
+            <AIDrafter
+              title="Form 10 — Notice of Appearance (MCR O.6 r.1)"
+              description="Notice of Appearance by the Respondent — must be filed within 28 days of service of the Petition. Signals the Respondent intends to defend. Failure to file within the period may result in the case proceeding in default."
+              contextLabel="Service date and respondent's solicitor details"
+              contextPlaceholder={`Service date: ${serviceDate ?? 'enter date'}. Respondent's solicitor name, firm, and address`}
+              draftKey="matForm10Draft"
+              contextKey="matForm10Context"
+              prompt={`Draft a Notice of Appearance (MCR Form 10) for the Respondent in:
+${petitionerName} v ${respondentName} — ${suitNo}
+Court: ${court}
+Service date: ${serviceDate ?? '[date of service]'}
+Appearance deadline: ${deadline28}
+
+Details: \${context}
+
+The Notice must:
+1. Follow MCR Form 10 format exactly
+2. Identify the suit number, court, Petitioner and Respondent
+3. State the Respondent's full name and address for service
+4. Name the Respondent's solicitor and their address
+5. Indicate whether the Respondent intends to contest the petition in whole or in part
+6. Be signed by the Respondent's solicitor
+7. State the date of filing
+8. Include the filing endorsement space`}
+              maxTokens={1500}
+              {...sp}
+            />
+          </div>
+        );
+      }
+
+      // ── RESPONDENT: Form 11 Part A — Answer to Petition ────────────────
+      case 'mat_answer':
+        return (
+          <AIDrafter
+            title="Form 11 Part A — Answer to Petition (MCR)"
+            description="The Respondent's Answer to the Petition — filed after the Notice of Appearance. Responds paragraph by paragraph to the Petition: admitting, denying, or not admitting each allegation. May raise affirmative defences including condonation, connivance, collusion, or the s.30 two-year bar. This is Part A of Form 11 — Part B (Cross-Petition) is activated separately."
+            contextLabel="Respondent's instructions and defence particulars"
+            contextPlaceholder="Which allegations are admitted, which denied, what defences are raised, and on what facts"
+            draftKey="matAnswerDraft"
+            contextKey="matAnswerContext"
+            prompt={`Draft Form 11 Part A — Answer to Matrimonial Petition for the Respondent in:
+${petitionerName} v ${respondentName} — ${suitNo}
+Court: ${court}
+
+MCA Intelligence: ${mcaCtx}
+Respondent's instructions: \${context}
+
+The Answer must:
+1. Follow MCR Form 11 Part A format
+2. Respond to each numbered paragraph of the Petition — admit, deny, or not admit
+3. Where denying, give brief particulars of the denial
+4. Raise any affirmative defences with full particulars:
+   - Condonation: petitioner resumed cohabitation after the conduct
+   - Connivance: petitioner facilitated or acquiesced in the conduct
+   - Collusion: the proceedings are collusive
+   - Delay / Laches where applicable
+5. Address the relief sought — oppose or qualify as instructed
+6. State any relief the Respondent seeks in Part A (excluding cross-petition relief — that goes in Part B)
+7. Be properly verified
+8. Format as numbered paragraphs corresponding to the Petition`}
+            maxTokens={2500}
+            {...sp}
+          />
+        );
+
+      // ── RESPONDENT: Condonation Plea (conditional) ──────────────────────
+      case 'mat_condonation':
+        return (
+          <AIDrafter
+            title="Condonation Plea"
+            description="Affidavit and plea of condonation — raised where the petitioner resumed cohabitation with the respondent after knowledge of the conduct complained of, thereby condoning it. If established, condonation defeats the petition on that ground unless the conduct was repeated."
+            contextLabel="Facts supporting condonation — dates of resumed cohabitation, petitioner's knowledge"
+            contextPlaceholder="When did petitioner resume cohabitation? What conduct did they have knowledge of? Were there further acts after resumption?"
+            draftKey="matCondPleaDraft"
+            contextKey="matCondPleasContext"
+            prompt={`Draft a Condonation Plea (affidavit and pleading) for the Respondent in:
+${petitionerName} v ${respondentName} — ${suitNo}
+
+Facts: \${context}
+
+The plea must:
+1. Identify the ground in the Petition being condoned
+2. Plead the specific facts: when and how the Petitioner resumed cohabitation, the Petitioner's knowledge of the conduct at that time
+3. Where resumption was temporary or qualified, address that
+4. Cite the legal principle: condonation requires both resumption of cohabitation AND forgiveness with knowledge
+5. Address whether any subsequent acts revived the condoned conduct
+6. Link to the Answer (Part A) — reference the paragraph where condonation is raised
+7. Supporting affidavit: depose to the resumption facts in the first person
+8. Prayer: dismiss the petition on the condoned ground or reduce weight of evidence`}
+            maxTokens={2000}
+            {...sp}
+          />
+        );
+
+      // ── RESPONDENT: s.30 Bar Preliminary Objection (conditional) ───────
+      case 'mat_s30_obj':
+        return (
+          <AIDrafter
+            title="s.30 Bar — Preliminary Objection"
+            description="Preliminary objection challenging the court's jurisdiction to hear the petition where the marriage has not subsisted for two years and no leave was granted under s.30 MCA. This is a threshold objection — if upheld, it dismisses the petition in limine without hearing the merits."
+            contextLabel="Date of marriage, date of petition, and leave application details"
+            contextPlaceholder="Marriage date, petition filing date, confirmation that no s.30 leave was obtained or is invalid"
+            draftKey="matS30ObjDraft"
+            contextKey="matS30ObjContext"
+            prompt={`Draft a Preliminary Objection on the s.30 MCA Two-Year Bar for the Respondent in:
+${petitionerName} v ${respondentName} — ${suitNo}
+Marriage date: ${mData?.marriage_date ?? '[date]'}
+Leave status: ${leaveGranted ? 'Leave granted — objection should be reviewed' : 'No leave obtained'}
+
+Facts: \${context}
+
+The Preliminary Objection must:
+1. Open with the formal notice: "Take notice that at the hearing of this petition the Respondent will raise the following preliminary objection…"
+2. State the objection precisely: the marriage has not subsisted for the two-year minimum period required by s.30 MCA before a petition for dissolution may be presented
+3. Compute the duration from date of marriage to date of filing the petition
+4. Confirm no leave was obtained under s.30 MCA (or that purported leave is invalid)
+5. State the consequence: the court lacks jurisdiction to entertain the petition and it should be struck out / dismissed in limine
+6. Cite: s.30 MCA; O.4 MCR; and relevant authorities on the two-year bar
+7. Prayer: dismiss the petition with costs`}
+            maxTokens={2000}
+            {...sp}
+          />
+        );
+
+      // ── RESPONDENT: Form 11 Part B — Cross-Petition (conditional) ──────
+      case 'mat_cross_petition':
+        return (
+          <AIDrafter
+            title="Form 11 Part B — Cross-Petition (MCR)"
+            description="The Respondent's Cross-Petition — Part B of Form 11. Filed where the Respondent has independent grounds for a matrimonial order. The cross-petition is a substantive pleading in its own right: it must plead the ground(s) under s.15(2) MCA with full particulars, and seek the relief the Respondent desires independently of the main petition."
+            contextLabel="Cross-petition grounds and particulars"
+            contextPlaceholder="Ground(s) for cross-petition (e.g. cruelty, adultery, desertion), particulars, and relief sought"
+            draftKey="matCrossPetitionDraft"
+            contextKey="matCrossPetitionContext"
+            prompt={`Draft Form 11 Part B — Cross-Petition for the Respondent in:
+${petitionerName} v ${respondentName} — ${suitNo}
+Court: ${court}
+
+MCA Intelligence: ${mcaCtx}
+Cross-petition facts and grounds: \${context}
+
+The Cross-Petition must:
+1. Follow MCR Form 11 Part B format
+2. Identify the Respondent / Cross-Petitioner by full name
+3. Plead the ground(s) under s.15(2) MCA with numbered particulars — mirroring the Petition structure but on the Respondent's independent facts
+4. Include timeline — date of marriage, when conduct began, date of separation
+5. Where adultery is cross-alleged: name co-respondent if known
+6. Children: address custody and maintenance position from cross-petitioner's standpoint
+7. Prior condemnation: confirm no condonation, collusion or connivance by the cross-petitioner
+8. Prayers: dissolution decree nisi; ancillary relief; custody; maintenance; costs
+9. Verification clause
+10. Format as stand-alone pleading that can be read independently of Part A`}
+            maxTokens={2500}
+            {...sp}
+          />
+        );
+
+      default:
+        return null;
+    }
+  }
+
+  return (
+    <div style={{ fontFamily: SERIF }}>
+      {/* MCA track header */}
+      <div style={{
+        background: '#f9f5ff', border: '1px solid #ccb8e8', borderRadius: '6px 6px 0 0',
+        padding: '10px 20px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
+      }}>
+        <span style={{ fontSize: 11, color: '#4a1a7a', fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase' }}>
+          Matrimonial Causes Act · MCR 1983
+        </span>
+        <span style={{ fontSize: 10, color: '#7a5a9a', letterSpacing: '.05em' }}>
+          {isPetitioner ? 'Petitioner Side' : 'Respondent Side'}
+        </span>
+        {mData?.relief_type && (
+          <span style={{
+            fontSize: 10, background: '#f0e8ff', color: '#4a1a7a',
+            border: '1px solid #ccb8e8', borderRadius: 3, padding: '1px 8px',
+          }}>
+            {mData.relief_type.replace(/_/g, ' ').replace(/\w/g, c => c.toUpperCase())}
+          </span>
+        )}
+        {twoYearBar && (
+          <span style={{
+            fontSize: 10, background: '#fff8e1', color: '#8a5a00',
+            border: '1px solid #f0c040', borderRadius: 3, padding: '1px 8px',
+          }}>
+            ⚠ s.30 Two-Year Bar
+          </span>
+        )}
+        {crossPetitionFiled && (
+          <span style={{
+            fontSize: 10, background: '#f0f8ff', color: '#1a3a7a',
+            border: '1px solid #90b8e8', borderRadius: 3, padding: '1px 8px',
+          }}>
+            ⚖ Cross-Petition Active
+          </span>
+        )}
+        {!mData && (
+          <span style={{ fontSize: 10, color: '#999', fontStyle: 'italic' }}>
+            Run Intelligence Engine to auto-populate
+          </span>
+        )}
+      </div>
+
+      {/* Sub-tab bar */}
+      <SubTabBar
+        tabs={tabs}
+        active={activeTab}
+        onSelect={id => setActiveTab(id as MatSubTab)}
+        accent={accent}
+      />
+
+      {/* Active panel */}
+      <div style={{ padding: '24px 0 0' }}>
+        {renderPanel()}
+      </div>
+    </div>
+  );
+}
+
 export function PleadingsEngine({activeCase}:Props) {
   const isClaim=activeCase.counsel_role==='claimant_side';
   const accent=activeCase.counsel_role?COUNSEL_ROLE_COLORS[activeCase.counsel_role].col:'#4090d0';
@@ -2470,6 +3003,14 @@ export function PleadingsEngine({activeCase}:Props) {
   },[activeCase.id]);
 
   if(!loaded) return <div style={{padding:40,color:T.mute,fontFamily:"'Times New Roman', Times, serif",fontSize:13}}>Loading Pleadings Engine…</div>;
+
+  // ── TRACK: Matrimonial Petition (Phase 4A) ────────────────────────────────
+  // Fires before the FREP gate and before the claimant/defendant role check —
+  // matrimonial matters use petitioner_side / respondent_side roles which would
+  // otherwise be blocked by the civil-track gate below.
+  if(activeCase.originating_process==='petition_matrimonial'||(activeCase.matter_track==='matrimonial'&&(activeCase.counsel_role==='petitioner_side'||activeCase.counsel_role==='respondent_side'))) {
+    return <MatrimonialPetitionEngine activeCase={activeCase} data={data} onSave={onSave} accent={accent} ai={ai} systemCtx={systemCtx}/>;
+  }
 
   // ── Phase 3F: FREP gate — redirect to Applications Engine ────────────────
   if(activeCase.counsel_role==='frep_applicant'||activeCase.counsel_role==='frep_respondent') {
