@@ -57,6 +57,8 @@
 // STORAGE KEYS
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { AUTH_TOKEN } from '@/services/api';
+
 const WORKER_URL_KEY   = 'afs_worker_url';
 const WORKER_TOKEN_KEY = 'afs_worker_token';
 
@@ -114,7 +116,7 @@ export function saveWorkerUrl(url: string): void {
 }
 
 export function getWorkerToken(): string {
-  return 'AFS2026SecureToken99';
+  return AUTH_TOKEN;
 }
 
 export function saveWorkerToken(token: string): void {
