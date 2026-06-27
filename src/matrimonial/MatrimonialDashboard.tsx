@@ -32,7 +32,7 @@ import { useAppStore } from '@/state/appStore';
 import { T } from '@/constants/tokens';
 import { MATRIMONIAL_TABS, type MTabId } from '@/matrimonial/constants/mTabs';
 import type { MatrimonialCaseData } from '@/matrimonial/types';
-import { loadMatrimonialData, saveCase, writeIntelligenceToCase } from '@/storage/helpers';
+import { loadMatrimonialData, saveCase, saveMatrimonialData } from '@/storage/helpers';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { LoadingBlock } from '@/components/common/ui';
 
@@ -139,13 +139,14 @@ function CrossPetitionActivateButton({
   const handleActivate = async () => {
     setActivating(true);
     try {
-      const patch: Partial<MatrimonialCaseData> = {
+      const existing = mData ?? {} as MatrimonialCaseData;
+      const updated: MatrimonialCaseData = {
+        ...existing,
         cross_petition_filed:        true,
         cross_petition_filed_by:     'respondent',
         cross_petition_activated_at: new Date().toISOString(),
       };
-      await writeIntelligenceToCase(activeCase.id, patch);
-      const updated = { ...(mData ?? {}), ...patch } as MatrimonialCaseData;
+      await saveMatrimonialData(activeCase.id, updated);
       onActivated(updated);
     } finally {
       setActivating(false);
