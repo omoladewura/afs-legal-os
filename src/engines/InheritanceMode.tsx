@@ -243,6 +243,8 @@ export function InheritanceMode({ activeCase, onSave }: Props) {
       : (activeCase.role ?? '');
     const inheritTrackLabel = activeCase.matter_track === 'criminal' ? 'Criminal' : 'Civil';
     if (inheritRoleLabel) promptText += ` | Track: ${inheritTrackLabel} | Role: ${inheritRoleLabel}`;
+    if (activeCase.prior_counsel_name) promptText += ` | Prior Counsel: ${activeCase.prior_counsel_name}`;
+    if (activeCase.handoff_stage)      promptText += ` | Stage at Handoff (as recorded by incoming counsel): ${activeCase.handoff_stage}`;
 
     content.push({ type: 'text', text: promptText });
 
@@ -252,6 +254,8 @@ Respond ONLY with a single valid JSON object — no preamble, no backticks, no m
 
 {
   "state_of_case": "string — comprehensive narrative of the current case posture: what has been filed, what arguments have been made on the record, what the court has ruled, where proceedings currently stand, what stage the case is at. Be forensic. Cite document names and dates where visible.",
+
+  "handoff_stage_note": "string — one authoritative sentence characterising exactly where in the procedural chain the handoff happened (e.g. 'Handoff occurred after pleadings closed but before any witness was called.'). Reconcile against the lawyer's own stated stage at handoff where provided, and flag any discrepancy.",
 
   "what_was_done": ["array of strings — specific acts the previous lawyer DID: each filing made, each hearing attended, each application filed, each order obtained or suffered, each concession made, each commitment to the court."],
 
