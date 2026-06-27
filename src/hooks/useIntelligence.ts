@@ -200,11 +200,59 @@ export function useIntelligence(
     ].join('\n');
   }
 
+  // ── Inherited Matter Summary Block (Phase 4) ──────────────────────────────
+  // Omitted for 'facts' scope — procedural engines don't need it. Injected
+  // after counselBlock so it reads as a final, high-priority brief once the
+  // AI already has the facts and counsel's strategy notes in hand.
+  let inheritanceBlock = '';
+  if (scope !== 'facts' && activeCase?.inheritance_data) {
+    const inh = activeCase.inheritance_data;
+    const lines: string[] = [
+      '',
+      '═══════════════════════════════════════',
+      'INHERITED MATTER — FORENSIC AUDIT SUMMARY',
+      '═══════════════════════════════════════',
+    ];
+
+    if (activeCase.prior_counsel_name) lines.push(`Prior Counsel: ${activeCase.prior_counsel_name}`);
+    if (activeCase.handoff_stage)      lines.push(`Stage at Handoff: ${activeCase.handoff_stage}`);
+    lines.push(`Audit Date: ${inh._auditDate}`);
+    lines.push('');
+
+    if (inh.inheritance_package?.current_posture) {
+      lines.push('CURRENT POSTURE:');
+      lines.push(inh.inheritance_package.current_posture);
+      lines.push('');
+    }
+
+    if (inh.risk_register?.length) {
+      lines.push('KEY RISKS:');
+      inh.risk_register.forEach(r => lines.push(`• [${r.severity}] ${r.risk}`));
+      lines.push('');
+    }
+
+    if (inh.inheritance_package?.immediate_actions?.length) {
+      lines.push('IMMEDIATE ACTIONS:');
+      inh.inheritance_package.immediate_actions.forEach(a => lines.push(`• ${a}`));
+      lines.push('');
+    }
+
+    lines.push('GAP SUMMARY:');
+    lines.push(
+      `Errors made: ${inh.gap_report?.errors_made?.length ?? 0} | ` +
+      `Cannot be recovered: ${inh.gap_report?.too_late?.length ?? 0} | ` +
+      `Can be saved: ${inh.gap_report?.can_be_saved?.length ?? 0}`
+    );
+    lines.push('');
+
+    inheritanceBlock = lines.join('\n');
+  }
+
   return {
     hasIntel,
     intelBlock,
     counselBlock,
-    fullContext: intelBlock + counselBlock,
+    fullContext: intelBlock + counselBlock + inheritanceBlock,
     raw: intel,
   };
 }
