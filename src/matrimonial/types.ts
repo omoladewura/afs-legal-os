@@ -197,6 +197,15 @@ export interface MatrimonialCaseData {
   intelligence_run_at?:     string;             // ISO timestamp of last run
   intelligence_version?:    number;             // incremented on each re-run
 
+  // ── Cross-Petition ────────────────────────────────────────────────────────
+  // Set when respondent files a cross-petition under O.11 MCR Form 11 Part B.
+  // cross_petition_filed_by is fixed to 'respondent' (only party who may file).
+  cross_petition_filed?:        boolean;
+  cross_petition_facts?:        DissolutionFact[];
+  cross_petition_relief?:       MatrimonialReliefType;
+  cross_petition_filed_by?:     'respondent';
+  cross_petition_activated_at?: string;  // ISO timestamp when activated in UI
+
   // Timestamps
   _createdAt?:                 string;
   _updatedAt?:                 string;
