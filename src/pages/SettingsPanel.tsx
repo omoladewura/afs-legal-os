@@ -15,10 +15,11 @@ import { useAppStore } from '@/state/appStore';
 import { T, S } from '@/constants/tokens';
 import { LawRegistry } from '@/components/LawRegistry';
 import { AssetLibrary } from '@/engines/AssetLibrary';
+import { AUTH_TOKEN as RAW_AUTH_TOKEN } from '@/services/api';
 
 const WORKER_URL  = 'https://afs-legal-rag.sobamboadeshupo.workers.dev';
 const MONITOR_URL = 'https://afs-monitor-worker.sobamboadeshupo.workers.dev';
-const AUTH_TOKEN  = 'Bearer AFS2026SecureToken99';
+const AUTH_TOKEN  = `Bearer ${RAW_AUTH_TOKEN}`;
 
 interface IngestSummary {
   total_in_library: number;
