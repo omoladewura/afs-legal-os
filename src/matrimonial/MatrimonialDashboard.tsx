@@ -1,22 +1,26 @@
 /**
  * AFS Advocates — Matrimonial Dashboard
  *
- * First-class workspace for matrimonial causes matters.
- * Matrimonial cases NEVER touch CaseDashboard.
+ * Phase 2B (Pipeline consolidation): Full rewrite.
  *
- * Phase 4: Full tab bar, own header (Petitioner v Respondent, suit number,
- *           court, MCA citation strip, relief-type badge), own engine router.
- * Phase 7 (Engine consolidation): 16 → 11 tabs.
- *   - Added lazy imports: CaseCommand, StrategyHub, WrittenAddressEngine,
- *     InheritanceMode.
- *   - Added router cases: case_command, strategy_hub, written_address,
- *     inheritance.
- *   - Removed router cases and lazy imports: MRisk, MArgumentBuilder,
- *     CaseResearch (research), standalone custody/maintenance/property
- *     (now inside MatrimonialEngine sub-tabs), CrossExamEngine (crossexam),
- *     MOverview (overview).
- * Phase 9E: Intelligence Status Bar — always visible, shows last run date,
- *           version, top-line risk summary. Anchors MIntelligence as first step.
+ * Changes from previous version:
+ *   - All M-engine tab imports removed (MIntelligence, MFormsEngine,
+ *     DecreeEnforcementEngine, MAppeal, MApplications, CaseCommand,
+ *     StrategyHub, InheritanceMode, EvidenceVault, AICopilot,
+ *     MatrimonialEngine retired as tabs)
+ *   - 4 shared engines lazy-imported: IntelligenceEngine, PleadingsEngine,
+ *     TrialEngine, FinalWrittenAddressEngine
+ *   - onSaveIntel wired identically to CaseDashboard
+ *   - Cross-petition header badge (reads cross_petition_filed from matrimonial_data)
+ *   - Cross-petition activate button (sets cross_petition_filed + activated_at)
+ *   - DecreeDeadlineBadge in header (reads decree_nisi_date + decree_absolute_path)
+ *   - IntelligenceStatusBar removed (no longer relevant in 4-tab pipeline)
+ *   - PlaceholderPanel removed (all 4 tabs are always ready)
+ *   - Default tab: 'intelligence'
+ *
+ * Background services (no active references from this file):
+ *   MIntelligence.tsx, MFormsEngine.tsx, MApplications.tsx (retired),
+ *   DecreeEnforcementEngine.tsx, MAppeal.tsx, MatrimonialEngine.tsx (retired)
  *
  * MCA = Matrimonial Causes Act, Cap M7, LFN 2004
  * MCR = Matrimonial Causes Rules 1983
@@ -28,59 +32,23 @@ import { useAppStore } from '@/state/appStore';
 import { T } from '@/constants/tokens';
 import { MATRIMONIAL_TABS, type MTabId } from '@/matrimonial/constants/mTabs';
 import type { MatrimonialCaseData } from '@/matrimonial/types';
-import { loadMatrimonialData, saveCase } from '@/storage/helpers';
+import { loadMatrimonialData, saveCase, writeIntelligenceToCase } from '@/storage/helpers';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { LoadingBlock } from '@/components/common/ui';
 
-// ── Phase 7 — New consolidated engine shells (shared) ───────────────────────
+// ── 4 shared pipeline engines ─────────────────────────────────────────────────
 
-const CaseCommand = lazy(() =>
-  import('@/engines/CaseCommand').then(m => ({ default: m.CaseCommand }))
+const IntelligenceEngine = lazy(() =>
+  import('@/engines/IntelligenceEngine').then(m => ({ default: m.IntelligenceEngine }))
 );
-const StrategyHub = lazy(() =>
-  import('@/engines/StrategyHub').then(m => ({ default: m.StrategyHub }))
+const PleadingsEngine = lazy(() =>
+  import('@/engines/PleadingsEngine').then(m => ({ default: m.PleadingsEngine }))
 );
-const WrittenAddressEngine = lazy(() =>
+const TrialEngine = lazy(() =>
+  import('@/engines/TrialEngine').then(m => ({ default: m.TrialEngine }))
+);
+const FinalWrittenAddressEngine = lazy(() =>
   import('@/engines/FinalWrittenAddressEngine').then(m => ({ default: m.FinalWrittenAddressEngine }))
-);
-const InheritanceMode = lazy(() =>
-  import('@/engines/InheritanceMode').then(m => ({ default: m.InheritanceMode }))
-);
-
-// ── Matrimonial-specific engines (retained) ──────────────────────────────────
-
-const MatrimonialEngine = lazy(() =>
-  import('@/engines/MatrimonialEngine').then(m => ({ default: m.MatrimonialEngine }))
-);
-
-// ── Phase 5 engines ───────────────────────────────────────────────────────────
-
-const MIntelligence = lazy(() =>
-  import('@/matrimonial/engines/MIntelligence').then(m => ({ default: m.MIntelligence }))
-);
-const MFormsEngine = lazy(() =>
-  import('@/matrimonial/engines/MFormsEngine').then(m => ({ default: m.MFormsEngine }))
-);
-const DecreeEnforcementEngine = lazy(() =>
-  import('@/matrimonial/engines/DecreeEnforcementEngine').then(m => ({ default: m.DecreeEnforcementEngine }))
-);
-const MAppeal = lazy(() =>
-  import('@/matrimonial/engines/MAppeal').then(m => ({ default: m.MAppeal }))
-);
-
-// ── Phase 6 engines ───────────────────────────────────────────────────────────
-
-const MApplications = lazy(() =>
-  import('@/matrimonial/engines/MApplications').then(m => ({ default: m.MApplications }))
-);
-
-// ── Shared engines (as-is) ───────────────────────────────────────────────────
-
-const EvidenceVault = lazy(() =>
-  import('@/engines/EvidenceVault').then(m => ({ default: m.EvidenceVault }))
-);
-const AICopilot = lazy(() =>
-  import('@/engines/AICopilot').then(m => ({ default: m.AICopilot }))
 );
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -90,197 +58,114 @@ const AICopilot = lazy(() =>
 const SERIF = "'Times New Roman', Times, serif";
 
 const RELIEF_LABELS: Record<string, { label: string; col: string; bg: string; bdr: string }> = {
-  dissolution:          { label: 'Dissolution',          col: '#4a1a7a', bg: '#f5edfb', bdr: '#ccb8e8' },
-  nullity_void:         { label: 'Nullity (Void)',        col: '#7a1a1a', bg: '#fbedf0', bdr: '#e8b8c0' },
-  nullity_voidable:     { label: 'Nullity (Voidable)',    col: '#7a3a1a', bg: '#fdf0eb', bdr: '#e8c8b8' },
-  judicial_separation:  { label: 'Judicial Separation',   col: '#1a4a7a', bg: '#edf3fb', bdr: '#b8cce8' },
-  restitution_conjugal: { label: 'Restitution (RCR)',     col: '#1a5a3a', bg: '#edfaf3', bdr: '#b8e8cc' },
-  jactitation:          { label: 'Jactitation',           col: '#5a4a1a', bg: '#fbf7ed', bdr: '#e8dab8' },
+  dissolution:          { label: 'Dissolution',         col: '#4a1a7a', bg: '#f5edfb', bdr: '#ccb8e8' },
+  nullity_void:         { label: 'Nullity (Void)',       col: '#7a1a1a', bg: '#fbedf0', bdr: '#e8b8c0' },
+  nullity_voidable:     { label: 'Nullity (Voidable)',   col: '#7a3a1a', bg: '#fdf0eb', bdr: '#e8c8b8' },
+  judicial_separation:  { label: 'Judicial Separation',  col: '#1a4a7a', bg: '#edf3fb', bdr: '#b8cce8' },
+  restitution_conjugal: { label: 'Restitution (RCR)',    col: '#1a5a3a', bg: '#edfaf3', bdr: '#b8e8cc' },
+  jactitation:          { label: 'Jactitation',          col: '#5a4a1a', bg: '#fbf7ed', bdr: '#e8dab8' },
 };
 
-// Tab IDs that route directly into MatrimonialEngine (the full sub-tab engine)
-type MatrimonialEngineTab = 'petition_answer' | 'matrimonial';
-
 // ─────────────────────────────────────────────────────────────────────────────
-// INTELLIGENCE STATUS BAR — Phase 9E
-// Always visible below the case header, above the tab bar.
+// DECREE DEADLINE BADGE — reads from matrimonial_data
+// s.57 path: 28 days from decree nisi (children welfare order made)
+// s.58 path: 3 months from decree nisi (no children order)
 // ─────────────────────────────────────────────────────────────────────────────
 
-function IntelligenceStatusBar({
-  mData,
-  onGoToIntelligence,
-  onReRun,
-}: {
-  mData: MatrimonialCaseData | null;
-  onGoToIntelligence: () => void;
-  onReRun: () => void;
-}) {
-  const hasIntel = !!mData?.intelligence_extraction;
+function DecreeDeadlineBadge({ mData }: { mData: MatrimonialCaseData | null }) {
+  if (!mData?.decree_nisi_date) return null;
 
-  if (!hasIntel) {
-    return (
-      <div style={{
-        background: '#f8f8fc', border: '1px solid #d8d8e8', borderRadius: 6,
-        padding: '12px 20px', margin: '12px 0',
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10,
-      }}>
-        <div>
-          <span style={{
-            display: 'inline-block', width: 8, height: 8, borderRadius: '50%',
-            background: '#aaaaaa', marginRight: 8, verticalAlign: 'middle',
-          }} />
-          <span style={{ fontSize: 13, color: '#555555', fontFamily: SERIF }}>
-            Intelligence not yet run · Run MIntelligence first for pre-filled forms, targeted risk assessment, and smart application suggestions.
-          </span>
-        </div>
-        <button
-          onClick={onGoToIntelligence}
-          style={{
-            background: 'linear-gradient(135deg,#000000,#a07820)', color: '#ffffff',
-            border: 'none', borderRadius: 4, padding: '7px 18px',
-            fontSize: 12, fontFamily: SERIF, cursor: 'pointer', letterSpacing: '.04em', fontWeight: 600,
-            flexShrink: 0,
-          }}
-        >
-          Go to Intelligence →
-        </button>
-      </div>
-    );
+  const nisi     = new Date(mData.decree_nisi_date);
+  const path     = mData.decree_absolute_path ?? 's58_3_months';
+  const deadline = new Date(nisi);
+
+  if (path === 's57_28_days') {
+    deadline.setDate(deadline.getDate() + 28);
+  } else {
+    deadline.setMonth(deadline.getMonth() + 3);
   }
 
-  const runAt    = mData!.intelligence_run_at;
-  const version  = mData!.intelligence_version ?? 1;
-  const ex       = mData!.intelligence_extraction!;
+  const today     = new Date();
+  const daysLeft  = Math.ceil((deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  const overdue   = daysLeft < 0;
+  const urgent    = !overdue && daysLeft <= 14;
 
-  const runDate = runAt
-    ? new Date(runAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
-    : '—';
+  const col = overdue ? '#a01010' : urgent ? '#8a5a00' : '#1a4a1a';
+  const bg  = overdue ? '#fff3f3' : urgent ? '#fff8e1' : '#edfaf3';
+  const bdr = overdue ? '#e04040' : urgent ? '#f0c040' : '#60b060';
 
-  const highRisks = ex.gaps_and_risks?.filter(g => g.severity === 'HIGH') ?? [];
-  const barApplies   = ex.two_year_bar?.bar_applies && !ex.two_year_bar?.leave_obtained;
-  const exceptionFound = ex.two_year_bar?.bar_applies && !!ex.two_year_bar?.exception;
+  const label = overdue
+    ? `Decree Absolute — OVERDUE ${Math.abs(daysLeft)}d`
+    : `Decree Absolute — ${daysLeft}d left`;
 
-  // Build top-line summary tags
-  const summaryTags: Array<{ label: string; col: string; bg: string; bdr: string }> = [];
-  if (highRisks.length > 0) {
-    summaryTags.push({ label: `${highRisks.length} HIGH risk${highRisks.length > 1 ? 's' : ''}`, col: '#a01010', bg: '#fff3f3', bdr: '#e04040' });
-  }
-  if (barApplies) {
-    summaryTags.push({ label: 's.30 bar applies', col: '#8a5a00', bg: '#fff8e1', bdr: '#f0c040' });
-    if (!exceptionFound) {
-      summaryTags.push({ label: 'No exception identified', col: '#7a1a1a', bg: '#fbedf0', bdr: '#e8b8c0' });
-    } else {
-      summaryTags.push({ label: 'Exception may apply', col: '#1a4a1a', bg: '#edfaf3', bdr: '#60b060' });
-    }
-  }
-  const condonationHigh = ex.condonation_risk?.severity === 'HIGH';
-  if (condonationHigh) {
-    summaryTags.push({ label: 'Condonation HIGH', col: '#a01010', bg: '#fff3f3', bdr: '#e04040' });
-  }
-  if (ex.co_respondent?.named) {
-    summaryTags.push({ label: 'Co-respondent named', col: '#4a1a7a', bg: '#f5edfb', bdr: '#ccb8e8' });
-  }
+  const pathLabel = path === 's57_28_days' ? 's.57 (28 days)' : 's.58 (3 months)';
 
   return (
-    <div style={{
-      background: '#f0f8f0', border: '1px solid #60b060', borderRadius: 6,
-      padding: '12px 20px', margin: '12px 0',
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <span style={{
-            display: 'inline-block', width: 8, height: 8, borderRadius: '50%',
-            background: '#40a040', marginRight: 4, verticalAlign: 'middle',
-          }} />
-          <span style={{ fontSize: 13, color: '#1a4a1a', fontFamily: SERIF, fontWeight: 600 }}>
-            ⚡ Intelligence
-          </span>
-          <span style={{ fontSize: 12, color: '#336633', fontFamily: SERIF }}>
-            Last run: {runDate} · Version {version}
-          </span>
-
-          {summaryTags.map((tag, i) => (
-            <span key={i} style={{
-              fontSize: 10, fontWeight: 600, letterSpacing: '.07em', textTransform: 'uppercase',
-              background: tag.bg, color: tag.col, border: `1px solid ${tag.bdr}`,
-              borderRadius: 3, padding: '2px 8px', fontFamily: SERIF,
-            }}>
-              {tag.label}
-            </span>
-          ))}
-        </div>
-
-        <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-          <button
-            onClick={onReRun}
-            style={{
-              background: 'none', border: '1px solid #60b060', color: '#2a6a2a',
-              borderRadius: 4, padding: '5px 14px', fontSize: 11,
-              fontFamily: SERIF, cursor: 'pointer', letterSpacing: '.04em',
-            }}
-          >
-            Re-run
-          </button>
-          <button
-            onClick={onGoToIntelligence}
-            style={{
-              background: 'none', border: '1px solid #60b060', color: '#2a6a2a',
-              borderRadius: 4, padding: '5px 14px', fontSize: 11,
-              fontFamily: SERIF, cursor: 'pointer', letterSpacing: '.04em',
-            }}
-          >
-            View
-          </button>
-        </div>
-      </div>
-
-      {highRisks.length > 0 && (
-        <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid #b0d8b0' }}>
-          <span style={{ fontSize: 11, color: '#a01010', fontFamily: SERIF, fontWeight: 600 }}>High risks: </span>
-          <span style={{ fontSize: 11, color: '#555555', fontFamily: SERIF }}>
-            {highRisks.map(r => r.issue).join(' · ')}
-          </span>
-        </div>
-      )}
-    </div>
+    <span
+      title={`${pathLabel} · Nisi: ${nisi.toLocaleDateString('en-GB')} · Deadline: ${deadline.toLocaleDateString('en-GB')}`}
+      style={{
+        fontSize: 10, fontWeight: 600, letterSpacing: '.07em', textTransform: 'uppercase',
+        background: bg, color: col, border: `1px solid ${bdr}`,
+        borderRadius: 3, padding: '2px 9px', fontFamily: SERIF,
+      }}
+    >
+      {overdue ? '⚠ ' : urgent ? '⏱ ' : '⚡ '}{label}
+    </span>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// PLACEHOLDER PANEL
+// CROSS-PETITION ACTIVATE BUTTON
+// Shown in header when counsel_role === 'respondent_side'
+// and cross_petition_filed is not yet true.
 // ─────────────────────────────────────────────────────────────────────────────
 
-function PlaceholderPanel({
-  tabId, phase, description,
-}: { tabId: MTabId; phase: 5 | 6 | 7; description: string }) {
+function CrossPetitionActivateButton({
+  activeCase,
+  mData,
+  onActivated,
+}: {
+  activeCase: Case;
+  mData: MatrimonialCaseData | null;
+  onActivated: (updated: MatrimonialCaseData) => void;
+}) {
+  const [activating, setActivating] = useState(false);
+
+  const isRespondent    = activeCase.counsel_role === 'respondent_side';
+  const alreadyFiled    = mData?.cross_petition_filed === true;
+
+  if (!isRespondent || alreadyFiled) return null;
+
+  const handleActivate = async () => {
+    setActivating(true);
+    try {
+      const patch: Partial<MatrimonialCaseData> = {
+        cross_petition_filed:        true,
+        cross_petition_filed_by:     'respondent',
+        cross_petition_activated_at: new Date().toISOString(),
+      };
+      await writeIntelligenceToCase(activeCase.id, patch);
+      const updated = { ...(mData ?? {}), ...patch } as MatrimonialCaseData;
+      onActivated(updated);
+    } finally {
+      setActivating(false);
+    }
+  };
+
   return (
-    <div style={{
-      border: '1px dashed #cccccc', borderRadius: 6,
-      padding: '48px 36px', marginTop: 16, background: '#fafafa',
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-        <span style={{
-          fontSize: 10, fontFamily: SERIF, letterSpacing: '.14em',
-          textTransform: 'uppercase', fontWeight: 600,
-          background: phase === 5 ? '#edf3fb' : '#f5edfb',
-          color:      phase === 5 ? '#1a4a7a' : '#4a1a7a',
-          border:    `1px solid ${phase === 5 ? '#b8cce8' : '#ccb8e8'}`,
-          borderRadius: 3, padding: '3px 10px',
-        }}>
-          Phase {phase} — Build Pending
-        </span>
-        <span style={{ fontSize: 10, fontFamily: SERIF, letterSpacing: '.1em', textTransform: 'uppercase', color: '#888888' }}>
-          {tabId}
-        </span>
-      </div>
-      <p style={{ fontSize: 15, fontFamily: SERIF, color: '#333333', lineHeight: 1.7, marginBottom: 10 }}>
-        {description}
-      </p>
-      <p style={{ fontSize: 12, fontFamily: SERIF, color: '#aaaaaa', fontStyle: 'italic' }}>
-        This engine will load here once Phase {phase} is deployed.
-        All other tabs are fully operational.
-      </p>
-    </div>
+    <button
+      onClick={handleActivate}
+      disabled={activating}
+      style={{
+        background: activating ? '#cccccc' : 'linear-gradient(135deg,#000000,#a07820)',
+        color: '#ffffff', border: 'none', borderRadius: 4,
+        padding: '6px 16px', fontSize: 11, fontFamily: SERIF,
+        cursor: activating ? 'not-allowed' : 'pointer',
+        letterSpacing: '.05em', fontWeight: 600, flexShrink: 0,
+      }}
+    >
+      {activating ? 'Activating…' : '+ File Cross-Petition'}
+    </button>
   );
 }
 
@@ -290,26 +175,38 @@ function PlaceholderPanel({
 
 export function MatrimonialDashboard() {
   const { activeCase, setView, updateActiveCase } = useAppStore();
-  const [activeTab, setActiveTab] = useState<MTabId>('case_command');
-  const [mData, setMData] = useState<MatrimonialCaseData | null>(null);
+  const [activeTab, setActiveTab] = useState<MTabId>('intelligence');
+  const [mData, setMData]         = useState<MatrimonialCaseData | null>(null);
 
+  // Load matrimonial_data on mount and whenever activeCase or tab changes
   useEffect(() => {
     if (!activeCase?.id) return;
     loadMatrimonialData(activeCase.id)
       .then(setMData)
       .catch(() => setMData(null));
-  }, [activeCase?.id]);
+  }, [activeCase?.id, activeTab]);
 
   const handleTabChange = useCallback((id: MTabId) => setActiveTab(id), []);
 
-  // ── Persist helpers ───────────────────────────────────────────────────────
+  // ── onSaveIntel — wired identically to CaseDashboard ─────────────────────
+  // Called by IntelligenceEngine after extraction completes.
 
-  const onSaveInherit = useCallback(async (data: unknown) => {
+  const onSaveIntel = useCallback(async (intelData: unknown) => {
     if (!activeCase) return;
-    const patch = { inheritance_data: data as Case['inheritance_data'] };
+    const patch = { intelligence_data: intelData as Case['intelligence_data'] };
     updateActiveCase(patch);
     await saveCase({ ...activeCase, ...patch });
+    // Reload matrimonial_data so header badges refresh
+    loadMatrimonialData(activeCase.id)
+      .then(setMData)
+      .catch(() => null);
   }, [activeCase, updateActiveCase]);
+
+  // ── Cross-petition activation callback ────────────────────────────────────
+
+  const handleCrossPetitionActivated = useCallback((updated: MatrimonialCaseData) => {
+    setMData(updated);
+  }, []);
 
   // ── Derived display values ────────────────────────────────────────────────
 
@@ -327,26 +224,8 @@ export function MatrimonialDashboard() {
     ? `${petitionerName} v ${respondentName}`
     : activeCase?.caseName ?? 'Matrimonial Matter';
 
-  const twoYearBarActive = mData?.two_year_bar_applies === true && !mData?.leave_granted;
-
-  // ── Intelligence Status Bar handlers ─────────────────────────────────────
-
-  const handleGoToIntelligence = useCallback(() => {
-    setActiveTab('intelligence');
-  }, []);
-
-  // Re-run: navigate to intelligence tab (associate triggers the run there)
-  const handleReRun = useCallback(() => {
-    setActiveTab('intelligence');
-  }, []);
-
-  // Refresh mData after returning from intelligence tab
-  useEffect(() => {
-    if (!activeCase?.id) return;
-    loadMatrimonialData(activeCase.id)
-      .then(setMData)
-      .catch(() => setMData(null));
-  }, [activeCase?.id, activeTab]);
+  const twoYearBarActive    = mData?.two_year_bar_applies === true && !mData?.leave_granted;
+  const crossPetitionFiled  = mData?.cross_petition_filed === true;
 
   // ── Engine router ─────────────────────────────────────────────────────────
 
@@ -359,36 +238,32 @@ export function MatrimonialDashboard() {
       );
     }
 
-    const tab = MATRIMONIAL_TABS.find(t => t.id === activeTab);
-
-    if (tab && tab.phase !== 'ready') {
-      return (
-        <PlaceholderPanel
-          tabId={tab.id}
-          phase={tab.phase as 5 | 6 | 7}
-          description={tab.description}
-        />
-      );
-    }
-
     const fallback = <LoadingBlock label="Loading engine…" />;
 
     switch (activeTab) {
-      // Phase 7 — Consolidated engine shells
-      case 'case_command':
+      case 'intelligence':
         return (
-          <ErrorBoundary name="case_command">
+          <ErrorBoundary name="intelligence">
             <Suspense fallback={fallback}>
-              <CaseCommand activeCase={activeCase} onSetDashTab={(tab) => setActiveTab(tab as MTabId)} />
+              <IntelligenceEngine activeCase={activeCase} onSaveIntel={onSaveIntel} />
             </Suspense>
           </ErrorBoundary>
         );
 
-      case 'strategy_hub':
+      case 'pleadings':
         return (
-          <ErrorBoundary name="strategy_hub">
+          <ErrorBoundary name="pleadings">
             <Suspense fallback={fallback}>
-              <StrategyHub activeCase={activeCase} />
+              <PleadingsEngine activeCase={activeCase} />
+            </Suspense>
+          </ErrorBoundary>
+        );
+
+      case 'trial':
+        return (
+          <ErrorBoundary name="trial">
+            <Suspense fallback={fallback}>
+              <TrialEngine activeCase={activeCase} />
             </Suspense>
           </ErrorBoundary>
         );
@@ -397,90 +272,7 @@ export function MatrimonialDashboard() {
         return (
           <ErrorBoundary name="written_address">
             <Suspense fallback={fallback}>
-              <WrittenAddressEngine activeCase={activeCase} />
-            </Suspense>
-          </ErrorBoundary>
-        );
-
-      case 'inheritance':
-        return (
-          <ErrorBoundary name="inheritance">
-            <Suspense fallback={fallback}>
-              <InheritanceMode activeCase={activeCase} onSave={onSaveInherit} />
-            </Suspense>
-          </ErrorBoundary>
-        );
-
-      // MatrimonialEngine handles petition/answer + all 8 sub-tabs
-      case 'petition_answer':
-      case 'matrimonial':
-        return (
-          <ErrorBoundary name={activeTab}>
-            <Suspense fallback={fallback}>
-              <MatrimonialEngine activeCase={activeCase} />
-            </Suspense>
-          </ErrorBoundary>
-        );
-
-      case 'intelligence':
-        return (
-          <ErrorBoundary name="intelligence">
-            <Suspense fallback={fallback}>
-              <MIntelligence activeCase={activeCase} />
-            </Suspense>
-          </ErrorBoundary>
-        );
-
-      case 'forms_documents':
-        return (
-          <ErrorBoundary name="forms_documents">
-            <Suspense fallback={fallback}>
-              <MFormsEngine activeCase={activeCase} />
-            </Suspense>
-          </ErrorBoundary>
-        );
-
-      case 'decree_enforcement':
-        return (
-          <ErrorBoundary name="decree_enforcement">
-            <Suspense fallback={fallback}>
-              <DecreeEnforcementEngine activeCase={activeCase} />
-            </Suspense>
-          </ErrorBoundary>
-        );
-
-      case 'appeal':
-        return (
-          <ErrorBoundary name="appeal">
-            <Suspense fallback={fallback}>
-              <MAppeal activeCase={activeCase} />
-            </Suspense>
-          </ErrorBoundary>
-        );
-
-      case 'ancillary_applications':
-        return (
-          <ErrorBoundary name="ancillary_applications">
-            <Suspense fallback={fallback}>
-              <MApplications activeCase={activeCase} />
-            </Suspense>
-          </ErrorBoundary>
-        );
-
-      case 'evidence':
-        return (
-          <ErrorBoundary name="evidence">
-            <Suspense fallback={fallback}>
-              <EvidenceVault activeCase={activeCase} />
-            </Suspense>
-          </ErrorBoundary>
-        );
-
-      case 'copilot':
-        return (
-          <ErrorBoundary name="copilot">
-            <Suspense fallback={fallback}>
-              <AICopilot activeCase={activeCase} />
+              <FinalWrittenAddressEngine activeCase={activeCase} />
             </Suspense>
           </ErrorBoundary>
         );
@@ -502,7 +294,7 @@ export function MatrimonialDashboard() {
         background: '#ffffff',
         position: 'sticky', top: 0, zIndex: 10,
       }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
           <div style={{ flex: 1 }}>
             <p style={{
               fontSize: 9, color: '#888888', letterSpacing: '.2em',
@@ -527,8 +319,9 @@ export function MatrimonialDashboard() {
               {' · '}High Court of the relevant State
             </p>
 
-            {/* Badges */}
+            {/* Badge strip */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+
               {reliefConfig && (
                 <span style={{
                   fontSize: 10, fontWeight: 600, letterSpacing: '.08em', textTransform: 'uppercase',
@@ -560,16 +353,30 @@ export function MatrimonialDashboard() {
                   ⚠ s.30 Two-Year Bar — Leave Required
                 </span>
               )}
-            </div>
 
-            {/* ── Intelligence Status Bar — Phase 9E ──────────────────────── */}
-            {activeCase && (
-              <IntelligenceStatusBar
-                mData={mData}
-                onGoToIntelligence={handleGoToIntelligence}
-                onReRun={handleReRun}
-              />
-            )}
+              {crossPetitionFiled && (
+                <span style={{
+                  fontSize: 10, fontWeight: 600, letterSpacing: '.08em', textTransform: 'uppercase',
+                  background: '#f0f8ff', color: '#1a3a7a', border: '1px solid #90b8e8',
+                  borderRadius: 3, padding: '2px 9px', fontFamily: SERIF,
+                }}>
+                  ⚖ Cross-Petition Filed
+                </span>
+              )}
+
+              {/* Decree deadline badge — background service reads from matrimonial_data */}
+              <DecreeDeadlineBadge mData={mData} />
+
+              {/* Cross-petition activate button — respondent only, pre-activation */}
+              {activeCase && (
+                <CrossPetitionActivateButton
+                  activeCase={activeCase}
+                  mData={mData}
+                  onActivated={handleCrossPetitionActivated}
+                />
+              )}
+
+            </div>
           </div>
 
           <button
@@ -591,34 +398,28 @@ export function MatrimonialDashboard() {
         padding: '10px 32px 0', borderBottom: '1px solid #e0e0e0', background: '#fafafa',
       }}>
         {MATRIMONIAL_TABS.map(tab => {
-          const isActive  = activeTab === tab.id;
-          const isPending = tab.phase !== 'ready';
+          const isActive = activeTab === tab.id;
           return (
             <button
               key={tab.id}
               onClick={() => handleTabChange(tab.id)}
-              title={isPending ? `Phase ${tab.phase} pending — ${tab.description}` : tab.label}
+              title={tab.description}
               style={{
-                background:   isActive ? '#111111' : 'transparent',
-                border:       isActive ? '1px solid #111111' : '1px solid transparent',
-                color:        isActive ? '#ffffff' : isPending ? '#aaaaaa' : '#444444',
-                borderRadius: '4px 4px 0 0',
-                padding:      '7px 13px',
-                fontSize:     11,
-                fontFamily:   SERIF,
-                cursor:       'pointer',
-                letterSpacing:'.05em',
-                fontWeight:   isActive ? 600 : 400,
-                transition:   'all .12s',
-                marginBottom: isActive ? -1 : 0,
+                background:    isActive ? '#111111' : 'transparent',
+                border:        isActive ? '1px solid #111111' : '1px solid transparent',
+                color:         isActive ? '#ffffff' : '#444444',
+                borderRadius:  '4px 4px 0 0',
+                padding:       '7px 13px',
+                fontSize:      11,
+                fontFamily:    SERIF,
+                cursor:        'pointer',
+                letterSpacing: '.05em',
+                fontWeight:    isActive ? 600 : 400,
+                transition:    'all .12s',
+                marginBottom:  isActive ? -1 : 0,
               }}
             >
               {tab.icon}{' '}{tab.label}
-              {isPending && (
-                <span style={{ marginLeft: 4, fontSize: 8, verticalAlign: 'super', color: '#bbbbbb' }}>
-                  {tab.phase}
-                </span>
-              )}
             </button>
           );
         })}
