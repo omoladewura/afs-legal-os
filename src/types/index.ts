@@ -376,6 +376,8 @@ export interface InheritanceData {
   _uploadNames?: string[];
 
   state_of_case: string;
+  /** One authoritative sentence on exactly where in the procedural chain the handoff happened. Feeds CaseCommand's banner. */
+  handoff_stage_note?: string;
   what_was_done: string[];
 
   gap_report: {
@@ -453,6 +455,16 @@ export interface Case {
   custom_party_b_label?:   string;
   appeal_data?:        AppealData;
   inheritance_data?:   InheritanceData;
+
+  /**
+   * Inherited matter flags — set once at case creation via the "Taking over
+   * from another lawyer?" toggle on the new case form. Drives the
+   * CaseCommand banner (Phase 3) and the inheritance summary injected into
+   * fullContext (Phase 4). All optional — existing/legacy cases unaffected.
+   */
+  is_inherited?:       boolean;
+  prior_counsel_name?: string;
+  handoff_stage?:      string;  // e.g. "Post-pleadings, pre-trial"
 
   /**
    * Matrimonial structured state — populated by MIntelligence and all
