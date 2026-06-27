@@ -58,10 +58,20 @@ const PROC_LABEL_TO_ID: Record<string, OriginatingProcess> = {
   // ── High Court (State / FCT) & Federal High Court — general civil ─────────
   'Writ of Summons':          'writ_of_summons',
   'Originating Summons':      'originating_summons',
-  'Matrimonial Petition':     'petition_matrimonial',
 
-  // ── Federal High Court — specialist track ─────────────────────────────────
+  // ── Two-level top-level labels (sub-proc overrides final id) ──────────────
+  'Originating Motion':       'originating_motion',   // fallback; sub-proc overrides
+  'Petition':                 'petition_matrimonial',  // fallback; sub-proc overrides
+
+  // ── Originating Motion sub-types ──────────────────────────────────────────
+  'General Originating Motion': 'originating_motion',
+  'Fundamental Rights (FREP)':  'frep',
+
+  // ── Petition sub-types ────────────────────────────────────────────────────
+  'Matrimonial Petition':     'petition_matrimonial',
   'Winding-Up Petition':      'winding_up_petition',
+
+  // ── Federal High Court — specialist track (legacy) ────────────────────────
 
   // ── National Industrial Court ─────────────────────────────────────────────
   'NICN Complaint':           'nicn_complaint',
@@ -99,6 +109,7 @@ export function CaseDocket() {
   const [ncName,        setNcName]        = useState('');
   const [ncCourt,       setNcCourt]       = useState('');
   const [ncProcLabel,   setNcProcLabel]   = useState('');   // plain string label
+  const [ncSubProcLabel, setNcSubProcLabel] = useState('');  // sub-type for Originating Motion / Petition
   const [ncSuit,        setNcSuit]        = useState('');
   const [ncDate,        setNcDate]        = useState('');
   const [isCriminal,    setIsCriminal]    = useState(false);
@@ -108,8 +119,11 @@ export function CaseDocket() {
   const filterPreset = docketFilter !== 'all' ? FILTER_PRESET[docketFilter] : null;
 
   // Derive OriginatingProcess id from court + label selection
+  // Sub-proc label (for Originating Motion / Petition) overrides the top-level label when set.
   const ncOrigProc: OriginatingProcess = filterPreset
-    ?? (ncCourt && ncProcLabel ? procLabelToId(ncProcLabel, ncCourt) : 'writ_of_summons');
+    ?? (ncCourt && ncProcLabel
+        ? (ncSubProcLabel ? procLabelToId(ncSubProcLabel, ncCourt) : procLabelToId(ncProcLabel, ncCourt))
+        : 'writ_of_summons');
 
   // Available process labels for the selected court
   const availableProcs: string[] = ncCourt ? (COURT_ORIGINATING_PROCESSES[ncCourt] ?? []) : [];
@@ -117,7 +131,13 @@ export function CaseDocket() {
   // Reset proc label when court changes
   useEffect(() => {
     setNcProcLabel('');
+    setNcSubProcLabel('');
   }, [ncCourt]);
+
+  // Reset sub-proc when top-level proc label changes
+  useEffect(() => {
+    setNcSubProcLabel('');
+  }, [ncProcLabel]);
 
   // Keep proc label in sync when filter preset sets the court
   useEffect(() => {
@@ -152,8 +172,20 @@ export function CaseDocket() {
 
   function handleProcLabelChange(label: string) {
     setNcProcLabel(label);
+    setNcSubProcLabel('');
+    // Role only auto-sets here for non-two-level labels; two-level handled in handleSubProcLabelChange
     const id = procLabelToId(label, ncCourt);
-    setNcRole(id === 'petition_matrimonial' ? 'petitioner_side' : 'claimant_side');
+    if (label !== 'Originating Motion' && label !== 'Petition') {
+      setNcRole(id === 'petition_matrimonial' ? 'petitioner_side' : 'claimant_side');
+    }
+  }
+
+  function handleSubProcLabelChange(subLabel: string) {
+    setNcSubProcLabel(subLabel);
+    const id = procLabelToId(subLabel, ncCourt);
+    if (id === 'frep') setNcRole('frep_applicant');
+    else if (id === 'petition_matrimonial') setNcRole('petitioner_side');
+    else setNcRole('claimant_side');
   }
 
   // ── Role description — no "claim" language for non-civil roles ────────────
@@ -371,7 +403,7 @@ export function CaseDocket() {
   }
 
   function resetForm() {
-    setNcName(''); setNcCourt(''); setNcProcLabel(''); setNcSuit(''); setNcDate('');
+    setNcName(''); setNcCourt(''); setNcProcLabel(''); setNcSubProcLabel(''); setNcSuit(''); setNcDate('');
     setIsCriminal(false);
     setNcRole('claimant_side');
     setNcCustomA(''); setNcCustomB('');
@@ -602,7 +634,46 @@ export function CaseDocket() {
                   ))}
                 </select>
 
-                {ncProcLabel && (
+                {/* Sub-proc selector — appears when Originating Motion or Petition is chosen */}
+                {ncProcLabel === 'Originating Motion' && (
+                  <div style={{ marginTop: 12 }}>
+                    <label style={{ ...S.label, marginBottom: 8, display: 'block' }}>
+                      Motion Type <span style={{ color: '#111111' }}>*</span>
+                    </label>
+                    <select
+                      value={ncSubProcLabel}
+                      onChange={e => handleSubProcLabelChange(e.target.value)}
+                      style={{ ...S.sel, padding: '10px 14px', fontSize: 13, width: '100%' }}
+                    >
+                      <option value="">Select motion type…</option>
+                      <option value="General Originating Motion">General Originating Motion</option>
+                      <option value="Fundamental Rights (FREP)">Fundamental Rights Enforcement (FREP)</option>
+                    </select>
+                  </div>
+                )}
+
+                {ncProcLabel === 'Petition' && (
+                  <div style={{ marginTop: 12 }}>
+                    <label style={{ ...S.label, marginBottom: 8, display: 'block' }}>
+                      Petition Type <span style={{ color: '#111111' }}>*</span>
+                    </label>
+                    <select
+                      value={ncSubProcLabel}
+                      onChange={e => handleSubProcLabelChange(e.target.value)}
+                      style={{ ...S.sel, padding: '10px 14px', fontSize: 13, width: '100%' }}
+                    >
+                      <option value="">Select petition type…</option>
+                      {(ncCourt === 'High Court (State)' || ncCourt === 'High Court (FCT)') && (
+                        <option value="Matrimonial Petition">Matrimonial Petition</option>
+                      )}
+                      {(ncCourt === 'Federal High Court' || ncCourt === 'High Court (State)' || ncCourt === 'High Court (FCT)') && (
+                        <option value="Winding-Up Petition">Winding-Up Petition</option>
+                      )}
+                    </select>
+                  </div>
+                )}
+
+                {ncProcLabel && !(ncProcLabel === 'Originating Motion' && !ncSubProcLabel) && !(ncProcLabel === 'Petition' && !ncSubProcLabel) && (
                   <div style={{
                     marginTop: 8, padding: '8px 12px',
                     background: trackColor.bg,
