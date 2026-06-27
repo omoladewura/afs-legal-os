@@ -15,6 +15,7 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
+import { AUTH_TOKEN } from '@/services/api';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SYSTEM PROMPTS (verbatim from the original Billions Voice tool)
@@ -247,14 +248,13 @@ const P = {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const WORKER_URL = 'https://afs-legal-rag.sobamboadeshupo.workers.dev';
-const WORKER_TOKEN = 'AFS2026SecureToken99';
 
 async function apiCall(systemPrompt: string, userContent: string, maxTokens = 1800): Promise<string> {
   const response = await fetch(`${WORKER_URL}/chat`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${WORKER_TOKEN}`,
+      'Authorization': `Bearer ${AUTH_TOKEN}`,
     },
     body: JSON.stringify({
       model: 'claude-sonnet-4-5',
@@ -543,7 +543,7 @@ function BillionsVoiceModal({ onClose }: { onClose: () => void }) {
     setScribePhase('interviewing'); setScribeLoading(true); setScribeError(null);
     try {
       const res = await fetch(`${WORKER_URL}/chat`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${WORKER_TOKEN}` },
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${AUTH_TOKEN}` },
         body: JSON.stringify({ model: 'claude-sonnet-4-5', max_tokens: 300, system: SCRIBE_INTERVIEWER_PROMPT, messages: [{ role: 'user', content: 'I need to write something. Begin the interview.' }] }),
       });
       const data = await res.json();
@@ -566,7 +566,7 @@ function BillionsVoiceModal({ onClose }: { onClose: () => void }) {
       try {
         const convoText = newMsgs.map(m => `${m.role === 'scribe' ? 'THE SCRIBE' : 'PERSON'}: ${m.text}`).join('\n\n');
         const res = await fetch(`${WORKER_URL}/chat`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${WORKER_TOKEN}` },
+          method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${AUTH_TOKEN}` },
           body: JSON.stringify({ model: 'claude-sonnet-4-5', max_tokens: 1800, system: SCRIBE_COMPOSER_PROMPT, messages: [{ role: 'user', content: `Here is the full intake conversation:\n\n${convoText}\n\nNow write the piece.` }] }),
         });
         const data = await res.json();
@@ -582,7 +582,7 @@ function BillionsVoiceModal({ onClose }: { onClose: () => void }) {
       try {
         const apiMsgs = newMsgs.map(m => ({ role: m.role === 'scribe' ? 'assistant' : 'user', content: m.text }));
         const res = await fetch(`${WORKER_URL}/chat`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${WORKER_TOKEN}` },
+          method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${AUTH_TOKEN}` },
           body: JSON.stringify({ model: 'claude-sonnet-4-5', max_tokens: 300, system: SCRIBE_INTERVIEWER_PROMPT, messages: apiMsgs }),
         });
         const data = await res.json();
