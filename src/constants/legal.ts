@@ -62,19 +62,21 @@ export const COURT_ORIGINATING_PROCESSES: Record<string, string[]> = {
   'High Court (State)': [
     'Writ of Summons',          // Mode 1 — Writ Track
     'Originating Summons',      // Mode 2 — Originating Summons Track
-    'Matrimonial Petition',     // Mode 3 — Matrimonial Causes Track (MatrimonialEngine)
+    'Originating Motion',       // Mode 3 — Originating Motion Track (General / FREP)
+    'Petition',                 // Mode 4 — Petition Track (Matrimonial)
   ],
 
   'High Court (FCT)': [
     'Writ of Summons',
     'Originating Summons',
-    'Matrimonial Petition',
+    'Originating Motion',       // Mode 3 — Originating Motion Track (General / FREP)
+    'Petition',                 // Mode 4 — Petition Track (Matrimonial)
   ],
 
   'Federal High Court': [
     'Writ of Summons',          // General Civil — Writ Track
     'Originating Summons',      // General Civil — Originating Summons Track
-    'Winding-Up Petition',      // Winding Up Petition (CAMA Framework)
+    'Petition',                 // Petition Track — sub-type: Winding-Up Petition (CAMA)
   ],
 
   'National Industrial Court': [
