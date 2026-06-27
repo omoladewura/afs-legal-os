@@ -23,7 +23,8 @@ import { Spinner, ErrorBlock, RoleBadge, Md } from '@/components/common/ui';
 import { copyToClipboard } from '@/utils';
 import { getPartyLabels } from '@/utils/getPartyLabels';
 import { db } from '@/storage/db';
-import { saveCaseTheory, lockCaseTheory } from '@/storage/helpers';
+import { saveCaseTheory, lockCaseTheory, writeIntelligenceToCase } from '@/storage/helpers';
+import type { MExtractionResult } from '@/matrimonial/types';
 
 // ── Step definitions ───────────────────────────────────────────────────────────
 
@@ -346,10 +347,111 @@ ${partyBPlural}: ${activeCase.defendants.map(d => d.name).filter(Boolean).join('
       if (isDefendantWithSPA) {
         runTheoryClashSynthesis(extractionOnly, counterclaim);
       }
+      // Phase 3A — MCA extraction hook: fires when matter_track === 'matrimonial' (non-blocking)
+      if (activeCase.matter_track === 'matrimonial') {
+        runMCAExtraction(extractionOnly, rawFacts);
+      }
     } catch (e) {
       setError('Extraction failed: ' + ((e as Error).message || 'Please try again.'));
     } finally { setLoading(false); }
   }
+
+  // ── Phase 3A: MCA Extraction Hook (fires after Step 2 when matter_track === 'matrimonial') ──
+  // Non-blocking. Reads the standard ExtractionResult already produced by Step 2,
+  // runs a targeted MCA prompt against the raw facts, and persists via writeIntelligenceToCase().
+  // Respondent path: when counsel_role === 'respondent_side', the paste is the served Petition —
+  // MCA layer reads what is being alleged and maps Answer + Cross-Petition strategy automatically.
+  async function runMCAExtraction(ext: ExtractionResult, raw: string) {
+    const role = activeCase.counsel_role ?? 'petitioner_side';
+    const isRespondent = role === 'respondent_side';
+
+    const systemPrompt = `You are an MCA (Matrimonial Causes Act) intelligence extraction engine for Nigerian matrimonial litigation.
+Extract structured matrimonial intelligence from the facts below.
+Output ONLY valid JSON — no markdown fences, no preamble, no explanation. Exactly this structure:
+{
+  "marriage_timeline": {
+    "date_of_marriage": "...",
+    "place_of_marriage": "...",
+    "date_of_separation": "...",
+    "duration_years": 0,
+    "cohabitation_ended": "..."
+  },
+  "relief_sought": "...",
+  "dissolution_facts": [
+    { "fact_code": "adultery|cruelty|desertion|two_year_sep|five_year_sep|incurable_insanity|imprisonment", "particulars": "...", "strength": "STRONG|MODERATE|WEAK" }
+  ],
+  "two_year_bar": {
+    "applies": true,
+    "exception_available": "wilful_refusal|adultery|rape_sodomy_bestiality|none",
+    "leave_needed": true
+  },
+  "condonation_risk": { "risk": true, "basis": "...", "severity": "HIGH|MEDIUM|LOW|NONE" },
+  "connivance_risk": { "risk": false, "basis": "..." },
+  "co_respondent": { "named": false, "name": "", "service_feasible": false },
+  "decree_stage": "none|nisi|absolute",
+  "cross_petition": {
+    "detected": false,
+    "filed_by": "respondent",
+    "facts": [],
+    "relief": ""
+  },
+  "gaps_and_risks": [{ "issue": "...", "severity": "HIGH|MEDIUM|LOW" }]
+}
+Rules:
+- two_year_bar.applies = true when separation < 2 years from filing date and no s.15(2)(a)-(c) exception applies.
+- condonation_risk: true when petitioner resumed cohabitation after the conduct complained of.
+- cross_petition.detected: true only when facts disclose an independent dissolution ground available to the respondent.
+- ${isRespondent ? 'RESPONDENT PATH: The raw facts are the served Petition. Map: what is alleged against the respondent, viable Answer grounds, and whether a Cross-Petition is warranted.' : 'PETITIONER PATH: Extract all dissolution facts and readiness indicators.'}
+- Output ONLY the JSON object. Nothing before or after.`;
+
+    try {
+      const res = await callClaude({
+        system: systemPrompt,
+        userMsg: `COUNSEL ROLE: ${role}
+
+RAW FACTS / SERVED PETITION:
+${raw}
+
+STANDARD EXTRACTION (for context):
+${JSON.stringify(ext, null, 2)}`,
+        maxTokens: 2000,
+      });
+
+      let mcaRaw: MExtractionResult;
+      try {
+        const cleaned = res.replace(/```json|```/g, '').trim();
+        const parsed = JSON.parse(cleaned);
+
+        // Map AI output → MExtractionResult shape
+        mcaRaw = {
+          marriage_timeline:  parsed.marriage_timeline  ?? { date_of_marriage: '', place_of_marriage: '', date_of_separation: '', duration_years: 0, cohabitation_ended: '' },
+          relief_sought:      parsed.relief_sought      ?? '',
+          dissolution_facts:  parsed.dissolution_facts  ?? [],
+          two_year_bar:       parsed.two_year_bar       ?? { applies: false, exception_available: 'none', leave_needed: false },
+          children:           parsed.children           ?? [],
+          financial_picture:  parsed.financial_picture  ?? { assets_mentioned: [], liabilities_mentioned: [], maintenance_sought: false, property_sought: false },
+          condonation_risk:   parsed.condonation_risk   ?? { risk: false, basis: '', severity: 'NONE' },
+          connivance_risk:    parsed.connivance_risk    ?? { risk: false, basis: '' },
+          co_respondent:      parsed.co_respondent      ?? { named: false, name: '', service_feasible: false },
+          decree_stage:       parsed.decree_stage       ?? 'none',
+          gaps_and_risks:     parsed.gaps_and_risks     ?? [],
+        };
+      } catch {
+        // MCA parse failed — silent, non-blocking
+        return;
+      }
+
+      // Persist to matrimonial_data via writeIntelligenceToCase (non-destructive merge)
+      await writeIntelligenceToCase(activeCase.id, mcaRaw, '');
+
+      // If cross-petition detected — update matrimonial_data cross_petition fields via onSave surface
+      // (onSave covers intelligence_data fields; cross_petition fields are written directly by the activate button)
+      // — nothing more needed here; MatrimonialDashboard reads writeIntelligenceToCase output on next mount.
+    } catch {
+      // Non-blocking — swallow silently; standard Step 2 result is already persisted
+    }
+  }
+
 
   // ── Step 2b: Commencement Audit (auto-runs after extraction) ──────────────
   // Ports: Full Compliance Audit + Limitation Calculator + Service Validator
