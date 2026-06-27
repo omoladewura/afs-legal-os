@@ -505,8 +505,8 @@ export const APP_TYPES: AppTypeConfig[] = [
   { id: 'mat_alimony_pendente', label: 'Maintenance Pendente Lite', icon: '💰', track: 'matrimonial',
     package: ['Motion on Notice', 'Supporting Affidavit', 'Written Address in Support', 'Financial Disclosure Statement', 'List of Authorities'],
     hint: 'Interim maintenance pending the determination of the matrimonial proceedings — s.70 MCA. ' +
-          'Affidavit must exhibit evidence of the applicant's needs and the respondent's means. ' +
-          'Addresses housing, food, clothing, medical, and children's needs. Court assesses means and conduct.',
+          'Affidavit must exhibit evidence of the applicant\'s needs and the respondent\'s means. ' +
+          'Addresses housing, food, clothing, medical, and children\'s needs. Court assesses means and conduct.',
     needsCaseTheory: false },
   { id: 'mat_custody_pendente', label: 'Interim Custody Order', icon: '👶', track: 'matrimonial',
     package: ['Motion on Notice', 'Supporting Affidavit', 'Written Address in Support', 'Welfare Report (if ordered)', 'List of Authorities'],
@@ -524,7 +524,7 @@ export const APP_TYPES: AppTypeConfig[] = [
     package: ['Motion on Notice', 'Supporting Affidavit', 'Written Address in Support', 'List of Authorities'],
     hint: 'Order for exclusive occupation of the matrimonial home pending determination of property rights. ' +
           'Available under MCA and inherent jurisdiction. Address: ownership, financial contributions, ' +
-          'children's needs, conduct, and hardship to each party if order is made or refused.',
+          'children\'s needs, conduct, and hardship to each party if order is made or refused.',
     needsCaseTheory: false },
   { id: 'mat_financial_disclosure', label: 'Financial Disclosure Order', icon: '📊', track: 'matrimonial',
     package: ['Motion on Notice', 'Supporting Affidavit', 'Written Address in Support', 'Draft Disclosure Order', 'List of Authorities'],
@@ -543,7 +543,7 @@ export const APP_TYPES: AppTypeConfig[] = [
     package: ['Motion on Notice', 'Supporting Affidavit', 'Written Address in Support', 'Copy of Original Order', 'List of Authorities'],
     hint: 'Application to vary, suspend, or discharge an existing maintenance or custody order — s.45 and s.70 MCA. ' +
           'Must show material change in circumstances since the original order: ' +
-          'change in income, remarriage, child's welfare needs, relocation, or other supervening events.',
+          'change in income, remarriage, child\'s welfare needs, relocation, or other supervening events.',
     needsCaseTheory: false },
   { id: 'mat_transfer_forum', label: 'Transfer of Forum', icon: '🏛', track: 'matrimonial',
     package: ['Motion on Notice', 'Supporting Affidavit', 'Written Address in Support', 'List of Authorities'],
@@ -555,7 +555,7 @@ export const APP_TYPES: AppTypeConfig[] = [
     package: ['Motion Ex Parte', 'Affidavit of Attempted Service', 'Written Address in Support', 'List of Authorities'],
     hint: 'Application for leave to effect substituted service of the matrimonial petition — O.7 MCR. ' +
           'Affidavit must show that personal service has been attempted and is impracticable, ' +
-          'and propose a mode of service reasonably likely to bring the petition to the respondent's notice ' +
+          'and propose a mode of service reasonably likely to bring the petition to the respondent\'s notice ' +
           '(courier, newspaper publication, last known address, or email).',
     needsCaseTheory: false },
   { id: 'mat_opposition_application', label: 'Opposition to Application', icon: '↩', track: 'matrimonial',
