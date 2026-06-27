@@ -16,16 +16,16 @@ import { db } from './db';
 import type { Case, DocketEntry, Deadline, EvidenceItem, ArgumentVersion, CaseTheoryRecord, CaseTheoryHistoryEntry, CaseSummary, CloneableApplicationRecord } from '@/types';
 import type { MatrimonialCaseData, MExtractionResult } from '@/matrimonial/types';
 import type { BlindSpotRecord, ResearchRecord, ArgumentTemplate, DraftBufferRecord, MediaLibraryItem } from './db';
+import { AUTH_TOKEN } from '@/services/api';
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
 const WORKER_URL   = 'https://afs-legal-rag.sobamboadeshupo.workers.dev';
-const WORKER_TOKEN = 'AFS2026SecureToken99';
 
 function syncHeaders(): Record<string, string> {
   return {
     'Content-Type':  'application/json',
-    'Authorization': `Bearer ${WORKER_TOKEN}`,
+    'Authorization': `Bearer ${AUTH_TOKEN}`,
   };
 }
 
