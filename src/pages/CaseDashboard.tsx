@@ -240,9 +240,10 @@ export function CaseDashboard() {
 
   const matterTrack  = activeCase.matter_track;
 
-  const visibleTabs = matterTrack === 'criminal'
-    ? getTabsForOriginatingProcess(activeCase.originating_process)
-    : CIVIL_PIPELINE_TABS;
+  const visibleTabs =
+    matterTrack === 'criminal' || activeCase.originating_process === 'frep'
+      ? getTabsForOriginatingProcess(activeCase.originating_process)
+      : CIVIL_PIPELINE_TABS;
 
   // ── Role / position config (still used for quick actions + accent colour) ──
   const counselRole  = activeCase.counsel_role;
