@@ -148,14 +148,14 @@ type TrialRole = 'prosecution_claimant' | 'defence_defendant' | 'unknown';
 
 function detectTrialRole(activeCase: Case): TrialRole {
   const r = activeCase.counsel_role;
-  if (r === 'prosecution' || r === 'claimant_side') return 'prosecution_claimant';
-  if (r === 'defence'     || r === 'defendant_side') return 'defence_defendant';
+  if (r === 'prosecution' || r === 'claimant_side' || r === 'petitioner_side') return 'prosecution_claimant';
+  if (r === 'defence'     || r === 'defendant_side' || r === 'respondent_side')  return 'defence_defendant';
   return 'unknown';
 }
 
 const ROLE_LABEL: Record<TrialRole, string> = {
-  prosecution_claimant: 'Prosecution / Claimant',
-  defence_defendant:    'Defence / Defendant',
+  prosecution_claimant: 'Prosecution / Claimant / Petitioner',
+  defence_defendant:    'Defence / Defendant / Respondent',
   unknown:              'Role not set',
 };
 
