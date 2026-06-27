@@ -24,6 +24,7 @@ import { queryLibrary, deriveQuery } from '@/services/library';
 import { uid } from '@/storage/helpers';
 import { Spinner } from '@/components/common/ui';
 import type { Case, InheritanceData, InheritanceRisk } from '@/types';
+import { AUTH_TOKEN } from '@/services/api';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -49,7 +50,6 @@ const INH_LIGHT  = '#a09ae0';
 const MAX_FILES  = 8;
 
 const WORKER_URL   = 'https://afs-legal-rag.sobamboadeshupo.workers.dev';
-const WORKER_TOKEN = 'AFS2026SecureToken99';
 
 const SUB_TABS: Array<{ id: SubTab; icon: string; label: string }> = [
   { id: 'upload',  icon: '⬆', label: 'Upload & Audit' },
@@ -295,7 +295,7 @@ Return ONLY the JSON object. No additional text.` + fullContext;
         method:  'POST',
         headers: {
           'Content-Type':  'application/json',
-          'Authorization': `Bearer ${WORKER_TOKEN}`,
+          'Authorization': `Bearer ${AUTH_TOKEN}`,
         },
         body: JSON.stringify({
           model:      'claude-sonnet-4-5',

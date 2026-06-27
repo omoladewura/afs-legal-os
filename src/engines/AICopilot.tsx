@@ -47,7 +47,7 @@ import {
   COUNSEL_ROLE_COLORS,
 } from '@/types';
 import { useAppStore } from '@/state/appStore';
-import { callClaude, withRetry } from '@/services/api';
+import { callClaude, withRetry, AUTH_TOKEN } from '@/services/api';
 import { loadBlindSpot, saveBlindSpot } from '@/storage/helpers';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -407,7 +407,7 @@ export function AICopilot({ activeCase }: Props) {
         method:  'POST',
         headers: {
           'Content-Type':  'application/json',
-          'Authorization': 'Bearer AFS2026SecureToken99',
+          'Authorization': `Bearer ${AUTH_TOKEN}`,
         },
         body: JSON.stringify(reqBody),
       });

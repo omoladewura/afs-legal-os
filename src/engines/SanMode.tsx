@@ -12,7 +12,7 @@
 import { useState, useRef, useEffect } from 'react';
 import type { Case, ApiMessage, ContentBlock } from '@/types';
 import { T, S } from '@/constants/tokens';
-import { CLAUDE_MODEL } from '@/services/api';
+import { CLAUDE_MODEL, AUTH_TOKEN } from '@/services/api';
 import { queryLibrary, deriveQuery } from '@/services/library';
 import { Md } from '@/components/common/ui';
 
@@ -267,7 +267,7 @@ export function SanMode({ activeCase }: Props) {
         method:  'POST',
         headers: {
           'Content-Type':  'application/json',
-          'Authorization': 'Bearer AFS2026SecureToken99',
+          'Authorization': `Bearer ${AUTH_TOKEN}`,
         },
         body: JSON.stringify(reqBody),
       });

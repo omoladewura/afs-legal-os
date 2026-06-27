@@ -33,6 +33,7 @@ import { Md, ErrorBlock, TypeDeleteModal, CaseTheoryBanner } from '@/components/
 import { useCaseTheory } from '@/hooks/useCaseTheory';
 import type { CaseTheoryRecord, CaseSummary } from '@/types';
 import { COUNSEL_ROLE_COLORS, MATTER_TRACK_COLORS } from '@/types';
+import { AUTH_TOKEN } from '@/services/api';
 import {
   queryStatutes,
   formatStatutesForPrompt,
@@ -573,7 +574,6 @@ const DEFAULT_FACTS: AppFacts = {
 const MODULE      = 'applications_v2';
 const TRACKER_MOD = 'app_tracker';
 const WORKER_URL   = 'https://afs-legal-rag.sobamboadeshupo.workers.dev';
-const WORKER_TOKEN = 'AFS2026SecureToken99';
 const APP_STATUSES: AppStatus[] = ['Drafting', 'Filed', 'Served', 'Awaiting Hearing', 'Heard', 'Granted', 'Refused', 'Withdrawn'];
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -584,7 +584,7 @@ async function workerSave(record: ApplicationRecord): Promise<void> {
   try {
     await fetch(`${WORKER_URL}/application`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${WORKER_TOKEN}` },
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${AUTH_TOKEN}` },
       body: JSON.stringify(record),
       signal: AbortSignal.timeout(6000),
     });
@@ -594,7 +594,7 @@ async function workerSave(record: ApplicationRecord): Promise<void> {
 async function workerLoad(caseId: string): Promise<ApplicationRecord[]> {
   try {
     const res = await fetch(`${WORKER_URL}/applications?caseId=${encodeURIComponent(caseId)}`, {
-      headers: { 'Authorization': `Bearer ${WORKER_TOKEN}` },
+      headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` },
       signal: AbortSignal.timeout(6000),
     });
     if (!res.ok) return [];
@@ -607,7 +607,7 @@ async function workerDelete(id: string): Promise<void> {
   try {
     await fetch(`${WORKER_URL}/application?id=${encodeURIComponent(id)}`, {
       method: 'DELETE',
-      headers: { 'Authorization': `Bearer ${WORKER_TOKEN}` },
+      headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` },
       signal: AbortSignal.timeout(6000),
     });
   } catch { /* offline */ }
