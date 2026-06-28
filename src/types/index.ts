@@ -325,6 +325,27 @@ export interface IntelligenceData {
   };
 
   /**
+   * Laws Needed — Phase 3C (Grand Build Plan).
+   * Every law Claude flagged as needed but absent from the library during any
+   * extraction or audit call. Persisted at case level. Items cleared when the
+   * law is uploaded to the library and the engine re-queries and confirms retrieval.
+   * Displayed in the ChecklistSidebar Laws Needed section.
+   */
+  laws_needed?: Array<{
+    /** Specific statutory citation — e.g. "Limitation Law of Delta State Cap 107 Laws of Delta State 2006" */
+    name:          string;
+    /** Why this law is needed for this specific case */
+    reason:        string;
+    /** Which phase/call flagged the gap */
+    flagged_by:    string;
+    /** ISO timestamp when first flagged */
+    flagged_at:    string;
+    /** true once the law has been uploaded and retrieved from the library */
+    resolved?:     boolean;
+    resolved_at?:  string;
+  }>;
+
+  /**
    * Served Process Analysis — Phase 1B (Grand Build Plan).
    * Produced when defendant-side counsel pastes/uploads the originating process.
    * Runs library query first; injects results into SPA prompt.
