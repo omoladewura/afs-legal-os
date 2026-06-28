@@ -62,7 +62,7 @@ import { T } from '@/constants/tokens';
 import { saveCase } from '@/storage/helpers';
 import { maybeCompressIntelligence } from '@/services/compressIntelligence';
 // Phase 9 — Checklist Sidebar (case-level, engine-independent)
-import { ChecklistSidebar } from '@/engines/ChecklistSidebar';
+import { ChecklistSidebar } from '@/components/ChecklistSidebar';
 import type { Case, DashTabId, MatterTrack, CounselRole } from '@/types';
 import {
   MATTER_TRACK_LABELS,
