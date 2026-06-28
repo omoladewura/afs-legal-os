@@ -168,6 +168,23 @@ export interface IntelligenceData {
     evidence_missing:   string[];
     priority:           'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
     notes?:             string;
+    // Phase 7A — library source grounding the evidentiary rule for this issue
+    library_source?:    string;
+    // Phase 7B — Section 84 Evidence Act flag
+    s84_required?:      boolean;
+    s84_document?:      string;
+    s84_deponent?:      string;
+  }>;
+
+  // Phase 7B — Section 84 Evidence Act 2011 automatic flags
+  // Populated by buildEvidenceMatrix. Each entry is one electronic document
+  // that requires a certificate. Persisted at case level so the Checklist
+  // sidebar can surface them as case-specific items.
+  s84_flags?: Array<{
+    document:     string;
+    deponent?:    string;
+    issue:        string;
+    requirements: string;
   }>;
 
   // Flat fields kept for backwards compatibility with other engines
