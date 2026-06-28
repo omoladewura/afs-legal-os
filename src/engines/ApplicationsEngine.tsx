@@ -195,7 +195,7 @@ type AppStatus       = 'Drafting' | 'Filed' | 'Served' | 'Awaiting Hearing' | 'H
 type ApplicationRole = 'mover' | 'respondent';
 
 // Mover track sub-tabs
-type MoverSubTab = 'written_address' | 'opposing_response' | 'further_better' | 'reply_law';
+type MoverSubTab = 'supporting_affidavit' | 'written_address' | 'opposing_response' | 'further_better' | 'reply_law';
 // Respondent track sub-tabs
 type RespondentSubTab = 'counter_affidavit' | 'written_address_opp' | 'further_better_resp';
 
@@ -271,12 +271,20 @@ interface AppFacts {
   deponent:          string;
   keyFacts:          string;
   additionalContext: string;
+  // AI-derived from intPkg — counsel confirms/edits
+  autoReliefs:       string;
+  autoGrounds:       string;
+  autoKeyFacts:      string;
 }
 
 // Everything generated in Stage 3 — persisted with the record
 interface Stage3Data {
   applicationRole:     ApplicationRole | null;
   // Mover track
+  supportingAffidavitDraft: string; // Tab 1 — Supporting Affidavit pre-draft
+  // Mover FB supplement fields
+  supplementInstructions:   string;
+  supplementExhibits:       string;
   issues:              ArgumentIssue[];
   writtenAddress:      string;
   opposingFiled:       boolean;
@@ -286,7 +294,13 @@ interface Stage3Data {
   furtherBetterDraft:  string;
   replyLawPoints:      string;   // counsel's input: which legal points to rebut
   replyLawDraft:       string;
-  // Respondent track
+  // Mover track — Further & Better
+  furtherBetterTrigger: 'supplement' | 'counter_counter' | 'both' | null;
+  moverFBParaResponses: AffidavitParaResponse[]; // client rebuttal para-by-para against counter-affidavit
+  // Respondent track — intake (from Stage 2)
+  motionPaperIn:             string;  // Motion Paper / Notice of Motion as served
+  applicantWrittenAddressIn: string;  // Applicant's Written Address in Support
+  // Respondent track — affidavit
   applicantAffidavit:  string;   // paste of applicant's supporting affidavit
   paraResponses:       AffidavitParaResponse[];
   respondentNewFacts:  string;
@@ -296,8 +310,11 @@ interface Stage3Data {
   respIssues:          ArgumentIssue[];
   writtenAddressOpp:   string;
   respOpposingFiled:   boolean;
-  respFBGrounds:       FBGround[];
-  respFBDraft:         string;
+  // Respondent track — Further Counter-Affidavit (replaces respFBGrounds/respFBDraft)
+  leaveObtained:       boolean;
+  applicantFBIn:       string;   // Applicant's Further & Better Affidavit paste
+  respFCParaResponses: AffidavitParaResponse[]; // client instructions para-by-para
+  respFCDraft:         string;   // Further Counter-Affidavit draft
 }
 
 interface ApplicationRecord {
@@ -569,6 +586,7 @@ export const APP_TYPES: AppTypeConfig[] = [
 
 const DEFAULT_FACTS: AppFacts = {
   parties: '', reliefSought: '', grounds: '', deponent: '', keyFacts: '', additionalContext: '',
+  autoReliefs: '', autoGrounds: '', autoKeyFacts: '',
 };
 
 const MODULE      = 'applications_v2';
@@ -1609,6 +1627,114 @@ interface FBBuilderProps {
   systemCtx:         string;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// MOVER FB PARA EDITOR — inline single-para form for moverFBParaResponses
+// ─────────────────────────────────────────────────────────────────────────────
+function MoverFBParaEditor({ onSave }: { onSave: (p: AffidavitParaResponse) => void }) {
+  const [paraNum,  setParaNum]  = useState('');
+  const [paraText, setParaText] = useState('');
+  const [stance,   setStance]   = useState<'admit' | 'deny' | 'not_known'>('deny');
+  const [response, setResponse] = useState('');
+
+  function handleSave() {
+    if (!paraNum.trim()) return;
+    onSave({ id: Math.random().toString(36).slice(2), paraNum, paraText, stance, response });
+    setParaNum(''); setParaText(''); setStance('deny'); setResponse('');
+  }
+
+  return (
+    <div style={{ background: '#080814', border: '1px solid #c0504030', borderRadius: 8, padding: '16px 18px', marginTop: 8 }}>
+      <div style={{ fontSize: 12, fontWeight: 700, color: '#c0c0d8', marginBottom: 12 }}>Add Counter-Affidavit Paragraph</div>
+      <div style={{ marginBottom: 10 }}>
+        <SLabel text="Para number(s)" />
+        <TA value={paraNum} onChange={setParaNum} placeholder="e.g. 7 / or 7, 8 and 9" rows={1} />
+      </div>
+      <div style={{ marginBottom: 10 }}>
+        <SLabel text="What those paragraphs allege (new facts only)" />
+        <TA value={paraText} onChange={setParaText} placeholder="e.g. Para 7 alleges that the applicant never delivered the goods" rows={3} />
+      </div>
+      <div style={{ marginBottom: 10 }}>
+        <SLabel text="Client's stance" />
+        <div style={{ display: 'flex', gap: 8 }}>
+          {(['admit', 'deny', 'not_known'] as const).map(s => (
+            <button key={s} onClick={() => setStance(s)}
+              style={{
+                background: stance === s ? '#080f1a' : 'transparent',
+                border: `1px solid ${stance === s ? (s === 'admit' ? '#40a060' : s === 'deny' ? '#c05050' : '#c09040') : '#282840'}`,
+                color: stance === s ? (s === 'admit' ? '#40a060' : s === 'deny' ? '#c05050' : '#c09040') : '#505068',
+                borderRadius: 5, padding: '6px 12px', fontSize: 11, cursor: 'pointer', fontFamily: "'Times New Roman', Times, serif",
+              }}>
+              {s === 'not_known' ? 'Not within knowledge' : s.charAt(0).toUpperCase() + s.slice(1)}
+            </button>
+          ))}
+        </div>
+      </div>
+      {stance === 'deny' && (
+        <div style={{ marginBottom: 12 }}>
+          <SLabel text="Client's rebuttal — true position" />
+          <TA value={response} onChange={setResponse}
+            placeholder="e.g. The goods were delivered on 3 February 2024. Client has a delivery receipt signed by the respondent's warehouse manager." rows={3} />
+        </div>
+      )}
+      <Btn label="+ Add Paragraph" onClick={handleSave} off={!paraNum.trim()} accent="#4090d0" small />
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RESP FC PARA EDITOR — inline para form for respFCParaResponses
+// ─────────────────────────────────────────────────────────────────────────────
+function RespFCParaEditor({ onSave }: { onSave: (p: AffidavitParaResponse) => void }) {
+  const [paraNum,  setParaNum]  = useState('');
+  const [paraText, setParaText] = useState('');
+  const [stance,   setStance]   = useState<'admit' | 'deny' | 'not_known'>('deny');
+  const [response, setResponse] = useState('');
+
+  function handleSave() {
+    if (!paraNum.trim()) return;
+    onSave({ id: Math.random().toString(36).slice(2), paraNum, paraText, stance, response });
+    setParaNum(''); setParaText(''); setStance('deny'); setResponse('');
+  }
+
+  return (
+    <div style={{ background: '#080814', border: '1px solid #c0904030', borderRadius: 8, padding: '16px 18px', marginTop: 8 }}>
+      <div style={{ fontSize: 12, fontWeight: 700, color: '#c0c0d8', marginBottom: 12 }}>Add Para from Applicant's Further & Better</div>
+      <div style={{ marginBottom: 10 }}>
+        <SLabel text="Para number(s)" />
+        <TA value={paraNum} onChange={setParaNum} placeholder="e.g. 4 / or 4 and 5" rows={1} />
+      </div>
+      <div style={{ marginBottom: 10 }}>
+        <SLabel text="New fact(s) alleged in those paragraphs" />
+        <TA value={paraText} onChange={setParaText} placeholder="e.g. Para 4 alleges that delivery was made on 3 February 2024 and signed for by the Respondent's manager" rows={3} />
+      </div>
+      <div style={{ marginBottom: 10 }}>
+        <SLabel text="Client's stance" />
+        <div style={{ display: 'flex', gap: 8 }}>
+          {(['admit', 'deny', 'not_known'] as const).map(s => (
+            <button key={s} onClick={() => setStance(s)}
+              style={{
+                background: stance === s ? '#080f1a' : 'transparent',
+                border: `1px solid ${stance === s ? (s === 'admit' ? '#40a060' : s === 'deny' ? '#c05050' : '#c09040') : '#282840'}`,
+                color: stance === s ? (s === 'admit' ? '#40a060' : s === 'deny' ? '#c05050' : '#c09040') : '#505068',
+                borderRadius: 5, padding: '6px 12px', fontSize: 11, cursor: 'pointer', fontFamily: "'Times New Roman', Times, serif",
+              }}>
+              {s === 'not_known' ? 'Not within knowledge' : s.charAt(0).toUpperCase() + s.slice(1)}
+            </button>
+          ))}
+        </div>
+      </div>
+      {stance === 'deny' && (
+        <div style={{ marginBottom: 12 }}>
+          <SLabel text="Client's rebuttal — true position" />
+          <TA value={response} onChange={setResponse}
+            placeholder="e.g. No delivery was made on that date. The manager's signature was forged. Client has CCTV footage." rows={3} />
+        </div>
+      )}
+      <Btn label="+ Add Paragraph" onClick={handleSave} off={!paraNum.trim()} accent="#c09040" small />
+    </div>
+  );
+}
+
 function FBBuilder({
   activeCase, appType, facts, ownAffidavitLabel, otherAffidavitIn,
   fbGrounds, onFBGroundsChange, fbDraft, onFBDraftChange, systemCtx,
@@ -1807,15 +1933,16 @@ Draft the Further and Better Affidavit now:`;
 // ── Full Stage 3 component ─────────────────────────────────────────────────
 
 interface ArgBuilderProps {
-  activeCase: Case;
-  appType:    AppTypeConfig;
-  facts:      AppFacts;
-  stage3:     Stage3Data;
-  onStage3:   (v: Stage3Data) => void;
-  systemCtx:  string;
+  activeCase:    Case;
+  appType:       AppTypeConfig;
+  facts:         AppFacts;
+  stage3:        Stage3Data;
+  onStage3:      (v: Stage3Data) => void;
+  onChangeRole:  () => void;
+  systemCtx:     string;
 }
 
-function ArgumentBuilderStage({ activeCase, appType, facts, stage3, onStage3, systemCtx }: ArgBuilderProps) {
+function ArgumentBuilderStage({ activeCase, appType, facts, stage3, onStage3, onChangeRole, systemCtx }: ArgBuilderProps) {
   const { ask, loading, error } = useAI(activeCase);
   // Phase 9D — light theory injection for generateReplyLaw when needsCaseTheory is true
   const { theory: replyTheory, hasTheory: replyHasTheory } = useCaseTheory(activeCase.id);
@@ -1830,7 +1957,7 @@ function ArgumentBuilderStage({ activeCase, appType, facts, stage3, onStage3, sy
   // called once a role was picked — a different hook count between renders,
   // which is a Rules-of-Hooks violation and throws React error #310 the
   // instant the user selects Mover or Respondent.
-  const [moverTab,     setMoverTab]     = useState<MoverSubTab>('written_address');
+  const [moverTab,     setMoverTab]     = useState<MoverSubTab>('supporting_affidavit');
   const [respondentTab, setRespondentTab] = useState<RespondentSubTab>('counter_affidavit');
   const [editPara,    setEditPara]    = useState<AffidavitParaResponse | null>(null);
   const [editParaId,  setEditParaId]  = useState<string | null>(null);
@@ -1983,50 +2110,11 @@ function ArgumentBuilderStage({ activeCase, appType, facts, stage3, onStage3, sy
   }
   // ── End Phase 3C ─────────────────────────────────────────────────────────
 
-  // ── Role selection — who are we in THIS application?
+  // Safety guard — role is always set before reaching Stage 3 (picker is now in Stage 2)
   if (!stage3.applicationRole) {
     return (
-      <div>
-        <div style={{ fontSize: 14, color: '#808098', marginBottom: 24, lineHeight: 1.7 }}>
-          In a Nigerian court, any party — claimant, defendant, prosecution, accused, appellant, or respondent on appeal —
-          can file an application at any stage of proceedings. Your role in the main suit does not determine your role in this application.
-        </div>
-        <div style={{ fontSize: 13, fontWeight: 700, color: '#f0ece0', marginBottom: 16 }}>
-          In this application, I am:
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {([
-            {
-              role: 'mover' as const,
-              icon: '⚡',
-              title: 'Applicant / Mover',
-              desc: 'I filed this motion. I am urging the court to grant the reliefs I seek. I will file: Motion Paper + Supporting Affidavit + Written Address in Support. If opposed, I may later file a Further & Better Affidavit and a Reply on Points of Law.',
-            },
-            {
-              role: 'respondent' as const,
-              icon: '🛡',
-              title: 'Respondent to Application',
-              desc: 'I am opposing this motion filed by the other party. I will file: Counter-Affidavit + Written Address in Opposition. I may also file a Further & Better Affidavit if the Applicant introduces new facts after my Counter-Affidavit.',
-            },
-          ]).map(opt => (
-            <button key={opt.role} onClick={() => onStage3({ ...stage3, applicationRole: opt.role })}
-              style={{
-                background: '#080814', border: '1px solid #1e1e34', borderRadius: 8,
-                padding: '18px 20px', textAlign: 'left', cursor: 'pointer',
-                display: 'flex', alignItems: 'flex-start', gap: 14,
-              }}>
-              <span style={{ fontSize: 24, flexShrink: 0, marginTop: 2 }}>{opt.icon}</span>
-              <div>
-                <div style={{ fontSize: 14, color: '#f0ece0', fontWeight: 700, marginBottom: 6 }}>{opt.title}</div>
-                <div style={{ fontSize: 12, color: '#808098', lineHeight: 1.65 }}>{opt.desc}</div>
-              </div>
-            </button>
-          ))}
-        </div>
-        <div style={{ marginTop: 16, fontSize: 11, color: '#404058', lineHeight: 1.6 }}>
-          Note: Being the claimant or defendant in the main suit does not determine which role you occupy here.
-          A defendant can bring a motion; a claimant can be the respondent to a motion brought by the defendant.
-        </div>
+      <div style={{ fontSize: 13, color: '#808098', padding: '20px 0' }}>
+        No role selected. Please go back to Facts and choose your role in this application.
       </div>
     );
   }
@@ -2035,6 +2123,7 @@ function ArgumentBuilderStage({ activeCase, appType, facts, stage3, onStage3, sy
 
   // ── Tab definitions
   const moverTabs: { id: MoverSubTab; label: string; locked?: boolean }[] = [
+    { id: 'supporting_affidavit', label: '✍ Supporting Affidavit' },
     { id: 'written_address',    label: `⚖ Written Address in Support (${stage3.issues.length} issue${stage3.issues.length !== 1 ? 's' : ''})` },
     { id: 'opposing_response',  label: '📥 Opposing Response' },
     { id: 'further_better',     label: '✍ Further & Better Affidavit', locked: !stage3.opposingFiled },
@@ -2061,6 +2150,94 @@ function ArgumentBuilderStage({ activeCase, appType, facts, stage3, onStage3, sy
     if (editParaId) { onStage3({ ...stage3, paraResponses: stage3.paraResponses.map(p => p.id === editParaId ? editPara : p) }); }
     else { onStage3({ ...stage3, paraResponses: [...stage3.paraResponses, editPara] }); }
     setEditPara(null); setEditParaId(null);
+  }
+
+  async function generateSupportingAffidavit() {
+    const reliefs  = facts.autoReliefs  || facts.reliefSought  || '';
+    const grounds  = facts.autoGrounds  || facts.grounds       || '';
+    const keyFacts = facts.autoKeyFacts || facts.keyFacts      || '';
+    const prompt = `Draft a Supporting Affidavit for a ${appType.label} in a Nigerian court.
+
+CASE: ${activeCase.caseName} | COURT: ${activeCase.court} | SUIT: ${activeCase.suitNo || '[TBA]'}
+TRACK: ${activeCase.matter_track ?? 'civil'}
+DEPONENT: ${facts.deponent || '[deponent name]'}
+
+RELIEFS SOUGHT:
+${reliefs}
+
+GROUNDS:
+${grounds}
+
+KEY FACTS / NARRATIVE:
+${keyFacts}
+
+${facts.additionalContext ? 'ADDITIONAL CONTEXT:\n' + facts.additionalContext : ''}
+
+SUPPORTING AFFIDAVIT RULES — MANDATORY:
+1. Full Nigerian court heading: IN THE [COURT NAME] / HOLDEN AT [LOCATION] / SUIT NO: [NUMBER] / BETWEEN: [PARTIES]
+2. Caption: "SUPPORTING AFFIDAVIT IN SUPPORT OF [APPLICATION TYPE]"
+3. "I, [DEPONENT NAME], do hereby make oath and state as follows:"
+4. Numbered paragraphs in first-person voice. State deponent's identity, capacity, and personal knowledge basis in Para 1.
+5. Each material fact in its own numbered paragraph — chronological order.
+6. No legal argument — facts only. Legal submissions go in the Written Address.
+7. Exhibits referenced as: "...exhibited hereto and marked as Exhibit [A/B/C]..."
+8. JURAT: "Sworn to at _____ this ___ day of ______ 20__ / Before me: ___________ Commissioner for Oaths / [DEPONENT SIGNATURE]"
+9. Use [EXHIBIT NEEDED] for any exhibit that should exist but is not described.
+
+Draft the complete Supporting Affidavit now:`;
+
+    const result = await ask({
+      system: systemCtx + '\nYou are drafting a Supporting Affidavit for a Nigerian court. This is a sworn document — facts only, no legal argument. Use correct Nigerian affidavit format with numbered paragraphs and proper jurat.',
+      userMsg: prompt,
+      maxTokens: 1000,
+      libraryOpts: { queryHint: `Supporting Affidavit ${appType.label} Nigeria`, topK: 4 },
+    });
+    if (result) onStage3({ ...stage3, supportingAffidavitDraft: result.trim() });
+  }
+
+  async function generateMoverFurtherBetter() {
+    const trigger = stage3.furtherBetterTrigger;
+    if (!trigger) return;
+
+    const supplementInstructions = stage3.supplementInstructions ?? '';
+    const supplementExhibits     = stage3.supplementExhibits ?? '';
+
+    const paraBlocks = stage3.moverFBParaResponses.map(p =>
+      `Para ${p.paraNum}: "${p.paraText}" → ${p.stance === 'admit' ? 'ADMIT' : p.stance === 'deny' ? 'DENY' : 'NOT WITHIN MY KNOWLEDGE'}${p.response ? ' — Client says: ' + p.response : ''}`
+    ).join('\n');
+
+    const purposeSection = trigger === 'supplement'
+      ? `PURPOSE: Supplement Supporting Affidavit\nSUPPLEMENT INSTRUCTIONS: ${supplementInstructions}\nEXHIBITS TO ADD: ${supplementExhibits}`
+      : trigger === 'counter_counter'
+      ? `PURPOSE: Respond to Counter-Affidavit new facts\nCOUNTER-AFFIDAVIT PASTE:\n${stage3.counterAffidavitIn || '(see para responses below)'}\n\nPARA-BY-PARA CLIENT INSTRUCTIONS:\n${paraBlocks}`
+      : `PURPOSE: Both supplement own affidavit AND respond to Counter-Affidavit\n\nSUPPLEMENT INSTRUCTIONS: ${supplementInstructions}\nEXHIBITS TO ADD: ${supplementExhibits}\n\nCOUNTER-AFFIDAVIT PARA-BY-PARA:\n${paraBlocks}`;
+
+    const prompt = `Draft a Further and Better Affidavit for the Applicant / Mover in a ${appType.label} in a Nigerian court.
+
+CASE: ${activeCase.caseName} | COURT: ${activeCase.court} | SUIT: ${activeCase.suitNo || '[TBA]'}
+TRACK: ${activeCase.matter_track ?? 'civil'}
+DEPONENT: ${facts.deponent || '[deponent]'}
+
+${purposeSection}
+
+MANDATORY RULES:
+1. Full Nigerian court heading and "FURTHER AND BETTER AFFIDAVIT" caption.
+2. Every paragraph references its basis: "Further to paragraph [X] of my Supporting Affidavit..." or "In response to paragraph [X] of the Counter-Affidavit...".
+3. Sworn document — facts only. No legal argument.
+4. Numbered paragraphs, first-person voice.
+5. If trigger includes counter-counter: for each DENY entry, give the applicant's true position as instructed.
+6. JURAT at end.
+7. Use [RESEARCH NEEDED] for any authority needed.
+
+Draft now:`;
+
+    const result = await ask({
+      system: systemCtx + '\nYou are drafting a Further and Better Affidavit for a Nigerian court. Sworn document — facts only, numbered paragraphs, correct jurat.',
+      userMsg: prompt,
+      maxTokens: 1000,
+      libraryOpts: { queryHint: `Further Better Affidavit Nigeria ${appType.label}`, topK: 4 },
+    });
+    if (result) onStage3({ ...stage3, furtherBetterDraft: result.trim() });
   }
 
   async function generateCounterAffidavit() {
@@ -2103,6 +2280,48 @@ Draft the Counter-Affidavit now:`;
       userMsg: prompt, maxTokens: 2500,
     });
     if (result) onStage3({ ...stage3, counterAffidavitDraft: result.trim() });
+  }
+
+  async function generateFurtherCounterAffidavit() {
+    if (!stage3.leaveObtained) return;
+    const paraBlocks = stage3.respFCParaResponses.map(p =>
+      `Para ${p.paraNum}: "${p.paraText}" → ${p.stance === 'admit' ? 'ADMIT' : p.stance === 'deny' ? 'DENY' : 'NOT WITHIN MY KNOWLEDGE'}${p.response ? ' — Client says: ' + p.response : ''}`
+    ).join('\n');
+
+    const prompt = `Draft a Further Counter-Affidavit for the Respondent in a ${appType.label} in a Nigerian court.
+
+CASE: ${activeCase.caseName} | COURT: ${activeCase.court} | SUIT: ${activeCase.suitNo || '[TBA]'}
+TRACK: ${activeCase.matter_track ?? 'civil'}
+DEPONENT: ${stage3.respondentDeponent || facts.deponent || 'the Respondent'}
+NOTE: Leave of court has been obtained to file this Further Counter-Affidavit.
+
+APPLICANT'S FURTHER & BETTER AFFIDAVIT:
+${stage3.applicantFBIn || '(Counsel to confirm content — paste was not provided)'}
+
+PARA-BY-PARA CLIENT INSTRUCTIONS:
+${paraBlocks || '(none recorded — respond to all new facts)'}
+
+${stage3.respondentNewFacts ? 'RESPONDENT\'S ADDITIONAL FACTS:\n' + stage3.respondentNewFacts : ''}
+${stage3.respondentExhibits ? 'EXHIBITS:\n' + stage3.respondentExhibits : ''}
+
+MANDATORY RULES:
+1. Caption: "FURTHER COUNTER-AFFIDAVIT" with full Nigerian court heading.
+2. Para 1: state leave of court was granted and the date/terms if known.
+3. Every responding paragraph references the specific paragraph of the Applicant's Further & Better Affidavit it responds to.
+4. Sworn document — facts only, no legal argument.
+5. For each DENY: set out the true position per client's instructions.
+6. Numbered paragraphs, first-person voice. JURAT at end.
+7. Use [RESEARCH NEEDED] for any uncertain authority.
+
+Draft now:`;
+
+    const result = await ask({
+      system: systemCtx + '\nYou are drafting a Further Counter-Affidavit for a Nigerian court. Sworn document — facts only. Reference each paragraph you respond to. Correct Nigerian affidavit format.',
+      userMsg: prompt,
+      maxTokens: 1000,
+      libraryOpts: { queryHint: `Further Counter-Affidavit Nigeria ${appType.label}`, topK: 4 },
+    });
+    if (result) onStage3({ ...stage3, respFCDraft: result.trim() });
   }
 
   async function generateReplyLaw() {
@@ -2160,7 +2379,7 @@ Draft the Reply on Points of Law now:`;
           <span style={{ fontSize: 12, color: '#4090d0', background: '#4090d010', border: '1px solid #4090d030', borderRadius: 4, padding: '4px 12px', fontFamily: "\'Times New Roman\', Times, serif" }}>
             ⚡ Applicant / Mover
           </span>
-          <button onClick={() => onStage3({ ...stage3, applicationRole: null })}
+          <button onClick={() => onChangeRole()}
             style={{ background: 'none', border: 'none', color: '#505068', cursor: 'pointer', fontSize: 11, fontFamily: "\'Times New Roman\', Times, serif" }}>
             ← Change role
           </button>
@@ -2184,7 +2403,60 @@ Draft the Reply on Points of Law now:`;
           ))}
         </div>
 
-        {/* A — Written Address in Support */}
+        {/* Tab 1 — Supporting Affidavit */}
+        {moverTab === 'supporting_affidavit' && (
+          <div>
+            <div style={{ fontSize: 12, color: '#808098', marginBottom: 18, lineHeight: 1.65 }}>
+              The Supporting Affidavit is a <strong style={{ color: '#c0c0d8' }}>sworn document</strong> — facts only, no legal argument.
+              Key facts and reliefs are pre-populated from Stage 2. Review them, then draft.
+            </div>
+
+            {error && <ErrorBlock message={error} />}
+
+            {/* Pre-populated review */}
+            {(facts.autoKeyFacts || facts.keyFacts) && (
+              <div style={{ background: '#06060f', border: '1px solid #1a1a2e', borderRadius: 7, padding: '12px 16px', marginBottom: 18 }}>
+                <div style={{ fontSize: 11, color: '#4090d0', fontWeight: 700, marginBottom: 8 }}>KEY FACTS (from Stage 2)</div>
+                <div style={{ fontSize: 12, color: '#9090a8', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
+                  {(facts.autoKeyFacts || facts.keyFacts).slice(0, 600)}{(facts.autoKeyFacts || facts.keyFacts).length > 600 ? '…' : ''}
+                </div>
+              </div>
+            )}
+
+            <div style={{ marginBottom: 14 }}>
+              <SLabel text="Additional Exhibits (labels and descriptions)" />
+              <TA value={stage3.supplementExhibits}
+                onChange={v => onStage3({ ...stage3, supplementExhibits: v })}
+                placeholder="e.g. Exhibit A — letter dated 15 January 2024; Exhibit B — bank statement" rows={3} />
+            </div>
+
+            {stage3.supportingAffidavitDraft && (
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 11, color: '#40a060', marginBottom: 8 }}>✓ Supporting Affidavit drafted</div>
+                <div style={{ background: '#06060f', border: '1px solid #1a1a2e', borderRadius: 8, padding: '18px 20px', lineHeight: 1.85, fontSize: 13, maxHeight: 400, overflowY: 'auto' }}>
+                  <Md text={stage3.supportingAffidavitDraft} />
+                </div>
+                <div style={{ marginTop: 10 }}>
+                  <TA value={stage3.supportingAffidavitDraft}
+                    onChange={v => onStage3({ ...stage3, supportingAffidavitDraft: v })} rows={12} />
+                </div>
+              </div>
+            )}
+
+            <Btn label={stage3.supportingAffidavitDraft ? '↻ Re-draft Supporting Affidavit' : '✍ Draft Supporting Affidavit'}
+              onClick={generateSupportingAffidavit} loading={loading}
+              off={!facts.autoKeyFacts && !facts.keyFacts && !facts.autoReliefs && !facts.reliefSought}
+              accent="#4090d0" />
+
+            {!facts.autoKeyFacts && !facts.keyFacts && (
+              <div style={{ marginTop: 10, fontSize: 11, color: '#806040' }}>
+                ← Go back to Stage 2 and auto-derive or enter key facts first
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Tab 2 — Written Address in Support */}
         {moverTab === 'written_address' && (
           <>
             {/* 2D-ii — Template badge */}
@@ -2398,15 +2670,124 @@ Draft the Reply on Points of Law now:`;
         )}
 
         {/* C — Further & Better Affidavit (Mover) */}
+        {/* Tab 4 — Further & Better Affidavit (Mover) */}
         {moverTab === 'further_better' && (
-          <FBBuilder
-            activeCase={activeCase} appType={appType} facts={facts}
-            ownAffidavitLabel="Supporting Affidavit"
-            otherAffidavitIn={stage3.counterAffidavitIn}
-            fbGrounds={stage3.fbGrounds} onFBGroundsChange={v => onStage3({ ...stage3, fbGrounds: v })}
-            fbDraft={stage3.furtherBetterDraft} onFBDraftChange={v => onStage3({ ...stage3, furtherBetterDraft: v })}
-            systemCtx={systemCtx}
-          />
+          <div>
+            <div style={{ fontSize: 12, color: '#808098', marginBottom: 18, lineHeight: 1.65 }}>
+              A Further and Better Affidavit is a <strong style={{ color: '#c0c0d8' }}>sworn document</strong>.
+              Select the purpose — this determines what client instructions are needed.
+            </div>
+
+            {error && <ErrorBlock message={error} />}
+
+            {/* Trigger selector */}
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#f0ece0', marginBottom: 12 }}>
+              What is the purpose of this Further & Better Affidavit?
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 24 }}>
+              {([
+                { val: 'supplement' as const,       label: 'A — Supplement own Supporting Affidavit',        desc: 'Facts or exhibits were omitted from the original — add them now.' },
+                { val: 'counter_counter' as const,  label: 'B — Respond to Counter-Affidavit new facts',    desc: 'The Counter-Affidavit introduced new facts that require a sworn rebuttal.' },
+                { val: 'both' as const,             label: 'C — Both (supplement + respond to counter)',     desc: 'Both purposes apply — a combined document will be drafted.' },
+              ]).map(opt => (
+                <button key={opt.val} onClick={() => onStage3({ ...stage3, furtherBetterTrigger: opt.val })}
+                  style={{
+                    background: stage3.furtherBetterTrigger === opt.val ? '#080f1a' : '#080814',
+                    border: `1px solid ${stage3.furtherBetterTrigger === opt.val ? '#4090d0' : '#1e1e34'}`,
+                    borderRadius: 7, padding: '12px 16px', fontSize: 12, cursor: 'pointer',
+                    color: stage3.furtherBetterTrigger === opt.val ? '#f0ece0' : '#808098',
+                    fontFamily: "'Times New Roman', Times, serif", textAlign: 'left',
+                  }}>
+                  <div style={{ fontWeight: 700, marginBottom: 4 }}>{opt.label}</div>
+                  <div style={{ fontSize: 11, color: stage3.furtherBetterTrigger === opt.val ? '#808098' : '#404058' }}>{opt.desc}</div>
+                </button>
+              ))}
+            </div>
+
+            {/* Supplement section */}
+            {(stage3.furtherBetterTrigger === 'supplement' || stage3.furtherBetterTrigger === 'both') && (
+              <div style={{ background: '#06060f', border: '1px solid #1a1a2e', borderRadius: 8, padding: '16px 18px', marginBottom: 20 }}>
+                <div style={{ fontSize: 11, color: '#4090d0', fontWeight: 700, marginBottom: 14, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  A — Supplement Instructions (from client)
+                </div>
+                <div style={{ marginBottom: 12 }}>
+                  <SLabel text="What was omitted / what new facts or exhibits to add" />
+                  <TA value={stage3.supplementInstructions}
+                    onChange={v => onStage3({ ...stage3, supplementInstructions: v })}
+                    placeholder="e.g. Client says the payment receipt dated 5 March 2024 was not exhibited. Client also wants to add that he met the defendant at the bank on 10 March and the defendant acknowledged the debt. Exhibit the WhatsApp message confirming this."
+                    rows={5} />
+                </div>
+                <div style={{ marginBottom: 12 }}>
+                  <SLabel text="Additional exhibits for supplement" />
+                  <TA value={stage3.supplementExhibits}
+                    onChange={v => onStage3({ ...stage3, supplementExhibits: v })}
+                    placeholder="e.g. Exhibit D — payment receipt dated 5 March 2024; Exhibit E — WhatsApp chat, 10 March 2024"
+                    rows={3} />
+                </div>
+              </div>
+            )}
+
+            {/* Counter-Counter section — para-by-para builder */}
+            {(stage3.furtherBetterTrigger === 'counter_counter' || stage3.furtherBetterTrigger === 'both') && (
+              <div style={{ background: '#06060f', border: '1px solid #1a1a2e', borderRadius: 8, padding: '16px 18px', marginBottom: 20 }}>
+                <div style={{ fontSize: 11, color: '#4090d0', fontWeight: 700, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  B — Respond to Counter-Affidavit New Facts (para-by-para)
+                </div>
+                <div style={{ fontSize: 11, color: '#505068', marginBottom: 14, lineHeight: 1.6 }}>
+                  For each paragraph of the Counter-Affidavit that introduced new facts, record your client's instructions.
+                </div>
+
+                {/* Existing para responses */}
+                {stage3.moverFBParaResponses.length > 0 && (
+                  <div style={{ marginBottom: 16 }}>
+                    {stage3.moverFBParaResponses.map((p, idx) => (
+                      <div key={p.id} style={{ background: '#080814', border: '1px solid #1e1e34', borderRadius: 6, padding: '10px 14px', marginBottom: 8 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                          <div style={{ flex: 1 }}>
+                            <span style={{ fontSize: 11, color: '#4090d0', fontWeight: 700 }}>Para {p.paraNum}</span>
+                            <span style={{ fontSize: 11, color: p.stance === 'admit' ? '#40a060' : p.stance === 'deny' ? '#c05050' : '#c09040', marginLeft: 8, textTransform: 'uppercase' }}>
+                              {p.stance === 'not_known' ? 'Not within knowledge' : p.stance}
+                            </span>
+                            <div style={{ fontSize: 12, color: '#808098', marginTop: 4, lineHeight: 1.5 }}>{p.paraText.slice(0, 80)}{p.paraText.length > 80 ? '…' : ''}</div>
+                            {p.response && <div style={{ fontSize: 12, color: '#c0c0d8', marginTop: 4, fontStyle: 'italic' }}>{p.response.slice(0, 100)}{p.response.length > 100 ? '…' : ''}</div>}
+                          </div>
+                          <div style={{ display: 'flex', gap: 6, flexShrink: 0, marginLeft: 12 }}>
+                            <button onClick={() => {
+                              const updated = stage3.moverFBParaResponses.map((r, i) => i === idx ? { ...r, _editing: true } : r);
+                              onStage3({ ...stage3, moverFBParaResponses: updated });
+                            }} style={{ background: 'transparent', border: '1px solid #2a2a40', color: '#808098', borderRadius: 4, padding: '4px 10px', fontSize: 11, cursor: 'pointer', fontFamily: "'Times New Roman', Times, serif" }}>Edit</button>
+                            <button onClick={() => onStage3({ ...stage3, moverFBParaResponses: stage3.moverFBParaResponses.filter((_, i) => i !== idx) })}
+                              style={{ background: 'transparent', border: 'none', color: '#503030', cursor: 'pointer', fontSize: 16 }}>✕</button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Add new para response inline */}
+                <MoverFBParaEditor
+                  onSave={p => onStage3({ ...stage3, moverFBParaResponses: [...stage3.moverFBParaResponses, p] })}
+                />
+              </div>
+            )}
+
+            {/* Draft button */}
+            {stage3.furtherBetterTrigger && (
+              <>
+                {stage3.furtherBetterDraft && (
+                  <div style={{ marginBottom: 16 }}>
+                    <div style={{ fontSize: 11, color: '#40a060', marginBottom: 8 }}>✓ Further & Better Affidavit drafted</div>
+                    <div style={{ background: '#06060f', border: '1px solid #1a1a2e', borderRadius: 8, padding: '18px 20px', lineHeight: 1.85, fontSize: 13, maxHeight: 400, overflowY: 'auto' }}>
+                      <Md text={stage3.furtherBetterDraft} />
+                    </div>
+                  </div>
+                )}
+                <Btn label={stage3.furtherBetterDraft ? '↻ Re-draft Further & Better Affidavit' : '✍ Draft Further & Better Affidavit'}
+                  onClick={generateMoverFurtherBetter} loading={loading} accent="#4090d0" />
+              </>
+            )}
+          </div>
         )}
 
         {/* D — Reply on Points of Law */}
@@ -2453,7 +2834,7 @@ Draft the Reply on Points of Law now:`;
         <span style={{ fontSize: 12, color: '#c09040', background: '#c0904010', border: '1px solid #c0904030', borderRadius: 4, padding: '4px 12px', fontFamily: "\'Times New Roman\', Times, serif" }}>
           🛡 Respondent to Application
         </span>
-        <button onClick={() => onStage3({ ...stage3, applicationRole: null })}
+        <button onClick={() => onChangeRole()}
           style={{ background: 'none', border: 'none', color: '#505068', cursor: 'pointer', fontSize: 11, fontFamily: "\'Times New Roman\', Times, serif" }}>
           ← Change role
         </button>
@@ -2730,6 +3111,17 @@ Draft the Reply on Points of Law now:`;
       {/* B — Written Address in Opposition */}
       {respondentTab === 'written_address_opp' && (
         <>
+          {/* Applicant's Written Address in Support — read-only reference panel */}
+          {stage3.applicantWrittenAddressIn && (
+            <div style={{ background: '#06060f', border: '1px solid #1a1a2e', borderRadius: 8, padding: '14px 16px', marginBottom: 18 }}>
+              <div style={{ fontSize: 9, color: '#c09040', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 8 }}>
+                Applicant's Written Address in Support — Reference (read-only)
+              </div>
+              <div style={{ fontSize: 12, color: '#707090', lineHeight: 1.7, maxHeight: 180, overflowY: 'auto', whiteSpace: 'pre-wrap', fontFamily: "'Times New Roman', Times, serif" }}>
+                {stage3.applicantWrittenAddressIn}
+              </div>
+            </div>
+          )}
           {/* 2D-ii — Template badge */}
           {templateBadge && (
             <div style={{
@@ -2751,22 +3143,155 @@ Draft the Reply on Points of Law now:`;
         </>
       )}
 
-      {/* C — Further & Better Affidavit (Respondent) */}
+      {/* C — Further Counter-Affidavit (Respondent) */}
       {respondentTab === 'further_better_resp' && (
         <div>
-          <div style={{ fontSize: 12, color: '#808098', marginBottom: 18, lineHeight: 1.6 }}>
-            As respondent, you file a Further & Better Affidavit if the applicant has filed a Further & Better Affidavit
-            after your Counter-Affidavit that introduces new facts requiring a response, OR if you omitted facts or exhibits
-            from your original Counter-Affidavit.
+          <div style={{ fontSize: 12, color: '#808098', marginBottom: 18, lineHeight: 1.65 }}>
+            A Further Counter-Affidavit responds to new facts introduced in the Applicant's Further &amp; Better Affidavit.
+            It requires <strong style={{ color: '#c0c0d8' }}>leave of court</strong> and is a sworn document.
           </div>
-          <FBBuilder
-            activeCase={activeCase} appType={appType} facts={facts}
-            ownAffidavitLabel="Counter-Affidavit"
-            otherAffidavitIn={stage3.furtherBetterDraft}
-            fbGrounds={stage3.respFBGrounds} onFBGroundsChange={v => onStage3({ ...stage3, respFBGrounds: v })}
-            fbDraft={stage3.respFBDraft} onFBDraftChange={v => onStage3({ ...stage3, respFBDraft: v })}
-            systemCtx={systemCtx}
-          />
+
+          {/* Gate question */}
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#f0ece0', marginBottom: 12 }}>
+            Did the Applicant file a Further &amp; Better Affidavit?
+          </div>
+          <div style={{ display: 'flex', gap: 10, marginBottom: 24 }}>
+            {([
+              { val: true,  label: 'Yes — they filed a Further & Better Affidavit after our Counter-Affidavit' },
+              { val: false, label: 'No — flow ends here' },
+            ] as const).map(opt => (
+              <button key={String(opt.val)} onClick={() => onStage3({ ...stage3, respOpposingFiled: opt.val })}
+                style={{
+                  background: stage3.respOpposingFiled === opt.val ? '#080f1a' : '#080814',
+                  border: `1px solid ${stage3.respOpposingFiled === opt.val ? '#c09040' : '#1e1e34'}`,
+                  borderRadius: 7, padding: '12px 16px', fontSize: 12, cursor: 'pointer',
+                  color: stage3.respOpposingFiled === opt.val ? '#f0ece0' : '#808098',
+                  fontFamily: "'Times New Roman', Times, serif", textAlign: 'left', flex: 1,
+                }}>
+                {opt.label}
+              </button>
+            ))}
+          </div>
+
+          {stage3.respOpposingFiled === false && (
+            <div style={{ background: '#050d06', border: '1px solid #1a3020', borderRadius: 7, padding: '14px 18px', fontSize: 13, color: '#60a060', lineHeight: 1.65 }}>
+              ✓ Flow ends here. Proceed to assemble: Counter-Affidavit + Written Address in Opposition.
+            </div>
+          )}
+
+          {stage3.respOpposingFiled === true && (
+            <div>
+              {/* Step 1 — Leave of court */}
+              <div style={{ background: '#06060f', border: '1px solid #1a1a2e', borderRadius: 8, padding: '16px 18px', marginBottom: 20 }}>
+                <div style={{ fontSize: 11, color: '#c09040', fontWeight: 700, marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  Step 1 — Leave of Court
+                </div>
+                <div style={{ fontSize: 12, color: '#808098', marginBottom: 14, lineHeight: 1.6 }}>
+                  A Further Counter-Affidavit requires leave of court before it can be filed.
+                  The draft button is disabled until leave is confirmed.
+                </div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+                  <input type="checkbox" checked={stage3.leaveObtained}
+                    onChange={e => onStage3({ ...stage3, leaveObtained: e.target.checked })}
+                    style={{ width: 16, height: 16, accentColor: '#c09040' }} />
+                  <span style={{ fontSize: 12, color: stage3.leaveObtained ? '#c09040' : '#808098', fontFamily: "'Times New Roman', Times, serif" }}>
+                    Leave of Court has been obtained to file a Further Counter-Affidavit
+                  </span>
+                </label>
+              </div>
+
+              {/* Step 2 — Paste Applicant's Further & Better */}
+              <div style={{ background: '#06060f', border: '1px solid #1a1a2e', borderRadius: 8, padding: '16px 18px', marginBottom: 20 }}>
+                <div style={{ fontSize: 11, color: '#c09040', fontWeight: 700, marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  Step 2 — Paste Applicant's Further &amp; Better Affidavit
+                </div>
+                <TA value={stage3.applicantFBIn}
+                  onChange={v => onStage3({ ...stage3, applicantFBIn: v })}
+                  placeholder="Paste the Applicant's Further and Better Affidavit here. The engine will identify which paragraphs introduced new facts."
+                  rows={8} />
+              </div>
+
+              {/* Step 3 — Para-by-para builder */}
+              <div style={{ background: '#06060f', border: '1px solid #1a1a2e', borderRadius: 8, padding: '16px 18px', marginBottom: 20 }}>
+                <div style={{ fontSize: 11, color: '#c09040', fontWeight: 700, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  Step 3 — Client Instructions: Para-by-Para Response
+                </div>
+                <div style={{ fontSize: 11, color: '#505068', marginBottom: 14, lineHeight: 1.6 }}>
+                  For each paragraph of the Applicant's Further &amp; Better Affidavit that introduces new facts,
+                  record your client's instructions. This is a sworn document — client consultation is mandatory.
+                </div>
+
+                {stage3.respFCParaResponses.length > 0 && (
+                  <div style={{ marginBottom: 16 }}>
+                    {stage3.respFCParaResponses.map((p, idx) => (
+                      <div key={p.id} style={{ background: '#080814', border: '1px solid #1e1e34', borderRadius: 6, padding: '10px 14px', marginBottom: 8 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                          <div style={{ flex: 1 }}>
+                            <span style={{ fontSize: 11, color: '#c09040', fontWeight: 700 }}>Para {p.paraNum}</span>
+                            <span style={{ fontSize: 11, color: p.stance === 'admit' ? '#40a060' : p.stance === 'deny' ? '#c05050' : '#c09040', marginLeft: 8, textTransform: 'uppercase' }}>
+                              {p.stance === 'not_known' ? 'Not within knowledge' : p.stance}
+                            </span>
+                            <div style={{ fontSize: 12, color: '#808098', marginTop: 4, lineHeight: 1.5 }}>{p.paraText.slice(0, 80)}{p.paraText.length > 80 ? '…' : ''}</div>
+                            {p.response && <div style={{ fontSize: 12, color: '#c0c0d8', marginTop: 4, fontStyle: 'italic' }}>{p.response.slice(0, 100)}{p.response.length > 100 ? '…' : ''}</div>}
+                          </div>
+                          <button onClick={() => onStage3({ ...stage3, respFCParaResponses: stage3.respFCParaResponses.filter((_, i) => i !== idx) })}
+                            style={{ background: 'transparent', border: 'none', color: '#503030', cursor: 'pointer', fontSize: 16, marginLeft: 12 }}>✕</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <RespFCParaEditor
+                  onSave={p => onStage3({ ...stage3, respFCParaResponses: [...stage3.respFCParaResponses, p] })}
+                />
+
+                <div style={{ marginTop: 18, marginBottom: 12 }}>
+                  <SLabel text="Respondent's additional facts (not in Applicant's Further & Better)" />
+                  <TA value={stage3.respondentNewFacts}
+                    onChange={v => onStage3({ ...stage3, respondentNewFacts: v })}
+                    placeholder="Any additional facts the respondent wishes to place on record in the Further Counter-Affidavit"
+                    rows={4} />
+                </div>
+
+                <div style={{ marginBottom: 12 }}>
+                  <SLabel text="Deponent" />
+                  <TA value={stage3.respondentDeponent}
+                    onChange={v => onStage3({ ...stage3, respondentDeponent: v })}
+                    placeholder="e.g. Chukwuemeka Obi, the Respondent / a clerk in the employ of counsel" rows={1} />
+                </div>
+                <div style={{ marginBottom: 12 }}>
+                  <SLabel text="Exhibits" />
+                  <TA value={stage3.respondentExhibits}
+                    onChange={v => onStage3({ ...stage3, respondentExhibits: v })}
+                    placeholder="e.g. Exhibit D — bank statement showing no debit on 3 February 2024" rows={2} />
+                </div>
+              </div>
+
+              {error && <ErrorBlock message={error} />}
+
+              {stage3.respFCDraft && (
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ fontSize: 11, color: '#40a060', marginBottom: 8 }}>✓ Further Counter-Affidavit drafted</div>
+                  <div style={{ background: '#06060f', border: '1px solid #1a1a2e', borderRadius: 8, padding: '18px 20px', lineHeight: 1.85, fontSize: 13, maxHeight: 400, overflowY: 'auto' }}>
+                    <Md text={stage3.respFCDraft} />
+                  </div>
+                </div>
+              )}
+
+              <Btn
+                label={stage3.respFCDraft ? '↻ Re-draft Further Counter-Affidavit' : '✍ Draft Further Counter-Affidavit'}
+                onClick={generateFurtherCounterAffidavit} loading={loading}
+                off={!stage3.leaveObtained || (stage3.respFCParaResponses.length === 0 && !stage3.respondentNewFacts.trim())}
+                accent="#c09040"
+              />
+              {!stage3.leaveObtained && (
+                <div style={{ marginTop: 8, fontSize: 11, color: '#806040' }}>
+                  ↑ Confirm leave of court in Step 1 before drafting
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -2937,10 +3462,26 @@ export function ApplicationsEngine({ activeCase }: Props) {
 
   // Stage 2
   const [facts, setFacts] = useState<AppFacts>({ ...DEFAULT_FACTS });
+  // Stage 2 — Mover auto-derive
+  const [derivingFacts,   setDerivingFacts]   = useState(false);
+  const [deriveError,     setDeriveError]     = useState<string | null>(null);
+  // Stage 2 — Respondent extract & analyse
+  const [extractingOpp,   setExtractingOpp]   = useState(false);
+  const [extractError,    setExtractError]    = useState<string | null>(null);
+  const [oppExtractResult, setOppExtractResult] = useState<{
+    reliefs_being_opposed: string[];
+    grounds_being_opposed: string[];
+    applicant_arguments: string[];
+    our_counter_grounds: string[];
+    issues_for_opposition: string[];
+  } | null>(null);
 
   // Stage 3 — all mover + respondent state in one object
   const [stage3, setStage3] = useState<Stage3Data>({
     applicationRole:      null,
+    supportingAffidavitDraft: '',
+    supplementInstructions: '',
+    supplementExhibits:   '',
     issues:               [],
     writtenAddress:       '',
     opposingFiled:        false,
@@ -2950,6 +3491,10 @@ export function ApplicationsEngine({ activeCase }: Props) {
     furtherBetterDraft:   '',
     replyLawPoints:       '',
     replyLawDraft:        '',
+    furtherBetterTrigger: null,
+    moverFBParaResponses: [],
+    motionPaperIn:             '',
+    applicantWrittenAddressIn: '',
     applicantAffidavit:   '',
     paraResponses:        [],
     respondentNewFacts:   '',
@@ -2959,8 +3504,10 @@ export function ApplicationsEngine({ activeCase }: Props) {
     respIssues:           [],
     writtenAddressOpp:    '',
     respOpposingFiled:    false,
-    respFBGrounds:        [],
-    respFBDraft:          '',
+    leaveObtained:        false,
+    applicantFBIn:        '',
+    respFCParaResponses:  [],
+    respFCDraft:          '',
   });
 
   // Stage 4
@@ -3034,28 +3581,45 @@ export function ApplicationsEngine({ activeCase }: Props) {
     // Embed any documents already drafted in Stage 3
     const docSections: string[] = [];
     if (isMover) {
-      if (stage3.writtenAddress)     docSections.push(`WRITTEN ADDRESS IN SUPPORT (already drafted — use as-is):\n${stage3.writtenAddress.slice(0,2500)}`);
-      if (stage3.furtherBetterDraft) docSections.push(`FURTHER AND BETTER AFFIDAVIT (already drafted — use as-is):\n${stage3.furtherBetterDraft.slice(0,2000)}`);
-      if (stage3.replyLawDraft)      docSections.push(`REPLY ON POINTS OF LAW (already drafted — use as-is):\n${stage3.replyLawDraft.slice(0,2000)}`);
+      if (stage3.supportingAffidavitDraft) docSections.push(`SUPPORTING AFFIDAVIT (already drafted — use as-is):\n${stage3.supportingAffidavitDraft.slice(0,2500)}`);
+      if (stage3.writtenAddress)           docSections.push(`WRITTEN ADDRESS IN SUPPORT (already drafted — use as-is):\n${stage3.writtenAddress.slice(0,2500)}`);
+      if (stage3.furtherBetterDraft)       docSections.push(`FURTHER AND BETTER AFFIDAVIT (already drafted — use as-is):\n${stage3.furtherBetterDraft.slice(0,2000)}`);
+      if (stage3.replyLawDraft)            docSections.push(`REPLY ON POINTS OF LAW (already drafted — use as-is):\n${stage3.replyLawDraft.slice(0,2000)}`);
     }
     if (isRespondent) {
       if (stage3.counterAffidavitDraft) docSections.push(`COUNTER-AFFIDAVIT (already drafted — use as-is):\n${stage3.counterAffidavitDraft.slice(0,2000)}`);
       if (stage3.writtenAddressOpp)     docSections.push(`WRITTEN ADDRESS IN OPPOSITION (already drafted — use as-is):\n${stage3.writtenAddressOpp.slice(0,2500)}`);
-      if (stage3.respFBDraft)           docSections.push(`FURTHER AND BETTER AFFIDAVIT (already drafted — use as-is):\n${stage3.respFBDraft.slice(0,2000)}`);
+      if (stage3.respFCDraft)           docSections.push(`FURTHER COUNTER-AFFIDAVIT (already drafted — use as-is):\n${stage3.respFCDraft.slice(0,2000)}`);
     }
 
-    // Build package description
+    // Build package description — only documents actually produced appear
     const packageDescription = isRespondent
       ? [
           stage3.counterAffidavitDraft    ? 'Counter-Affidavit (pre-drafted)' : 'Counter-Affidavit',
           stage3.writtenAddressOpp        ? 'Written Address in Opposition (pre-drafted)' : 'Written Address in Opposition',
-          stage3.respFBDraft              ? 'Further and Better Affidavit (pre-drafted)' : '',
+          stage3.respOpposingFiled && stage3.respFCDraft ? 'Further Counter-Affidavit (pre-drafted)' :
+          stage3.respOpposingFiled        ? 'Further Counter-Affidavit' : '',
         ].filter(Boolean).join(', ')
       : [
-          ...selectedType.package,
-          stage3.furtherBetterDraft ? 'Further and Better Affidavit (pre-drafted)' : '',
-          stage3.replyLawDraft      ? 'Reply on Points of Law (pre-drafted)' : '',
+          stage3.supportingAffidavitDraft ? 'Supporting Affidavit (pre-drafted)' : 'Supporting Affidavit',
+          stage3.writtenAddress           ? 'Written Address in Support (pre-drafted)' : 'Written Address in Support',
+          stage3.opposingFiled && stage3.furtherBetterDraft ? 'Further and Better Affidavit (pre-drafted)' :
+          stage3.opposingFiled            ? 'Further and Better Affidavit' : '',
+          stage3.opposingFiled && stage3.replyLawDraft ? 'Reply on Points of Law (pre-drafted)' :
+          stage3.opposingFiled && stage3.writtenAddressIn ? 'Reply on Points of Law' : '',
         ].filter(Boolean).join(', ');
+
+    // Use auto-derived facts if available, fall back to manual
+    const reliefBlock   = facts.autoReliefs  || facts.reliefSought  || '';
+    const groundsBlock  = facts.autoGrounds  || facts.grounds       || '';
+    const keyFactsBlock = facts.autoKeyFacts || facts.keyFacts      || '';
+
+    // Respondent: include pasted opposing documents as context
+    const respondentContext = isRespondent && (stage3.motionPaperIn || stage3.applicantWrittenAddressIn)
+      ? `\nMOTION PAPER SERVED ON CLIENT:\n${stage3.motionPaperIn.slice(0, 1500)}\n\nAPPLICANT\'S WRITTEN ADDRESS IN SUPPORT:\n${stage3.applicantWrittenAddressIn.slice(0, 1500)}`
+      : '';
+
+    const intPkgStr = String(activeCase.intelligence_data?.intPkg ?? '').slice(0, 3000);
 
     const prompt = `Assemble a complete application package for a Nigerian court. Draft every document in full — no placeholders. Court-ready.
 
@@ -3070,14 +3634,15 @@ DOCUMENTS TO ASSEMBLE: ${packageDescription}
 
 APPLICATION FACTS:
 Parties: ${facts.parties || activeCase.caseName}
-${facts.reliefSought    ? 'Relief Sought: ' + facts.reliefSought : ''}
-${facts.grounds         ? 'Grounds: ' + facts.grounds : ''}
-${facts.deponent        ? 'Affidavit Deponent: ' + facts.deponent : ''}
-${facts.keyFacts        ? 'Key Facts: ' + facts.keyFacts : ''}
+${reliefBlock    ? (isRespondent ? 'Reliefs Being Opposed: ' : 'Relief Sought: ') + reliefBlock : ''}
+${groundsBlock   ? (isRespondent ? 'Grounds Being Opposed: ' : 'Grounds: ') + groundsBlock : ''}
+${facts.deponent ? 'Affidavit Deponent: ' + facts.deponent : ''}
+${keyFactsBlock  ? 'Key Facts: ' + keyFactsBlock : ''}
 ${facts.additionalContext ? 'Additional Context: ' + facts.additionalContext : ''}
+${respondentContext}
 
 ${docSections.length ? '=== PRE-DRAFTED DOCUMENTS (embed as-is) ===\n' + docSections.join('\n\n---\n\n') + '\n=== END PRE-DRAFTED DOCUMENTS ===' : ''}
-${String(activeCase.intelligence_data?.intPkg ?? '').slice(0, 1200) ? 'INTELLIGENCE PACKAGE:\n' + String(activeCase.intelligence_data?.intPkg ?? '').slice(0, 1200) : ''}
+${intPkgStr ? 'INTELLIGENCE PACKAGE:\n' + intPkgStr : ''}
 
 ASSEMBLY RULES — MANDATORY:
 1. Output every document in full, in filing sequence, with a clear bold heading for each.
@@ -3086,14 +3651,15 @@ ASSEMBLY RULES — MANDATORY:
 4. Every document gets full Nigerian court heading: court name, suit number, parties, date line.
 5. Affidavit format: numbered paragraphs, first-person deponent voice, jurat: "Sworn to at _____ this ___ day of ______ 20__ / Before me: ___________ Commissioner for Oaths"
 6. Counter-Affidavit: paragraph-by-paragraph responses (admit/deny/not within knowledge) + respondent's new facts.
-7. Further & Better Affidavit: every paragraph references the specific paragraph of the principal affidavit or counter-affidavit it is premised on or responding to.
-8. Written Address: Introduction → Issues for Determination → Arguments (IRAC) → Conclusion and Relief. ${isRespondent ? 'Urge court to REFUSE the application.' : 'Urge court to GRANT the application.'}
-9. Reply on Points of Law: responds ONLY to new legal points raised by opposing counsel — no new facts.
-10. Bail: community ties, flight risk, gravity of offence, health, dependants.
-11. Extension of time: account for every day of delay — Bowaje v Adediwura two-condition test.
-12. Stay of execution: good grounds of appeal, special circumstances, balance of hardship.
-13. Separate each document with: ---
-14. NEVER fabricate case citations. Use [RESEARCH NEEDED] blocks for uncertain authority.
+7. Further Counter-Affidavit: caption must state leave of court was obtained; every paragraph references the Applicant's Further & Better paragraph it responds to.
+8. Further & Better Affidavit: every paragraph references the specific paragraph of the principal affidavit or counter-affidavit it is premised on or responding to.
+9. Written Address: Introduction → Issues for Determination → Arguments (IRAC) → Conclusion and Relief. ${isRespondent ? 'Urge court to REFUSE the application.' : 'Urge court to GRANT the application.'}
+10. Reply on Points of Law: responds ONLY to new legal points raised by opposing counsel — no new facts.
+11. Bail: community ties, flight risk, gravity of offence, health, dependants.
+12. Extension of time: account for every day of delay — Bowaje v Adediwura two-condition test.
+13. Stay of execution: good grounds of appeal, special circumstances, balance of hardship.
+14. Separate each document with: ---
+15. NEVER fabricate case citations. Use [RESEARCH NEEDED] blocks for uncertain authority.
 
 Begin with the first document heading now:`;
 
@@ -3129,6 +3695,92 @@ Begin with the first document heading now:`;
     alert('Package saved to history.');
   }, [selectedType, generated, facts, stage3, history, activeCase.id]);
 
+  const handleAutoDerive = useCallback(async () => {
+    if (!selectedType) return;
+    setDerivingFacts(true); setDeriveError(null);
+    const intPkg = String(activeCase.intelligence_data?.intPkg ?? '').slice(0, 3000);
+    const prompt = `You are reviewing an intelligence package for a Nigerian court matter and must derive the key facts for a ${selectedType.label}.
+
+INTELLIGENCE PACKAGE:
+${intPkg || '(No intelligence package loaded — derive from case facts)'}
+
+CASE: ${activeCase.caseName} | COURT: ${activeCase.court} | TRACK: ${activeCase.matter_track ?? 'civil'}
+
+Derive the following from the intelligence package. Return ONLY a JSON object with no preamble or markdown:
+{
+  "reliefs_sought": "Numbered list of specific reliefs to seek in this application, e.g.: 1. An order that... 2. A declaration that... 3. Costs of this application",
+  "grounds": "Numbered grounds for the application, one per line",
+  "key_facts": "Chronological narrative of material facts relevant to this application — dates, events, documents, communications",
+  "deponent_suggestion": "Name and description of the most appropriate deponent based on the case facts"
+}`;
+    try {
+      const resp = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 1000,
+          system: systemCtx + '\nReturn ONLY valid JSON. No preamble, no markdown fences.',
+          messages: [{ role: 'user', content: prompt }] }),
+      });
+      const data = await resp.json();
+      const text = (data.content ?? []).map((b: any) => b.text ?? '').join('');
+      const clean = text.replace(/```json|```/g, '').trim();
+      const parsed = JSON.parse(clean);
+      setFacts(f => ({
+        ...f,
+        autoReliefs:  parsed.reliefs_sought ?? '',
+        autoGrounds:  parsed.grounds ?? '',
+        autoKeyFacts: parsed.key_facts ?? '',
+        deponent:     f.deponent || (parsed.deponent_suggestion ?? ''),
+      }));
+    } catch (e: any) {
+      setDeriveError('Auto-derive failed: ' + (e?.message ?? 'unknown error'));
+    }
+    setDerivingFacts(false);
+  }, [selectedType, activeCase, systemCtx]);
+
+  const handleExtractOpp = useCallback(async () => {
+    if (!stage3.motionPaperIn.trim() && !stage3.applicantWrittenAddressIn.trim()) return;
+    setExtractingOpp(true); setExtractError(null);
+    const intPkg = String(activeCase.intelligence_data?.intPkg ?? '').slice(0, 3000);
+    const prompt = `You are acting as counsel for the Respondent in a Nigerian court application. Analyse the documents served on your client.
+
+MOTION PAPER / NOTICE OF MOTION:
+${stage3.motionPaperIn || '(not provided)'}
+
+APPLICANT'S WRITTEN ADDRESS IN SUPPORT:
+${stage3.applicantWrittenAddressIn || '(not provided)'}
+
+INTELLIGENCE PACKAGE (our case context):
+${intPkg || '(none)'}
+
+Extract and return ONLY a JSON object with no preamble or markdown:
+{
+  "reliefs_being_opposed": ["list of specific reliefs the Applicant is seeking"],
+  "grounds_being_opposed": ["list of grounds in the motion paper"],
+  "applicant_arguments": ["key legal arguments made in the Written Address"],
+  "our_counter_grounds": ["preliminary counter-grounds available to the Respondent based on intelligence"],
+  "issues_for_opposition": ["issues for determination from the Respondent's perspective"]
+}`;
+    try {
+      const resp = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 1000,
+          system: systemCtx + '\nReturn ONLY valid JSON. No preamble, no markdown fences.',
+          messages: [{ role: 'user', content: prompt }] }),
+      });
+      const data = await resp.json();
+      const text = (data.content ?? []).map((b: any) => b.text ?? '').join('');
+      const clean = text.replace(/```json|```/g, '').trim();
+      const parsed = JSON.parse(clean);
+      setOppExtractResult(parsed);
+    } catch (e: any) {
+      setExtractError('Extraction failed: ' + (e?.message ?? 'unknown error'));
+    }
+    setExtractingOpp(false);
+  }, [stage3.motionPaperIn, stage3.applicantWrittenAddressIn, activeCase, systemCtx]);
+
+
   const handleDelete = useCallback(async (id: string) => {
     if (!confirm('Delete this application package?')) return;
     const updated = history.filter(r => r.id !== id);
@@ -3138,12 +3790,16 @@ Begin with the first document heading now:`;
   }, [history, selectedRecord]);
 
   const DEFAULT_STAGE3: Stage3Data = {
-    applicationRole: null, issues: [], writtenAddress: '', opposingFiled: false,
+    applicationRole: null, supportingAffidavitDraft: '', supplementInstructions: '', supplementExhibits: '',
+    issues: [], writtenAddress: '', opposingFiled: false,
     counterAffidavitIn: '', writtenAddressIn: '', fbGrounds: [], furtherBetterDraft: '',
-    replyLawPoints: '', replyLawDraft: '', applicantAffidavit: '', paraResponses: [],
+    replyLawPoints: '', replyLawDraft: '', furtherBetterTrigger: null, moverFBParaResponses: [],
+    motionPaperIn: '', applicantWrittenAddressIn: '',
+    applicantAffidavit: '', paraResponses: [],
     respondentNewFacts: '', respondentDeponent: '', respondentExhibits: '',
     counterAffidavitDraft: '', respIssues: [], writtenAddressOpp: '',
-    respOpposingFiled: false, respFBGrounds: [], respFBDraft: '',
+    respOpposingFiled: false, leaveObtained: false, applicantFBIn: '',
+    respFCParaResponses: [], respFCDraft: '',
   };
 
   const resetWorkflow = useCallback(() => {
@@ -3166,7 +3822,14 @@ Begin with the first document heading now:`;
     };
     setSelectedType(matchedType);
     setFacts(rec.facts);
-    setStage3(rec.stage3);
+    setStage3(s => ({
+      ...s,
+      ...rec.stage3,
+      // Explicit hydration — ensure mover draft fields survive round-trip
+      supportingAffidavitDraft: rec.stage3.supportingAffidavitDraft ?? s.supportingAffidavitDraft,
+      supplementInstructions:   rec.stage3.supplementInstructions   ?? s.supplementInstructions,
+      supplementExhibits:       rec.stage3.supplementExhibits       ?? s.supplementExhibits,
+    }));
     setGenerated('');
     clearError();
     setStage(2);
@@ -3183,7 +3846,7 @@ Begin with the first document heading now:`;
     return t.track === trackFilter;
   });
   const canGoToStage2 = !!selectedType;
-  const canGoToStage3 = canGoToStage2 && !!(facts.reliefSought.trim() || facts.grounds.trim());
+  const canGoToStage3 = canGoToStage2 && !!stage3.applicationRole && !!(facts.reliefSought.trim() || facts.grounds.trim() || facts.autoReliefs.trim() || facts.motionPaperIn?.trim());
   const stageLabels   = ['Type', 'Facts', 'Arguments', 'Assemble', 'Track'];
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -3366,53 +4029,247 @@ Begin with the first document heading now:`;
                 </div>
               </div>
 
-              <div style={{ fontSize: 12, color: '#808098', marginBottom: 18, lineHeight: 1.6 }}>
-                The Intelligence Engine context is already loaded. Add only what is specific to this application.
-              </div>
+              {/* ── ROLE PICKER — first thing in Stage 2 ── */}
+              {!stage3.applicationRole ? (
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#f0ece0', marginBottom: 10 }}>
+                    In this application, I am:
+                  </div>
+                  <div style={{ fontSize: 12, color: '#808098', marginBottom: 14, lineHeight: 1.6 }}>
+                    In a Nigerian court, any party can file an application at any stage of proceedings.
+                    Your role in the main suit does not determine your role here.
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 20 }}>
+                    {([
+                      {
+                        role: 'mover' as const,
+                        icon: '⚡',
+                        title: 'Applicant / Mover',
+                        desc: 'I filed this motion. I am urging the court to grant the reliefs I seek. I will file: Motion Paper + Supporting Affidavit + Written Address in Support. If opposed, I may later file a Further & Better Affidavit and a Reply on Points of Law.',
+                      },
+                      {
+                        role: 'respondent' as const,
+                        icon: '🛡',
+                        title: 'Respondent to Application',
+                        desc: 'I am opposing this motion filed by the other party. Paste the Motion Paper and Written Address filed against my client — the engine will extract the grounds and map the opposition. I will file: Counter-Affidavit + Written Address in Opposition.',
+                      },
+                    ]).map(opt => (
+                      <button key={opt.role} onClick={() => setStage3(s => ({ ...s, applicationRole: opt.role }))}
+                        style={{
+                          background: '#080814', border: '1px solid #1e1e34', borderRadius: 8,
+                          padding: '18px 20px', textAlign: 'left', cursor: 'pointer',
+                          display: 'flex', alignItems: 'flex-start', gap: 14,
+                        }}>
+                        <span style={{ fontSize: 24, flexShrink: 0, marginTop: 2 }}>{opt.icon}</span>
+                        <div>
+                          <div style={{ fontSize: 14, color: '#f0ece0', fontWeight: 700, marginBottom: 6 }}>{opt.title}</div>
+                          <div style={{ fontSize: 12, color: '#808098', lineHeight: 1.65 }}>{opt.desc}</div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                  <div style={{ marginTop: 8, fontSize: 11, color: '#404058', lineHeight: 1.6 }}>
+                    Note: Being the claimant or defendant in the main suit does not determine which role you occupy here.
+                    A defendant can bring a motion; a claimant can be the respondent to a motion brought by the defendant.
+                  </div>
+                  <div style={{ marginTop: 16 }}>
+                    <Btn label="← Back" onClick={() => setStage(1)} accent="#505068" small />
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  {/* Role badge + change link */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18, background: '#080814', border: '1px solid #1e1e34', borderRadius: 6, padding: '8px 14px' }}>
+                    <span style={{ fontSize: 16 }}>{stage3.applicationRole === 'mover' ? '⚡' : '🛡'}</span>
+                    <span style={{ fontSize: 13, color: '#f0ece0', fontWeight: 600 }}>
+                      {stage3.applicationRole === 'mover' ? 'Applicant / Mover' : 'Respondent to Application'}
+                    </span>
+                    <button onClick={() => setStage3(s => ({ ...s, applicationRole: null }))}
+                      style={{ marginLeft: 'auto', fontSize: 11, color: '#4090d0', background: 'transparent', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
+                      Change role
+                    </button>
+                  </div>
 
-              <div style={{ marginBottom: 14 }}>
-                <SLabel text="Parties (if different from case file)" />
-                <TA value={facts.parties} onChange={v => setFacts(p => ({ ...p, parties: v }))}
-                  placeholder={`${activeCase.claimants[0]?.name ?? 'Claimant'} v ${activeCase.defendants[0]?.name ?? 'Defendant'}`}
-                  rows={2} />
-              </div>
-              <div style={{ marginBottom: 14 }}>
-                <SLabel text="Relief Sought *" />
-                <TA value={facts.reliefSought} onChange={v => setFacts(p => ({ ...p, reliefSought: v }))}
-                  placeholder="An order that… / A declaration that… / An injunction restraining… / Costs of this application"
-                  rows={4} />
-              </div>
-              <div style={{ marginBottom: 14 }}>
-                <SLabel text="Grounds *" />
-                <TA value={facts.grounds} onChange={v => setFacts(p => ({ ...p, grounds: v }))}
-                  placeholder="Set out the legal and factual grounds. Each ground on a new line."
-                  rows={4} />
-              </div>
-              <div style={{ marginBottom: 14 }}>
-                <SLabel text="Affidavit Deponent" />
-                <TA value={facts.deponent} onChange={v => setFacts(p => ({ ...p, deponent: v }))}
-                  placeholder="e.g. Chukwuemeka Obi, the Claimant / a clerk in the employ of counsel"
-                  rows={2} />
-              </div>
-              <div style={{ marginBottom: 14 }}>
-                <SLabel text="Key Facts" />
-                <TA value={facts.keyFacts} onChange={v => setFacts(p => ({ ...p, keyFacts: v }))}
-                  placeholder="Chronological narrative of material facts — dates, events, documents, communications. These will be sworn to in the affidavit."
-                  rows={6} />
-              </div>
-              <div style={{ marginBottom: 20 }}>
-                <SLabel text="Additional Context (counsel's instructions)" />
-                <TA value={facts.additionalContext} onChange={v => setFacts(p => ({ ...p, additionalContext: v }))}
-                  placeholder="Strategic constraints, recent developments, what opposing counsel is likely to argue…"
-                  rows={3} />
-              </div>
+                  {/* ── MOVER PATH ── */}
+                  {stage3.applicationRole === 'mover' && (
+                    <div>
+                      <div style={{ fontSize: 12, color: '#808098', marginBottom: 18, lineHeight: 1.6 }}>
+                        The Intelligence Engine context is loaded. Click <strong style={{ color: '#4090d0' }}>Auto-derive from Intelligence</strong> to extract
+                        reliefs, grounds, and key facts automatically — then review and correct before proceeding.
+                      </div>
 
-              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                <Btn label="← Back" onClick={() => setStage(1)} accent="#505068" small />
-                <Btn label="Continue to Arguments →" onClick={() => setStage(3)} off={!canGoToStage3} accent="#4090d0" />
-                <Btn label="Skip to Assemble" onClick={() => { setStage(4); handleAssemble(); }}
-                  off={!canGoToStage3} loading={loading} accent="#808098" small />
-              </div>
+                      {/* Auto-derive button */}
+                      {!facts.autoReliefs && !facts.autoGrounds && (
+                        <div style={{ marginBottom: 20 }}>
+                          <Btn label={derivingFacts ? '⏳ Deriving from Intelligence…' : '⚡ Auto-derive from Intelligence'}
+                            onClick={handleAutoDerive} loading={derivingFacts} accent="#4090d0" />
+                          <div style={{ fontSize: 11, color: '#404058', marginTop: 8 }}>
+                            Reads the Intelligence Package and derives reliefs, grounds, and key facts for a {selectedType?.label}.
+                          </div>
+                        </div>
+                      )}
+
+                      {deriveError && <div style={{ background: '#1a0808', border: '1px solid #4a1a1a', borderRadius: 7, padding: '10px 14px', fontSize: 12, color: '#c06060', marginBottom: 14 }}>⚠ {deriveError}</div>}
+
+                      {/* Auto-derived fields — editable */}
+                      {(facts.autoReliefs || facts.autoGrounds || facts.autoKeyFacts) && (
+                        <div style={{ background: '#07101e', border: '1px solid #1e3050', borderRadius: 8, padding: '16px 18px', marginBottom: 18 }}>
+                          <div style={{ fontSize: 11, color: '#4090d0', fontWeight: 700, marginBottom: 14, letterSpacing: '0.04em' }}>
+                            ⚡ AUTO-DERIVED — Review and correct before proceeding
+                          </div>
+                          <div style={{ marginBottom: 14 }}>
+                            <SLabel text="Relief Sought (AI-derived — edit as needed)" />
+                            <TA value={facts.autoReliefs} onChange={v => setFacts(p => ({ ...p, autoReliefs: v }))} rows={5}
+                              placeholder="AI will populate from Intelligence Package" />
+                          </div>
+                          <div style={{ marginBottom: 14 }}>
+                            <SLabel text="Grounds (AI-derived — edit as needed)" />
+                            <TA value={facts.autoGrounds} onChange={v => setFacts(p => ({ ...p, autoGrounds: v }))} rows={4}
+                              placeholder="AI will populate from Intelligence Package" />
+                          </div>
+                          <div style={{ marginBottom: 14 }}>
+                            <SLabel text="Key Facts / Affidavit Narrative (AI-derived — edit as needed)" />
+                            <TA value={facts.autoKeyFacts} onChange={v => setFacts(p => ({ ...p, autoKeyFacts: v }))} rows={6}
+                              placeholder="AI will populate from Intelligence Package" />
+                          </div>
+                          <button onClick={handleAutoDerive} disabled={derivingFacts}
+                            style={{ fontSize: 11, color: '#4090d0', background: 'transparent', border: 'none', cursor: derivingFacts ? 'not-allowed' : 'pointer', textDecoration: 'underline' }}>
+                            ↻ Re-derive
+                          </button>
+                        </div>
+                      )}
+
+                      <div style={{ marginBottom: 14 }}>
+                        <SLabel text="Affidavit Deponent" />
+                        <TA value={facts.deponent} onChange={v => setFacts(p => ({ ...p, deponent: v }))}
+                          placeholder="e.g. Chukwuemeka Obi, the Claimant / a clerk in the employ of counsel" rows={2} />
+                      </div>
+                      <div style={{ marginBottom: 14 }}>
+                        <SLabel text="Parties (if different from case file)" />
+                        <TA value={facts.parties} onChange={v => setFacts(p => ({ ...p, parties: v }))}
+                          placeholder={`${activeCase.claimants[0]?.name ?? 'Claimant'} v ${activeCase.defendants[0]?.name ?? 'Defendant'}`} rows={2} />
+                      </div>
+                      <div style={{ marginBottom: 20 }}>
+                        <SLabel text="Additional Strategic Context (counsel's instructions)" />
+                        <TA value={facts.additionalContext} onChange={v => setFacts(p => ({ ...p, additionalContext: v }))}
+                          placeholder="Strategic constraints, recent developments, what opposing counsel is likely to argue…" rows={3} />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ── RESPONDENT PATH ── */}
+                  {stage3.applicationRole === 'respondent' && (
+                    <div>
+                      <div style={{ fontSize: 12, color: '#808098', marginBottom: 18, lineHeight: 1.6 }}>
+                        Paste the documents served on your client. The engine will extract the Applicant's grounds and reliefs
+                        and map your opposition — so you focus on instructions, not re-typing what opposing counsel already wrote.
+                      </div>
+
+                      <div style={{ marginBottom: 14 }}>
+                        <SLabel text="Motion Paper / Notice of Motion (as served)" />
+                        <TA value={stage3.motionPaperIn}
+                          onChange={v => { setStage3(s => ({ ...s, motionPaperIn: v })); setOppExtractResult(null); }}
+                          placeholder="Paste the Motion Paper or Notice of Motion filed against your client — heading, grounds, reliefs sought."
+                          rows={8} />
+                      </div>
+
+                      <div style={{ marginBottom: 18 }}>
+                        <SLabel text="Applicant's Written Address in Support (if served)" />
+                        <TA value={stage3.applicantWrittenAddressIn}
+                          onChange={v => { setStage3(s => ({ ...s, applicantWrittenAddressIn: v })); setOppExtractResult(null); }}
+                          placeholder="Paste the Applicant's Written Address in Support — legal arguments made in favour of the application."
+                          rows={8} />
+                      </div>
+
+                      {/* Extract & Analyse button */}
+                      <Btn label={extractingOpp ? '⏳ Extracting & Analysing…' : '🔍 Extract & Analyse Opposition'}
+                        onClick={handleExtractOpp} loading={extractingOpp}
+                        off={!stage3.motionPaperIn.trim() && !stage3.applicantWrittenAddressIn.trim()}
+                        accent="#c09040" />
+
+                      {extractError && <div style={{ background: '#1a0808', border: '1px solid #4a1a1a', borderRadius: 7, padding: '10px 14px', fontSize: 12, color: '#c06060', marginTop: 14 }}>⚠ {extractError}</div>}
+
+                      {oppExtractResult && (
+                        <div style={{ background: '#07101e', border: '1px solid #1e3050', borderRadius: 8, padding: '16px 18px', marginTop: 18 }}>
+                          <div style={{ fontSize: 11, color: '#c09040', fontWeight: 700, marginBottom: 14, letterSpacing: '0.04em' }}>
+                            🔍 EXTRACTION RESULT — Confirm before proceeding to Stage 3
+                          </div>
+                          {oppExtractResult.reliefs_being_opposed.length > 0 && (
+                            <div style={{ marginBottom: 12 }}>
+                              <div style={{ fontSize: 11, color: '#606080', fontWeight: 700, marginBottom: 6, textTransform: 'uppercase' }}>Reliefs Being Opposed</div>
+                              {oppExtractResult.reliefs_being_opposed.map((r, i) => (
+                                <div key={i} style={{ fontSize: 12, color: '#9090a8', paddingLeft: 12, borderLeft: '2px solid #1e2a40', marginBottom: 4, lineHeight: 1.55 }}>{r}</div>
+                              ))}
+                            </div>
+                          )}
+                          {oppExtractResult.our_counter_grounds.length > 0 && (
+                            <div style={{ marginBottom: 12 }}>
+                              <div style={{ fontSize: 11, color: '#40a060', fontWeight: 700, marginBottom: 6, textTransform: 'uppercase' }}>Preliminary Counter-Grounds</div>
+                              {oppExtractResult.our_counter_grounds.map((g, i) => (
+                                <div key={i} style={{ fontSize: 12, color: '#70c088', paddingLeft: 12, borderLeft: '2px solid #1a3a20', marginBottom: 4, lineHeight: 1.55 }}>{g}</div>
+                              ))}
+                            </div>
+                          )}
+                          {oppExtractResult.issues_for_opposition.length > 0 && (
+                            <div style={{ marginBottom: 12 }}>
+                              <div style={{ fontSize: 11, color: '#c09040', fontWeight: 700, marginBottom: 6, textTransform: 'uppercase' }}>Issues for Opposition</div>
+                              {oppExtractResult.issues_for_opposition.map((iss, i) => (
+                                <div key={i} style={{ fontSize: 12, color: '#c0a858', paddingLeft: 12, borderLeft: '2px solid #3a2800', marginBottom: 4, lineHeight: 1.55 }}>{iss}</div>
+                              ))}
+                            </div>
+                          )}
+                          <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginTop: 4 }}>
+                            <button onClick={handleExtractOpp} disabled={extractingOpp}
+                              style={{ fontSize: 11, color: '#c09040', background: 'transparent', border: 'none', cursor: extractingOpp ? 'not-allowed' : 'pointer', textDecoration: 'underline' }}>
+                              ↻ Re-extract
+                            </button>
+                            {oppExtractResult.issues_for_opposition.length > 0 && (
+                              <button
+                                onClick={() => {
+                                  const seeded: ArgumentIssue[] = oppExtractResult.issues_for_opposition.map((iss, i) => ({
+                                    id:          `resp_issue_${Date.now()}_${i}`,
+                                    issue:       iss,
+                                    rule:        '',
+                                    application: '',
+                                    conclusion:  '',
+                                    draft:       '',
+                                  }));
+                                  setStage3(s => ({ ...s, respIssues: seeded }));
+                                }}
+                                style={{ fontSize: 11, color: '#40a060', background: '#050d06', border: '1px solid #1a3020', borderRadius: 4, padding: '3px 10px', cursor: 'pointer' }}>
+                                ✓ Confirm &amp; Seed Issues into Written Address
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      <div style={{ marginTop: 18, marginBottom: 14 }}>
+                        <SLabel text="Affidavit Deponent" />
+                        <TA value={facts.deponent} onChange={v => setFacts(p => ({ ...p, deponent: v }))}
+                          placeholder="e.g. Chukwuemeka Obi, the Respondent / a clerk in the employ of counsel for the Respondent" rows={2} />
+                      </div>
+                      <div style={{ marginBottom: 14 }}>
+                        <SLabel text="Parties (if different from case file)" />
+                        <TA value={facts.parties} onChange={v => setFacts(p => ({ ...p, parties: v }))}
+                          placeholder={`${activeCase.claimants[0]?.name ?? 'Claimant'} v ${activeCase.defendants[0]?.name ?? 'Defendant'}`} rows={2} />
+                      </div>
+                      <div style={{ marginBottom: 20 }}>
+                        <SLabel text="Additional Strategic Context (counsel's instructions)" />
+                        <TA value={facts.additionalContext} onChange={v => setFacts(p => ({ ...p, additionalContext: v }))}
+                          placeholder="Strategic constraints, preliminary objections, what the Respondent's position is…" rows={3} />
+                      </div>
+                    </div>
+                  )}
+
+                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 8 }}>
+                    <Btn label="← Back" onClick={() => setStage(1)} accent="#505068" small />
+                    <Btn label="Continue to Arguments →" onClick={() => setStage(3)} off={!canGoToStage3} accent="#4090d0" />
+                    <Btn label="Skip to Assemble" onClick={() => { setStage(4); handleAssemble(); }}
+                      off={!canGoToStage3} loading={loading} accent="#808098" small />
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -3420,16 +4277,16 @@ Begin with the first document heading now:`;
           {stage === 3 && selectedType && (
             <div>
               <div style={{ fontSize: 15, fontWeight: 700, color: '#f0ece0', marginBottom: 6 }}>
-                <StepBadge n={3} active={true} /> &nbsp; Argument Builder — Written Address
+                <StepBadge n={3} active={true} /> &nbsp; Argument Builder
               </div>
               <div style={{ fontSize: 12, color: '#808098', marginBottom: 18, lineHeight: 1.6 }}>
-                First, tell the engine your role in this application — Applicant/Mover or Respondent.
-                The correct document set will appear based on your role and whether the other side has filed a response.
+                Build each document for this application. Draft documents appear in the final assembled package.
               </div>
 
               <ArgumentBuilderStage
                 activeCase={activeCase} appType={selectedType} facts={facts}
                 stage3={stage3} onStage3={setStage3}
+                onChangeRole={() => { setStage3(s => ({ ...s, applicationRole: null })); setStage(2); }}
                 systemCtx={systemCtx}
               />
 

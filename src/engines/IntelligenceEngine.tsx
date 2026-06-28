@@ -201,9 +201,13 @@ const lbS: React.CSSProperties = {
 export function IntelligenceEngine({ activeCase, onSave }: Props) {
   const saved = (activeCase.intelligence_data || {}) as unknown as Partial<TIEData>;
 
-  const isDefendant = activeCase.counsel_role === 'defendant_side';
+  const RECEIVING_ROLES = new Set(['defendant_side', 'respondent_side', 'frep_respondent']);
+  const isReceivingSide = RECEIVING_ROLES.has(activeCase.counsel_role ?? '');
+  const isCivilDefendant = activeCase.counsel_role === 'defendant_side'; // retained for counterclaim-specific copy
+  // Keep isDefendant as alias so unchanged internal references still compile
+  const isDefendant = isCivilDefendant;
   const [stage,              setStage]              = useState<number>(
-    saved.stage ?? (isDefendant && !saved.rawFacts ? 0 : 1)
+    saved.stage ?? (isReceivingSide && !saved.rawFacts ? 0 : 1)
   );
   const [rawFacts,           setRawFacts]           = useState<string>(saved.rawFacts ?? '');
   const [extraction,         setExtraction]         = useState<ExtractionResult | null>(saved.extraction ?? null);
@@ -293,7 +297,7 @@ ${partyBPlural}: ${activeCase.defendants.map(d => d.name).filter(Boolean).join('
     setLoading(true); setError('');
     try {
       // ── Phase 2D: Theory-aware context when defendant came through SPA (Stage 0.5) ──
-      const isDefendantWithSPA = isDefendant && !!spaResult;
+      const isDefendantWithSPA = isReceivingSide && !!spaResult;
       const spaTheoryBlock = isDefendantWithSPA
         ? `\n\nOPPONENT THEORY (from Served Process Analysis — already extracted):\n${spaResult!.claimant_theory}\n\nPRE-IDENTIFIED COUNTERCLAIM HINTS (from Served Process — evaluate and confirm or refine):\n${spaResult!.counterclaim_hints.length > 0 ? spaResult!.counterclaim_hints.map((h: string, i: number) => `${i + 1}. ${h}`).join('\n') : 'None identified from process text.'}\n\nINSTRUCTION: You already know the ${partyA}'s theory from the served process above. Your extraction must now:\n1. Frame every legal issue as a clash between that theory and the ${partyB}'s position revealed in the client instructions below.\n2. Identify which of the ${partyA}'s factual allegations are admitted, disputed, or unknown from the client's account.\n3. Re-evaluate the counterclaim hints above against the client's fuller instructions — confirm, expand, or dismiss each one with reasons in "counterclaim_detected".`
         : '';
@@ -585,12 +589,16 @@ Rules:
       const risksBlock     = (ext.initial_risks ?? []).map((r, i) => `${i + 1}. [${r.severity}] ${r.risk}`).join('\n');
 
       const raw = await withRetry(() => callClaude({
-        system: `You are a senior trial advocate synthesising a Theory of the Case for the DEFENDANT/RESPONDENT in Nigerian civil litigation.
+        system: (() => {
+          const tcRole = activeCase.counsel_role ?? 'defendant_side';
+          const tcReceiving = tcRole === 'respondent_side' ? 'Respondent (Petition matter)' : tcRole === 'frep_respondent' ? 'Respondent (FREP matter)' : 'Defendant';
+          const tcOpposing = tcRole === 'respondent_side' ? 'Petitioner' : tcRole === 'frep_respondent' ? 'Applicant' : 'Claimant/Petitioner';
+          return `You are a senior trial advocate synthesising a Theory of the Case for the ${tcReceiving} in Nigerian litigation.
 You have been given:
-  (A) The Claimant/Petitioner's theory as extracted from the served process.
-  (B) The Defendant's extracted intelligence — facts, disputes, issues, risks, gaps, and any confirmed counterclaim.
+  (A) The ${tcOpposing}'s theory as extracted from the served process.
+  (B) The ${tcReceiving}'s extracted intelligence — facts, disputes, issues, risks, gaps, and any confirmed counterclaim/cross-petition.
 
-Your task is to produce a single locked CaseTheoryRecord for the Defendant that:
+Your task is to produce a single locked CaseTheoryRecord for the \${tcReceiving} that:
 1. Names the core proposition the Defendant must establish to WIN (not merely to resist — frame it as an affirmative position).
 2. Lists every element the Defendant must prove or maintain, each with the evidence that supports it, the Nigerian statute/authority behind it, and the risk if that element fails.
 3. States the Claimant's theory in one sentence (opposing_theory).
@@ -632,23 +640,27 @@ Rules:
 - Every element must cite a real Nigerian statute, rule, or decided case — do not invent authorities.
 - suggested_action must be specific and actionable, never "gather evidence" or "conduct research".
 - score_breakdown.total must equal the exact arithmetic sum of the five sub-scores.
-- Output ONLY the JSON object.`,
-        userMsg: `CASE: ${activeCase.caseName}
+- Output ONLY the JSON object.`; })(),
+        userMsg: (() => {
+          const umRole = activeCase.counsel_role ?? 'defendant_side';
+          const umOpposing = umRole === 'respondent_side' ? 'PETITIONER' : umRole === 'frep_respondent' ? 'APPLICANT' : 'CLAIMANT';
+          const umReceiving = umRole === 'respondent_side' ? 'RESPONDENT' : umRole === 'frep_respondent' ? 'RESPONDENT (FREP)' : 'DEFENDANT';
+          return `CASE: ${activeCase.caseName}
 COURT: ${activeCase.court || 'Not specified'}
 SUIT NO: ${activeCase.suitNo || 'Not specified'}
-CLAIMANTS: ${activeCase.claimants.map(c => c.name).filter(Boolean).join(', ') || 'Not named'}
-DEFENDANTS (our client): ${activeCase.defendants.map(d => d.name).filter(Boolean).join(', ') || 'Not named'}
+${umOpposing}: ${activeCase.claimants.map(c => c.name).filter(Boolean).join(', ') || 'Not named'}
+${umReceiving} (our client): ${activeCase.defendants.map(d => d.name).filter(Boolean).join(', ') || 'Not named'}
 
-═══ (A) CLAIMANT'S THEORY (from served process) ═══
+═══ (A) ${umOpposing}'S THEORY (from served process) ═══
 ${claimantTheory}
 
 CLAIMS / RELIEFS SOUGHT:
 ${claimsBlock || 'Not specified'}
 
-FACTUAL ALLEGATIONS AGAINST DEFENDANT:
+FACTUAL ALLEGATIONS AGAINST ${umReceiving}:
 ${allegationsBlk || 'Not specified'}
 
-═══ (B) DEFENDANT'S EXTRACTED INTELLIGENCE ═══
+═══ (B) ${umReceiving}'S EXTRACTED INTELLIGENCE ═══
 LEGAL ISSUES:
 ${issuesBlock || 'None extracted'}
 
@@ -665,7 +677,7 @@ INITIAL RISKS:
 ${risksBlock || 'None extracted'}
 
 COUNTERCLAIM STATUS:
-${ccBlock}`,
+${ccBlock}`; })(),
         maxTokens: 4000,
         skipLibrary: true,
       }));
@@ -923,7 +935,7 @@ ${ccBlock}`,
     setCounterclaimDetected(undefined);
     setConflictScan(undefined); setConflictError('');
     setRiskVerdict(undefined); setRiskError(''); setRiskAnimated(false);
-    const resetStage = isDefendant ? 0 : 1;
+    const resetStage = isReceivingSide ? 0 : 1;
     onSave({ stage: resetStage, rawFacts: '', extraction: null, followUpQs: [], followUpAs: {}, evidenceM: null, intPkg: '', commencement_audit: undefined, counterclaim_detected: undefined, conflict_scan: undefined, risk_verdict: undefined, authority_grounding: undefined, served_process_analysis: undefined });
     setSpaResult(undefined);
     setProcessText('');
@@ -1004,16 +1016,29 @@ ${ccBlock}`,
     }
     setSpaLoading(true); setSpaError('');
     try {
+      const spaRole = activeCase.counsel_role ?? 'defendant_side';
+      const receivingRoleLabel =
+        spaRole === 'respondent_side' ? 'Respondent (opposing the Petition)' :
+        spaRole === 'frep_respondent' ? 'Respondent (opposing the Fundamental Rights Application)' :
+        'Defendant';
+      const opposingPartyLabel =
+        spaRole === 'respondent_side' ? 'Petitioner' :
+        spaRole === 'frep_respondent' ? 'Applicant' :
+        'Claimant/Plaintiff';
+      const strategyLabel =
+        spaRole === 'respondent_side' ? 'Answer grounds and Cross-Petition viability' :
+        spaRole === 'frep_respondent' ? 'grounds of opposition and any preliminary objection' :
+        'counterclaim opportunities and defence strategy';
       const raw = await withRetry(() => callClaude({
-        systemMsg: `You are a Senior Advocate analysing an originating process served on our client (the Defendant/Respondent). Extract and structure the following from the document.
+        systemMsg: `You are a Senior Advocate analysing an originating process served on our client (the ${receivingRoleLabel}). Extract and structure the following from the document.
 
 Return ONLY valid JSON — no preamble, no markdown fences:
 {
-  "process_type": "one of: Writ of Summons | Originating Summons | Originating Motion | Petition | Charge | Other — identify from the document",
-  "claimant_theory": "2–3 sentences: the Claimant's legal theory and what they are trying to establish",
+  "process_type": "one of: Writ of Summons | Originating Summons | Originating Motion | FREP Originating Motion | Petition | Charge | Other — identify from the document",
+  "claimant_theory": "2–3 sentences: the ${opposingPartyLabel}'s legal theory and what they are trying to establish",
   "claims_identified": ["each distinct claim or relief sought, as a separate string"],
-  "factual_allegations": ["each key factual allegation made against the Defendant, as a separate string"],
-  "counterclaim_hints": ["any facts that suggest the Defendant may have a counterclaim — state the basis briefly; empty array if none"],
+  "factual_allegations": ["each key factual allegation made against the ${receivingRoleLabel}, as a separate string"],
+  "counterclaim_hints": ["any facts that suggest ${strategyLabel} — state the basis briefly; empty array if none"],
   "procedural_deadlines": ["any deadlines stated or implied: e.g. 'Enter appearance within 8 days of service', '30 days to file defence' — empty array if none mentioned"],
   "summary": "one sentence: what this matter is about and what is being claimed"
 }`,
@@ -1097,10 +1122,20 @@ Return ONLY valid JSON — no preamble, no markdown fences:
               <p style={{ fontSize: 12, color: T.mute, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.65 }}>
                 A writ, originating summons, petition, or other process was served on {B}.
                 Upload or paste the originating process — the engine will analyse the claim,
-                extract the {A}'s theory, and identify counterclaim opportunities.
+                extract the {A}'s theory, and {(() => {
+                  const r = activeCase.counsel_role;
+                  if (r === 'respondent_side') return "identify Answer/Cross-Petition strategy.";
+                  if (r === 'frep_respondent') return "map your constitutional opposition.";
+                  return "identify counterclaim opportunities.";
+                })()}
               </p>
               <p style={{ fontSize: 10, color: '#5050a0', fontFamily: "'Times New Roman', Times, serif", marginTop: 8, letterSpacing: '.06em', textTransform: 'uppercase', fontWeight: 700 }}>
-                Served Process Intake → Theory Extraction → Counterclaim Scan
+                {(() => {
+                  const r = activeCase.counsel_role;
+                  if (r === 'respondent_side') return 'Served Process Intake → Theory Extraction → Answer Strategy';
+                  if (r === 'frep_respondent') return 'Served Process Intake → Theory Extraction → Opposition Map';
+                  return 'Served Process Intake → Theory Extraction → Counterclaim Scan';
+                })()}
               </p>
             </div>
           </button>
@@ -1296,7 +1331,7 @@ Return ONLY valid JSON — no preamble, no markdown fences:
             onChange={e => setProcessText(e.target.value)}
             rows={13}
             placeholder={
-              'Paste the served process here:\n\n• Writ of Summons — include the endorsement and any annexed statement of claim\n• Originating Summons — include all questions and the supporting affidavit if attached\n• Petition — include all grounds\n• Charge Sheet — include the charges and particulars\n\nThe more complete the text, the sharper the analysis.'
+              'Paste the served process here:\n\n• Writ of Summons — include the endorsement and any annexed statement of claim\n• Originating Summons — include all questions and the supporting affidavit if attached\n• Petition — include all grounds\n• Originating Motion / FREP Originating Motion — include the motion paper and all grounds\n• Charge Sheet — include the charges and particulars\n\nThe more complete the text, the sharper the analysis.'
             }
             style={{ ...iS, resize: 'vertical', lineHeight: 1.85, minHeight: 300, fontSize: 15 }}
           />
@@ -1353,7 +1388,7 @@ Return ONLY valid JSON — no preamble, no markdown fences:
   // STAGE 1 — Raw Facts
   // ─────────────────────────────────────────────────────────────────────────
   function Stage1() {
-    const isDefendantWithSPA = isDefendant && !!spaResult;
+    const isDefendantWithSPA = isReceivingSide && !!spaResult;
     return (
       <div style={{ animation: 'fadeUp .3s ease' }}>
         <div style={{ marginBottom: 20 }}>
@@ -1383,7 +1418,7 @@ Return ONLY valid JSON — no preamble, no markdown fences:
             {spaResult.counterclaim_hints.length > 0 && (
               <div style={{ borderTop: '1px solid #1a3020', paddingTop: 8 }}>
                 <p style={{ fontSize: 9, color: '#60c888', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 4 }}>
-                  {spaResult.counterclaim_hints.length} Counterclaim Hint{spaResult.counterclaim_hints.length > 1 ? 's' : ''} — Will Be Re-Evaluated Against Client Instructions
+                  {spaResult.counterclaim_hints.length} {activeCase.counsel_role === 'respondent_side' ? 'Cross-Petition' : activeCase.counsel_role === 'frep_respondent' ? 'Preliminary Objection' : 'Counterclaim'} Hint{spaResult.counterclaim_hints.length > 1 ? 's' : ''} — Will Be Re-Evaluated Against Client Instructions
                 </p>
                 {spaResult.counterclaim_hints.map((h: string, i: number) => (
                   <p key={i} style={{ fontSize: 11, color: '#608870', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.6, marginBottom: 2 }}>
@@ -1780,7 +1815,7 @@ Return ONLY valid JSON — no preamble, no markdown fences:
         <CommencementAuditPanel />
 
         {/* Phase 2E — Theory Clash Synthesis panel (defendant + SPA path only) */}
-        {isDefendant && !!spaResult && (
+        {isReceivingSide && !!spaResult && (
           <TheoryClashPanel />
         )}
 
