@@ -325,10 +325,14 @@ export interface IntelligenceData {
   };
 
   /**
-   * Served Process Analysis — Phase 2C (Defendant Stage 0.5).
+   * Served Process Analysis — Phase 1B (Grand Build Plan).
    * Produced when defendant-side counsel pastes/uploads the originating process.
+   * Runs library query first; injects results into SPA prompt.
    * Seeds rawFacts for the standard pipeline and pre-populates the claimant theory
-   * for theory-clash wiring (Phases 3B/3C).
+   * for theory-clash wiring (Phases 3B/3C / Phase 2E).
+   *
+   * Phase 1B adds: service validity, jurisdiction analysis, conditions precedent
+   * compliance, limitation analysis, preliminary objection grounds (ranked).
    */
   served_process_analysis?: {
     /** ISO timestamp of run */
@@ -349,6 +353,92 @@ export interface IntelligenceData {
     procedural_deadlines: string[];
     /** One-line summary for Case Command display */
     summary:             string;
+
+    // ── Phase 1B additions ────────────────────────────────────────────────
+
+    /**
+     * Correct originating process analysis.
+     * Was the correct process type used for this cause of action and court?
+     * Flags if wrong process was used (e.g. writ where originating summons required).
+     */
+    process_type_analysis?: {
+      correct:   boolean;
+      finding:   string;   // e.g. "Writ of Summons — correct for unliquidated claims in the High Court"
+      defect?:   string;   // if incorrect: what should have been used and why
+    };
+
+    /**
+     * Service validity assessment.
+     * Did the process comply with applicable service rules?
+     */
+    service_validity?: {
+      /** 'VALID' | 'DEFECTIVE' | 'UNCLEAR' */
+      status:        'VALID' | 'DEFECTIVE' | 'UNCLEAR';
+      finding:       string;   // plain prose, Senior Advocate register
+      defects?:      string[]; // specific service rule violations if defective
+      curable?:      boolean;  // can the defect be cured / re-served?
+    };
+
+    /**
+     * Jurisdiction analysis.
+     * Does the chosen court have jurisdiction over this matter and parties?
+     */
+    jurisdiction_analysis?: {
+      /** 'ESTABLISHED' | 'ARGUABLE' | 'DOUBTFUL' */
+      status:        'ESTABLISHED' | 'ARGUABLE' | 'DOUBTFUL';
+      finding:       string;   // plain prose
+      objection_available?: boolean;
+      objection_basis?:     string;
+    };
+
+    /**
+     * Conditions precedent compliance.
+     * Did the claimant satisfy all pre-action requirements before filing?
+     * E.g. statutory notice, demand letter, pre-action protocol, ADR certificate.
+     */
+    conditions_precedent?: {
+      /** 'SATISFIED' | 'UNSATISFIED' | 'UNCLEAR' */
+      status:          'SATISFIED' | 'UNSATISFIED' | 'UNCLEAR';
+      requirements:    string[];   // list of applicable conditions precedent
+      satisfied:       string[];   // which were satisfied (if determinable)
+      unsatisfied:     string[];   // which are absent or unclear
+      fatal?:          boolean;    // is any unsatisfied condition jurisdictional?
+      finding:         string;     // plain prose
+    };
+
+    /**
+     * Limitation period analysis — defendant's perspective.
+     * Did the claimant file in time? Any limitation defence available?
+     */
+    limitation_analysis?: {
+      /** 'IN_TIME' | 'EXPIRED' | 'UNCLEAR' */
+      status:             'IN_TIME' | 'EXPIRED' | 'UNCLEAR';
+      applicable_period:  string;   // e.g. "6 years — Limitation Law Cap 522 LFN 2004 s.8"
+      trigger_event:      string;   // when time started running
+      expiry_date?:       string;   // ISO date or descriptive string
+      finding:            string;   // plain prose
+      defence_available?: boolean;
+    };
+
+    /**
+     * Preliminary objection grounds — ranked by sustainability.
+     * Phase 4B (Defence Audit): lists every PO ground the SPA discloses,
+     * ranked as: 'FATAL_SUSTAINABLE' | 'TACTICAL' | 'WEAK'
+     */
+    preliminary_objection_grounds?: Array<{
+      ground:        string;
+      basis:         string;   // specific statute/rule
+      rank:          'FATAL_SUSTAINABLE' | 'TACTICAL' | 'WEAK';
+      risk?:         string;   // tactical double-edge risk if applicable
+    }>;
+
+    /**
+     * Overall SPA verdict for Case Command display.
+     * 'CLEAN' — no significant procedural defects found
+     * 'DEFECTS' — one or more defects (service/jurisdiction/conditions precedent)
+     * 'FATAL' — at least one fatal jurisdictional or limitation defect
+     */
+    spa_verdict?: 'CLEAN' | 'DEFECTS' | 'FATAL';
   };
 }
 
