@@ -1,8 +1,27 @@
 /**
  * AFS Advocates — Trial Intelligence Engine
- * Phase 2 — Full implementation
+ * Phase 1A — Role Gate & Pipeline Split (Grand Build Plan)
+ * Phase 2  — Full 5-step pipeline
  *
- * 5-step pipeline:
+ * PHASE 1A — ROLE GATE & PIPELINE SPLIT
+ * The first decision the engine makes on every case.
+ *
+ *   Stage -1 (RoleGate)  — fires when counsel_role is absent/unset at case level.
+ *                           Prompts counsel to confirm matter_track + counsel_role
+ *                           before any pipeline stage opens. Saves to case via
+ *                           onSaveRole() prop. Once set, never shown again.
+ *
+ *   PipelineBanner       — rendered at the top of every stage (0 → 5) after the
+ *                           gate is cleared. Confirms: pipeline (Commencing /
+ *                           Receiving), role label, track. Non-interactive strip.
+ *
+ *   Pipeline split:
+ *     COMMENCING (claimant_side | prosecution | petitioner_side | frep_applicant)
+ *       → Stage 1 (Raw Facts) → 2 → 3 → 4 → 5
+ *     RECEIVING  (defendant_side | respondent_side | defence | frep_respondent)
+ *       → Stage 0 (Entry Path Selector) → 0.5 (SPA) → 1 → 2 → 3 → 4 → 5
+ *
+ * PHASE 2 — PIPELINE STEPS
  *   1. Raw Facts intake
  *   2. AI extraction (timeline, established facts, disputes, legal issues, gaps, risks)
  *   2b. Commencement Audit — auto-runs after extraction; ports ComplianceEngine
@@ -16,7 +35,8 @@
  */
 
 import React, { useState } from 'react';
-import type { Case, CaseTheoryRecord } from '@/types';
+import type { Case, CaseTheoryRecord, CounselRole, MatterTrack } from '@/types';
+import { COUNSEL_ROLE_LABELS, COUNSEL_ROLE_COLORS, MATTER_TRACK_LABELS, rolesForTrack } from '@/types';
 import { T } from '@/constants/tokens';
 import { callClaude, withRetry } from '@/services/api';
 import { Spinner, ErrorBlock, RoleBadge, Md } from '@/components/common/ui';
@@ -35,6 +55,52 @@ const TIE_STEPS = [
   { id: 4, label: 'Evidence Map' },
   { id: 5, label: 'Package + Risk' },
 ];
+
+// ── Phase 1A — Pipeline classification ────────────────────────────────────────
+//
+// COMMENCING: we open the matter — Claimant, Prosecution, Petitioner, FREP Applicant.
+// RECEIVING:  we are served — Defendant, Defence, Respondent, FREP Respondent.
+//
+// This split is permanent once counsel_role is set. The gate fires (stage -1)
+// whenever counsel_role is absent. Once confirmed, it never shows again.
+
+export type PipelineType = 'commencing' | 'receiving';
+
+export const COMMENCING_ROLES = new Set<CounselRole>([
+  'claimant_side',
+  'prosecution',
+  'petitioner_side',
+  'frep_applicant',
+]);
+
+export const RECEIVING_ROLES_SET = new Set<CounselRole>([
+  'defendant_side',
+  'respondent_side',
+  'defence',
+  'frep_respondent',
+]);
+
+export function getPipelineType(role?: CounselRole | string): PipelineType {
+  if (!role) return 'commencing'; // safe default — gate will clarify
+  if (RECEIVING_ROLES_SET.has(role as CounselRole)) return 'receiving';
+  return 'commencing';
+}
+
+/** Human-readable pipeline description for UI copy. */
+const PIPELINE_COPY: Record<PipelineType, { label: string; description: string; icon: string; accent: string }> = {
+  commencing: {
+    label:       'Commencing Pipeline',
+    description: 'We open this matter — we file first.',
+    icon:        '⚔',
+    accent:      '#1a4a8a',
+  },
+  receiving: {
+    label:       'Receiving Pipeline',
+    description: 'We were served — we respond.',
+    icon:        '🛡',
+    accent:      '#7a1a1a',
+  },
+};
 
 // ── Severity colours ──────────────────────────────────────────────────────────
 
@@ -179,6 +245,13 @@ interface TIEData {
 interface Props {
   activeCase: Case;
   onSave:     (data: TIEData) => void;
+  /**
+   * Phase 1A — Role Gate callback.
+   * Called when counsel confirms matter_track + counsel_role from the gate screen.
+   * The parent (CaseDashboard) must persist these two fields to the Case record
+   * so the gate never fires again for this case.
+   */
+  onSaveRole?: (track: MatterTrack, role: CounselRole) => void;
 }
 
 // ── Shared local styles ───────────────────────────────────────────────────────
@@ -198,11 +271,34 @@ const lbS: React.CSSProperties = {
 // MAIN COMPONENT
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function IntelligenceEngine({ activeCase, onSave }: Props) {
+export function IntelligenceEngine({ activeCase, onSave, onSaveRole }: Props) {
   const saved = (activeCase.intelligence_data || {}) as unknown as Partial<TIEData>;
 
-  const RECEIVING_ROLES = new Set(['defendant_side', 'respondent_side', 'frep_respondent']);
-  const isReceivingSide = RECEIVING_ROLES.has(activeCase.counsel_role ?? '');
+  // ── Phase 1A: Role Gate ────────────────────────────────────────────────────
+  // Use module-level sets. RECEIVING_ROLES kept as alias for rest of file.
+  const RECEIVING_ROLES = RECEIVING_ROLES_SET;
+  const isReceivingSide = RECEIVING_ROLES.has(activeCase.counsel_role as CounselRole ?? '');
+  const pipeline: PipelineType = getPipelineType(activeCase.counsel_role);
+
+  // Gate fires (stage -1) if counsel_role is absent — overrides all other stage logic.
+  // Once counsel_role is set on the Case record, this never fires again.
+  const roleGateActive = !activeCase.counsel_role;
+
+  // Phase 1A local state — tracks selections inside the gate before saving
+  const [gateTrack, setGateTrack] = useState<MatterTrack>(activeCase.matter_track ?? 'civil');
+  const [gateRole,  setGateRole]  = useState<CounselRole | ''>('');
+  const [gateSaving, setGateSaving] = useState(false);
+
+  /** Confirm the role selection and call onSaveRole. Non-blocking. */
+  async function confirmRoleGate() {
+    if (!gateRole) return;
+    setGateSaving(true);
+    try {
+      await onSaveRole?.(gateTrack, gateRole as CounselRole);
+    } finally {
+      setGateSaving(false);
+    }
+  }
   const isCivilDefendant = activeCase.counsel_role === 'defendant_side'; // retained for counterclaim-specific copy
   // Keep isDefendant as alias so unchanged internal references still compile
   const isDefendant = isCivilDefendant;
@@ -940,6 +1036,277 @@ ${ccBlock}`; })(),
     setSpaResult(undefined);
     setProcessText('');
     setStage(resetStage);
+  }
+
+  // ── Phase 1A: Role Gate ────────────────────────────────────────────────────
+  //
+  // Fires when counsel_role is absent at case level (stage === -1 conceptually).
+  // Presents matter_track selector → counsel_role selector → Confirm.
+  // On confirm → calls onSaveRole(track, role) → parent persists → gate clears.
+  //
+  // Layout: newspaper-white canvas, same dark-card sub-panels used across the engine.
+  // No AI calls made here — pure data entry and save.
+
+  function RoleGate() {
+    const availableRoles = rolesForTrack(gateTrack);
+    // FREP roles are a special case — exposed separately below
+    const trackOptions: MatterTrack[] = ['civil', 'criminal', 'matrimonial'];
+
+    return (
+      <div style={{ animation: 'fadeUp .35s ease' }}>
+        {/* Header */}
+        <div style={{ marginBottom: 28 }}>
+          <p style={{ fontSize: 9, color: '#c07820', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.18em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 6 }}>
+            Phase 1A · Role Gate &amp; Pipeline Split
+          </p>
+          <h2 style={{ fontSize: 24, color: '#111111', fontFamily: "'Times New Roman', Times, serif", fontWeight: 300, marginBottom: 8 }}>
+            What is your role on this matter?
+          </h2>
+          <p style={{ fontSize: 13, color: '#555555', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.75 }}>
+            The Intelligence Engine routes every phase, prompt, and output based on your role.
+            This is set once and controls everything downstream — the pipeline, the audit calibration,
+            the evidence matrix, and the package voice. Confirm it carefully.
+          </p>
+        </div>
+
+        {/* Step 1 — Matter Track */}
+        <div style={{ background: '#0d0d18', border: '1px solid #1a1a30', borderRadius: 10, padding: '20px 22px', marginBottom: 14 }}>
+          <p style={{ fontSize: 9, color: '#8080b0', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 14 }}>
+            Step 1 · Matter Track
+          </p>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            {trackOptions.map(track => {
+              const selected = gateTrack === track;
+              return (
+                <button
+                  key={track}
+                  onClick={() => { setGateTrack(track); setGateRole(''); }}
+                  style={{
+                    flex: 1, minWidth: 100,
+                    background: selected ? '#1a1a40' : '#070710',
+                    border: `1px solid ${selected ? '#5050a0' : '#1e1e30'}`,
+                    borderRadius: 7, padding: '14px 10px',
+                    cursor: 'pointer', textAlign: 'center',
+                    transition: 'border-color .15s, background .15s',
+                  }}
+                >
+                  <p style={{
+                    fontSize: 13, fontFamily: "'Times New Roman', Times, serif",
+                    color: selected ? '#c8c8f8' : '#5a5a78',
+                    fontWeight: selected ? 700 : 400,
+                    letterSpacing: '.04em',
+                  }}>
+                    {MATTER_TRACK_LABELS[track]}
+                  </p>
+                </button>
+              );
+            })}
+          </div>
+          {/* FREP supplemental */}
+          <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid #131320' }}>
+            <p style={{ fontSize: 10, color: '#3a3a52', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.08em', marginBottom: 8 }}>
+              Fundamental Rights Enforcement (FREP) matters use the civil track with specialist FREP roles:
+            </p>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {(['frep_applicant', 'frep_respondent'] as CounselRole[]).map(r => {
+                const selected = gateRole === r;
+                const cfg = COUNSEL_ROLE_COLORS[r];
+                return (
+                  <button
+                    key={r}
+                    onClick={() => { setGateTrack('civil'); setGateRole(r); }}
+                    style={{
+                      flex: 1,
+                      background: selected ? cfg.bg : '#070710',
+                      border: `1px solid ${selected ? cfg.bdr : '#1e1e30'}`,
+                      borderRadius: 6, padding: '10px 12px',
+                      cursor: 'pointer',
+                      transition: 'border-color .15s, background .15s',
+                    }}
+                  >
+                    <p style={{ fontSize: 12, color: selected ? cfg.col : '#3a3a52', fontFamily: "'Times New Roman', Times, serif", fontWeight: selected ? 700 : 400 }}>
+                      {COUNSEL_ROLE_LABELS[r]}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* Step 2 — Counsel Role */}
+        {!(['frep_applicant', 'frep_respondent'] as string[]).includes(gateRole) && (
+          <div style={{ background: '#0d0d18', border: '1px solid #1a1a30', borderRadius: 10, padding: '20px 22px', marginBottom: 14 }}>
+            <p style={{ fontSize: 9, color: '#8080b0', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 14 }}>
+              Step 2 · Your Role
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {availableRoles.map(r => {
+                const selected = gateRole === r;
+                const cfg = COUNSEL_ROLE_COLORS[r];
+                const rPipeline = getPipelineType(r);
+                const pCopy = PIPELINE_COPY[rPipeline];
+                return (
+                  <button
+                    key={r}
+                    onClick={() => setGateRole(r)}
+                    style={{
+                      background: selected ? cfg.bg : '#070710',
+                      border: `2px solid ${selected ? cfg.bdr : '#1e1e30'}`,
+                      borderRadius: 9, padding: '16px 18px',
+                      cursor: 'pointer', textAlign: 'left',
+                      display: 'flex', alignItems: 'center', gap: 16,
+                      transition: 'border-color .15s, background .15s',
+                    }}
+                  >
+                    <span style={{ fontSize: 22, lineHeight: 1, flexShrink: 0 }}>{pCopy.icon}</span>
+                    <div style={{ flex: 1 }}>
+                      <p style={{ fontSize: 15, color: selected ? cfg.col : '#6a6a88', fontFamily: "'Times New Roman', Times, serif", fontWeight: 700, marginBottom: 3 }}>
+                        {COUNSEL_ROLE_LABELS[r]}
+                      </p>
+                      <p style={{ fontSize: 11, color: selected ? '#555555' : '#3a3a50', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.55 }}>
+                        {pCopy.label} · {pCopy.description}
+                      </p>
+                    </div>
+                    {selected && (
+                      <span style={{ fontSize: 12, color: cfg.col, fontFamily: "'Times New Roman', Times, serif", fontWeight: 700, flexShrink: 0 }}>✓</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Step 3 — Pipeline confirmation preview */}
+        {gateRole && (() => {
+          const confirmed = getPipelineType(gateRole as CounselRole);
+          const pCopy = PIPELINE_COPY[confirmed];
+          const cfg   = COUNSEL_ROLE_COLORS[gateRole as CounselRole];
+          return (
+            <div style={{ background: '#08080f', border: `1px solid ${cfg.bdr}`, borderLeft: `4px solid ${cfg.col}`, borderRadius: 8, padding: '16px 20px', marginBottom: 18 }}>
+              <p style={{ fontSize: 9, color: cfg.col, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 8 }}>
+                {pCopy.icon}  Pipeline Confirmed
+              </p>
+              <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
+                <div>
+                  <p style={{ fontSize: 8, color: '#3a3a52', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 3 }}>Pipeline</p>
+                  <p style={{ fontSize: 13, color: cfg.col, fontFamily: "'Times New Roman', Times, serif", fontWeight: 700 }}>{pCopy.label}</p>
+                </div>
+                <div>
+                  <p style={{ fontSize: 8, color: '#3a3a52', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 3 }}>Track</p>
+                  <p style={{ fontSize: 13, color: '#c8c8e0', fontFamily: "'Times New Roman', Times, serif" }}>{MATTER_TRACK_LABELS[gateTrack]}</p>
+                </div>
+                <div>
+                  <p style={{ fontSize: 8, color: '#3a3a52', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 3 }}>Role</p>
+                  <p style={{ fontSize: 13, color: '#c8c8e0', fontFamily: "'Times New Roman', Times, serif" }}>{COUNSEL_ROLE_LABELS[gateRole as CounselRole]}</p>
+                </div>
+                <div>
+                  <p style={{ fontSize: 8, color: '#3a3a52', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 3 }}>Entry Point</p>
+                  <p style={{ fontSize: 13, color: '#c8c8e0', fontFamily: "'Times New Roman', Times, serif" }}>
+                    {RECEIVING_ROLES_SET.has(gateRole as CounselRole) ? 'Stage 0 — Entry Path Selector' : 'Stage 1 — Raw Facts'}
+                  </p>
+                </div>
+              </div>
+              <p style={{ fontSize: 11, color: '#3a3a52', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.65, marginTop: 10, fontStyle: 'italic' }}>
+                This role is permanent once confirmed — it controls every phase, prompt, audit, and output downstream. The engine cannot run without it.
+              </p>
+            </div>
+          );
+        })()}
+
+        {/* Confirm button */}
+        <button
+          onClick={confirmRoleGate}
+          disabled={!gateRole || gateSaving}
+          style={{
+            width: '100%',
+            background: !gateRole || gateSaving
+              ? '#101018'
+              : 'linear-gradient(135deg,#000000,#302080)',
+            color: !gateRole || gateSaving ? '#2a2a38' : '#c8c8f8',
+            border: 'none', borderRadius: 7, padding: '16px',
+            fontSize: 17, fontFamily: "'Times New Roman', Times, serif",
+            cursor: !gateRole || gateSaving ? 'not-allowed' : 'pointer',
+            fontWeight: 600, letterSpacing: '.06em',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+          }}
+        >
+          {gateSaving
+            ? <><Spinner size={14} /> Saving Role…</>
+            : gateRole
+              ? `Confirm ${COUNSEL_ROLE_LABELS[gateRole as CounselRole]} → Open Intelligence Engine`
+              : 'Select your role to continue'
+          }
+        </button>
+      </div>
+    );
+  }
+
+  // ── Phase 1A: Pipeline Banner ──────────────────────────────────────────────
+  //
+  // Rendered at the top of every stage (0 → 5) after the gate is cleared.
+  // Non-interactive strip confirming: pipeline type, track, role, entry point.
+  // Collapsed by default; expands on click to show full context.
+
+  function PipelineBanner() {
+    const [expanded, setExpanded] = useState(false);
+    if (roleGateActive) return null; // gate not cleared yet — don't show banner
+    const pCopy = PIPELINE_COPY[pipeline];
+    const cfg   = activeCase.counsel_role ? COUNSEL_ROLE_COLORS[activeCase.counsel_role] : null;
+    if (!cfg) return null;
+
+    return (
+      <div
+        onClick={() => setExpanded(x => !x)}
+        role="button"
+        style={{
+          background: '#07070e',
+          border: `1px solid ${cfg.bdr}`,
+          borderLeft: `3px solid ${cfg.col}`,
+          borderRadius: 6, padding: '8px 14px',
+          marginBottom: 16, cursor: 'pointer',
+          display: 'flex', alignItems: 'center', gap: 10,
+          userSelect: 'none',
+        }}
+      >
+        <span style={{ fontSize: 11, flexShrink: 0 }}>{pCopy.icon}</span>
+        <div style={{ flex: 1 }}>
+          <span style={{ fontSize: 9, color: cfg.col, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 700 }}>
+            {pCopy.label}
+          </span>
+          {!expanded && (
+            <span style={{ fontSize: 9, color: '#3a3a52', fontFamily: "'Times New Roman', Times, serif", marginLeft: 12 }}>
+              {COUNSEL_ROLE_LABELS[activeCase.counsel_role!]} · {MATTER_TRACK_LABELS[activeCase.matter_track ?? 'civil']}
+            </span>
+          )}
+        </div>
+        <span style={{ fontSize: 9, color: '#3a3a52', fontFamily: "'Times New Roman', Times, serif", flexShrink: 0 }}>
+          {expanded ? '▴' : '▾'}
+        </span>
+
+        {expanded && (
+          <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 2, background: '#09090f', border: `1px solid ${cfg.bdr}`, borderRadius: 6, padding: '12px 16px', zIndex: 10, display: 'flex', gap: 20, flexWrap: 'wrap' }}>
+            <div>
+              <p style={{ fontSize: 8, color: '#3a3a52', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 2 }}>Pipeline</p>
+              <p style={{ fontSize: 12, color: cfg.col, fontFamily: "'Times New Roman', Times, serif", fontWeight: 700 }}>{pCopy.label}</p>
+            </div>
+            <div>
+              <p style={{ fontSize: 8, color: '#3a3a52', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 2 }}>Track</p>
+              <p style={{ fontSize: 12, color: '#c8c8e0', fontFamily: "'Times New Roman', Times, serif" }}>{MATTER_TRACK_LABELS[activeCase.matter_track ?? 'civil']}</p>
+            </div>
+            <div>
+              <p style={{ fontSize: 8, color: '#3a3a52', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 2 }}>Role</p>
+              <p style={{ fontSize: 12, color: '#c8c8e0', fontFamily: "'Times New Roman', Times, serif" }}>{COUNSEL_ROLE_LABELS[activeCase.counsel_role!]}</p>
+            </div>
+            <div>
+              <p style={{ fontSize: 8, color: '#3a3a52', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 2 }}>Description</p>
+              <p style={{ fontSize: 12, color: '#c8c8e0', fontFamily: "'Times New Roman', Times, serif" }}>{pCopy.description}</p>
+            </div>
+          </div>
+        )}
+      </div>
+    );
   }
 
   // ── Step progress bar ──────────────────────────────────────────────────────
@@ -2594,15 +2961,25 @@ Rules:
         )}
       </div>
 
-      <TIESteps />
+      {/* Phase 1A — Role Gate: fires when counsel_role is absent. Blocks all pipeline stages. */}
+      {roleGateActive ? (
+        <RoleGate />
+      ) : (
+        <>
+          {/* Phase 1A — Pipeline Banner: persistent strip confirming role + pipeline after gate clears */}
+          <PipelineBanner />
 
-      {stage === 0   && <Stage0 />}
-      {stage === 0.5 && <Stage0_5 />}
-      {stage === 1   && <Stage1 />}
-      {stage === 2   && <Stage2 />}
-      {stage === 3   && <Stage3 />}
-      {stage === 4   && <Stage4 />}
-      {stage === 5   && <Stage5 />}
+          <TIESteps />
+
+          {stage === 0   && <Stage0 />}
+          {stage === 0.5 && <Stage0_5 />}
+          {stage === 1   && <Stage1 />}
+          {stage === 2   && <Stage2 />}
+          {stage === 3   && <Stage3 />}
+          {stage === 4   && <Stage4 />}
+          {stage === 5   && <Stage5 />}
+        </>
+      )}
     </div>
   );
 }
