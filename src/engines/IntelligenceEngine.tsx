@@ -158,6 +158,25 @@ interface CommencementAuditResult {
   summary:            string;
 }
 
+// ── Phase 6A — Blind Spot Audit (Adversarial Audit) ──────────────────────────
+// Fires after follow-up answers are saved. Engine acts as the most hostile
+// opposing counsel and the most demanding appellate judge simultaneously,
+// across six categories. Severity is tracked internally (it drives the
+// Phase 6C acknowledgement gate) but is never rendered as a label — Phase 6B
+// renders these as flowing Senior Advocate prose with no categories shown.
+interface BlindSpotFinding {
+  category:    'threshold' | 'party' | 'evidentiary' | 'procedural' | 'substantive' | 'strategic';
+  severity:    'FATAL' | 'SERIOUS' | 'ADVISORY';
+  finding:     string;   // the specific problem, named directly — no hedging
+  law_basis:   string;   // the specific law/rule that governs it, or "[No library source — reasoning from general principle]"
+  action:      string;   // exactly what counsel needs to do about it
+}
+interface BlindSpotAuditResult {
+  run_at:   string;
+  intro?:   string;              // optional single-sentence framing, prose only
+  findings: BlindSpotFinding[];
+}
+
 // ── Step 2 — Counterclaim Detected types (Phase 6A) ───────────────────────────
 // Mirrors IntelligenceData['counterclaim_detected'] in src/types/index.ts.
 // Produced inside the same Step 2 extraction call (Phase 6A-i prompt
@@ -280,6 +299,29 @@ interface TIEData {
   pre_entry_context?: PreEntryContext;
   /** Phase 3C — Laws Needed. Accumulated across all extraction and audit calls. Cleared per-entry when law is uploaded. */
   laws_needed?: LawsNeededEntry[];
+  /** Phase 6A — Blind Spot Audit. Fires after follow-up answers are saved. */
+  blind_spot_audit?: BlindSpotAuditResult;
+  /**
+   * Phase 6C — Acknowledgement Gate.
+   * Records counsel's response to each finding. Fatal findings must have either
+   * an 'addressed' or 'overridden' entry (with override reason) before Stage 4
+   * is unlocked. Serious and advisory findings can be 'noted' or left blank.
+   * The record is carried into the package and visible to all downstream engines.
+   */
+  blind_spot_gate?: BlindSpotGateRecord;
+}
+
+// ── Phase 6C — Acknowledgement Gate types ─────────────────────────────────────
+type GateDecision = 'addressed' | 'overridden' | 'noted';
+interface BlindSpotGateEntry {
+  finding_index: number;
+  decision:      GateDecision;
+  override_reason?: string;   // required when decision === 'overridden'
+  decided_at:    string;
+}
+interface BlindSpotGateRecord {
+  entries:    BlindSpotGateEntry[];
+  cleared_at: string;   // ISO — set when all fatal findings are addressed/overridden
 }
 
 interface Props {
@@ -369,6 +411,12 @@ export function IntelligenceEngine({ activeCase, onSave, onSaveRole }: Props) {
   const [commencementAudit,  setCommencementAudit]  = useState<CommencementAuditResult | undefined>(saved.commencement_audit);
   const [auditLoading,       setAuditLoading]       = useState(false);
   const [auditError,         setAuditError]         = useState('');
+  // Phase 6A — Blind Spot Audit (fires after follow-up answers are saved)
+  const [blindSpotAudit,     setBlindSpotAudit]     = useState<BlindSpotAuditResult | undefined>(saved.blind_spot_audit);
+  const [blindSpotLoading,   setBlindSpotLoading]   = useState(false);
+  const [blindSpotError,     setBlindSpotError]     = useState('');
+  // Phase 6C — Acknowledgement Gate
+  const [blindSpotGate,      setBlindSpotGate]      = useState<BlindSpotGateRecord | undefined>((saved as TIEData).blind_spot_gate);
   // Step 2 — Counterclaim Detected (Phase 6A)
   const [counterclaimDetected, setCounterclaimDetected] = useState<CounterclaimDetectedResult | undefined>(saved.counterclaim_detected);
 
@@ -432,6 +480,8 @@ ${partyBPlural}: ${activeCase.defendants.map(d => d.name).filter(Boolean).join('
       served_process_analysis: spaResult,
       pre_entry_context:       preEntryCtx,
       laws_needed:             lawsNeeded,
+      blind_spot_audit:        blindSpotAudit,
+      blind_spot_gate:         blindSpotGate,
       ...updates,
     };
     onSave(data);
@@ -464,10 +514,19 @@ ${partyBPlural}: ${activeCase.defendants.map(d => d.name).filter(Boolean).join('
         ? `\n\nOPPONENT THEORY (from Served Process Analysis — already extracted):\n${spaResult!.claimant_theory}\n\nPRE-IDENTIFIED COUNTERCLAIM HINTS (from Served Process — evaluate and confirm or refine):\n${spaResult!.counterclaim_hints.length > 0 ? spaResult!.counterclaim_hints.map((h: string, i: number) => `${i + 1}. ${h}`).join('\n') : 'None identified from process text.'}\n\nINSTRUCTION: You already know the ${partyA}'s theory from the served process above. Your extraction must now:\n1. Frame every legal issue as a clash between that theory and the ${partyB}'s position revealed in the client instructions below.\n2. Identify which of the ${partyA}'s factual allegations are admitted, disputed, or unknown from the client's account.\n3. Re-evaluate the counterclaim hints above against the client's fuller instructions — confirm, expand, or dismiss each one with reasons in "counterclaim_detected".`
         : '';
 
-      // ── Phase 3B: Counterclaim / defence-calibrated instruction ──────────
-      const counterclaimInstruction = isDefendantWithSPA
+      // ── Phase 3B: Counterclaim detection — RECEIVING SIDE ONLY (Grand Build Plan, Phase 3B) ──
+      // "Counterclaim Detection (Receiving Side). Runs inside the same extraction call.
+      // Engine looks for any facts that disclose an independent or connected cause of
+      // action the defendant has against the claimant. Flags it — does not build it."
+      // A counterclaim is, by definition, brought by the receiving party against the
+      // commencing party — so this only ever makes sense on the receiving-side pipeline.
+      // Commencing side gets a fixed no-op instruction so the schema stays consistent
+      // without inviting the model to evaluate a counterclaim against its own client.
+      const counterclaimInstruction = !isReceivingSide
+        ? `COUNTERCLAIM DETECTION: Not applicable — this is the commencing/claimant side. A counterclaim is brought by the receiving party against the commencing party, so there is nothing to detect here. Always set "counterclaim_detected.flag" to false and "counterclaim_detected.summary" to "Not applicable — commencing side."`
+        : isDefendantWithSPA
         ? `COUNTERCLAIM EVALUATION (${partyB} path — theory-aware): The served process already surfaced counterclaim hints (listed above). Now that you have the client's full instructions, assess whether those hints ripen into a viable counterclaim. A counterclaim requires: (a) an independent cause of action, (b) arising from the same transaction or occurrence, (c) seeking affirmative relief — not merely a defence. Set "counterclaim_detected.flag" to true if one is confirmed, and write a 1–2 sentence "summary" identifying who brings it, against whom, and the cause of action. If the hints do not ripen, set flag to false and include a brief explanation in summary.`
-        : `COUNTERCLAIM DETECTION: Where this is a civil matter, actively assess whether the facts disclose a viable counterclaim — an independent cause of action arising from the same transaction or facts that could be raised as a cross-claim under the applicable Rules of Civil Procedure. A counterclaim seeks affirmative relief, not merely a denial. Set "counterclaim_detected.flag" to true only where one is reasonably disclosed, and write a 1–2 sentence "counterclaim_detected.summary" stating who would bring it, against whom, and the cause of action. If not a civil matter or no counterclaim is disclosed, set flag to false.`;
+        : `COUNTERCLAIM DETECTION (${partyB} — receiving side): Actively assess whether the facts disclose a viable counterclaim — an independent or connected cause of action the ${partyB} has against the ${partyA}, arising from the same transaction or occurrence, that could be raised as a cross-claim under the applicable Rules of Civil Procedure. A counterclaim seeks affirmative relief, not merely a denial. Do NOT build the counterclaim — only flag it. Set "counterclaim_detected.flag" to true only where one is reasonably disclosed, and write a 1–2 sentence "counterclaim_detected.summary" stating who would bring it, against whom, and the cause of action. If not a civil matter or no counterclaim is disclosed, set flag to false.`;
 
       // ── Phase 3A: Role-calibrated extraction instruction ─────────────────
       const isCommencing = !isReceivingSide;
@@ -710,10 +769,10 @@ ${JSON.stringify(ext, null, 2)}`,
 
     const system = `You are a Nigerian litigation procedural compliance expert acting for ${roleLabel} on a ${trackLabel} matter.
 ${roleDirective}
-Cite specific Nigerian statutes, Rules of Court, and court decisions. Be precise and actionable.
+Reason from the library sources injected below first. Cite specific Nigerian statutes, Rules of Court, and court decisions. Be precise and actionable.
 Output ONLY valid JSON — no markdown fences, no preamble, no explanation.`;
 
-    const prompt = `Conduct a commencement audit across three areas from the case facts and extracted intelligence below.
+    const prompt = `Conduct a full commencement compliance audit from the case facts and extracted intelligence below.
 
 CASE: ${activeCase.caseName || 'Untitled'}
 COURT: ${activeCase.court || 'Not specified'}
@@ -729,28 +788,52 @@ Timeline: ${JSON.stringify(ext.timeline?.slice(0, 5) ?? [])}
 Legal issues: ${JSON.stringify(ext.legal_issues ?? [])}
 Initial risks: ${JSON.stringify(ext.initial_risks ?? [])}
 
+Audit ALL SIX of the following areas — every one must be addressed in "findings", even if only to state it is UNCLEAR from the facts available:
+1. LIMITATION PERIOD — cause of action, trigger event, applicable limitation statute, current status (open/expired), any extension provisions.
+2. CONDITIONS PRECEDENT — pre-action notice, ADR/arbitration clause, demand letter, or any other condition this matter type requires before filing; whether it has been (or can be) satisfied.
+3. JURISDICTION — does the court named/intended have subject-matter and territorial jurisdiction for this cause of action and these parties.
+4. LOCUS STANDI — does/will the ${partyA} have standing to bring this claim on the facts given.
+5. ORIGINATING PROCESS — is the process type contemplated (writ, originating summons, petition, etc.) the correct one for this cause of action and court.
+6. SECTION 84 EVIDENCE ACT — flag any electronic document mentioned in the facts (emails, WhatsApp, computer-generated statements, CCTV, etc.) that will require a Section 84 certificate, and name a likely deponent if the facts allow it.
+
 Return EXACTLY this JSON object and nothing else:
 {
-  "findings": "Detailed markdown narrative covering:\n## COMPLIANCE AUDIT\n[Status per area: COMPLIANT / AT RISK / DEFECTIVE. Cite statutes and Rules of Court. Include limitation period analysis: cause of action identified from facts, applicable limitation period and statute, whether time is open or expired. Include service validity assessment based on any service facts mentioned.]\n## LIMITATION PERIOD\n[Specific limitation period, trigger event, current status, any extension provisions, pre-action notice requirements]\n## SERVICE VALIDITY\n[Assessment of service validity or anticipated service requirements for this matter type]\n## COMPLIANCE SUMMARY\n[Priority-ranked list of immediate actions]",
+  "findings": "Detailed markdown narrative, Senior Advocate prose (not a checklist), covering:\n## LIMITATION PERIOD\n[...]\n## CONDITIONS PRECEDENT\n[...]\n## JURISDICTION\n[...]\n## LOCUS STANDI\n[...]\n## ORIGINATING PROCESS\n[...]\n## SECTION 84 EVIDENCE ACT\n[...]\n## COMPLIANCE SUMMARY\n[Priority-ranked list of immediate actions]",
   "limitation_expiry": "ISO date string if calculable, or plain text like 'Cannot determine without trigger date', or null",
   "service_valid": true or false or null,
   "status": "CLEAR or RISK or DEFECTIVE",
-  "summary": "One sentence for Case Command — e.g. 'Limitation period open, service requirements identified, no critical defects'"
+  "summary": "One sentence for Case Command — e.g. 'Limitation period open, jurisdiction and standing sound, no critical defects'",
+  "laws_needed": [{"name":"exact statutory citation","reason":"why needed for this specific audit"}]
 }
 
 Rules:
-- status CLEAR = no material compliance risk identified
+- status CLEAR = no material compliance risk identified across all six areas
 - status RISK = at least one issue needs attention but is not yet fatal
-- status DEFECTIVE = a fatal procedural defect exists
+- status DEFECTIVE = a fatal procedural defect exists in any of the six areas
 - If facts are insufficient to determine an area, note it as UNCLEAR in findings but still return the JSON
+- laws_needed must list ONLY laws/rules you needed for this audit that were absent from the library context. If the library covered everything, return an empty array.
 - Never use unescaped double quotes inside JSON string values`;
 
+    // ── Library query hint — the six 4A audit areas plus matter/court context ──
+    const auditLibraryHint = [
+      activeCase.matter_track,
+      activeCase.court,
+      'limitation period conditions precedent jurisdiction locus standi originating process Section 84 Evidence Act',
+      rawFacts.slice(0, 300),
+    ].filter(Boolean).join(' ').slice(0, 600);
+
     try {
-      const raw = await withRetry(() => callClaude({
+      const { text: raw } = await withRetry(() => callClaude({
         system,
         userMsg: prompt,
         maxTokens: 2500,
-        skipLibrary: true,
+        matter_track: activeCase.matter_track,
+        counsel_role: activeCase.counsel_role,
+        libraryOpts: {
+          queryHint: auditLibraryHint,
+          topK: 12,
+          threshold: 0.68,
+        },
       }));
 
       let cleaned = raw.trim()
@@ -760,7 +843,7 @@ Rules:
       if (start === -1 || end === -1) throw new Error('No JSON in audit response');
       cleaned = cleaned.slice(start, end + 1);
 
-      let parsed: Omit<CommencementAuditResult, 'run_at'>;
+      let parsed: Omit<CommencementAuditResult, 'run_at'> & { laws_needed?: Array<{ name: string; reason: string }> };
       try {
         parsed = JSON.parse(cleaned);
       } catch {
@@ -781,12 +864,28 @@ Rules:
         summary:           parsed.summary ?? '',
       };
 
+      // ── Phase 3C feed: any law this 4A audit needed but the library didn't have ──
+      const newEntries: LawsNeededEntry[] = (parsed.laws_needed ?? [])
+        .filter(e => e?.name?.trim())
+        .map(e => ({
+          name:       e.name.trim(),
+          reason:     e.reason?.trim() ?? 'Needed for Phase 4A Commencement Audit',
+          flagged_by: 'Phase 4A Commencement Audit',
+          flagged_at: new Date().toISOString(),
+        }));
+      const dedupedNew = newEntries.filter(e =>
+        !lawsNeeded.some(existing => existing.name.toLowerCase().trim() === e.name.toLowerCase().trim())
+      );
+      const updatedLawsNeeded = dedupedNew.length > 0 ? [...lawsNeeded, ...dedupedNew] : lawsNeeded;
+      if (dedupedNew.length > 0) setLawsNeeded(updatedLawsNeeded);
+
       setCommencementAudit(result);
       // Persist immediately — commencementAudit state won't be visible to persist() yet
       // so we pass it directly in the update
       onSave({
         stage, rawFacts, extraction: ext, followUpQs, followUpAs, evidenceM, intPkg,
         commencement_audit: result,
+        laws_needed: updatedLawsNeeded,
       });
     } catch (e) {
       setAuditError('Commencement audit failed: ' + ((e as Error).message || 'Please try again.'));
@@ -946,6 +1045,60 @@ ${ccBlock}`; })(),
 
     // ── Step 2b: Commencement Audit panel (rendered inside Stage2) ───────────
 
+  // ── Phase 3C — resolve a Laws Needed entry (you uploaded it; engine confirms it's retrievable) ──
+  // Full re-query-against-library confirmation lives with the library tooling; locally this
+  // marks the entry resolved and timestamps it, so the list only ever clears on a deliberate
+  // confirmation — never silently.
+  function resolveLawNeeded(name: string) {
+    const updated = lawsNeeded.map(e =>
+      e.name === name ? { ...e, resolved: true, resolved_at: new Date().toISOString() } : e
+    );
+    setLawsNeeded(updated);
+    persist({ laws_needed: updated });
+  }
+
+  function LawsNeededPanel() {
+    const open = lawsNeeded.filter(e => !e.resolved);
+    if (open.length === 0) return null;
+
+    return (
+      <div style={{
+        background: '#1a0f00', border: '1px solid #4a3000', borderRadius: 8,
+        padding: '16px 20px', marginBottom: 14, borderLeft: '3px solid #d09030',
+        animation: 'fadeUp .3s ease',
+      }}>
+        <p style={{ fontSize: 9, color: '#d09030', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ fontSize: 11 }}>⚑</span> Phase 3C · Laws Needed ({open.length})
+        </p>
+        <p style={{ fontSize: 12, color: T.mute, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.6, marginBottom: 12, fontStyle: 'italic' }}>
+          The engine is reasoning without these. Upload the law to the library, then mark it resolved here once the library confirms retrieval.
+        </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {open.map((e, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, paddingBottom: i < open.length - 1 ? 10 : 0, borderBottom: i < open.length - 1 ? '1px solid #2a1c00' : 'none' }}>
+              <div style={{ flex: 1 }}>
+                <p style={{ fontSize: 13, color: T.text, fontFamily: "'Times New Roman', Times, serif", fontWeight: 600, marginBottom: 3 }}>
+                  {e.name}
+                </p>
+                <p style={{ fontSize: 12, color: T.sub, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.55, marginBottom: 3 }}>
+                  {e.reason}
+                </p>
+                <p style={{ fontSize: 10, color: T.mute, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.04em' }}>
+                  Flagged by {e.flagged_by}
+                </p>
+              </div>
+              <button
+                onClick={() => resolveLawNeeded(e.name)}
+                style={{ flexShrink: 0, background: 'transparent', border: '1px solid #4a3000', color: '#d09030', borderRadius: 4, padding: '5px 12px', fontSize: 10, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', letterSpacing: '.06em', whiteSpace: 'nowrap' }}>
+                ✓ Mark Resolved
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   function CommencementAuditPanel() {
     if (!auditLoading && !commencementAudit && !auditError) return null;
 
@@ -1040,15 +1193,44 @@ ${ccBlock}`; })(),
       </div>
     );
   }
+  // ── Phase 5A — Gap-Filling Questions (Grand Build Plan) ───────────────────
+  // Library queried against the specific gaps identified in extraction and audit —
+  // so follow-up questions are grounded in what the law actually requires, not
+  // what seems generally sensible. Role-calibrated: claimant side fills
+  // evidentiary holes before filing; defendant side exposes weaknesses in the
+  // opponent's case and strengthens available defences/PO grounds. Every
+  // question carries a stated purpose.
   async function generateFollowUp() {
     setLoading(true); setError('');
     try {
-      const raw = await callClaude({
-        system: `You are a trial intelligence engine for Nigerian litigation. Generate precise gap-filling follow-up questions. Role: ${role}. Output ONLY valid JSON — no markdown, no preamble. Exactly this structure: {"questions":[{"id":"q1","question":"...","purpose":"..."}]}`,
-        userMsg: `${caseCtx}\n\nEXTRACTED INTELLIGENCE:\n${JSON.stringify(extraction, null, 2)}\n\nGenerate 6 targeted follow-up questions addressing the most critical gaps.`,
+      const isCommencingQ = !isReceivingSide;
+      const roleQuestionDirective = isCommencingQ
+        ? `Ask questions that fill evidentiary holes before filing — close the gaps that would otherwise defeat an element of the claim or expose it to a preliminary objection.`
+        : `Ask questions that expose weaknesses in the opponent's case and strengthen the available defences and preliminary objection grounds — not generic gap-filling, but questions aimed at the claimant's vulnerabilities.`;
+
+      const auditFindings = commencementAudit?.findings ?? '';
+      const gapsBlock = (extraction?.gaps_identified ?? []).join('; ');
+
+      // ── Library query hint — built from the specific gaps extraction/audit found ──
+      const followUpLibraryHint = [
+        activeCase.matter_track,
+        activeCase.court,
+        gapsBlock.slice(0, 200),
+        auditFindings.slice(0, 200),
+      ].filter(Boolean).join(' ').slice(0, 600);
+
+      const { text: raw } = await withRetry(() => callClaude({
+        system: `You are a trial intelligence engine for Nigerian litigation. Generate precise gap-filling follow-up questions, grounded in the library sources injected below and in the specific gaps the extraction and compliance audit already identified — not generic questions. Role: ${role}. ${roleQuestionDirective} Output ONLY valid JSON — no markdown, no preamble. Exactly this structure: {"questions":[{"id":"q1","question":"...","purpose":"..."}]}`,
+        userMsg: `${caseCtx}\n\nEXTRACTED INTELLIGENCE:\n${JSON.stringify(extraction, null, 2)}${auditFindings ? `\n\nCOMPLIANCE/DEFENCE AUDIT FINDINGS:\n${auditFindings}` : ''}\n\nGenerate 6 targeted follow-up questions addressing the most critical gaps from the extraction and audit above. Every question must have a "purpose" stating exactly why it's being asked.`,
         maxTokens: 5000,
-        skipLibrary: true,
-      });
+        matter_track: activeCase.matter_track,
+        counsel_role: activeCase.counsel_role,
+        libraryOpts: {
+          queryHint: followUpLibraryHint,
+          topK: 10,
+          threshold: 0.68,
+        },
+      }));
 
       let cleaned = raw.trim();
       cleaned = cleaned.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
@@ -1082,10 +1264,18 @@ ${ccBlock}`; })(),
       setError('Please answer at least 3 questions before proceeding.');
       return;
     }
+    // Phase 6C — gate check. If the blind spot audit has run and has FATAL findings
+    // that have not been addressed or overridden, block advance and surface the report.
+    if (blindSpotAudit && !gateCleared(blindSpotAudit, blindSpotGate)) {
+      setError('Phase 6C: Fatal blind spot findings must be addressed or overridden before proceeding to the Evidence Matrix. Review the Blind Spot Report below.');
+      return;
+    }
     setLoading(true); setError('');
     const qaText = followUpQs
       .map(q => `Q: ${q.question}\nA: ${followUpAs[q.id] || '(Not answered)'}`)
       .join('\n\n');
+    // Phase 6A — fires non-blocking the moment follow-up answers are saved/used.
+    if (extraction) runBlindSpotAudit(extraction, qaText);
     try {
       const raw = await callClaude({
         system: `You are a trial evidence strategist for Nigerian litigation. Map required evidence to facts and legal issues. Role of client: ${role}. Output ONLY valid JSON — no markdown, no preamble. Exactly this structure: {"evidence_map":[{"issue":"...","evidence_needed":["..."],"evidence_available":["..."],"evidence_missing":["..."],"priority":"CRITICAL|HIGH|MEDIUM|LOW","notes":"..."}]}`,
@@ -1117,7 +1307,495 @@ ${ccBlock}`; })(),
     } finally { setLoading(false); }
   }
 
-  // ── Step 4 → 5: Generate Intelligence Package ─────────────────────────────
+  // ── Phase 6A — Blind Spot Audit (Adversarial Audit) ───────────────────────
+  // Fires after follow-up answers are saved. The engine now has everything:
+  // raw facts, extraction, compliance audit, and the follow-up answers.
+  // Library queried broadly across all six blind spot categories so the audit
+  // is grounded in actual Nigerian law and procedure, not general principles.
+  // Acts as the most hostile opposing counsel and the most demanding
+  // appellate judge simultaneously. Non-blocking — does not gate the user
+  // from proceeding (that gate is Phase 6C, built separately).
+  async function runBlindSpotAudit(ext: ExtractionResult, qaText: string) {
+    setBlindSpotLoading(true); setBlindSpotError('');
+    try {
+      const auditFindings = commencementAudit?.findings ?? '';
+
+      // ── Library query hint — broad across all six categories, plus case context ──
+      const blindSpotLibraryHint = [
+        activeCase.matter_track,
+        activeCase.court,
+        'threshold issues party issues evidentiary issues procedural issues substantive legal issues strategic issues',
+        (ext.legal_issues ?? []).join(' ').slice(0, 200),
+      ].filter(Boolean).join(' ').slice(0, 600);
+
+      const system = `You are simultaneously the most hostile opposing counsel and the most demanding appellate judge reviewing this Nigerian litigation matter for the ${role}. You have raw facts, the extraction, the compliance audit, and counsel's follow-up answers. Your sole job is to find every blind spot counsel missed — assume they missed something, and find it.
+
+Interrogate across all six categories, grounded in the library sources injected below:
+1. THRESHOLD ISSUES — jurisdiction, limitation, locus standi, cause of action sufficiency
+2. PARTY ISSUES — correct parties joined, capacity, necessary parties omitted
+3. EVIDENTIARY ISSUES — admissibility, authentication, Section 84 certificates, burden of proof gaps
+4. PROCEDURAL ISSUES — service, originating process, conditions precedent, rules compliance
+5. SUBSTANTIVE LEGAL ISSUES — elements not yet established, defences not considered, authority conflicts
+6. STRATEGIC BLIND SPOTS — sequencing risks, tactical exposure, what the opponent will do that counsel hasn't planned for
+
+For each finding: name the exact problem, state the severity honestly (FATAL only if it could be case-ending or appeal-reversing; SERIOUS if it materially weakens the case; ADVISORY if it's a refinement), cite the specific governing law or rule, and state exactly what counsel must do about it. Do not soften fatal findings. Do not manufacture findings — if a category is genuinely clean, say so briefly rather than padding it.
+
+Output ONLY valid JSON — no markdown fences, no preamble, no explanation.`;
+
+      const userMsg = `${caseCtx}
+
+EXTRACTED INTELLIGENCE:
+${JSON.stringify(ext, null, 2)}
+${auditFindings ? `\nCOMPLIANCE/DEFENCE AUDIT FINDINGS:\n${auditFindings}` : ''}
+
+FOLLOW-UP ANSWERS:
+${qaText}
+
+Run the full adversarial blind spot interrogation now.
+
+Return EXACTLY this JSON object and nothing else:
+{
+  "intro": "Optional single sentence of framing — prose only, no preamble about what you're about to do.",
+  "findings": [
+    {"category":"threshold|party|evidentiary|procedural|substantive|strategic","severity":"FATAL|SERIOUS|ADVISORY","finding":"The exact problem, stated directly.","law_basis":"The specific Nigerian statute, rule, or authority that governs it — or '[No library source — reasoning from general principle]' if none was retrieved.","action":"Exactly what counsel must do about it."}
+  ],
+  "laws_needed": [{"name":"exact statutory citation","reason":"why needed for this specific blind spot audit"}]
+}
+
+Rules:
+- Cover all six categories — at least one finding per category, even if it is simply confirming that category is clean.
+- Never use unescaped double quotes inside JSON string values.`;
+
+      const { text: raw } = await withRetry(() => callClaude({
+        system,
+        userMsg,
+        maxTokens: 6000,
+        matter_track: activeCase.matter_track,
+        counsel_role: activeCase.counsel_role,
+        libraryOpts: {
+          queryHint: blindSpotLibraryHint,
+          topK: 16,
+          threshold: 0.65,
+        },
+      }));
+
+      let cleaned = raw.trim()
+        .replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+      const start = cleaned.indexOf('{');
+      const end   = cleaned.lastIndexOf('}');
+      if (start === -1 || end === -1) throw new Error('No JSON in blind spot audit response');
+      cleaned = cleaned.slice(start, end + 1);
+
+      let parsed: { intro?: string; findings?: BlindSpotFinding[]; laws_needed?: Array<{ name: string; reason: string }> };
+      try {
+        parsed = JSON.parse(cleaned);
+      } catch {
+        const repaired = cleaned
+          .replace(/[\u0000-\u001F\u007F-\u009F]/g, ' ')
+          .replace(/,\s*}/g, '}').replace(/,\s*]/g, ']');
+        parsed = JSON.parse(repaired);
+      }
+
+      const result: BlindSpotAuditResult = {
+        run_at:   new Date().toISOString(),
+        intro:    parsed.intro,
+        findings: (parsed.findings ?? []).filter(f => f?.finding?.trim()),
+      };
+
+      // ── Phase 3C feed: any law this 6A audit needed but the library didn't have ──
+      const newEntries: LawsNeededEntry[] = (parsed.laws_needed ?? [])
+        .filter(e => e?.name?.trim())
+        .map(e => ({
+          name:       e.name.trim(),
+          reason:     e.reason?.trim() ?? 'Needed for Phase 6A Blind Spot Audit',
+          flagged_by: 'Phase 6A Blind Spot Audit',
+          flagged_at: new Date().toISOString(),
+        }));
+      const dedupedNew = newEntries.filter(e =>
+        !lawsNeeded.some(existing => existing.name.toLowerCase().trim() === e.name.toLowerCase().trim())
+      );
+      const updatedLawsNeeded = dedupedNew.length > 0 ? [...lawsNeeded, ...dedupedNew] : lawsNeeded;
+      if (dedupedNew.length > 0) setLawsNeeded(updatedLawsNeeded);
+
+      setBlindSpotAudit(result);
+      onSave({
+        stage, rawFacts, extraction: ext, followUpQs, followUpAs, evidenceM, intPkg,
+        blind_spot_audit: result,
+        laws_needed:      updatedLawsNeeded,
+      });
+    } catch (e) {
+      setBlindSpotError('Blind spot audit failed: ' + ((e as Error).message || 'Please try again.'));
+    } finally { setBlindSpotLoading(false); }
+  }
+
+  // ── Phase 6C — Gate helpers ───────────────────────────────────────────────
+
+  /** Returns true once all FATAL findings have an 'addressed' or 'overridden' entry */
+  function gateCleared(audit: BlindSpotAuditResult, gate: BlindSpotGateRecord | undefined): boolean {
+    const fatalIndices = audit.findings
+      .map((f, i) => ({ f, i }))
+      .filter(({ f }) => f.severity === 'FATAL')
+      .map(({ i }) => i);
+    if (fatalIndices.length === 0) return true;
+    if (!gate) return false;
+    return fatalIndices.every(idx =>
+      gate.entries.some(e => e.finding_index === idx && (e.decision === 'addressed' || e.decision === 'overridden'))
+    );
+  }
+
+  function recordGateDecision(
+    findingIndex: number,
+    decision: GateDecision,
+    overrideReason?: string,
+  ) {
+    const now = new Date().toISOString();
+    const existing = blindSpotGate?.entries ?? [];
+    const filtered = existing.filter(e => e.finding_index !== findingIndex);
+    const entry: BlindSpotGateEntry = {
+      finding_index: findingIndex,
+      decision,
+      ...(overrideReason ? { override_reason: overrideReason } : {}),
+      decided_at: now,
+    };
+    const updated = [...filtered, entry];
+    const allClear = blindSpotAudit ? gateCleared(blindSpotAudit, { entries: updated, cleared_at: now }) : false;
+    const newGate: BlindSpotGateRecord = {
+      entries:    updated,
+      cleared_at: allClear ? now : (blindSpotGate?.cleared_at ?? ''),
+    };
+    setBlindSpotGate(newGate);
+    persist({ blind_spot_gate: newGate });
+  }
+
+  // ── Phase 6B — Blind Spot Report (pure Senior Advocate prose, no category labels, no severity badges) ──
+  // The findings are written as flowing paragraphs — direct, consequential, unflinching.
+  // The gate (6C) is embedded below the report so counsel acts immediately on what they read.
+
+  function BlindSpotReportPanel() {
+    const audit = blindSpotAudit;
+
+    // Loading state
+    if (blindSpotLoading) {
+      return (
+        <div style={{
+          background: '#09090f', border: '1px solid #1e1e30',
+          borderLeft: '3px solid #5050a0',
+          borderRadius: 8, padding: '16px 20px', marginBottom: 14,
+          display: 'flex', alignItems: 'center', gap: 12,
+          animation: 'fadeUp .3s ease',
+        }}>
+          <Spinner size={12} />
+          <div>
+            <p style={{ fontSize: 9, color: '#5050a0', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 3 }}>
+              Phase 6A · Adversarial Audit Running
+            </p>
+            <p style={{ fontSize: 12, color: T.mute, fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic', lineHeight: 1.55 }}>
+              Acting as the most hostile opposing counsel and the most demanding appellate judge — finding what was missed…
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    // Error state
+    if (blindSpotError && !audit) {
+      return (
+        <div style={{
+          background: '#0e0808', border: '1px solid #3a1818',
+          borderLeft: '3px solid #c05050',
+          borderRadius: 8, padding: '14px 18px', marginBottom: 14,
+        }}>
+          <p style={{ fontSize: 9, color: '#c05050', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 6 }}>
+            Phase 6A · Audit Failed
+          </p>
+          <p style={{ fontSize: 12, color: '#c07070', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.6, marginBottom: 10 }}>{blindSpotError}</p>
+          <button
+            onClick={() => {
+              const qaText = followUpQs.map(q => `Q: ${q.question}\nA: ${followUpAs[q.id] || '(Not answered)'}`).join('\n\n');
+              if (extraction) runBlindSpotAudit(extraction, qaText);
+            }}
+            style={{ background: 'transparent', border: '1px solid #4a1818', color: '#c05050', borderRadius: 4, padding: '5px 14px', fontSize: 10, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', letterSpacing: '.06em' }}
+          >
+            ↺ Retry Audit
+          </button>
+        </div>
+      );
+    }
+
+    if (!audit) return null;
+
+    const fatalFindings   = audit.findings.filter(f => f.severity === 'FATAL');
+    const seriousFindings = audit.findings.filter(f => f.severity === 'SERIOUS');
+    const advisoryFindings = audit.findings.filter(f => f.severity === 'ADVISORY');
+    const cleared = gateCleared(audit, blindSpotGate);
+
+    // Helper: get gate entry for a finding index
+    const getEntry = (idx: number) => blindSpotGate?.entries.find(e => e.finding_index === idx);
+
+    // Local state for override reason inputs — tracked via a simple map on the DOM
+    // using data attributes (avoids re-declaring state in this inner component)
+
+    return (
+      <div style={{ marginBottom: 14, animation: 'fadeUp .3s ease' }}>
+        {/* ── Section header ── */}
+        <div style={{
+          background: '#09090f', border: '1px solid #1e1e2e',
+          borderLeft: `3px solid ${fatalFindings.length > 0 ? '#c05050' : seriousFindings.length > 0 ? '#c08030' : '#40b068'}`,
+          borderRadius: '8px 8px 0 0', padding: '14px 20px',
+          display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
+        }}>
+          <div style={{ flex: 1 }}>
+            <p style={{ fontSize: 9, color: '#6060a0', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 3 }}>
+              Phase 6B · Blind Spot Report
+            </p>
+            <p style={{ fontSize: 12, color: T.mute, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.5 }}>
+              {audit.findings.length} finding{audit.findings.length !== 1 ? 's' : ''} across six categories
+              {fatalFindings.length > 0 && <span style={{ color: '#c05050', fontWeight: 700 }}> · {fatalFindings.length} FATAL</span>}
+              {seriousFindings.length > 0 && <span style={{ color: '#c08030' }}> · {seriousFindings.length} serious</span>}
+              {advisoryFindings.length > 0 && <span style={{ color: T.mute }}> · {advisoryFindings.length} advisory</span>}
+            </p>
+          </div>
+          {cleared && (
+            <span style={{ fontSize: 9, color: '#40b068', fontFamily: "'Times New Roman', Times, serif", fontWeight: 700, letterSpacing: '.1em', background: '#071810', border: '1px solid #1a4028', padding: '3px 10px', borderRadius: 3 }}>
+              ✓ GATE CLEARED
+            </span>
+          )}
+        </div>
+
+        {/* ── 6B: Findings rendered as pure Senior Advocate prose — no category labels, no severity badges ── */}
+        <div style={{
+          background: '#08080e', border: '1px solid #1a1a2a',
+          borderTop: 'none', padding: '22px 24px',
+        }}>
+          {audit.intro && (
+            <p style={{ fontSize: 13, color: '#9090b0', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.8, marginBottom: 20, fontStyle: 'italic' }}>
+              {audit.intro}
+            </p>
+          )}
+
+          {audit.findings.map((finding, idx) => {
+            const entry = getEntry(idx);
+            const isFatal    = finding.severity === 'FATAL';
+            const isSerious  = finding.severity === 'SERIOUS';
+            const textColor  = isFatal ? '#e0b0b0' : isSerious ? '#e0c890' : '#b0b8c8';
+            const borderColor = isFatal ? '#3a1818' : isSerious ? '#3a2808' : '#1a1a2a';
+            const actionColor = isFatal ? '#c08080' : isSerious ? '#b09060' : '#8090a8';
+
+            return (
+              <div
+                key={idx}
+                style={{
+                  borderLeft: `3px solid ${borderColor}`,
+                  paddingLeft: 18,
+                  marginBottom: idx < audit.findings.length - 1 ? 24 : 0,
+                  paddingBottom: idx < audit.findings.length - 1 ? 24 : 0,
+                  borderBottom: idx < audit.findings.length - 1 ? `1px solid #111120` : 'none',
+                }}
+              >
+                {/* Finding — pure prose, no label */}
+                <p style={{
+                  fontSize: 14, color: textColor,
+                  fontFamily: "'Times New Roman', Times, serif",
+                  lineHeight: 1.85, marginBottom: 10,
+                }}>
+                  {finding.finding}
+                </p>
+
+                {/* Law basis — inline, lower register */}
+                <p style={{
+                  fontSize: 11, color: '#505070',
+                  fontFamily: "'Times New Roman', Times, serif",
+                  lineHeight: 1.6, marginBottom: 8, fontStyle: 'italic',
+                }}>
+                  {finding.law_basis}
+                </p>
+
+                {/* Action required */}
+                <p style={{
+                  fontSize: 12, color: actionColor,
+                  fontFamily: "'Times New Roman', Times, serif",
+                  lineHeight: 1.7, marginBottom: entry ? 14 : 0,
+                }}>
+                  → {finding.action}
+                </p>
+
+                {/* ── Phase 6C: Gate controls — shown inline under each finding ── */}
+                {/* Fatal: must be 'addressed' or 'overridden' (with reason) */}
+                {/* Serious/Advisory: can be 'noted' or left */}
+                <GateFindingControl
+                  idx={idx}
+                  finding={finding}
+                  entry={entry}
+                  onDecide={recordGateDecision}
+                />
+              </div>
+            );
+          })}
+        </div>
+
+        {/* ── 6C: Gate status footer ── */}
+        <div style={{
+          background: cleared ? '#060e08' : fatalFindings.length > 0 ? '#0e0606' : '#0a0a14',
+          border: `1px solid ${cleared ? '#1a3020' : fatalFindings.length > 0 ? '#3a1010' : '#1a1a28'}`,
+          borderTop: 'none', borderRadius: '0 0 8px 8px',
+          padding: '12px 20px',
+          display: 'flex', alignItems: 'center', gap: 10,
+        }}>
+          {cleared ? (
+            <p style={{ fontSize: 12, color: '#40b068', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.6, flex: 1 }}>
+              Phase 6C · Gate cleared — all fatal findings addressed or overridden. You may proceed to the Evidence Matrix.
+            </p>
+          ) : fatalFindings.length === 0 ? (
+            <p style={{ fontSize: 12, color: T.mute, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.6, flex: 1 }}>
+              Phase 6C · No fatal findings — gate is automatically clear. You may proceed.
+            </p>
+          ) : (
+            <p style={{ fontSize: 12, color: '#c07070', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.6, flex: 1 }}>
+              Phase 6C · {fatalFindings.length - (blindSpotGate?.entries.filter(e => (e.decision === 'addressed' || e.decision === 'overridden') && audit.findings[e.finding_index]?.severity === 'FATAL').length ?? 0)} fatal finding{fatalFindings.length - (blindSpotGate?.entries.filter(e => (e.decision === 'addressed' || e.decision === 'overridden') && audit.findings[e.finding_index]?.severity === 'FATAL').length ?? 0) !== 1 ? 's' : ''} must be addressed or overridden before you can proceed to the Evidence Matrix.
+            </p>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ── Phase 6C: GateFindingControl — inline acknowledgement control per finding ──
+  // Fatal: requires 'addressed' or 'overridden' + reason. Non-fatal: 'noted' only.
+  // Rendered inside BlindSpotReportPanel — one per finding.
+
+  function GateFindingControl({
+    idx,
+    finding,
+    entry,
+    onDecide,
+  }: {
+    idx:      number;
+    finding:  BlindSpotFinding;
+    entry:    BlindSpotGateEntry | undefined;
+    onDecide: (idx: number, decision: GateDecision, reason?: string) => void;
+  }) {
+    const [overrideInput, setOverrideInput] = React.useState(entry?.override_reason ?? '');
+    const [showOverrideBox, setShowOverrideBox] = React.useState(entry?.decision === 'overridden');
+    const isFatal   = finding.severity === 'FATAL';
+    const isSerious = finding.severity === 'SERIOUS';
+
+    if (entry && !showOverrideBox) {
+      // Already decided — show compact confirmation with undo
+      const decisionColor = entry.decision === 'addressed' ? '#40b068' : entry.decision === 'overridden' ? '#c08030' : '#6060a0';
+      const decisionLabel = entry.decision === 'addressed' ? 'Addressed' : entry.decision === 'overridden' ? 'Overridden' : 'Noted';
+      return (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10 }}>
+          <span style={{ fontSize: 9, color: decisionColor, fontFamily: "'Times New Roman', Times, serif", fontWeight: 700, letterSpacing: '.1em', background: `${decisionColor}18`, border: `1px solid ${decisionColor}44`, padding: '2px 8px', borderRadius: 2 }}>
+            ✓ {decisionLabel}
+          </span>
+          {entry.override_reason && (
+            <span style={{ fontSize: 11, color: '#806050', fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic' }}>
+              "{entry.override_reason}"
+            </span>
+          )}
+          <button
+            onClick={() => {
+              setShowOverrideBox(false);
+              onDecide(idx, 'noted'); // reset to neutral — will be re-decided
+            }}
+            style={{ background: 'transparent', border: 'none', color: '#3a3a52', fontSize: 10, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', padding: 0, letterSpacing: '.04em' }}
+          >
+            undo
+          </button>
+        </div>
+      );
+    }
+
+    return (
+      <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid #111120' }}>
+        <p style={{ fontSize: 9, color: '#3a3a52', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.1em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 8 }}>
+          {isFatal ? 'Phase 6C · Fatal — address or override to proceed' : isSerious ? 'Phase 6C · Serious — acknowledge to record' : 'Phase 6C · Advisory'}
+        </p>
+
+        {/* Override reason box — shown when 'overridden' is selected */}
+        {showOverrideBox && (
+          <div style={{ marginBottom: 8 }}>
+            <textarea
+              rows={2}
+              placeholder="State your reason for overriding this fatal finding — this is logged in the package and visible to all downstream engines…"
+              value={overrideInput}
+              onChange={e => setOverrideInput(e.target.value)}
+              style={{
+                width: '100%', boxSizing: 'border-box',
+                background: '#0e0808', border: '1px solid #3a1818',
+                borderRadius: 5, padding: '8px 10px',
+                fontSize: 12, color: '#d09090',
+                fontFamily: "'Times New Roman', Times, serif",
+                outline: 'none', resize: 'vertical', lineHeight: 1.65,
+              }}
+            />
+          </div>
+        )}
+
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button
+            onClick={() => { setShowOverrideBox(false); onDecide(idx, 'addressed'); }}
+            style={{
+              background: '#071810', border: '1px solid #1a4028',
+              color: '#40b068', borderRadius: 4, padding: '5px 14px',
+              fontSize: 10, fontFamily: "'Times New Roman', Times, serif",
+              cursor: 'pointer', letterSpacing: '.06em',
+            }}
+          >
+            ✓ Addressed
+          </button>
+
+          {(isFatal || isSerious) && (
+            showOverrideBox ? (
+              <button
+                onClick={() => {
+                  if (!overrideInput.trim()) return;
+                  setShowOverrideBox(false);
+                  onDecide(idx, 'overridden', overrideInput.trim());
+                }}
+                disabled={!overrideInput.trim()}
+                style={{
+                  background: '#1a0e00', border: '1px solid #4a2800',
+                  color: overrideInput.trim() ? '#c08030' : '#4a3010',
+                  borderRadius: 4, padding: '5px 14px',
+                  fontSize: 10, fontFamily: "'Times New Roman', Times, serif",
+                  cursor: overrideInput.trim() ? 'pointer' : 'not-allowed', letterSpacing: '.06em',
+                }}
+              >
+                Confirm Override →
+              </button>
+            ) : (
+              <button
+                onClick={() => setShowOverrideBox(true)}
+                style={{
+                  background: 'transparent', border: '1px solid #3a2808',
+                  color: '#806040', borderRadius: 4, padding: '5px 14px',
+                  fontSize: 10, fontFamily: "'Times New Roman', Times, serif",
+                  cursor: 'pointer', letterSpacing: '.06em',
+                }}
+              >
+                Override (with reason)
+              </button>
+            )
+          )}
+
+          {!isFatal && (
+            <button
+              onClick={() => { setShowOverrideBox(false); onDecide(idx, 'noted'); }}
+              style={{
+                background: 'transparent', border: '1px solid #1e1e30',
+                color: '#4a4a68', borderRadius: 4, padding: '5px 14px',
+                fontSize: 10, fontFamily: "'Times New Roman', Times, serif",
+                cursor: 'pointer', letterSpacing: '.06em',
+              }}
+            >
+              Noted
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
   async function generatePackage() {
     setLoading(true); setError('');
     const qaText = followUpQs
@@ -1167,8 +1845,9 @@ ${ccBlock}`; })(),
     setCounterclaimDetected(undefined);
     setConflictScan(undefined); setConflictError('');
     setRiskVerdict(undefined); setRiskError(''); setRiskAnimated(false);
+    setBlindSpotAudit(undefined); setBlindSpotError(''); setBlindSpotGate(undefined);
     const resetStage = isReceivingSide ? 0 : 1;
-    onSave({ stage: resetStage, rawFacts: '', extraction: null, followUpQs: [], followUpAs: {}, evidenceM: null, intPkg: '', commencement_audit: undefined, counterclaim_detected: undefined, conflict_scan: undefined, risk_verdict: undefined, authority_grounding: undefined, served_process_analysis: undefined });
+    onSave({ stage: resetStage, rawFacts: '', extraction: null, followUpQs: [], followUpAs: {}, evidenceM: null, intPkg: '', commencement_audit: undefined, counterclaim_detected: undefined, conflict_scan: undefined, risk_verdict: undefined, authority_grounding: undefined, served_process_analysis: undefined, blind_spot_gate: undefined });
     setSpaResult(undefined);
     setProcessText('');
     setStage(resetStage);
@@ -1771,7 +2450,8 @@ Return EXACTLY this JSON and nothing else:
   "limitation_expiry": "ISO date if claimant's limitation period can be calculated, or plain text, or null",
   "service_valid": true or false or null,
   "status": "CLEAR or RISK or DEFECTIVE",
-  "summary": "One sentence for Case Command — e.g. 'Two fatal PO grounds: wrong originating process and expired limitation. Strong defence posture.'"
+  "summary": "One sentence for Case Command — e.g. 'Two fatal PO grounds: wrong originating process and expired limitation. Strong defence posture.'",
+  "laws_needed": [{"name":"exact statutory citation","reason":"why needed for this specific audit"}]
 }
 
 Rules:
@@ -1779,14 +2459,29 @@ Rules:
 - status RISK = defects present but curable or non-fatal
 - status CLEAR = no material procedural weakness found
 - Be adversarially precise: name every specific rule or statute. This is the defendant's audit, not the claimant's.
+- laws_needed must list ONLY laws/rules you needed for this audit that were absent from the library context. If the library covered everything, return an empty array.
 - Never use unescaped double quotes inside JSON string values`;
 
+    // ── Library query hint — the 4B audit areas, adversarially calibrated ──
+    const defenceAuditLibraryHint = [
+      activeCase.matter_track,
+      activeCase.court,
+      'service validity jurisdiction limitation conditions precedent preliminary objection originating process',
+      spa.process_text.slice(0, 300),
+    ].filter(Boolean).join(' ').slice(0, 600);
+
     try {
-      const raw = await withRetry(() => callClaude({
+      const { text: raw } = await withRetry(() => callClaude({
         system,
         userMsg: prompt,
         maxTokens: 3000,
-        skipLibrary: true,
+        matter_track: activeCase.matter_track,
+        counsel_role: activeCase.counsel_role,
+        libraryOpts: {
+          queryHint: defenceAuditLibraryHint,
+          topK: 12,
+          threshold: 0.68,
+        },
       }));
 
       let cleaned = raw.trim()
@@ -1796,7 +2491,7 @@ Rules:
       if (start === -1 || end === -1) throw new Error('No JSON in defence audit response');
       cleaned = cleaned.slice(start, end + 1);
 
-      let parsed: Omit<CommencementAuditResult, 'run_at'>;
+      let parsed: Omit<CommencementAuditResult, 'run_at'> & { laws_needed?: Array<{ name: string; reason: string }> };
       try {
         parsed = JSON.parse(cleaned);
       } catch {
@@ -1817,12 +2512,28 @@ Rules:
         summary:           parsed.summary ?? '',
       };
 
+      // ── Phase 3C feed: any law this 4B audit needed but the library didn't have ──
+      const newEntries: LawsNeededEntry[] = (parsed.laws_needed ?? [])
+        .filter(e => e?.name?.trim())
+        .map(e => ({
+          name:       e.name.trim(),
+          reason:     e.reason?.trim() ?? 'Needed for Phase 4B Defence Audit',
+          flagged_by: 'Phase 4B Defence Audit',
+          flagged_at: new Date().toISOString(),
+        }));
+      const dedupedNew = newEntries.filter(e =>
+        !lawsNeeded.some(existing => existing.name.toLowerCase().trim() === e.name.toLowerCase().trim())
+      );
+      const updatedLawsNeeded = dedupedNew.length > 0 ? [...lawsNeeded, ...dedupedNew] : lawsNeeded;
+      if (dedupedNew.length > 0) setLawsNeeded(updatedLawsNeeded);
+
       setCommencementAudit(result);
       // Persist immediately using the latest state
       onSave({
         stage, rawFacts, extraction: null, followUpQs: [], followUpAs: {}, evidenceM: null, intPkg: '',
         commencement_audit: result,
         served_process_analysis: spa,
+        laws_needed: updatedLawsNeeded,
       });
     } catch (e) {
       setAuditError('Defence Audit failed: ' + ((e as Error).message || 'Please try again.'));
@@ -3270,6 +3981,9 @@ Rules:
           </div>
         )}
 
+        {/* Phase 3C — Laws Needed list. Persistent until resolved; visible the moment it is flagged. */}
+        <LawsNeededPanel />
+
         <ErrorBlock message={error} />
 
         {/* Step 2b — Commencement Audit (auto-runs after extraction) */}
@@ -3314,6 +4028,11 @@ Rules:
           </p>
         </div>
 
+        {/* Phase 5B — Laws Needed Prompt: surfaced prominently before the follow-up
+            questions, so counsel answers knowing exactly what the engine is missing
+            and what that gap means for the analysis to follow. */}
+        <LawsNeededPanel />
+
         {followUpQs.map((q, i) => (
           <div key={q.id} style={{ background: '#0d0d18', border: '1px solid #181828', borderRadius: 8, padding: '18px 20px', marginBottom: 12 }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 10 }}>
@@ -3349,6 +4068,12 @@ Rules:
           )}
         </div>
 
+        {/* Phase 6B & 6C — Blind Spot Report + Acknowledgement Gate.
+            Rendered here so counsel sees the report and acts on it before
+            the 'Build Evidence Map' button is enabled. The gate check in
+            buildEvidenceMatrix enforces fatal-finding clearance. */}
+        <BlindSpotReportPanel />
+
         <ErrorBlock message={error} />
         <div style={{ display: 'flex', gap: 10 }}>
           <button onClick={() => goBack(2)} style={{ background: 'transparent', border: '1px solid #cccccc', color: T.mute, borderRadius: 5, padding: '12px 20px', fontSize: 13, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer' }}>
@@ -3381,6 +4106,14 @@ Rules:
             Required, available, and missing evidence — mapped to each fact and legal issue.
           </p>
         </div>
+
+        {/* Phase 6B & 6C — Blind Spot Report shown in Stage 4 for resume cases
+            where counsel returns here after the audit completed. Gate status
+            is already cleared at this point (enforced on advance from Stage 3)
+            but the report remains visible for reference. */}
+        {(blindSpotAudit || blindSpotLoading || blindSpotError) && (
+          <BlindSpotReportPanel />
+        )}
 
         {(evidenceM || []).map((item, i) => {
           const pc = PRIORITY_C[item.priority] || PRIORITY_C.MEDIUM;
