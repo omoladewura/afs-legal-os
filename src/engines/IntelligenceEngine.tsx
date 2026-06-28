@@ -329,6 +329,25 @@ interface TIEData {
    *  Persisted so the output survives page reload and is available to
    *  CrossExamEngine and ApplicationsEngine via the locked CaseTheoryRecord. */
   devils_advocate?: string;
+  /**
+   * Phase 9B — Case-Specific Checklist Items.
+   * AI-generated after extraction. Items specific to this case, court, and
+   * matter type — pre-action notices, ADR certificates, filing fees, ministry
+   * consents, and anything else this matter specifically requires.
+   * Consumed by ChecklistSidebar under the 9B section.
+   */
+  checklist_9b_items?: Checklist9BItem[];
+}
+
+// ── Phase 9B — Case-Specific Checklist Item ───────────────────────────────────
+// AI-generated after extraction. Each item is specific to this case, court,
+// and matter type. Status: 'fatal' (blocks), 'advisory' (amber), 'info' (neutral).
+export interface Checklist9BItem {
+  id:      string;   // stable, unique within the case — e.g. '9b_preaction_0'
+  label:   string;   // short action label
+  detail:  string;   // full detail / what is required and why
+  status:  'fatal' | 'advisory' | 'info';
+  source:  string;   // e.g. 'Pre-action protocol', 'Section 84', 'ADR certificate'
 }
 
 // ── Phase 6C — Acknowledgement Gate types ─────────────────────────────────────
@@ -465,6 +484,9 @@ export function IntelligenceEngine({ activeCase, onSave, onSaveRole }: Props) {
   const [devilsAdvocate,        setDevilsAdvocate]        = useState<string>(saved.devils_advocate ?? '');
   const [devilsAdvocateLoading, setDevilsAdvocateLoading] = useState(false);
   const [devilsAdvocateError,   setDevilsAdvocateError]   = useState('');
+  // Phase 9B — Case-Specific Checklist (AI-generated after extraction, non-blocking)
+  const [checklist9B,        setChecklist9B]        = useState<Checklist9BItem[]>(saved.checklist_9b_items ?? []);
+  const [checklist9BLoading, setChecklist9BLoading] = useState(false);
   // Phase 8D — Theory Lock
   const [theoryLockLoading, setTheoryLockLoading] = useState(false);
   const [theoryLockError,   setTheoryLockError]   = useState('');
@@ -512,6 +534,7 @@ ${partyBPlural}: ${activeCase.defendants.map(d => d.name).filter(Boolean).join('
       laws_needed:             lawsNeeded,
       blind_spot_audit:        blindSpotAudit,
       blind_spot_gate:         blindSpotGate,
+      checklist_9b_items:      checklist9B.length > 0 ? checklist9B : undefined,
       ...updates,
     };
     onSave(data);
@@ -668,6 +691,8 @@ Return them in the "laws_needed" array. If all needed laws were present in the l
       });
       // Step 2b fires automatically — non-blocking (does not await)
       runCommencementAudit(extractionOnly);
+      // Phase 9B — case-specific checklist generation fires non-blocking after extraction
+      run9BChecklist(extractionOnly);
       // Phase 2E — Theory Clash Synthesis fires automatically on defendant+SPA path (non-blocking)
       if (isDefendantWithSPA) {
         runTheoryClashSynthesis(extractionOnly, counterclaim);
@@ -924,6 +949,145 @@ Rules:
 
   // ─────────────────────────────────────────────────────────────────────────
   // Phase 2E — Theory Clash Synthesis
+  // ── Phase 9B — Case-Specific Checklist Generation ────────────────────────
+  // Fires non-blocking after extraction (same pattern as runCommencementAudit).
+  // Produces checklist items specific to this case, court, matter type, and role
+  // — pre-action notices, ministry consents, ADR certificates, filing fees,
+  // Section 84 planning, and anything else the library and extraction reveal.
+  // Items are persisted to checklist_9b_items and consumed by ChecklistSidebar.
+  async function run9BChecklist(ext: ExtractionResult) {
+    setChecklist9BLoading(true);
+    const track     = activeCase.matter_track ?? 'civil';
+    const roleLabel = activeCase.counsel_role?.replace('_', ' ') ?? 'counsel';
+    const court     = activeCase.court || 'court not specified';
+    const preEntry  = preEntryCtx;
+
+    const system = `You are a Nigerian litigation checklist specialist. Your task is to produce a precise, case-specific checklist of action items required for this matter — based on the matter type, court, counsel role, and extracted legal intelligence.
+
+Every item must be specific to THIS case. Never produce generic items. Every item must name the exact legal requirement, rule, or procedure that creates the obligation.
+
+Output ONLY valid JSON — no markdown fences, no preamble, no explanation.`;
+
+    const prompt = `Generate a case-specific Phase 9B checklist for the following matter.
+
+CASE: ${activeCase.caseName || 'Untitled'}
+COURT: ${court}
+TRACK: ${track} | ROLE: ${roleLabel}
+CAUSE OF ACTION: ${preEntry?.cause_of_action ?? (ext.legal_issues?.[0] ?? 'Not specified')}
+PARTIES: ${activeCase.claimants.map(c => c.name).filter(Boolean).join(', ') || 'Not specified'} v ${activeCase.defendants.map(d => d.name).filter(Boolean).join(', ') || 'Not specified'}
+
+EXTRACTED LEGAL ISSUES:
+${(ext.legal_issues ?? []).map((v, i) => `${i + 1}. ${v}`).join('\n') || 'None extracted'}
+
+EXTRACTED INITIAL RISKS:
+${(ext.initial_risks ?? []).map(r => `[${r.severity}] ${r.risk}`).join('\n') || 'None extracted'}
+
+EXTRACTED GAPS:
+${(ext.gaps_identified ?? []).map((v, i) => `${i + 1}. ${v}`).join('\n') || 'None extracted'}
+
+RAW FACTS SUMMARY:
+${rawFacts.slice(0, 800)}
+
+Generate checklist items for ALL of the following categories that apply to this case. Skip a category entirely if it genuinely does not apply — do not produce a placeholder item. For each item that applies, be specific: name the exact statute, rule of court, or procedural requirement:
+
+1. PRE-ACTION REQUIREMENTS — statutory notices to government ministries or agencies, demand letters required by law, pre-action protocols specific to the court or matter type, conditions precedent the claimant must satisfy before filing (e.g. s.97 SCPA, PHCN Act notice, s.7 POPA, FOI Act notice periods, etc.)
+2. ADR / ARBITRATION — ADR certificate required for this court (e.g. Lagos Multi-Door Courthouse certificate for Lagos High Court matters), arbitration clause compliance before suit, mediation requirement
+3. ORIGINATING PROCESS VERIFICATION — confirm correct process type for this cause of action and court (writ of summons, originating summons, petition, charge, etc.)
+4. FILING REQUIREMENTS — court-specific filing checklist items (number of copies, filing fee band for this type of claim, registry requirements for this court)
+5. SECTION 84 EVIDENCE ACT — any electronic documents in the facts (emails, WhatsApp, CCTV, computer-generated bank statements) that will need a Section 84 certificate; name a likely deponent from the facts if possible
+6. CORPORATE/GOVERNMENT PARTY REQUIREMENTS — CAC certified true copy if suing/being sued as a company, Attorney General consent for suit against state, NSIA Act requirements, pre-litigation notice to relevant ministry
+7. LIMITATION — any limitation exposure identified in the facts that requires urgent action (e.g. limitation period expiring within 30 days, need to file protective writ)
+8. EVIDENCE PRESERVATION — specific urgent steps to preserve key evidence before it is lost or destroyed (based on the gaps and risks extracted)
+9. WITNESS MANAGEMENT — specific witnesses to brief and witness statements to obtain based on the facts (name them if the facts name them)
+
+Return EXACTLY this JSON and nothing else:
+{
+  "items": [
+    {
+      "id": "9b_[category]_[index]",
+      "label": "Short action label (max 10 words)",
+      "detail": "Full detail — what is required, the exact statutory or rule basis, what happens if omitted",
+      "status": "fatal | advisory | info",
+      "source": "Category name (e.g. 'Pre-action protocol', 'Section 84', 'ADR certificate')"
+    }
+  ]
+}
+
+Status rules:
+- fatal = the matter cannot proceed or is at serious risk without this item (e.g. mandatory pre-action notice, limitation about to expire, defective originating process)
+- advisory = important but not immediately fatal — failure creates risk but is curable
+- info = useful to track but low risk
+
+Return an empty items array if nothing specific and non-generic can be identified from the facts given.`;
+
+    const libraryHint = [
+      track, court,
+      preEntry?.cause_of_action ?? '',
+      'pre-action protocol conditions precedent ADR certificate filing requirements Section 84',
+      rawFacts.slice(0, 250),
+    ].filter(Boolean).join(' ').slice(0, 600);
+
+    try {
+      const { text: raw } = await withRetry(() => callClaude({
+        system,
+        userMsg: prompt,
+        maxTokens: 2000,
+        matter_track: activeCase.matter_track,
+        counsel_role:  activeCase.counsel_role,
+        libraryOpts: {
+          queryHint: libraryHint,
+          topK:      10,
+          threshold: 0.68,
+        },
+      }));
+
+      let cleaned = raw.trim()
+        .replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+      const s = cleaned.indexOf('{');
+      const e = cleaned.lastIndexOf('}');
+      if (s === -1 || e === -1) throw new Error('No JSON in 9B response');
+      cleaned = cleaned.slice(s, e + 1);
+
+      let parsed: { items: Checklist9BItem[] };
+      try {
+        parsed = JSON.parse(cleaned);
+      } catch {
+        const repaired = cleaned
+          .replace(/[\u0000-\u001F\u007F-\u009F]/g, ' ')
+          .replace(/,\s*}/g, '}').replace(/,\s*]/g, ']');
+        parsed = JSON.parse(repaired);
+      }
+
+      const items: Checklist9BItem[] = (parsed.items ?? [])
+        .filter((it: any) => it.label?.trim() && it.detail?.trim())
+        .map((it: any, idx: number) => ({
+          id:     it.id?.trim() || `9b_item_${idx}`,
+          label:  it.label.trim(),
+          detail: it.detail.trim(),
+          status: (['fatal','advisory','info'] as const).includes(it.status) ? it.status : 'advisory',
+          source: it.source?.trim() || 'Case-specific',
+        }));
+
+      setChecklist9B(items);
+      // Persist directly — state won't have updated yet at call time
+      onSave({
+        stage, rawFacts, extraction: ext, followUpQs, followUpAs, evidenceM, intPkg,
+        commencement_audit: commencementAudit,
+        counterclaim_detected: counterclaimDetected,
+        served_process_analysis: spaResult,
+        pre_entry_context: preEntryCtx,
+        laws_needed: lawsNeeded,
+        blind_spot_audit: blindSpotAudit,
+        blind_spot_gate: blindSpotGate,
+        checklist_9b_items: items.length > 0 ? items : undefined,
+      });
+    } catch (_e) {
+      // 9B is non-blocking and non-fatal — fail silently; sidebar shows empty state
+    } finally {
+      setChecklist9BLoading(false);
+    }
+  }
+
   // Defendant + SPA path only. Runs after extraction completes (non-blocking).
   // Produces a CaseTheoryRecord (case_theory_structured v1), saves it, and
   // immediately locks it so downstream engines (CrossExamEngine, FinalWrittenAddressEngine,
@@ -2152,7 +2316,7 @@ Write with the precision of a Senior Advocate who has analysed every document an
     setRiskVerdict(undefined); setRiskError(''); setRiskAnimated(false);
     setBlindSpotAudit(undefined); setBlindSpotError(''); setBlindSpotGate(undefined);
     const resetStage = isReceivingSide ? 0 : 1;
-    onSave({ stage: resetStage, rawFacts: '', extraction: null, followUpQs: [], followUpAs: {}, evidenceM: null, intPkg: '', commencement_audit: undefined, counterclaim_detected: undefined, conflict_scan: undefined, risk_verdict: undefined, authority_grounding: undefined, served_process_analysis: undefined, blind_spot_gate: undefined });
+    onSave({ stage: resetStage, rawFacts: '', extraction: null, followUpQs: [], followUpAs: {}, evidenceM: null, intPkg: '', commencement_audit: undefined, counterclaim_detected: undefined, conflict_scan: undefined, risk_verdict: undefined, authority_grounding: undefined, served_process_analysis: undefined, blind_spot_gate: undefined, checklist_9b_items: undefined });
     setSpaResult(undefined);
     setProcessText('');
     setStage(resetStage);
