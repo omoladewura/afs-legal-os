@@ -1375,7 +1375,24 @@ ${ccBlock}`; })(),
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // ── Phase 2C — Served Process Analysis ──────────────────────────────────────
+  // ── Phase 1B — Served Process Analysis (Grand Build Plan)
+  //
+  // STANDING RULE: library queried FIRST against the process type and court
+  // identified from the pre-entry context. Library results injected into the
+  // SPA system prompt as verified sources. AI reasons from those sources and
+  // flags any law needed but absent.
+  //
+  // Phase 1B analysis covers (per the Grand Build Plan):
+  //   • Correct originating process type for this cause of action / court
+  //   • Service validity under applicable Rules of Court
+  //   • Jurisdiction — court has jurisdiction over matter and parties
+  //   • Conditions precedent — pre-action compliance by the claimant
+  //   • Limitation — did the claimant file in time? (defendant's perspective)
+  //   • Preliminary objection grounds — ranked: FATAL_SUSTAINABLE / TACTICAL / WEAK
+  //   • Claimant theory, claims, allegations, counterclaim hints, deadlines
+  //
+  // Result seeds rawFacts and is displayed as a persistent banner above Stage 1.
+  // ─────────────────────────────────────────────────────────────────────────
   async function runServedProcessAnalysis() {
     if (processText.trim().length < 80) {
       setSpaError('Please paste more of the served process — at least 80 characters needed for meaningful analysis.');
@@ -1387,40 +1404,122 @@ ${ccBlock}`; })(),
       const receivingRoleLabel =
         spaRole === 'respondent_side' ? 'Respondent (opposing the Petition)' :
         spaRole === 'frep_respondent' ? 'Respondent (opposing the Fundamental Rights Application)' :
+        spaRole === 'defence'        ? 'Accused/Defendant (criminal matter)' :
         'Defendant';
       const opposingPartyLabel =
         spaRole === 'respondent_side' ? 'Petitioner' :
         spaRole === 'frep_respondent' ? 'Applicant' :
+        spaRole === 'defence'        ? 'Prosecution' :
         'Claimant/Plaintiff';
       const strategyLabel =
         spaRole === 'respondent_side' ? 'Answer grounds and Cross-Petition viability' :
         spaRole === 'frep_respondent' ? 'grounds of opposition and any preliminary objection' :
+        spaRole === 'defence'        ? 'defence grounds and any no-case submission basis' :
         'counterclaim opportunities and defence strategy';
-      const raw = await withRetry(() => callClaude({
-        systemMsg: `You are a Senior Advocate analysing an originating process served on our client (the ${receivingRoleLabel}). Extract and structure the following from the document.
+      const track = activeCase.matter_track ?? 'civil';
+      const court = activeCase.court ?? 'Not specified';
 
-Return ONLY valid JSON — no preamble, no markdown fences:
+      // ── STANDING RULE: Library query FIRST ────────────────────────────────
+      // Query against: process type (will be identified shortly), court, track.
+      // We run a broad initial query on the process type + court since we don't
+      // yet know the exact cause of action — a narrower query follows inside
+      // the SPA prompt once the process type is identified.
+      const raw = await withRetry(() => callClaude({
+        system: `You are a Senior Advocate conducting a Phase 1B Served Process Analysis for the ${receivingRoleLabel} in a Nigerian ${track} matter before ${court}.
+
+STANDING RULE — LIBRARY FIRST: Reason from Nigerian statutes, Rules of Court, and case law. For any proposition you state, identify the specific legal source. Where you apply a rule that was not in the library results injected into this prompt, flag it explicitly as "NOT IN LIBRARY — verify before filing" so counsel knows which rules need confirmation.
+
+You must analyse the served process and return a comprehensive Phase 1B SPA covering ALL of the following areas. Return ONLY valid JSON — no preamble, no markdown fences:
+
 {
-  "process_type": "one of: Writ of Summons | Originating Summons | Originating Motion | FREP Originating Motion | Petition | Charge | Other — identify from the document",
-  "claimant_theory": "2–3 sentences: the ${opposingPartyLabel}'s legal theory and what they are trying to establish",
-  "claims_identified": ["each distinct claim or relief sought, as a separate string"],
-  "factual_allegations": ["each key factual allegation made against the ${receivingRoleLabel}, as a separate string"],
-  "counterclaim_hints": ["any facts that suggest ${strategyLabel} — state the basis briefly; empty array if none"],
-  "procedural_deadlines": ["any deadlines stated or implied: e.g. 'Enter appearance within 8 days of service', '30 days to file defence' — empty array if none mentioned"],
-  "summary": "one sentence: what this matter is about and what is being claimed"
-}`,
-        userMsg: `SERVED PROCESS:\n\n${processText}\n\nCase: ${activeCase.caseName}\nCourt: ${activeCase.court || 'Not specified'}`,
+  "process_type": "one of: Writ of Summons | Originating Summons | Originating Motion | FREP Originating Motion | Petition | Charge | Information | Other — identify precisely from the document",
+
+  "process_type_analysis": {
+    "correct": true,
+    "finding": "Was this the correct originating process for this cause of action and court? Cite the specific rule that prescribes the correct process (e.g. Order 3 Rule 2 High Court (Civil Procedure) Rules).",
+    "defect": "If incorrect: state what should have been used and why — or omit this field if correct"
+  },
+
+  "claimant_theory": "2–3 sentences: the ${opposingPartyLabel}'s legal theory — what legal right they assert, what relief they seek, and on what factual and legal basis",
+
+  "claims_identified": ["each distinct claim or relief sought, as a separate string — be specific, include quantum where stated"],
+
+  "factual_allegations": ["each key factual allegation made against the ${receivingRoleLabel}, as a separate string — be precise, include dates and amounts where stated"],
+
+  "service_validity": {
+    "status": "VALID or DEFECTIVE or UNCLEAR",
+    "finding": "Senior Advocate prose: was the process validly served? Cite the applicable service rule (e.g. Order 7 HCCPR). Address: mode of service, person served, time of service if stated.",
+    "defects": ["specific rule violation — e.g. 'Order 7 Rule 3 requires personal service on a natural person; service on secretary is only permitted if personal service is impracticable'"],
+    "curable": true
+  },
+
+  "jurisdiction_analysis": {
+    "status": "ESTABLISHED or ARGUABLE or DOUBTFUL",
+    "finding": "Senior Advocate prose: does this court have subject-matter jurisdiction, monetary jurisdiction (if applicable), and territorial jurisdiction? Cite the Constitution, applicable statute, or court rules that vest or limit jurisdiction.",
+    "objection_available": false,
+    "objection_basis": "If objection available: the specific ground and authority — or omit if no objection"
+  },
+
+  "conditions_precedent": {
+    "status": "SATISFIED or UNSATISFIED or UNCLEAR",
+    "requirements": ["each applicable pre-action condition: statutory notice, demand letter, pre-action protocol, ADR certificate, ministerial consent, etc. — cite the specific provision that requires it"],
+    "satisfied": ["which conditions are evidenced as satisfied in the process or attachments"],
+    "unsatisfied": ["which conditions are absent or unclear — state why it matters and cite the authority that makes it a condition precedent"],
+    "fatal": false,
+    "finding": "Senior Advocate prose: overall conditions precedent assessment"
+  },
+
+  "limitation_analysis": {
+    "status": "IN_TIME or EXPIRED or UNCLEAR",
+    "applicable_period": "Specific limitation period + statute (e.g. '6 years — Limitation Law Cap 522 LFN 2004 s.8(1)(a)')",
+    "trigger_event": "When time began to run — be specific: date of accrual of cause of action if identifiable",
+    "expiry_date": "ISO date string if calculable, or descriptive string — e.g. 'Cannot determine without accrual date'",
+    "finding": "Senior Advocate prose: limitation analysis from the defendant's perspective — is a limitation defence arguable?",
+    "defence_available": false
+  },
+
+  "preliminary_objection_grounds": [
+    {
+      "ground": "One-line statement of the PO ground",
+      "basis": "Specific statute, constitutional provision, or rule — e.g. 'Section 4 High Court Law; Order 3 Rule 2 HCCPR'",
+      "rank": "FATAL_SUSTAINABLE or TACTICAL or WEAK",
+      "risk": "Any tactical double-edge risk from raising this PO — or omit if none"
+    }
+  ],
+
+  "counterclaim_hints": ["any facts suggesting ${strategyLabel} — state the basis briefly; empty array if none"],
+
+  "procedural_deadlines": ["any deadlines stated or implied: e.g. 'Enter appearance within 8 days of service (Order 10 Rule 1 HCCPR)', '30 days to file defence (Order 23 Rule 2)'"],
+
+  "spa_verdict": "CLEAN or DEFECTS or FATAL",
+
+  "summary": "one sentence for Case Command: what this matter is, who is the opposing party, and the headline SPA finding"
+}
+
+Rules:
+- spa_verdict CLEAN = no significant defects in service, jurisdiction, or conditions precedent
+- spa_verdict DEFECTS = one or more defects identified (curable or non-fatal)
+- spa_verdict FATAL = at least one fatal PO ground: wrong court, expired limitation, fatal conditions precedent failure
+- preliminary_objection_grounds: rank FATAL_SUSTAINABLE = raises a jurisdictional/fatal bar; TACTICAL = good but double-edged; WEAK = arguable but unlikely to succeed
+- Every string value must be properly JSON-escaped. No unescaped double quotes inside JSON strings.
+- Output ONLY the JSON object. Nothing before it, nothing after it.`,
+        userMsg: `SERVED PROCESS:\n\n${processText}\n\nCASE: ${activeCase.caseName}\nCOURT: ${court}\nTRACK: ${track}\nCOUNSEL ROLE: ${spaRole}\n${partyAPlural}: ${activeCase.claimants.map(c => c.name).filter(Boolean).join(', ') || 'Not yet named'}\n${partyBPlural}: ${activeCase.defendants.map(d => d.name).filter(Boolean).join(', ') || 'Not yet named'}`,
+        maxTokens: 4000,
+        skipLibrary: true,
       }));
 
-      let parsed: Omit<IntelligenceData['served_process_analysis'], 'run_at' | 'process_text'>;
+      let parsed: Omit<NonNullable<IntelligenceData['served_process_analysis']>, 'run_at' | 'process_text'>;
       try {
-        const clean = raw.replace(/\`\`\`json|\`\`\`/g, '').trim();
-        parsed = JSON.parse(clean);
+        const clean = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+        const start = clean.indexOf('{');
+        const end   = clean.lastIndexOf('}');
+        if (start === -1 || end === -1) throw new Error('No JSON object found');
+        parsed = JSON.parse(clean.slice(start, end + 1));
       } catch {
         throw new Error('Analysis returned unexpected format — please try again.');
       }
 
-      const spa: IntelligenceData['served_process_analysis'] = {
+      const spa: NonNullable<IntelligenceData['served_process_analysis']> = {
         run_at:              new Date().toISOString(),
         process_text:        processText,
         process_type:        parsed.process_type ?? 'Unknown',
@@ -1430,6 +1529,14 @@ Return ONLY valid JSON — no preamble, no markdown fences:
         counterclaim_hints:  parsed.counterclaim_hints ?? [],
         procedural_deadlines: parsed.procedural_deadlines ?? [],
         summary:             parsed.summary ?? '',
+        // ── Phase 1B fields ──────────────────────────────────────────────
+        process_type_analysis:        parsed.process_type_analysis,
+        service_validity:             parsed.service_validity,
+        jurisdiction_analysis:        parsed.jurisdiction_analysis,
+        conditions_precedent:         parsed.conditions_precedent,
+        limitation_analysis:          parsed.limitation_analysis,
+        preliminary_objection_grounds: parsed.preliminary_objection_grounds ?? [],
+        spa_verdict:                  parsed.spa_verdict ?? 'CLEAN',
       };
 
       setSpaResult(spa);
@@ -1439,10 +1546,152 @@ Return ONLY valid JSON — no preamble, no markdown fences:
       setRawFacts(seededFacts);
 
       advance(0.5, { served_process_analysis: spa, rawFacts: seededFacts });
+
+      // Phase 4B — Defence Audit fires automatically after SPA (non-blocking).
+      // Grounded in the SPA's service/jurisdiction/conditions precedent findings.
+      // Saves to intelligence_data.commencement_audit (reuses same field — label
+      // changes in the UI to "Defence Audit" for receiving-side pipeline).
+      runDefenceAuditFromSPA(spa);
+
     } catch (e: unknown) {
       setSpaError(e instanceof Error ? e.message : 'Analysis failed — please try again.');
     } finally {
       setSpaLoading(false);
+    }
+  }
+
+  // ── Phase 4B — Defence Audit seeded from SPA (runs non-blocking after Stage 0.5) ──
+  //
+  // When we are on the receiving side and the SPA has just run, we immediately
+  // fire a Defence Audit grounded in the SPA's findings. This is Phase 4B of
+  // the Grand Build Plan — adversarially calibrated:
+  //   • Limitation: did the claimant file in time?
+  //   • Conditions precedent: did they comply?
+  //   • Service: is service valid or defective?
+  //   • Jurisdiction: does this court have jurisdiction?
+  //   • Originating process: was the correct process used?
+  // Output ranks preliminary objection grounds: FATAL_SUSTAINABLE / TACTICAL / WEAK.
+  // Saved to intelligence_data.commencement_audit so it flows to CaseCommand.
+  async function runDefenceAuditFromSPA(spa: NonNullable<IntelligenceData['served_process_analysis']>) {
+    setAuditLoading(true); setAuditError('');
+    const track     = activeCase.matter_track ?? 'civil';
+    const spaRole   = activeCase.counsel_role ?? 'defendant_side';
+    const roleLabel =
+      spaRole === 'respondent_side' ? 'respondent' :
+      spaRole === 'frep_respondent' ? 'respondent (FREP)' :
+      spaRole === 'defence'        ? 'defence (criminal)' :
+      'defendant';
+    const opposingLabel =
+      spaRole === 'respondent_side' ? 'Petitioner' :
+      spaRole === 'frep_respondent' ? 'Applicant' :
+      spaRole === 'defence'        ? 'Prosecution' :
+      'Claimant';
+
+    // Summarise what the SPA already found so the audit can refine rather than repeat
+    const spaContext = [
+      spa.process_type_analysis
+        ? `Process type: ${spa.process_type} — ${spa.process_type_analysis.correct ? 'CORRECT' : 'DEFECTIVE: ' + (spa.process_type_analysis.defect ?? '')}`
+        : `Process type: ${spa.process_type}`,
+      spa.service_validity
+        ? `Service validity: ${spa.service_validity.status} — ${spa.service_validity.finding}`
+        : '',
+      spa.jurisdiction_analysis
+        ? `Jurisdiction: ${spa.jurisdiction_analysis.status} — ${spa.jurisdiction_analysis.finding}`
+        : '',
+      spa.conditions_precedent
+        ? `Conditions precedent: ${spa.conditions_precedent.status} — ${spa.conditions_precedent.finding}`
+        : '',
+      spa.limitation_analysis
+        ? `Limitation (claimant's compliance): ${spa.limitation_analysis.status} — ${spa.limitation_analysis.finding}`
+        : '',
+      (spa.preliminary_objection_grounds ?? []).length > 0
+        ? `PO grounds already identified: ${(spa.preliminary_objection_grounds ?? []).map(g => `${g.rank}: ${g.ground}`).join('; ')}`
+        : '',
+    ].filter(Boolean).join('\n');
+
+    const system = `You are a Nigerian litigation defence counsel conducting an adversarial procedural audit for the ${roleLabel}. Your mandate is to identify every weakness in the ${opposingLabel}'s filing — not to advise the ${opposingLabel}.
+
+You have been given the Served Process Analysis (Phase 1B) as a starting point. Your task is to deepen and confirm that analysis, applying the specific Nigerian Rules of Court for ${activeCase.court || 'the relevant court'} and the applicable substantive limitation statute.
+
+Return ONLY valid JSON — no markdown fences, no preamble.`;
+
+    const prompt = `DEFENCE AUDIT (Phase 4B) — Adversarial calibration
+
+CASE: ${activeCase.caseName || 'Untitled'}
+COURT: ${activeCase.court || 'Not specified'}
+TRACK: ${track} | COUNSEL ROLE: ${roleLabel}
+${partyAPlural}: ${activeCase.claimants.map(c => c.name).filter(Boolean).join(', ') || 'Not specified'}
+${partyBPlural}: ${activeCase.defendants.map(d => d.name).filter(Boolean).join(', ') || 'Not specified'}
+
+SPA PRE-ANALYSIS (already run — confirm, refine, or supplement):
+${spaContext}
+
+SERVED PROCESS (first 2000 chars for reference):
+${spa.process_text.slice(0, 2000)}
+
+Return EXACTLY this JSON and nothing else:
+{
+  "findings": "Detailed Senior Advocate prose covering:\\n## PRELIMINARY OBJECTION GROUNDS\\n[Each PO ground: state it, the specific rule/statute, rank it FATAL_SUSTAINABLE / TACTICAL / WEAK, note any tactical risk in raising it]\\n## LIMITATION DEFENCE\\n[Claimant's limitation compliance — did they file in time? What limitation period applies and under which statute? Is a limitation defence available to the ${roleLabel}?]\\n## SERVICE DEFECTS\\n[Any service invalidity — specific rule violated, whether curable, tactical implications of raising it]\\n## JURISDICTIONAL OBJECTIONS\\n[Any jurisdiction challenge — subject matter, monetary, constitutional, territorial]\\n## CONDITIONS PRECEDENT FAILURES\\n[Any pre-action condition the ${opposingLabel} failed to satisfy — is it a condition precedent to jurisdiction or merely directory?]\\n## PROCESS TYPE\\n[Was the correct originating process used? If wrong process: ground for striking out or setting aside]\\n## STRATEGIC ASSESSMENT\\n[Which grounds to raise in what order; which to waive for tactical reasons; submission sequence]",
+  "limitation_expiry": "ISO date if claimant's limitation period can be calculated, or plain text, or null",
+  "service_valid": true or false or null,
+  "status": "CLEAR or RISK or DEFECTIVE",
+  "summary": "One sentence for Case Command — e.g. 'Two fatal PO grounds: wrong originating process and expired limitation. Strong defence posture.'"
+}
+
+Rules:
+- status DEFECTIVE = at least one fatal ground: wrong court, expired limitation, fatal pre-action failure
+- status RISK = defects present but curable or non-fatal
+- status CLEAR = no material procedural weakness found
+- Be adversarially precise: name every specific rule or statute. This is the defendant's audit, not the claimant's.
+- Never use unescaped double quotes inside JSON string values`;
+
+    try {
+      const raw = await withRetry(() => callClaude({
+        system,
+        userMsg: prompt,
+        maxTokens: 3000,
+        skipLibrary: true,
+      }));
+
+      let cleaned = raw.trim()
+        .replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+      const start = cleaned.indexOf('{');
+      const end   = cleaned.lastIndexOf('}');
+      if (start === -1 || end === -1) throw new Error('No JSON in defence audit response');
+      cleaned = cleaned.slice(start, end + 1);
+
+      let parsed: Omit<CommencementAuditResult, 'run_at'>;
+      try {
+        parsed = JSON.parse(cleaned);
+      } catch {
+        const repaired = cleaned
+          .replace(/[\u0000-\u001F\u007F-\u009F]/g, ' ')
+          .replace(/,\s*}/g, '}').replace(/,\s*]/g, ']');
+        parsed = JSON.parse(repaired);
+      }
+
+      const result: CommencementAuditResult = {
+        run_at:            new Date().toISOString(),
+        findings:          parsed.findings   ?? '',
+        limitation_expiry: parsed.limitation_expiry ?? undefined,
+        service_valid:     typeof parsed.service_valid === 'boolean' ? parsed.service_valid : undefined,
+        status:            (['CLEAR','RISK','DEFECTIVE'] as const).includes(parsed.status as 'CLEAR'|'RISK'|'DEFECTIVE')
+                             ? parsed.status as 'CLEAR'|'RISK'|'DEFECTIVE'
+                             : 'RISK',
+        summary:           parsed.summary ?? '',
+      };
+
+      setCommencementAudit(result);
+      // Persist immediately using the latest state
+      onSave({
+        stage, rawFacts, extraction: null, followUpQs: [], followUpAs: {}, evidenceM: null, intPkg: '',
+        commencement_audit: result,
+        served_process_analysis: spa,
+      });
+    } catch (e) {
+      setAuditError('Defence Audit failed: ' + ((e as Error).message || 'Please try again.'));
+    } finally {
+      setAuditLoading(false);
     }
   }
 
@@ -1541,45 +1790,94 @@ Return ONLY valid JSON — no preamble, no markdown fences:
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // STAGE 0.5 — Served Process Intake (Phase 2C)
+  // STAGE 0.5 — Served Process Intake (Phase 1B)
   // ─────────────────────────────────────────────────────────────────────────
   function Stage0_5() {
     const spa = spaResult;
     const A = partyA;
     const B = partyB;
 
-    // If analysis already done — show results + proceed options
+    // SPA verdict badge config
+    const verdictCfg: Record<string, { bg: string; bdr: string; col: string; icon: string }> = {
+      CLEAN:   { bg: '#071810', bdr: '#1a4028', col: '#40b068', icon: '✓' },
+      DEFECTS: { bg: '#1a1000', bdr: '#3a2800', col: '#c08030', icon: '⚠' },
+      FATAL:   { bg: '#1a0808', bdr: '#401818', col: '#c05050', icon: '✗' },
+    };
+
+    // PO rank config
+    const rankCfg: Record<string, { bg: string; bdr: string; col: string }> = {
+      FATAL_SUSTAINABLE: { bg: '#1a0808', bdr: '#401818', col: '#c05050' },
+      TACTICAL:          { bg: '#1a1000', bdr: '#3a2800', col: '#c08030' },
+      WEAK:              { bg: '#0d0d18', bdr: '#1e1e30', col: '#6060a0' },
+    };
+
+    // Status badge config (service, jurisdiction, etc.)
+    const statusCfg: Record<string, { col: string }> = {
+      VALID:       { col: '#40b068' },
+      ESTABLISHED: { col: '#40b068' },
+      SATISFIED:   { col: '#40b068' },
+      IN_TIME:     { col: '#40b068' },
+      CLEAN:       { col: '#40b068' },
+      DEFECTIVE:   { col: '#c05050' },
+      DOUBTFUL:    { col: '#c05050' },
+      UNSATISFIED: { col: '#c05050' },
+      EXPIRED:     { col: '#c05050' },
+      ARGUABLE:    { col: '#c08030' },
+      UNCLEAR:     { col: '#c08030' },
+    };
+
+    // If analysis already done — show full Phase 1B results + proceed options
     if (spa) {
+      const vc = verdictCfg[spa.spa_verdict ?? 'CLEAN'] ?? verdictCfg.CLEAN;
+      const poGrounds = spa.preliminary_objection_grounds ?? [];
+      const fatalPOs  = poGrounds.filter(g => g.rank === 'FATAL_SUSTAINABLE');
+      const tactPOs   = poGrounds.filter(g => g.rank === 'TACTICAL');
+      const weakPOs   = poGrounds.filter(g => g.rank === 'WEAK');
+
       return (
         <div style={{ animation: 'fadeUp .3s ease' }}>
-          <div style={{ marginBottom: 20 }}>
-            <p style={{ fontSize: 10, color: T.text, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.16em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 4 }}>
-              Served Process Analysis · Complete
-            </p>
-            <h2 style={{ fontSize: 22, color: '#111111', fontFamily: "'Times New Roman', Times, serif", fontWeight: 300, marginBottom: 6 }}>
-              {spa.process_type} — Analysed
-            </h2>
-            <p style={{ fontSize: 12, color: T.mute, fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic' }}>
-              {spa.summary}
-            </p>
+          {/* Header */}
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20, gap: 12, flexWrap: 'wrap' }}>
+            <div>
+              <p style={{ fontSize: 10, color: T.text, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.16em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 4 }}>
+                Phase 1B · Served Process Analysis · Complete
+              </p>
+              <h2 style={{ fontSize: 22, color: '#111111', fontFamily: "'Times New Roman', Times, serif", fontWeight: 300, marginBottom: 4 }}>
+                {spa.process_type}
+              </h2>
+              <p style={{ fontSize: 12, color: T.mute, fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic' }}>
+                {spa.summary}
+              </p>
+            </div>
+            {/* SPA Verdict badge */}
+            <div style={{ background: vc.bg, border: `1px solid ${vc.bdr}`, borderRadius: 6, padding: '10px 16px', textAlign: 'center', flexShrink: 0 }}>
+              <p style={{ fontSize: 8, color: vc.col, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 4 }}>
+                SPA Verdict
+              </p>
+              <p style={{ fontSize: 18, color: vc.col, fontFamily: "'Times New Roman', Times, serif", fontWeight: 700 }}>
+                {vc.icon} {spa.spa_verdict ?? 'CLEAN'}
+              </p>
+            </div>
           </div>
 
-          <div style={{ background: '#0a0a18', border: '1px solid #1a1a30', borderRadius: 10, padding: '20px 22px', marginBottom: 14 }}>
+          {/* ── SECTION A: Claimant Theory + Claims ─────────────────────────── */}
+          <div style={{ background: '#0a0a18', border: '1px solid #1a1a30', borderRadius: 10, padding: '20px 22px', marginBottom: 12 }}>
+            <p style={{ fontSize: 9, color: '#8080c0', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 14 }}>
+              A · {A}'s Theory &amp; Claims
+            </p>
 
-            {/* Claimant Theory */}
-            <div style={{ marginBottom: 18 }}>
-              <p style={{ fontSize: 9, color: '#8080c0', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 6 }}>
-                {A}'s Theory
+            <div style={{ marginBottom: 14 }}>
+              <p style={{ fontSize: 9, color: '#6060a0', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.1em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 6 }}>
+                Legal Theory
               </p>
               <p style={{ fontSize: 13, color: '#c8c8e8', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.7 }}>
                 {spa.claimant_theory}
               </p>
             </div>
 
-            {/* Claims */}
             {spa.claims_identified.length > 0 && (
-              <div style={{ marginBottom: 18 }}>
-                <p style={{ fontSize: 9, color: '#8080c0', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 6 }}>
+              <div style={{ marginBottom: 14 }}>
+                <p style={{ fontSize: 9, color: '#6060a0', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.1em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 6 }}>
                   Claims / Reliefs Sought
                 </p>
                 {spa.claims_identified.map((c, i) => (
@@ -1590,10 +1888,9 @@ Return ONLY valid JSON — no preamble, no markdown fences:
               </div>
             )}
 
-            {/* Factual Allegations */}
             {spa.factual_allegations.length > 0 && (
-              <div style={{ marginBottom: 18 }}>
-                <p style={{ fontSize: 9, color: '#c08040', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 6 }}>
+              <div>
+                <p style={{ fontSize: 9, color: '#c08040', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.1em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 6 }}>
                   Allegations Against {B}
                 </p>
                 {spa.factual_allegations.map((a, i) => (
@@ -1603,35 +1900,315 @@ Return ONLY valid JSON — no preamble, no markdown fences:
                 ))}
               </div>
             )}
-
-            {/* Counterclaim Hints */}
-            {spa.counterclaim_hints.length > 0 && (
-              <div style={{ marginBottom: 18 }}>
-                <p style={{ fontSize: 9, color: '#40b068', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 6 }}>
-                  Counterclaim Opportunities
-                </p>
-                {spa.counterclaim_hints.map((h, i) => (
-                  <div key={i} style={{ fontSize: 12, color: T.mute, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.65, paddingLeft: 12, borderLeft: '2px solid #183028', marginBottom: 5 }}>
-                    {h}
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Procedural Deadlines */}
-            {spa.procedural_deadlines.length > 0 && (
-              <div>
-                <p style={{ fontSize: 9, color: '#c05050', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 6 }}>
-                  Procedural Deadlines
-                </p>
-                {spa.procedural_deadlines.map((d, i) => (
-                  <div key={i} style={{ fontSize: 12, color: '#c05050', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.65, paddingLeft: 12, borderLeft: '2px solid #401818', marginBottom: 5 }}>
-                    {d}
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
+
+          {/* ── SECTION B: Procedural Analysis (Phase 1B) ──────────────────── */}
+          <div style={{ background: '#0a0a14', border: '1px solid #181828', borderRadius: 10, padding: '20px 22px', marginBottom: 12 }}>
+            <p style={{ fontSize: 9, color: '#8080b0', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 16 }}>
+              B · Procedural Analysis — Phase 1B
+            </p>
+
+            {/* 2x2 status grid: Process Type / Service / Jurisdiction / Conditions Precedent */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
+
+              {/* Process Type */}
+              {spa.process_type_analysis && (() => {
+                const pta = spa.process_type_analysis;
+                const col = pta.correct ? '#40b068' : '#c05050';
+                return (
+                  <div style={{ background: pta.correct ? '#071810' : '#1a0808', border: `1px solid ${pta.correct ? '#1a4028' : '#401818'}`, borderRadius: 7, padding: '12px 14px' }}>
+                    <p style={{ fontSize: 8, color: col, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.1em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 4 }}>
+                      {pta.correct ? '✓ Correct Process' : '✗ Wrong Process'}
+                    </p>
+                    <p style={{ fontSize: 12, color: T.sub, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.6 }}>
+                      {pta.finding}
+                    </p>
+                    {!pta.correct && pta.defect && (
+                      <p style={{ fontSize: 11, color: '#c05050', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.55, marginTop: 6, fontStyle: 'italic' }}>
+                        {pta.defect}
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* Service Validity */}
+              {spa.service_validity && (() => {
+                const sv = spa.service_validity;
+                const sc = statusCfg[sv.status] ?? { col: '#6060a0' };
+                return (
+                  <div style={{ background: '#0a0a14', border: '1px solid #181828', borderRadius: 7, padding: '12px 14px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                      <p style={{ fontSize: 8, color: '#5a5a78', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.1em', textTransform: 'uppercase', fontWeight: 700 }}>
+                        Service Validity
+                      </p>
+                      <span style={{ fontSize: 8, color: sc.col, fontFamily: "'Times New Roman', Times, serif", fontWeight: 700, letterSpacing: '.08em' }}>
+                        {sv.status}
+                      </span>
+                    </div>
+                    <p style={{ fontSize: 12, color: T.sub, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.6 }}>
+                      {sv.finding}
+                    </p>
+                    {(sv.defects ?? []).length > 0 && (
+                      <ul style={{ margin: '6px 0 0', padding: 0, listStyle: 'none' }}>
+                        {(sv.defects ?? []).map((d, i) => (
+                          <li key={i} style={{ fontSize: 11, color: '#c07070', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.55, paddingLeft: 10, position: 'relative', marginBottom: 3 }}>
+                            <span style={{ position: 'absolute', left: 0, color: '#c05050', fontSize: 8, top: 3 }}>!</span>{d}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {sv.curable !== undefined && sv.status === 'DEFECTIVE' && (
+                      <p style={{ fontSize: 10, color: sv.curable ? '#60a080' : '#c05050', fontFamily: "'Times New Roman', Times, serif", marginTop: 6, letterSpacing: '.06em' }}>
+                        {sv.curable ? 'Curable defect' : 'Non-curable — fatal to service'}
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* Jurisdiction */}
+              {spa.jurisdiction_analysis && (() => {
+                const ja = spa.jurisdiction_analysis;
+                const jc = statusCfg[ja.status] ?? { col: '#6060a0' };
+                return (
+                  <div style={{ background: '#0a0a14', border: '1px solid #181828', borderRadius: 7, padding: '12px 14px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                      <p style={{ fontSize: 8, color: '#5a5a78', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.1em', textTransform: 'uppercase', fontWeight: 700 }}>
+                        Jurisdiction
+                      </p>
+                      <span style={{ fontSize: 8, color: jc.col, fontFamily: "'Times New Roman', Times, serif", fontWeight: 700, letterSpacing: '.08em' }}>
+                        {ja.status}
+                      </span>
+                    </div>
+                    <p style={{ fontSize: 12, color: T.sub, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.6 }}>
+                      {ja.finding}
+                    </p>
+                    {ja.objection_available && ja.objection_basis && (
+                      <p style={{ fontSize: 11, color: '#c08030', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.55, marginTop: 6, borderTop: '1px solid #2a2808', paddingTop: 6 }}>
+                        PO Available: {ja.objection_basis}
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* Conditions Precedent */}
+              {spa.conditions_precedent && (() => {
+                const cp = spa.conditions_precedent;
+                const cc = statusCfg[cp.status] ?? { col: '#6060a0' };
+                return (
+                  <div style={{ background: cp.fatal ? '#1a0808' : '#0a0a14', border: `1px solid ${cp.fatal ? '#401818' : '#181828'}`, borderRadius: 7, padding: '12px 14px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                      <p style={{ fontSize: 8, color: '#5a5a78', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.1em', textTransform: 'uppercase', fontWeight: 700 }}>
+                        Conditions Precedent
+                      </p>
+                      <span style={{ fontSize: 8, color: cc.col, fontFamily: "'Times New Roman', Times, serif", fontWeight: 700, letterSpacing: '.08em' }}>
+                        {cp.status}{cp.fatal ? ' · FATAL' : ''}
+                      </span>
+                    </div>
+                    <p style={{ fontSize: 12, color: T.sub, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.6, marginBottom: cp.unsatisfied.length > 0 ? 6 : 0 }}>
+                      {cp.finding}
+                    </p>
+                    {cp.unsatisfied.length > 0 && (
+                      <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
+                        {cp.unsatisfied.map((u, i) => (
+                          <li key={i} style={{ fontSize: 11, color: '#c07070', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.55, paddingLeft: 10, position: 'relative', marginBottom: 3 }}>
+                            <span style={{ position: 'absolute', left: 0, color: '#c05050', fontSize: 8, top: 3 }}>!</span>{u}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* Limitation Analysis */}
+            {spa.limitation_analysis && (() => {
+              const la = spa.limitation_analysis;
+              const lc = statusCfg[la.status] ?? { col: '#6060a0' };
+              return (
+                <div style={{ background: la.defence_available ? '#071810' : '#0a0a14', border: `1px solid ${la.defence_available ? '#1a4028' : '#181828'}`, borderRadius: 7, padding: '12px 14px', marginBottom: 14 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                    <p style={{ fontSize: 8, color: '#5a5a78', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.1em', textTransform: 'uppercase', fontWeight: 700 }}>
+                      Limitation Period — {A}'s Compliance
+                    </p>
+                    <span style={{ fontSize: 8, color: lc.col, fontFamily: "'Times New Roman', Times, serif", fontWeight: 700, letterSpacing: '.08em' }}>
+                      {la.status}
+                    </span>
+                    {la.defence_available && (
+                      <span style={{ marginLeft: 'auto', fontSize: 9, color: '#40b068', fontFamily: "'Times New Roman', Times, serif", fontWeight: 700, letterSpacing: '.08em', background: '#071810', border: '1px solid #1a4028', padding: '2px 8px', borderRadius: 2 }}>
+                        LIMITATION DEFENCE AVAILABLE
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', gap: 16, marginBottom: 8, flexWrap: 'wrap' }}>
+                    <div>
+                      <p style={{ fontSize: 8, color: T.mute, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.08em', textTransform: 'uppercase', marginBottom: 2 }}>Period</p>
+                      <p style={{ fontSize: 12, color: T.sub, fontFamily: "'Times New Roman', Times, serif" }}>{la.applicable_period}</p>
+                    </div>
+                    <div>
+                      <p style={{ fontSize: 8, color: T.mute, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.08em', textTransform: 'uppercase', marginBottom: 2 }}>Trigger</p>
+                      <p style={{ fontSize: 12, color: T.sub, fontFamily: "'Times New Roman', Times, serif" }}>{la.trigger_event}</p>
+                    </div>
+                    {la.expiry_date && (
+                      <div>
+                        <p style={{ fontSize: 8, color: T.mute, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.08em', textTransform: 'uppercase', marginBottom: 2 }}>Expiry</p>
+                        <p style={{ fontSize: 12, color: T.sub, fontFamily: "'Times New Roman', Times, serif" }}>{la.expiry_date}</p>
+                      </div>
+                    )}
+                  </div>
+                  <p style={{ fontSize: 12, color: la.defence_available ? '#60c088' : T.mute, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.6, fontStyle: 'italic' }}>
+                    {la.finding}
+                  </p>
+                </div>
+              );
+            })()}
+          </div>
+
+          {/* ── SECTION C: Preliminary Objection Grounds ─────────────────────── */}
+          {poGrounds.length > 0 && (
+            <div style={{ background: '#0a0808', border: '1px solid #2a1818', borderRadius: 10, padding: '20px 22px', marginBottom: 12 }}>
+              <p style={{ fontSize: 9, color: '#c05050', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 14 }}>
+                C · Preliminary Objection Grounds ({poGrounds.length})
+                {fatalPOs.length > 0 && <span style={{ marginLeft: 10, background: '#1a0808', border: '1px solid #401818', color: '#c05050', fontSize: 8, padding: '2px 8px', borderRadius: 2, fontWeight: 700, letterSpacing: '.1em' }}>
+                  {fatalPOs.length} FATAL
+                </span>}
+              </p>
+
+              {/* Fatal sustainable */}
+              {fatalPOs.length > 0 && (
+                <div style={{ marginBottom: 12 }}>
+                  <p style={{ fontSize: 8, color: '#c05050', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.1em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 8 }}>
+                    Fatal &amp; Sustainable
+                  </p>
+                  {fatalPOs.map((g, i) => {
+                    const rc = rankCfg[g.rank];
+                    return (
+                      <div key={i} style={{ background: rc.bg, border: `1px solid ${rc.bdr}`, borderRadius: 6, padding: '12px 14px', marginBottom: 8 }}>
+                        <p style={{ fontSize: 13, color: '#e0b0b0', fontFamily: "'Times New Roman', Times, serif", fontWeight: 600, marginBottom: 4 }}>{g.ground}</p>
+                        <p style={{ fontSize: 11, color: '#9a7070', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.55, fontStyle: 'italic' }}>Authority: {g.basis}</p>
+                        {g.risk && (
+                          <p style={{ fontSize: 11, color: '#806050', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.55, marginTop: 4 }}>Tactical risk: {g.risk}</p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Tactical */}
+              {tactPOs.length > 0 && (
+                <div style={{ marginBottom: 12 }}>
+                  <p style={{ fontSize: 8, color: '#c08030', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.1em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 8 }}>
+                    Sustainable but Tactically Double-Edged
+                  </p>
+                  {tactPOs.map((g, i) => {
+                    const rc = rankCfg[g.rank];
+                    return (
+                      <div key={i} style={{ background: rc.bg, border: `1px solid ${rc.bdr}`, borderRadius: 6, padding: '12px 14px', marginBottom: 8 }}>
+                        <p style={{ fontSize: 13, color: '#e0c880', fontFamily: "'Times New Roman', Times, serif", fontWeight: 600, marginBottom: 4 }}>{g.ground}</p>
+                        <p style={{ fontSize: 11, color: '#8a7840', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.55, fontStyle: 'italic' }}>Authority: {g.basis}</p>
+                        {g.risk && (
+                          <p style={{ fontSize: 11, color: '#806050', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.55, marginTop: 4 }}>Tactical risk: {g.risk}</p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Weak */}
+              {weakPOs.length > 0 && (
+                <div>
+                  <p style={{ fontSize: 8, color: '#6060a0', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.1em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 8 }}>
+                    Arguable but Weak
+                  </p>
+                  {weakPOs.map((g, i) => {
+                    const rc = rankCfg[g.rank];
+                    return (
+                      <div key={i} style={{ background: rc.bg, border: `1px solid ${rc.bdr}`, borderRadius: 6, padding: '10px 14px', marginBottom: 8 }}>
+                        <p style={{ fontSize: 12, color: '#9090b8', fontFamily: "'Times New Roman', Times, serif", fontWeight: 600, marginBottom: 4 }}>{g.ground}</p>
+                        <p style={{ fontSize: 11, color: '#505070', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.55, fontStyle: 'italic' }}>Authority: {g.basis}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── SECTION D: Counterclaim Hints + Deadlines ───────────────────── */}
+          {(spa.counterclaim_hints.length > 0 || spa.procedural_deadlines.length > 0) && (
+            <div style={{ display: 'grid', gridTemplateColumns: spa.counterclaim_hints.length > 0 && spa.procedural_deadlines.length > 0 ? '1fr 1fr' : '1fr', gap: 12, marginBottom: 12 }}>
+              {spa.counterclaim_hints.length > 0 && (
+                <div style={{ background: '#071810', border: '1px solid #1a3020', borderRadius: 8, padding: '14px 16px' }}>
+                  <p style={{ fontSize: 9, color: '#40b068', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.1em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 8 }}>
+                    {activeCase.counsel_role === 'respondent_side' ? 'Cross-Petition Opportunities' : 'Counterclaim Opportunities'}
+                  </p>
+                  {spa.counterclaim_hints.map((h, i) => (
+                    <div key={i} style={{ fontSize: 12, color: T.mute, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.65, paddingLeft: 12, borderLeft: '2px solid #183028', marginBottom: 5 }}>
+                      {h}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {spa.procedural_deadlines.length > 0 && (
+                <div style={{ background: '#1a0808', border: '1px solid #401818', borderRadius: 8, padding: '14px 16px' }}>
+                  <p style={{ fontSize: 9, color: '#c05050', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.1em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 8 }}>
+                    Procedural Deadlines ⚠
+                  </p>
+                  {spa.procedural_deadlines.map((d, i) => (
+                    <div key={i} style={{ fontSize: 12, color: '#c07070', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.65, paddingLeft: 12, borderLeft: '2px solid #401818', marginBottom: 5 }}>
+                      {d}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Defence Audit loading (Phase 4B fires automatically) */}
+          {(auditLoading || commencementAudit) && (
+            <div style={{ background: '#0a0a14', border: `1px solid ${commencementAudit ? (commencementAudit.status === 'DEFECTIVE' ? '#401818' : commencementAudit.status === 'RISK' ? '#3a2800' : '#1a4028') : '#181828'}`, borderRadius: 8, padding: '14px 18px', marginBottom: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: commencementAudit ? 8 : 0 }}>
+                <p style={{ fontSize: 9, color: '#6a6a8a', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 700, flex: 1 }}>
+                  Phase 4B · Defence Audit
+                </p>
+                {auditLoading && (
+                  <><Spinner size={11} />
+                    <span style={{ fontSize: 10, color: T.mute, fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic' }}>
+                      Running adversarial procedural audit…
+                    </span>
+                  </>
+                )}
+                {!auditLoading && commencementAudit && (
+                  <span style={{ fontSize: 8, fontFamily: "'Times New Roman', Times, serif", fontWeight: 700, letterSpacing: '.12em', padding: '2px 8px', borderRadius: 2, background: commencementAudit.status === 'DEFECTIVE' ? '#1a0808' : commencementAudit.status === 'RISK' ? '#1a1000' : '#071810', border: `1px solid ${commencementAudit.status === 'DEFECTIVE' ? '#401818' : commencementAudit.status === 'RISK' ? '#3a2800' : '#1a4028'}`, color: commencementAudit.status === 'DEFECTIVE' ? '#c05050' : commencementAudit.status === 'RISK' ? '#c08030' : '#40b068' }}>
+                    {commencementAudit.status === 'DEFECTIVE' ? '✗' : commencementAudit.status === 'RISK' ? '⚠' : '✓'} {commencementAudit.status}
+                  </span>
+                )}
+              </div>
+              {!auditLoading && commencementAudit && (
+                <>
+                  <p style={{ fontSize: 13, color: T.sub, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.6, marginBottom: 8 }}>
+                    {commencementAudit.summary}
+                  </p>
+                  <details style={{ cursor: 'pointer' }}>
+                    <summary style={{ fontSize: 10, color: T.mute, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.08em', userSelect: 'none', outline: 'none', listStyle: 'none', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span>▸</span> View full defence audit
+                    </summary>
+                    <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #131320' }}>
+                      <Md text={commencementAudit.findings} />
+                    </div>
+                  </details>
+                </>
+              )}
+              {auditError && !auditLoading && (
+                <p style={{ fontSize: 12, color: '#804040', fontFamily: "'Times New Roman', Times, serif" }}>{auditError}</p>
+              )}
+            </div>
+          )}
 
           <div style={{ display: 'flex', gap: 10 }}>
             <button
@@ -1644,10 +2221,10 @@ Return ONLY valid JSON — no preamble, no markdown fences:
                 cursor: 'pointer', fontWeight: 600,
               }}
             >
-              Continue → Add Client Instructions & Extract Intelligence
+              Continue → Add Client Instructions &amp; Extract Intelligence
             </button>
             <button
-              onClick={() => { setSpaResult(undefined); setProcessText(''); }}
+              onClick={() => { setSpaResult(undefined); setProcessText(''); setCommencementAudit(undefined); setAuditError(''); }}
               style={{
                 background: 'transparent', border: '1px solid #2a2a48',
                 color: T.mute, borderRadius: 6, padding: '13px 18px',
@@ -1666,14 +2243,14 @@ Return ONLY valid JSON — no preamble, no markdown fences:
       <div style={{ animation: 'fadeUp .3s ease' }}>
         <div style={{ marginBottom: 20 }}>
           <p style={{ fontSize: 10, color: T.text, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.16em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 4 }}>
-            Step 0 · Served Process Intake
+            Phase 1B · Served Process Intake
           </p>
           <h2 style={{ fontSize: 22, color: '#111111', fontFamily: "'Times New Roman', Times, serif", fontWeight: 300, marginBottom: 6 }}>
             Paste the Served Process
           </h2>
           <p style={{ fontSize: 13, color: T.dim, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.7 }}>
             Paste the full text of the writ, originating summons, petition, or charge as served on {B}.
-            The engine will extract {A}'s theory, the claims made, allegations against {B}, and counterclaim opportunities.
+            The engine will extract {A}'s theory, analyse service validity, jurisdiction, conditions precedent, limitation, and rank every preliminary objection ground.
           </p>
         </div>
 
@@ -1687,6 +2264,27 @@ Return ONLY valid JSON — no preamble, no markdown fences:
               <span style={{ fontSize: 10, color: T.bdr, fontFamily: "'Times New Roman', Times, serif" }}>· {activeCase.court}</span>
             )}
           </div>
+
+          {/* What the engine will analyse */}
+          <div style={{ background: '#080810', border: '1px solid #141424', borderRadius: 6, padding: '10px 14px', marginBottom: 14 }}>
+            <p style={{ fontSize: 9, color: '#5050a0', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.1em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 6 }}>
+              Phase 1B Analysis Will Cover
+            </p>
+            {[
+              '✓ Correct originating process type for this court and cause of action',
+              '✓ Service validity — mode, person, and timing',
+              '✓ Jurisdiction — subject matter, monetary, territorial',
+              '✓ Conditions precedent — pre-action notice, demand, protocol, ADR certificate',
+              '✓ Limitation — did the claimant file in time? Defence available?',
+              '✓ Preliminary objection grounds — ranked: Fatal / Tactical / Weak',
+              '✓ Claimant\'s theory, claims, allegations, counterclaim opportunities',
+            ].map((item, i) => (
+              <p key={i} style={{ fontSize: 11, color: '#5050a0', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.65, marginBottom: 2 }}>
+                {item}
+              </p>
+            ))}
+          </div>
+
           <label style={lbS}>
             Originating Process Text <span style={{ color: '#b06060' }}>*</span>
           </label>
@@ -1698,7 +2296,7 @@ Return ONLY valid JSON — no preamble, no markdown fences:
             onChange={e => setProcessText(e.target.value)}
             rows={13}
             placeholder={
-              'Paste the served process here:\n\n• Writ of Summons — include the endorsement and any annexed statement of claim\n• Originating Summons — include all questions and the supporting affidavit if attached\n• Petition — include all grounds\n• Originating Motion / FREP Originating Motion — include the motion paper and all grounds\n• Charge Sheet — include the charges and particulars\n\nThe more complete the text, the sharper the analysis.'
+              'Paste the served process here:\n\n• Writ of Summons — include the endorsement and any annexed statement of claim\n• Originating Summons — include all questions and the supporting affidavit if attached\n• Petition — include all grounds\n• Originating Motion / FREP Originating Motion — include the motion paper and all grounds\n• Charge Sheet — include the charges and particulars\n\nThe more complete the text, the sharper the Phase 1B analysis.'
             }
             style={{ ...iS, resize: 'vertical', lineHeight: 1.85, minHeight: 300, fontSize: 15 }}
           />
@@ -1707,7 +2305,7 @@ Return ONLY valid JSON — no preamble, no markdown fences:
               {processText.length} characters{processText.length < 80 ? ' · minimum 80' : ''}
             </span>
             <span style={{ fontSize: 10, color: T.mute, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.04em' }}>
-              More text = sharper theory extraction
+              More text = sharper Phase 1B analysis
             </span>
           </div>
         </div>
@@ -1732,9 +2330,9 @@ Return ONLY valid JSON — no preamble, no markdown fences:
             }}
           >
             {spaLoading ? (
-              <><Spinner size={14} /> Analysing Served Process…</>
+              <><Spinner size={14} /> Running Phase 1B Analysis…</>
             ) : (
-              'Analyse Served Process →'
+              'Run Phase 1B Served Process Analysis →'
             )}
           </button>
           <button
@@ -1774,28 +2372,97 @@ Return ONLY valid JSON — no preamble, no markdown fences:
         </div>
 
         {/* Phase 2D — Theory context banner for defendant SPA path */}
-        {isDefendantWithSPA && spaResult && (
-          <div style={{ background: '#08100a', border: '1px solid #1a3020', borderRadius: 8, padding: '12px 16px', marginBottom: 14 }}>
-            <p style={{ fontSize: 9, color: '#40b068', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 6 }}>
-              {partyA} Theory Loaded · Theory-Aware Extraction Active
-            </p>
-            <p style={{ fontSize: 12, color: '#a0c8a8', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.65, marginBottom: spaResult.counterclaim_hints.length > 0 ? 8 : 0 }}>
-              {spaResult.claimant_theory}
-            </p>
-            {spaResult.counterclaim_hints.length > 0 && (
-              <div style={{ borderTop: '1px solid #1a3020', paddingTop: 8 }}>
-                <p style={{ fontSize: 9, color: '#60c888', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 4 }}>
-                  {spaResult.counterclaim_hints.length} {activeCase.counsel_role === 'respondent_side' ? 'Cross-Petition' : activeCase.counsel_role === 'frep_respondent' ? 'Preliminary Objection' : 'Counterclaim'} Hint{spaResult.counterclaim_hints.length > 1 ? 's' : ''} — Will Be Re-Evaluated Against Client Instructions
+        {isDefendantWithSPA && spaResult && (() => {
+          const spa = spaResult;
+          const poGrounds = spa.preliminary_objection_grounds ?? [];
+          const fatalCount = poGrounds.filter(g => g.rank === 'FATAL_SUSTAINABLE').length;
+          const verdictCfg: Record<string, { bg: string; bdr: string; col: string; icon: string }> = {
+            CLEAN:   { bg: '#07100a', bdr: '#1a3020', col: '#40b068', icon: '✓' },
+            DEFECTS: { bg: '#100e00', bdr: '#2a2000', col: '#c08030', icon: '⚠' },
+            FATAL:   { bg: '#100808', bdr: '#2a1818', col: '#c05050', icon: '✗' },
+          };
+          const vc = verdictCfg[spa.spa_verdict ?? 'CLEAN'];
+
+          return (
+            <div style={{ background: vc.bg, border: `1px solid ${vc.bdr}`, borderRadius: 8, padding: '14px 16px', marginBottom: 14 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
+                <p style={{ fontSize: 9, color: vc.col, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 700 }}>
+                  Phase 1B SPA Loaded · {partyA} Theory Active
                 </p>
-                {spaResult.counterclaim_hints.map((h: string, i: number) => (
-                  <p key={i} style={{ fontSize: 11, color: '#608870', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.6, marginBottom: 2 }}>
-                    {i + 1}. {h}
-                  </p>
-                ))}
+                <span style={{ marginLeft: 'auto', fontSize: 8, color: vc.col, fontFamily: "'Times New Roman', Times, serif", fontWeight: 700, letterSpacing: '.1em', background: vc.bg, border: `1px solid ${vc.bdr}`, padding: '2px 8px', borderRadius: 2 }}>
+                  {vc.icon} {spa.spa_verdict ?? 'CLEAN'}
+                </span>
+                {fatalCount > 0 && (
+                  <span style={{ fontSize: 8, color: '#c05050', fontFamily: "'Times New Roman', Times, serif", fontWeight: 700, letterSpacing: '.1em', background: '#1a0808', border: '1px solid #401818', padding: '2px 8px', borderRadius: 2 }}>
+                    {fatalCount} FATAL PO
+                  </span>
+                )}
               </div>
-            )}
-          </div>
-        )}
+
+              {/* Claimant theory */}
+              <p style={{ fontSize: 12, color: '#a0c8a8', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.65, marginBottom: 10 }}>
+                {spa.claimant_theory}
+              </p>
+
+              {/* Mini status row: Service / Jurisdiction / Conditions / Limitation */}
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: spaResult.counterclaim_hints.length > 0 ? 10 : 0 }}>
+                {spa.service_validity && (
+                  <div style={{ background: '#0a0a12', border: '1px solid #1a1a28', borderRadius: 4, padding: '5px 10px' }}>
+                    <p style={{ fontSize: 8, color: '#3a3a52', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.08em', textTransform: 'uppercase', marginBottom: 2 }}>Service</p>
+                    <p style={{ fontSize: 11, color: spa.service_validity.status === 'VALID' ? '#40b068' : spa.service_validity.status === 'DEFECTIVE' ? '#c05050' : '#c08030', fontFamily: "'Times New Roman', Times, serif", fontWeight: 600 }}>
+                      {spa.service_validity.status}
+                    </p>
+                  </div>
+                )}
+                {spa.jurisdiction_analysis && (
+                  <div style={{ background: '#0a0a12', border: '1px solid #1a1a28', borderRadius: 4, padding: '5px 10px' }}>
+                    <p style={{ fontSize: 8, color: '#3a3a52', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.08em', textTransform: 'uppercase', marginBottom: 2 }}>Jurisdiction</p>
+                    <p style={{ fontSize: 11, color: spa.jurisdiction_analysis.status === 'ESTABLISHED' ? '#40b068' : spa.jurisdiction_analysis.status === 'DOUBTFUL' ? '#c05050' : '#c08030', fontFamily: "'Times New Roman', Times, serif", fontWeight: 600 }}>
+                      {spa.jurisdiction_analysis.status}
+                    </p>
+                  </div>
+                )}
+                {spa.conditions_precedent && (
+                  <div style={{ background: '#0a0a12', border: '1px solid #1a1a28', borderRadius: 4, padding: '5px 10px' }}>
+                    <p style={{ fontSize: 8, color: '#3a3a52', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.08em', textTransform: 'uppercase', marginBottom: 2 }}>Conditions Pre.</p>
+                    <p style={{ fontSize: 11, color: spa.conditions_precedent.status === 'SATISFIED' ? '#40b068' : spa.conditions_precedent.status === 'UNSATISFIED' ? '#c05050' : '#c08030', fontFamily: "'Times New Roman', Times, serif", fontWeight: 600 }}>
+                      {spa.conditions_precedent.status}{spa.conditions_precedent.fatal ? ' · FATAL' : ''}
+                    </p>
+                  </div>
+                )}
+                {spa.limitation_analysis && (
+                  <div style={{ background: '#0a0a12', border: '1px solid #1a1a28', borderRadius: 4, padding: '5px 10px' }}>
+                    <p style={{ fontSize: 8, color: '#3a3a52', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.08em', textTransform: 'uppercase', marginBottom: 2 }}>Limitation</p>
+                    <p style={{ fontSize: 11, color: spa.limitation_analysis.defence_available ? '#40b068' : spa.limitation_analysis.status === 'EXPIRED' ? '#40b068' : spa.limitation_analysis.status === 'UNCLEAR' ? '#c08030' : '#c05050', fontFamily: "'Times New Roman', Times, serif", fontWeight: 600 }}>
+                      {spa.limitation_analysis.defence_available ? 'DEFENCE AVAILABLE' : spa.limitation_analysis.status}
+                    </p>
+                  </div>
+                )}
+                {poGrounds.length > 0 && (
+                  <div style={{ background: fatalCount > 0 ? '#1a0808' : '#0a0a12', border: `1px solid ${fatalCount > 0 ? '#401818' : '#1a1a28'}`, borderRadius: 4, padding: '5px 10px' }}>
+                    <p style={{ fontSize: 8, color: '#3a3a52', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.08em', textTransform: 'uppercase', marginBottom: 2 }}>PO Grounds</p>
+                    <p style={{ fontSize: 11, color: fatalCount > 0 ? '#c05050' : '#c08030', fontFamily: "'Times New Roman', Times, serif", fontWeight: 600 }}>
+                      {poGrounds.length} ({fatalCount} fatal)
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {spaResult.counterclaim_hints.length > 0 && (
+                <div style={{ borderTop: `1px solid ${vc.bdr}`, paddingTop: 8 }}>
+                  <p style={{ fontSize: 9, color: '#60c888', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 4 }}>
+                    {spaResult.counterclaim_hints.length} {activeCase.counsel_role === 'respondent_side' ? 'Cross-Petition' : activeCase.counsel_role === 'frep_respondent' ? 'Preliminary Objection' : 'Counterclaim'} Hint{spaResult.counterclaim_hints.length > 1 ? 's' : ''} — Will Be Re-Evaluated Against Client Instructions
+                  </p>
+                  {spaResult.counterclaim_hints.map((h: string, i: number) => (
+                    <p key={i} style={{ fontSize: 11, color: '#608870', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.6, marginBottom: 2 }}>
+                      {i + 1}. {h}
+                    </p>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         <div style={{ background: '#0d0d18', border: '1px solid #181828', borderRadius: 10, padding: '20px 22px', marginBottom: 14 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, paddingBottom: 12, borderBottom: '1px solid #131320', flexWrap: 'wrap' }}>
