@@ -346,6 +346,23 @@ export interface IntelligenceData {
   }>;
 
   /**
+   * Blind Spot Gate — Phase 6C (Grand Build Plan).
+   * Records counsel's acknowledgement decisions for each Phase 6A finding.
+   * Fatal findings must be 'addressed' or 'overridden' (with reason) before
+   * Stage 4 (Evidence Matrix) is unlocked.
+   * Carried into the Intelligence Package and visible to all downstream engines.
+   */
+  blind_spot_gate?: {
+    entries: Array<{
+      finding_index:   number;
+      decision:        'addressed' | 'overridden' | 'noted';
+      override_reason?: string;
+      decided_at:      string;
+    }>;
+    cleared_at: string;
+  };
+
+  /**
    * Served Process Analysis — Phase 1B (Grand Build Plan).
    * Produced when defendant-side counsel pastes/uploads the originating process.
    * Runs library query first; injects results into SPA prompt.
