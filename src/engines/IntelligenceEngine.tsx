@@ -44,7 +44,7 @@
  */
 
 import React, { useState } from 'react';
-import type { Case, CaseTheoryRecord, CounselRole, MatterTrack } from '@/types';
+import type { Case, CaseTheoryRecord, CounselRole, LibraryQueryLog, LibraryQueryPhaseEntry, MatterTrack } from '@/types';
 import { COUNSEL_ROLE_LABELS, COUNSEL_ROLE_COLORS, MATTER_TRACK_LABELS, rolesForTrack } from '@/types';
 import { T } from '@/constants/tokens';
 import { callClaude, withRetry } from '@/services/api';
@@ -325,6 +325,10 @@ interface TIEData {
    * The record is carried into the package and visible to all downstream engines.
    */
   blind_spot_gate?: BlindSpotGateRecord;
+  /** Phase 8C — Devil's Advocate. Single-trigger hostile opposition analysis.
+   *  Persisted so the output survives page reload and is available to
+   *  CrossExamEngine and ApplicationsEngine via the locked CaseTheoryRecord. */
+  devils_advocate?: string;
 }
 
 // ── Phase 6C — Acknowledgement Gate types ─────────────────────────────────────
@@ -457,6 +461,14 @@ export function IntelligenceEngine({ activeCase, onSave, onSaveRole }: Props) {
   const [copied,     setCopied]     = useState(false);
   // Phase 7C — set true when a mid-stream interruption was auto-resumed
   const [pkgResumed, setPkgResumed] = useState(false);
+  // Phase 8C — Devil's Advocate (single-trigger, post-package)
+  const [devilsAdvocate,        setDevilsAdvocate]        = useState<string>(saved.devils_advocate ?? '');
+  const [devilsAdvocateLoading, setDevilsAdvocateLoading] = useState(false);
+  const [devilsAdvocateError,   setDevilsAdvocateError]   = useState('');
+  // Phase 8D — Theory Lock
+  const [theoryLockLoading, setTheoryLockLoading] = useState(false);
+  const [theoryLockError,   setTheoryLockError]   = useState('');
+  const [theoryLockDone,    setTheoryLockDone]    = useState(false);
   const [processText,   setProcessText]   = useState<string>('');
   const [spaResult,     setSpaResult]     = useState<IntelligenceData['served_process_analysis'] | undefined>(saved.served_process_analysis);
   const [spaLoading,    setSpaLoading]    = useState(false);
@@ -489,7 +501,7 @@ ${partyBPlural}: ${activeCase.defendants.map(d => d.name).filter(Boolean).join('
 
   function persist(updates: Partial<TIEData>) {
     const data: TIEData = {
-      stage, rawFacts, extraction, followUpQs, followUpAs, evidenceM, intPkg,
+      stage, rawFacts, extraction, followUpQs, followUpAs, evidenceM, intPkg, devils_advocate: devilsAdvocate || undefined,
       commencement_audit:      commencementAudit,
       counterclaim_detected:   counterclaimDetected,
       conflict_scan:           conflictScan,
@@ -1945,13 +1957,155 @@ Rules:
       activeCase.counsel_role === 'claimant_side' ? `${partyA.toUpperCase()} CLAIMS & RELIEF` :
       activeCase.counsel_role === 'defendant_side' ? `${partyB.toUpperCase()} DEFENCE POSTURE & COUNTERCLAIMS` :
       'CLAIMS, DEFENCES & STRATEGY';
+
+    // ── Phase 8A: STANDING RULE — Library queried comprehensively ─────────
+    // All legal issues, all procedural requirements, all evidentiary rules
+    // identified throughout the pipeline — to ground the package in verified
+    // sources. The hint is built from the FULL pipeline output:
+    //   • extraction legal issues + gaps
+    //   • evidence matrix issues
+    //   • blind spot audit findings (law_basis fields)
+    //   • open laws from Laws Needed (laws the engine flagged as needed)
+    // Per the Standing Rule, if the library returns nothing relevant that
+    // itself is noted in the output — the engine never reasons from training
+    // memory alone when a library query was possible.
+    const issuesFromExtraction = (extraction?.legal_issues ?? []).join(' ').slice(0, 250);
+    const evidenceIssues = (evidenceM ?? []).map(e => e.issue).join(' ').slice(0, 200);
+    const gapsFromExtraction = (extraction?.gaps_identified ?? []).join(' ').slice(0, 150);
+    // Blind spot findings contribute their law_basis — these are the legal
+    // rules the adversarial audit already identified as governing the case.
+    const blindSpotLawBases = (blindSpotAudit?.entries ?? [])
+      .map(e => e.law_basis)
+      .filter(Boolean)
+      .join(' ')
+      .slice(0, 200);
+    // Open laws from Laws Needed — laws flagged as required but not yet
+    // retrieved. Including them in the hint maximises the chance the library
+    // returns something useful; if it still returns nothing, the Confidence
+    // Statement will record the gap explicitly.
+    const openLawsHint = lawsNeeded.filter(e => !e.resolved).map(e => e.name).join(' ').slice(0, 150);
+
+    const pkgLibraryHint = [
+      activeCase.matter_track,
+      activeCase.court,
+      'causes of action elements burden of proof conditions precedent limitation period admissibility',
+      issuesFromExtraction,
+      evidenceIssues,
+      gapsFromExtraction,
+      blindSpotLawBases,
+      openLawsHint,
+    ].filter(Boolean).join(' ').slice(0, 800);
+
+    // 8B — Confidence Statement instruction embedded in the package prompt.
+    // Claude states plainly what it is confident about, what gaps remain open,
+    // which laws it is running without from the library, what overrides were made.
+    const lawsNeededBlock = lawsNeeded.filter(e => !e.resolved).length > 0
+      ? `LAWS THE ENGINE IS RUNNING WITHOUT (not retrieved from library):\n${lawsNeeded.filter(e => !e.resolved).map(e => `- ${e.name}: ${e.reason}`).join('\n')}`
+      : 'All laws flagged during analysis have been retrieved from the library.';
+
+    // 8B — Overrides block: explicitly state "none" when clean so the
+    // Confidence Statement can accurately report override status.
+    const overrideEntries = blindSpotGate?.entries.filter(e => e.decision === 'overridden') ?? [];
+    const overridesBlock = overrideEntries.length > 0
+      ? `FATAL FINDING OVERRIDES (counsel proceeded despite these):\n${overrideEntries.map(e => `- Finding ${e.finding_index + 1}: ${e.override_reason ?? 'No reason recorded'}`).join('\n')}`
+      : 'FATAL FINDING OVERRIDES: None — no fatal blind spot findings were overridden.';
+
+    // 8B — Acknowledged items: serious/advisory findings counsel noted but
+    // did not resolve. A SAN needs to know these remain open.
+    // GateDecision = 'addressed' | 'overridden' | 'noted'.
+    // 'noted' entries are serious/advisory findings counsel acknowledged
+    // but did not resolve — they remain open and must surface in 8B.
+    const acknowledgedEntries = blindSpotGate?.entries.filter(e => e.decision === 'noted') ?? [];
+    const acknowledgedBlock = acknowledgedEntries.length > 0
+      ? `BLIND SPOT FINDINGS NOTED (acknowledged but not resolved — still open):\n${acknowledgedEntries.map(e => `- Finding ${e.finding_index + 1}: noted — ${e.override_reason ?? 'No note recorded'}`).join('\n')}`
+      : '';
+
     try {
       let streamedPkg = '';
-      const { text: pkg } = await callClaude({
-        system: `You are a Senior Advocate at the Nigerian Bar with 30 years of trial experience. You produce trial intelligence packages of exceptional depth and precision. Role-aware, outcome-focused, and honest. Your analysis changes how lawyers approach cases.`,
-        userMsg: `${caseCtx}\n\nRAW FACTS:\n${rawFacts}\n\nEXTRACTED INTELLIGENCE:\n${JSON.stringify(extraction, null, 2)}\n\nFOLLOW-UP ANSWERS:\n${qaText}\n\nEVIDENCE MATRIX:\n${JSON.stringify(evidenceM, null, 2)}\n\nGenerate the full Trial Intelligence Package. Format as structured markdown:\n\n# ESTABLISHED FACTS\n[Undisputed facts with basis]\n\n# DISPUTED FACTS\n[Contested facts and likely nature of dispute]\n\n# MISSING EVIDENCE\n[Critical gaps — what must be obtained and how]\n\n# LEGAL ISSUES\n[Each issue distilled — element by element where applicable]\n\n# ${claimsHead}\n[Role-specific: causes of action / grounds of defence, elements, burden of proof, what must be proved]\n\n# AUTHORITY GROUNDING\nFor every authority mentioned anywhere in the facts or follow-up answers:\n\n## HIERARCHY MAP\nFor each cited case: court level, binding on which courts in this matter, persuasive value if not binding. Flag any authority cited without a court or citation — those must be verified before filing.\n\n## BINDING FORCE & RATIO\nFor each authority: the ratio decidendi being relied on (not obiter). Flag where the principle being extracted may be obiter only.\n\n## OVERRULED / CONFLICTING STATUS\nHas any cited authority been overruled, distinguished, or significantly limited by a later decision? If so, name the later case and its effect. Flag any authority where currency is uncertain — direct counsel to verify on LawPavilion, NigeriaLII, or NWLR before filing.\n\n## CONFLICTING AUTHORITIES\nAre any cited authorities in direct conflict with each other? Identify the conflict, map hierarchy to determine which prevails, and state the reconciliation strategy.\n\n## OPPOSITION ATTACK VECTORS\nFor each authority we rely on: how will opposing counsel attack or distinguish it? For each authority they are likely to rely on: how do we neutralise it?\n\nIf no authorities are mentioned in the facts, state: \\\"No authorities cited in the facts provided — authority research required before filing.\\\" Do not fabricate case names.\n\n# RISK REGISTER\n[Every material risk — severity HIGH/MEDIUM/LOW, impact, mitigation]\n\n# IMMEDIATE ACTION ITEMS\n[Specific, time-sensitive steps the lawyer must take NOW]\n\nWrite with the precision of a Senior Advocate who has analysed every document and seen every angle. Be direct, specific, and unflinchingly honest.`,
-        maxTokens: 5000,
-        skipLibrary: true,
+      // withRetry — the package is the most expensive call in the engine.
+      // Transient failures should not require the lawyer to restart from scratch.
+      const { text: pkg } = await withRetry(() => callClaude({
+        system: `You are a Senior Advocate at the Nigerian Bar with 30 years of trial experience. You produce trial intelligence packages of exceptional depth and precision. Role-aware, outcome-focused, and honest. Your analysis changes how lawyers approach cases.
+
+STANDING RULE — LIBRARY FIRST: Reason from the library sources injected into this prompt. For every legal proposition, identify the specific Nigerian statute, rule of court, or binding authority. Where you apply a rule that was not in the library sources, flag it explicitly as "[NOT IN LIBRARY — verify before filing]". This flag appears inline next to the proposition, not in a separate section.`,
+        userMsg: `${caseCtx}
+
+RAW FACTS:
+${rawFacts}
+
+EXTRACTED INTELLIGENCE:
+${JSON.stringify(extraction, null, 2)}
+
+FOLLOW-UP ANSWERS:
+${qaText}
+
+EVIDENCE MATRIX:
+${JSON.stringify(evidenceM, null, 2)}
+
+${lawsNeededBlock}
+${overridesBlock}${acknowledgedBlock ? `\n${acknowledgedBlock}` : ''}
+
+Generate the full Trial Intelligence Package. Format as structured markdown:
+
+# ESTABLISHED FACTS
+[Undisputed facts with basis]
+
+# DISPUTED FACTS
+[Contested facts and likely nature of dispute]
+
+# MISSING EVIDENCE
+[Critical gaps — what must be obtained and how]
+
+# LEGAL ISSUES
+[Each issue distilled — element by element where applicable]
+
+# ${claimsHead}
+[Role-specific: causes of action / grounds of defence, elements, burden of proof, what must be proved]
+
+# AUTHORITY GROUNDING
+For every authority mentioned anywhere in the facts or follow-up answers:
+
+## HIERARCHY MAP
+For each cited case: court level, binding on which courts in this matter, persuasive value if not binding. Flag any authority cited without a court or citation — those must be verified before filing.
+
+## BINDING FORCE & RATIO
+For each authority: the ratio decidendi being relied on (not obiter). Flag where the principle being extracted may be obiter only.
+
+## OVERRULED / CONFLICTING STATUS
+Has any cited authority been overruled, distinguished, or significantly limited by a later decision? If so, name the later case and its effect. Flag any authority where currency is uncertain — direct counsel to verify on LawPavilion, NigeriaLII, or NWLR before filing.
+
+## CONFLICTING AUTHORITIES
+Are any cited authorities in direct conflict with each other? Identify the conflict, map hierarchy to determine which prevails, and state the reconciliation strategy.
+
+## OPPOSITION ATTACK VECTORS
+For each authority we rely on: how will opposing counsel attack or distinguish it? For each authority they are likely to rely on: how do we neutralise it?
+
+If no authorities are mentioned in the facts, state: "No authorities cited in the facts provided — authority research required before filing." Do not fabricate case names.
+
+# RISK REGISTER
+[Every material risk — severity HIGH/MEDIUM/LOW, impact, mitigation]
+
+# IMMEDIATE ACTION ITEMS
+[Specific, time-sensitive steps the lawyer must take NOW]
+
+# CONFIDENCE STATEMENT
+State plainly:
+1. What this analysis is confident about — areas where library sources directly grounded the reasoning.
+2. What gaps remain open — specific questions or facts that were not resolved.
+3. Which laws this engine is running without — exactly as listed in the LAWS THE ENGINE IS RUNNING WITHOUT block above — and what each absence means for the part of the analysis that depends on it.
+4. What overrides were made at the Blind Spot gate — state each override and its implication for the analysis.
+5. Where the engine was reasoning from general principle rather than a retrieved library source — flag each instance.
+No hedging that obscures real problems. No false confidence. A SAN reading this knows exactly where to probe.
+
+Write with the precision of a Senior Advocate who has analysed every document and seen every angle. Be direct, specific, and unflinchingly honest.`,
+        maxTokens: 6000,
+        matter_track: activeCase.matter_track,
+        counsel_role: activeCase.counsel_role,
+        libraryOpts: {
+          queryHint: pkgLibraryHint,
+          topK: 18,
+          threshold: 0.62,
+        },
         streamCaseId: activeCase.id,
         streamEngine: 'intelligence-pkg',
         onChunk: (chunk) => {
@@ -1959,9 +2113,20 @@ Rules:
           setIntPkg(streamedPkg);
         },
         onResumed: () => setPkgResumed(true),
-      });
+      }));
       setIntPkg(pkg);
       advance(5, { intPkg: pkg });
+      // Persist the package immediately so that runAuthorityGrounding and
+      // runRiskVerdict (which both call onSave) have the final package in
+      // their save payload rather than the previous state snapshot.
+      onSave({
+        stage: 5, rawFacts, extraction, followUpQs, followUpAs, evidenceM,
+        intPkg: pkg,
+        commencement_audit: commencementAudit,
+        conflict_scan:      conflictScan,
+        risk_verdict:       riskVerdict,
+        authority_grounding: authorityGrounding,
+      });
       // Step 5b — auto-run risk verdict off the completed package
       runRiskVerdict(pkg);
       // Step 5 — auto-run authority grounding off the completed package
@@ -4300,11 +4465,84 @@ Rules:
               {item.notes && (
                 <p style={{ marginTop: 10, paddingTop: 9, borderTop: '1px solid #131320', fontSize: 12, color: T.mute, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.6, fontStyle: 'italic' }}>{item.notes}</p>
               )}
+              {/* Phase 7A — library source that grounds the evidentiary rule */}
+              {item.library_source && !item.library_source.startsWith('[No library') && (
+                <p style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid #131320', fontSize: 10, color: '#7080a0', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.5, letterSpacing: '.02em' }}>
+                  <span style={{ color: '#506080', fontWeight: 600, marginRight: 4 }}>Library:</span>{item.library_source}
+                </p>
+              )}
+              {/* Phase 7B — Section 84 flag on the card */}
+              {item.s84_required && (
+                <div style={{ marginTop: 10, paddingTop: 9, borderTop: '1px solid #131320', display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                  <span style={{ background: '#1a1000', border: '1px solid #4a3000', color: '#c08030', fontSize: 8, padding: '2px 6px', borderRadius: 2, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.07em', fontWeight: 700, flexShrink: 0, marginTop: 1 }}>
+                    S.84
+                  </span>
+                  <div>
+                    <p style={{ fontSize: 11, color: '#c08030', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.5, marginBottom: item.s84_deponent ? 2 : 0 }}>
+                      {item.s84_document || 'Electronic document — Section 84 certificate required'}
+                    </p>
+                    {item.s84_deponent && (
+                      <p style={{ fontSize: 10, color: T.mute, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.4 }}>
+                        Deponent: {item.s84_deponent}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           );
         })}
 
         <ErrorBlock message={error} />
+
+        {/* Phase 7B — Section 84 Evidence Act 2011 Planning Panel
+            Renders only when s84Flags are present. One row per electronic
+            document. Certificate requirements stated specifically. Named
+            deponent identified where possible. Added to Checklist sidebar
+            as case-specific items via the s84_flags field on TIEData. */}
+        {s84Flags.length > 0 && (
+          <div style={{ background: '#0d0d18', border: '1px solid #3a2800', borderRadius: 8, padding: '18px 20px', marginBottom: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+              <span style={{ background: '#1a1000', border: '1px solid #4a3000', color: '#c08030', fontSize: 8, padding: '3px 8px', borderRadius: 2, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.08em', fontWeight: 700 }}>
+                SECTION 84
+              </span>
+              <p style={{ fontSize: 13, color: '#c08030', fontFamily: "'Times New Roman', Times, serif", fontWeight: 600 }}>
+                Electronic Document Certificate Requirements
+              </p>
+            </div>
+            <p style={{ fontSize: 11, color: T.mute, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.6, marginBottom: 14, fontStyle: 'italic' }}>
+              Each electronic document identified in the evidence matrix requires a certificate under Section 84 Evidence Act 2011 before it is admissible. Prepare and obtain these certificates before filing or trial.
+            </p>
+            {s84Flags.map((flag, i) => (
+              <div key={i} style={{ borderTop: i > 0 ? '1px solid #1e1800' : 'none', paddingTop: i > 0 ? 14 : 0, marginTop: i > 0 ? 14 : 0 }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 8 }}>
+                  <span style={{ background: '#1e1200', border: '1px solid #3a2200', color: '#a07020', fontSize: 8, padding: '2px 6px', borderRadius: 2, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.06em', fontWeight: 600, flexShrink: 0, marginTop: 2 }}>
+                    {i + 1}
+                  </span>
+                  <p style={{ fontSize: 13, color: T.text, fontFamily: "'Times New Roman', Times, serif", fontWeight: 600, lineHeight: 1.45, flex: 1 }}>{flag.document}</p>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, paddingLeft: 22 }}>
+                  <div>
+                    <p style={{ fontSize: 8, color: T.mute, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.1em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 4 }}>Issue</p>
+                    <p style={{ fontSize: 12, color: T.sub, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.55 }}>{flag.issue}</p>
+                  </div>
+                  {flag.deponent && (
+                    <div>
+                      <p style={{ fontSize: 8, color: T.mute, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.1em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 4 }}>Deponent</p>
+                      <p style={{ fontSize: 12, color: T.sub, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.55 }}>{flag.deponent}</p>
+                    </div>
+                  )}
+                </div>
+                {flag.requirements && (
+                  <div style={{ marginTop: 8, paddingLeft: 22 }}>
+                    <p style={{ fontSize: 8, color: '#906020', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.1em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 4 }}>Certificate Requirements</p>
+                    <p style={{ fontSize: 12, color: '#b07828', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.65 }}>{flag.requirements}</p>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Step 4b — Conflict Scan (run before generating the package) */}
         <ConflictScanPanel />
@@ -4685,6 +4923,229 @@ Rules:
     }
   }
 
+  // ── Phase 8C — Devil's Advocate (single-trigger, post-package) ────────────
+  // Library queried from the opponent's perspective — what rules, statutes,
+  // and procedural requirements can they use against this case. Engine switches
+  // sides completely and produces every argument, objection, and attack the
+  // other side will make: preliminary objections, evidentiary challenges,
+  // weaknesses in the theory, witnesses they will attack, appellate grounds.
+  // Grounded in library sources. Single trigger — not auto-run. Feeds
+  // CrossExamEngine and ApplicationsEngine directly via the locked package.
+  async function runDevilsAdvocate() {
+    if (!intPkg) return;
+    setDevilsAdvocateLoading(true);
+    setDevilsAdvocateError('');
+    try {
+      // ── Library query hint — opponent's perspective ─────────────────────
+      // Spec: "library queried from the opponent's perspective — what rules,
+      // statutes, and procedural requirements can they use against this case."
+      // The hint is built from: legal issues, blind spot law bases (the
+      // adversarial audit already named the attack vectors), commencement/
+      // defence audit risk findings, and evidence matrix gaps (what's missing
+      // is what the opponent will exploit).
+      const issuesBlock = (extraction?.legal_issues ?? []).join(' ').slice(0, 200);
+      const bsLawBases = (blindSpotAudit?.entries ?? [])
+        .map(e => e.law_basis).filter(Boolean).join(' ').slice(0, 150);
+      const auditRisks = [
+        commencementAudit?.status === 'RISK' || commencementAudit?.status === 'DEFECTIVE'
+          ? commencementAudit?.summary ?? '' : '',
+      ].filter(Boolean).join(' ').slice(0, 100);
+      const evidenceGaps = (evidenceM ?? [])
+        .flatMap(e => e.missing_evidence ?? []).join(' ').slice(0, 120);
+      const daLibraryHint = [
+        activeCase.matter_track,
+        activeCase.court,
+        'preliminary objection grounds jurisdiction limitation locus standi procedural defects evidentiary challenges admissibility objection',
+        issuesBlock,
+        bsLawBases,
+        auditRisks,
+        evidenceGaps,
+      ].filter(Boolean).join(' ').slice(0, 750);
+
+      const { text: raw } = await withRetry(() => callClaude({
+        system: `You are the most hostile opposing counsel and the most demanding appellate judge this case will ever face. You have just read the complete Trial Intelligence Package for the ${role}. Your sole task is to attack it — not to be balanced, not to be fair. Switch sides completely. Produce every argument, objection, and attack the other side will make.
+
+STANDING RULE — LIBRARY FIRST: Ground every attack in the specific Nigerian statute, rule of court, or binding authority retrieved from the library sources injected into this prompt. Where you raise an objection without a library source, flag it as "[General principle — verify source before deploying]".
+
+Structure your attack as Senior Advocate prose — no numbered lists, no headers for individual attacks. Continuous, devastating analysis. Cover:
+- Every preliminary objection available to them and whether it is fatal, arguable, or weak
+- Every evidentiary challenge to the documents and witnesses we are relying on
+- Every weakness in the theory of the case they will exploit
+- Every witness we rely on that they will attack and how
+- Every authority in our package they will distinguish or attack
+- Appellate grounds if the matter is lost at first instance — what they will argue on appeal
+- Strategic moves we have not planned for
+
+End with a single paragraph titled "THE CORE VULNERABILITY": the one point that, if they land it, wins them the case. Be specific. Do not manufacture grounds — if a category is genuinely not available to them, say so briefly and move on.`,
+        userMsg: `${caseCtx}\n\nINTELLIGENCE PACKAGE (attack this):\n${intPkg}`,
+        maxTokens: 4000,
+        matter_track: activeCase.matter_track,
+        counsel_role: activeCase.counsel_role,
+        libraryOpts: {
+          queryHint: daLibraryHint,
+          topK: 14,
+          threshold: 0.63,
+        },
+      }));
+
+      setDevilsAdvocate(raw);
+      onSave({
+        stage: 5, rawFacts, extraction, followUpQs, followUpAs, evidenceM,
+        intPkg,
+        commencement_audit:  commencementAudit,
+        conflict_scan:       conflictScan,
+        risk_verdict:        riskVerdict,
+        authority_grounding: authorityGrounding,
+        devils_advocate: raw,
+      });
+    } catch (e) {
+      setDevilsAdvocateError((e as Error).message || "Devil's Advocate failed. Please try again.");
+    } finally {
+      setDevilsAdvocateLoading(false);
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Phase 8D — Theory Lock
+  //
+  // Locks the completed Intelligence Package as a CaseTheoryRecord so every
+  // downstream engine (PleadingsEngine, CrossExamEngine, ApplicationsEngine,
+  // MotionEngine, FinalWrittenAddressEngine) can read from a single locked
+  // record without re-entering facts.
+  //
+  // The locked record carries the full library query log — every source the
+  // Intelligence Engine consulted, every gap flagged — so downstream engines
+  // inherit the evidentiary foundation and extend it with their own queries.
+  //
+  // On the commencing side this is the first and only Theory Lock. On the
+  // receiving side the Theory Clash Synthesis (Phase 2E) already produced and
+  // auto-locked a v1 record from the SPA + extraction; this function
+  // upgrades that record (or creates a fresh one) from the completed package.
+  //
+  // Lock version is tracked — downstream engines check case_theory_version
+  // to detect when a re-lock has occurred and invalidate stale work.
+  // ─────────────────────────────────────────────────────────────────────────
+  async function lockIntelligencePackage() {
+    if (!intPkg) return;
+    setTheoryLockLoading(true);
+    setTheoryLockError('');
+    setTheoryLockDone(false);
+
+    try {
+      // ── Step 1: Build the library query log from pipeline state ──────────
+      // The log is assembled from everything the Intelligence Engine accumulated:
+      // the open Laws Needed entries (unresolved gaps at lock time) and a
+      // phase-level summary of what was queried. Phase hints were passed to
+      // callClaude() during each phase — we reconstruct them from the current
+      // pipeline state rather than storing them separately throughout the run.
+      const openGaps = lawsNeeded.filter(e => !e.resolved).map(e => ({
+        name:       e.name,
+        reason:     e.reason,
+        flagged_by: e.flagged_by,
+      }));
+
+      const phases: LibraryQueryPhaseEntry[] = [
+        {
+          phase:       '3A Extraction',
+          query_hint:  [activeCase.matter_track, activeCase.court, (extraction?.legal_issues ?? []).slice(0, 3).join(' ')].filter(Boolean).join(' ').slice(0, 120),
+          retrieved:   !!extraction,
+          source_note: extraction ? 'Extraction complete — library sources injected' : 'No extraction results',
+        },
+        {
+          phase:       '4A/4B Compliance Audit',
+          query_hint:  [activeCase.matter_track, activeCase.court, 'limitation conditions precedent jurisdiction originating process'].join(' ').slice(0, 120),
+          retrieved:   !!commencementAudit,
+          source_note: commencementAudit ? `Audit status: ${commencementAudit.status}` : 'No audit result',
+        },
+        {
+          phase:       '6A Blind Spot Audit',
+          query_hint:  [activeCase.matter_track, 'threshold party evidentiary procedural substantive strategic'].join(' ').slice(0, 120),
+          retrieved:   !!blindSpotAudit,
+          source_note: blindSpotAudit ? `${blindSpotAudit.entries?.length ?? 0} findings` : 'No blind spot audit',
+        },
+        {
+          phase:       '7A Evidence Matrix',
+          query_hint:  [activeCase.matter_track, 'admissibility authentication burden standard of proof'].join(' ').slice(0, 120),
+          retrieved:   !!evidenceM,
+          source_note: evidenceM ? `${evidenceM.length} issues mapped` : 'No evidence matrix',
+        },
+        {
+          phase:       '8A Intelligence Package',
+          query_hint:  [activeCase.matter_track, activeCase.court, (extraction?.legal_issues ?? []).join(' ')].filter(Boolean).join(' ').slice(0, 120),
+          retrieved:   !!intPkg,
+          source_note: intPkg ? 'Package generated — library sources injected' : 'No package',
+        },
+        {
+          phase:       '8C Devil\'s Advocate',
+          query_hint:  [activeCase.matter_track, activeCase.court, 'preliminary objection evidentiary challenges limitation locus standi'].join(' ').slice(0, 120),
+          retrieved:   !!devilsAdvocate,
+          source_note: devilsAdvocate ? 'Hostile analysis complete — library-grounded' : 'Not yet run',
+        },
+      ].filter(e => e.retrieved);
+
+      const libraryQueryLog: LibraryQueryLog = {
+        phases,
+        open_gaps:    openGaps,
+        assembled_at: new Date().toISOString(),
+      };
+
+      // ── Step 2: Build or upgrade the CaseTheoryRecord ────────────────────
+      // Receiving side: Theory Clash already produced a v1 record. We upgrade
+      // it in place — preserving the structured elements, scores, and gap
+      // report — and attach the library query log + package ref.
+      // Commencing side: no prior theory record. We build a minimal record
+      // that anchors the package without requiring a separate theory synthesis
+      // step — the downstream engines use the locked intPkg as the full
+      // narrative and the record as the structured handoff.
+      const existingTheory = await (async () => {
+        try {
+          const { loadCaseTheory: lct } = await import('@/storage/helpers');
+          return await lct(activeCase.id);
+        } catch { return null; }
+      })();
+
+      const coreProposition = existingTheory?.core_proposition
+        ?? `${role === 'claimant_side' || role === 'prosecution_side' ? 'Claimant establishes' : 'Defendant defeats'} — see Intelligence Package for full theory.`;
+
+      const record: CaseTheoryRecord = {
+        ...(existingTheory ?? {
+          core_proposition: coreProposition,
+          elements:         extraction?.legal_issues?.map(issue => ({
+            element:   issue,
+            evidence:  'See Intelligence Package',
+            authority: '[NOT IN LIBRARY — verify before filing]',
+            risk:      'See evidence matrix',
+          })) ?? [],
+          opposing_theory:  'See Devil\'s Advocate analysis.',
+          theory_killer:    'See Intelligence Package — theory killer section.',
+          weakest_link:     'See blind spot audit findings.',
+          narrative_theme:  'See Intelligence Package — narrative theme section.',
+          gap_report:       (lawsNeeded.filter(e => !e.resolved).map(e => ({
+            element:          e.name,
+            needed:           e.reason,
+            suggested_action: `Upload ${e.name} to the library and re-query (flagged by ${e.flagged_by}).`,
+          }))),
+          score_breakdown:  {
+            legal_sufficiency: 0, evidence_coverage: 0, vulnerability: 0,
+            narrative_coherence: 0, jurisdictional_precision: 0, total: 0,
+          },
+        }),
+        library_query_log:         libraryQueryLog,
+        intelligence_package_ref:  new Date().toISOString(),
+      };
+
+      // ── Step 3: Save + lock ───────────────────────────────────────────────
+      await saveCaseTheory(activeCase.id, record);
+      await lockCaseTheory(activeCase.id);
+
+      setTheoryLockDone(true);
+    } catch (err) {
+      setTheoryLockError('Theory Lock failed: ' + ((err as Error).message || 'Please try again.'));
+    } finally {
+      setTheoryLockLoading(false);
+    }
+  }
+
   // ── Step 5b: Run Risk Verdict (auto-called after package generation) ───────
   async function runRiskVerdict(pkg: string) {
     setRiskLoading(true);
@@ -4705,7 +5166,8 @@ Rules:
       // Persist — use advance-style direct call so we include the latest intPkg
       onSave({
         stage: 5, rawFacts, extraction, followUpQs, followUpAs, evidenceM,
-        intPkg: pkg, commencement_audit: commencementAudit, risk_verdict: result,
+        intPkg: pkg, commencement_audit: commencementAudit, conflict_scan: conflictScan,
+        risk_verdict: result, authority_grounding: authorityGrounding,
       });
     } catch (e) {
       setRiskError((e as Error).message || 'Risk verdict failed. Please try again.');
@@ -4896,6 +5358,150 @@ Rules:
             );
           })()}
         </div>
+
+        {/* ── Phase 8C — Devil's Advocate ─────────────────────────────── */}
+        {intPkg && (
+          <div style={{ marginTop: 20, background: '#0a0a14', border: '1px solid #181828', borderRadius: 10, padding: '22px 24px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
+              <div>
+                <p style={{ fontSize: 9, color: '#5a5a72', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.16em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 4 }}>
+                  Phase 8C · Devil's Advocate
+                </p>
+                <p style={{ fontSize: 17, color: '#c8c4b8', fontFamily: "'Times New Roman', Times, serif", fontWeight: 400 }}>
+                  Hostile Opposition Analysis
+                </p>
+              </div>
+              {!devilsAdvocate && !devilsAdvocateLoading && (
+                <button
+                  onClick={runDevilsAdvocate}
+                  style={{ background: '#180808', border: '1px solid #4a1818', color: '#c05050', borderRadius: 4, padding: '8px 18px', fontSize: 11, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', letterSpacing: '.06em', fontWeight: 600 }}>
+                  Run Devil's Advocate →
+                </button>
+              )}
+              {devilsAdvocate && !devilsAdvocateLoading && (
+                <button
+                  onClick={runDevilsAdvocate}
+                  style={{ background: 'transparent', border: '1px solid #2a1818', color: '#5a3a3a', borderRadius: 4, padding: '6px 14px', fontSize: 10, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', letterSpacing: '.04em' }}>
+                  ⟳ Re-run
+                </button>
+              )}
+            </div>
+
+            {!devilsAdvocate && !devilsAdvocateLoading && !devilsAdvocateError && (
+              <p style={{ fontSize: 12, color: '#3a3a52', fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic', lineHeight: 1.6 }}>
+                Single trigger. Engine switches sides completely — every preliminary objection, evidentiary challenge, witness attack, and appellate ground the opponent will deploy, grounded in library sources. Run once the package is reviewed and before cross-examination preparation.
+              </p>
+            )}
+
+            {devilsAdvocateLoading && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '18px 0' }}>
+                <div style={{ width: 16, height: 16, border: '2px solid #1e1e2e', borderTop: '2px solid #c05050', borderRadius: '50%', animation: 'spin .8s linear infinite', flexShrink: 0 }} />
+                <p style={{ fontSize: 13, color: '#5a5a72', fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic' }}>
+                  Switching sides — analysing from opposing counsel's position…
+                </p>
+              </div>
+            )}
+
+            {devilsAdvocateError && !devilsAdvocateLoading && (
+              <div style={{ background: '#180808', border: '1px solid #4a1818', borderRadius: 6, padding: '10px 14px', marginBottom: 12 }}>
+                <p style={{ fontSize: 12, color: '#c05050', fontFamily: "'Times New Roman', Times, serif", margin: 0 }}>{devilsAdvocateError}</p>
+                <button
+                  onClick={runDevilsAdvocate}
+                  style={{ marginTop: 8, background: 'transparent', border: '1px solid #4a1818', color: '#c05050', borderRadius: 4, padding: '4px 12px', fontSize: 10, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer' }}>
+                  Retry
+                </button>
+              </div>
+            )}
+
+            {devilsAdvocate && !devilsAdvocateLoading && (
+              <div style={{ animation: 'fadeUp .3s ease' }}>
+                <div style={{ borderTop: '1px solid #1a1a2a', paddingTop: 16 }}>
+                  <Md text={devilsAdvocate} />
+                </div>
+                <p style={{ fontSize: 9, color: '#2a2a38', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.08em', textAlign: 'right', marginTop: 12 }}>
+                  Devil's Advocate · library-grounded · feeds CrossExamEngine and ApplicationsEngine
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Phase 8D — Theory Lock ───────────────────────────────────── */}
+        {intPkg && (
+          <div style={{ marginTop: 20, background: '#06080a', border: `1px solid ${theoryLockDone ? '#204030' : '#181820'}`, borderRadius: 10, padding: '22px 24px' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
+              <div>
+                <p style={{ fontSize: 9, color: theoryLockDone ? '#40a868' : '#5a5a72', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.16em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 4 }}>
+                  Phase 8D · Theory Lock
+                </p>
+                <p style={{ fontSize: 17, color: '#c8c4b8', fontFamily: "'Times New Roman', Times, serif", fontWeight: 400 }}>
+                  Lock Package as CaseTheoryRecord
+                </p>
+              </div>
+              {!theoryLockDone && !theoryLockLoading && (
+                <button
+                  onClick={lockIntelligencePackage}
+                  style={{ background: '#0a1a0a', border: '1px solid #284028', color: '#70c090', borderRadius: 4, padding: '8px 18px', fontSize: 11, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', letterSpacing: '.06em', fontWeight: 600 }}>
+                  Lock Theory →
+                </button>
+              )}
+              {theoryLockDone && (
+                <button
+                  onClick={lockIntelligencePackage}
+                  style={{ background: 'transparent', border: '1px solid #1a2a1a', color: '#2a4a2a', borderRadius: 4, padding: '6px 14px', fontSize: 10, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', letterSpacing: '.04em' }}>
+                  ⟳ Re-lock
+                </button>
+              )}
+            </div>
+
+            {theoryLockLoading && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 0' }}>
+                <div style={{ width: 16, height: 16, border: '2px solid #1e2e1e', borderTop: '2px solid #70c090', borderRadius: '50%', animation: 'spin .8s linear infinite', flexShrink: 0 }} />
+                <p style={{ fontSize: 13, color: '#5a5a72', fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic' }}>
+                  Assembling library query log and locking record…
+                </p>
+              </div>
+            )}
+
+            {theoryLockError && !theoryLockLoading && (
+              <div style={{ background: '#180808', border: '1px solid #4a1818', borderRadius: 6, padding: '10px 14px', marginBottom: 12 }}>
+                <p style={{ fontSize: 12, color: '#c05050', fontFamily: "'Times New Roman', Times, serif", margin: 0 }}>{theoryLockError}</p>
+                <button
+                  onClick={lockIntelligencePackage}
+                  style={{ marginTop: 8, background: 'transparent', border: '1px solid #4a1818', color: '#c05050', borderRadius: 4, padding: '4px 12px', fontSize: 10, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer' }}>
+                  Retry
+                </button>
+              </div>
+            )}
+
+            {!theoryLockDone && !theoryLockLoading && !theoryLockError && (
+              <p style={{ fontSize: 12, color: '#3a3a52', fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic', lineHeight: 1.65 }}>
+                Locks the Intelligence Package as a <strong style={{ color: '#4a4a68' }}>CaseTheoryRecord</strong> — the single source of truth every downstream engine reads. Carries the full library query log so CrossExamEngine, ApplicationsEngine, MotionEngine, and FinalWrittenAddressEngine inherit the evidentiary foundation without re-running the pipeline. Lock version is tracked — re-lock if facts change materially.
+              </p>
+            )}
+
+            {theoryLockDone && !theoryLockLoading && (
+              <div style={{ animation: 'fadeUp .3s ease' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#0a1a0a', border: '1px solid #1a3a1a', borderRadius: 7, padding: '12px 16px', marginBottom: 12 }}>
+                  <span style={{ fontSize: 16, color: '#40a868' }}>✓</span>
+                  <div>
+                    <p style={{ fontSize: 13, color: '#70c090', fontFamily: "'Times New Roman', Times, serif", fontWeight: 600, marginBottom: 2 }}>
+                      CaseTheoryRecord locked
+                    </p>
+                    <p style={{ fontSize: 11, color: '#3a5a3a', fontFamily: "'Times New Roman', Times, serif" }}>
+                      Library query log attached · {lawsNeeded.filter(e => !e.resolved).length > 0
+                        ? `${lawsNeeded.filter(e => !e.resolved).length} open gap${lawsNeeded.filter(e => !e.resolved).length !== 1 ? 's' : ''} carried into record`
+                        : 'No open gaps'} · All downstream engines will read from this lock
+                    </p>
+                  </div>
+                </div>
+                <p style={{ fontSize: 9, color: '#1a2a1a', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.08em', textAlign: 'right' }}>
+                  Locked · Saved to case_theory_structured · Version incremented · Feeds CrossExamEngine · ApplicationsEngine · MotionEngine · FinalWrittenAddressEngine
+                </p>
+              </div>
+            )}
+          </div>
+        )}
 
         <ErrorBlock message={error} />
         <p style={{ fontSize: 11, color: '#1e1e2a', textAlign: 'center', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.8, marginTop: 16 }}>
