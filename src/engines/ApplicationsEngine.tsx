@@ -68,11 +68,32 @@ import { unlockCaseTheory, saveCaseTheory, lockCaseTheory } from '@/storage/help
  * imports this function. Safe to delete once confirmed unused across the codebase.
  */
 function buildLightTheoryInjection(theory: CaseTheoryRecord): string {
-  return `CASE THEORY CONTEXT (relevant to this application):
+  const base = `CASE THEORY CONTEXT (relevant to this application):
 Core Proposition: ${theory.core_proposition}
 This application must be argued in a manner consistent with and advancing this proposition.
 
 `;
+
+  // Phase 10 — surface open library gaps so the Applications engine does not
+  // argue from statutes that were absent from the library at lock time.
+  // Uses only open_gaps (not the full phase log) — light injection for
+  // applications, which need the gap warning but not the full audit trail.
+  const openGaps = theory.library_query_log?.open_gaps ?? [];
+  if (openGaps.length === 0) return base;
+
+  const gapLines: string[] = [
+    '── LIBRARY GAPS (Phase 10 Inheritance) ──',
+    '⚑ The following statutes were absent from the library at Theory Lock.',
+    '  Do not rely on them. Mark any argument that would depend on them with',
+    '  [LIBRARY GAP: <statute name>].',
+    '',
+  ];
+  openGaps.forEach(g => {
+    gapLines.push(`  ⚑ ${g.name}`);
+  });
+  gapLines.push('');
+
+  return base + gapLines.join('\n') + '\n';
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

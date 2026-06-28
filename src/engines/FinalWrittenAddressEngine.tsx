@@ -62,7 +62,7 @@ const ACC = '#4a7ed0';
 // ─────────────────────────────────────────────────────────────────────────────
 
 function buildTheoryInjection(theory: CaseTheoryRecord): string {
-  return `LOCKED CASE THEORY:
+  const base = `LOCKED CASE THEORY:
 Core Proposition: ${theory.core_proposition}
 Elements to Establish: ${theory.elements.map(e => e.element).join('; ')}
 Opposing Theory: ${theory.opposing_theory}
@@ -72,6 +72,43 @@ Narrative Theme: ${theory.narrative_theme}
 Every issue argued in this Final Written Address must advance the Core Proposition or defeat the Opposing Theory. Do not raise issues that are neutral to this theory. Every submission must serve the verdict we are driving toward.
 
 `;
+
+  // Phase 10 — Library Query Log Inheritance.
+  // Surface the log so the Final Address engine knows exactly which library
+  // sources grounded every proposition in the Intelligence Package and which
+  // laws the engine ran without at lock time. Arguments must not assume
+  // those gaps were filled. Open gaps are flagged with [LIBRARY GAP].
+  const log = theory.library_query_log;
+  if (!log || (log.phases.length === 0 && log.open_gaps.length === 0)) return base;
+
+  const logLines: string[] = [
+    '── LIBRARY QUERY LOG (Phase 10 Inheritance) ──',
+  ];
+
+  if (log.phases.length > 0) {
+    logLines.push('Sources consulted during Intelligence Engine pipeline:');
+    log.phases.forEach(p => {
+      logLines.push(`  ${p.retrieved ? '✓' : '○'} ${p.phase}: ${p.source_note}`);
+    });
+    logLines.push('');
+  }
+
+  if (log.open_gaps.length > 0) {
+    logLines.push('⚑ Open gaps — statutes absent from library at lock time:');
+    logLines.push('  Do not cite or rely on these laws. Mark any submission that would');
+    logLines.push('  depend on them with [LIBRARY GAP: <statute name>].');
+    logLines.push('');
+    log.open_gaps.forEach(g => {
+      logLines.push(`  ⚑ ${g.name} (needed for: ${g.reason})`);
+    });
+    logLines.push('');
+  }
+
+  logLines.push(`Log assembled: ${new Date(log.assembled_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`);
+  if (theory.lock_version) logLines.push(`Theory lock version: ${theory.lock_version}`);
+  logLines.push('');
+
+  return base + logLines.join('\n') + '\n';
 }
 
 function Btn({ onClick, loading, disabled, label, accent = '#40a860' }: {
