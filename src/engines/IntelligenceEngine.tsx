@@ -1,6 +1,8 @@
 /**
  * AFS Advocates — Trial Intelligence Engine
  * Phase 1A — Role Gate & Pipeline Split (Grand Build Plan)
+ * Phase 1C — Commencing Side Pre-Entry Prompt (Stage 0C)
+ * Phase 1B — Receiving Side Served Process Analysis (Stage 0 / 0.5)
  * Phase 2  — Full 5-step pipeline
  *
  * PHASE 1A — ROLE GATE & PIPELINE SPLIT
@@ -15,9 +17,16 @@
  *                           gate is cleared. Confirms: pipeline (Commencing /
  *                           Receiving), role label, track. Non-interactive strip.
  *
+ * PHASE 1C — COMMENCING SIDE PRE-ENTRY PROMPT
+ *   Stage 0C: fires once on the commencing pipeline before raw facts.
+ *   Three questions only: matter type / cause of action, court intended, parties.
+ *   Saves as pre_entry_context on TIEData. Seeds every downstream library query
+ *   with precise context from the first call. Never repeats — once confirmed,
+ *   commencing pipeline proceeds to Stage 1 directly.
+ *
  *   Pipeline split:
  *     COMMENCING (claimant_side | prosecution | petitioner_side | frep_applicant)
- *       → Stage 1 (Raw Facts) → 2 → 3 → 4 → 5
+ *       → Stage 0 (Pre-Entry Prompt) → Stage 1 (Raw Facts) → 2 → 3 → 4 → 5
  *     RECEIVING  (defendant_side | respondent_side | defence | frep_respondent)
  *       → Stage 0 (Entry Path Selector) → 0.5 (SPA) → 1 → 2 → 3 → 4 → 5
  *
@@ -220,6 +229,33 @@ interface RiskVerdictResult {
   batna_notes?:         string;
 }
 
+// ── Phase 1C — Pre-Entry Context (Commencing Side only) ──────────────────────
+
+/**
+ * Confirmed context from the Stage 0C pre-entry prompt (commencing pipeline).
+ * Three fields: cause of action / matter type, court intended, parties summary.
+ * Injected into every downstream extraction and audit prompt as verified seed context.
+ * Saved once — never re-collected unless pipeline is reset.
+ */
+interface PreEntryContext {
+  cause_of_action: string;   // e.g. "Breach of contract — failure to pay under a construction agreement"
+  court_intended:  string;   // e.g. "Delta State High Court, Asaba Division"
+  parties_summary: string;   // e.g. "Claimant: Eze Construction Ltd (corporate). Defendant: Okonkwo Holdings Ltd (corporate)."
+  confirmed_at:    string;   // ISO timestamp
+}
+
+// ── Phase 3C — Laws Needed entry type ────────────────────────────────────────
+
+/** A single entry on the Laws Needed list — a law Claude flagged as absent from the library. */
+interface LawsNeededEntry {
+  name:         string;   // specific citation — e.g. "Limitation Law of Delta State Cap 107 Laws of Delta State 2006"
+  reason:       string;   // why it is needed for this specific analysis
+  flagged_by:   string;   // e.g. "Phase 3A Extraction" or "Phase 4A Commencement Audit"
+  flagged_at:   string;   // ISO timestamp
+  resolved?:    boolean;
+  resolved_at?: string;
+}
+
 interface TIEData {
   stage:               number;
   rawFacts:            string;
@@ -240,6 +276,10 @@ interface TIEData {
   authority_grounding?: IntelligenceData['authority_grounding'];
   /** Phase 2C — Served Process Analysis. Defendant Stage 0.5 output. */
   served_process_analysis?: IntelligenceData['served_process_analysis'];
+  /** Phase 1C — Pre-Entry Context. Commencing side Stage 0C output. Saved once; seeds all downstream prompts. */
+  pre_entry_context?: PreEntryContext;
+  /** Phase 3C — Laws Needed. Accumulated across all extraction and audit calls. Cleared per-entry when law is uploaded. */
+  laws_needed?: LawsNeededEntry[];
 }
 
 interface Props {
@@ -302,9 +342,23 @@ export function IntelligenceEngine({ activeCase, onSave, onSaveRole }: Props) {
   const isCivilDefendant = activeCase.counsel_role === 'defendant_side'; // retained for counterclaim-specific copy
   // Keep isDefendant as alias so unchanged internal references still compile
   const isDefendant = isCivilDefendant;
-  const [stage,              setStage]              = useState<number>(
-    saved.stage ?? (isReceivingSide && !saved.rawFacts ? 0 : 1)
-  );
+
+  // Phase 1C — pre_entry_context drives Stage 0C for commencing pipeline.
+  // Stage 0 fires when:
+  //   - receiving side  → entry path choice (Stage0 component: served vs raw facts)
+  //   - commencing side → pre-entry prompt (Stage0C component: 3 questions)
+  // Stage 0C is skipped on resume if pre_entry_context is already saved.
+  const [preEntryCtx, setPreEntryCtx] = useState<PreEntryContext | undefined>(saved.pre_entry_context);
+
+  const [stage,              setStage]              = useState<number>(() => {
+    if (saved.stage !== undefined) return saved.stage;
+    // Receiving side: always start at 0 (entry path choice) unless facts already entered
+    if (isReceivingSide) return saved.rawFacts ? 1 : 0;
+    // Commencing side: start at 0 (Stage 0C pre-entry prompt) unless already confirmed
+    if (!saved.pre_entry_context) return 0;
+    // Pre-entry confirmed: start at raw facts unless we're further along
+    return 1;
+  });
   const [rawFacts,           setRawFacts]           = useState<string>(saved.rawFacts ?? '');
   const [extraction,         setExtraction]         = useState<ExtractionResult | null>(saved.extraction ?? null);
   const [followUpQs,         setFollowUpQs]         = useState<TIEData['followUpQs']>(saved.followUpQs ?? []);
@@ -348,6 +402,11 @@ export function IntelligenceEngine({ activeCase, onSave, onSaveRole }: Props) {
   const [theoryClashDone,    setTheoryClashDone]    = useState(false);
   const [theoryClashRecord,  setTheoryClashRecord]  = useState<CaseTheoryRecord | null>(null);
 
+  // ── Phase 3C — Laws Needed list ───────────────────────────────────────────
+  // Accumulated across all extraction and audit calls. Persisted at case level.
+  // Never clears automatically — only when a law is uploaded and re-queried.
+  const [lawsNeeded, setLawsNeeded] = useState<LawsNeededEntry[]>(saved.laws_needed ?? []);
+
   const { partyA, partyB, partyAPlural, partyBPlural, ourSide } = getPartyLabels(activeCase);
 
   const role = activeCase.counsel_role
@@ -371,6 +430,8 @@ ${partyBPlural}: ${activeCase.defendants.map(d => d.name).filter(Boolean).join('
       risk_verdict:            riskVerdict,
       authority_grounding:     authorityGrounding,
       served_process_analysis: spaResult,
+      pre_entry_context:       preEntryCtx,
+      laws_needed:             lawsNeeded,
       ...updates,
     };
     onSave(data);
@@ -383,8 +444,13 @@ ${partyBPlural}: ${activeCase.defendants.map(d => d.name).filter(Boolean).join('
 
   function goBack(n: number) { setStage(n); setError(''); }
 
-  // ── Step 1 → 2: Extract intelligence ──────────────────────────────────────
-  // ── Step 1 → 2: Extract intelligence ──────────────────────────────────────
+  // ── Phase 3A — Core Extraction (Grand Build Plan) ────────────────────────
+  // Standing Rule: library queried first against matter type, court, cause of
+  // action (from pre-entry context), and all legal issues visible from raw facts.
+  // Library results injected into system prompt. Claude reasons from those
+  // sources first and flags by name any law it needed that was not returned.
+  // Phase 3B (counterclaim detection) runs inside the same call.
+  // Phase 3C (missing law detection) runs after and updates Laws Needed list.
   async function runExtraction() {
     if (rawFacts.trim().length < 50) {
       setError('Please provide a fuller account of the facts (at least 50 characters).');
@@ -398,17 +464,56 @@ ${partyBPlural}: ${activeCase.defendants.map(d => d.name).filter(Boolean).join('
         ? `\n\nOPPONENT THEORY (from Served Process Analysis — already extracted):\n${spaResult!.claimant_theory}\n\nPRE-IDENTIFIED COUNTERCLAIM HINTS (from Served Process — evaluate and confirm or refine):\n${spaResult!.counterclaim_hints.length > 0 ? spaResult!.counterclaim_hints.map((h: string, i: number) => `${i + 1}. ${h}`).join('\n') : 'None identified from process text.'}\n\nINSTRUCTION: You already know the ${partyA}'s theory from the served process above. Your extraction must now:\n1. Frame every legal issue as a clash between that theory and the ${partyB}'s position revealed in the client instructions below.\n2. Identify which of the ${partyA}'s factual allegations are admitted, disputed, or unknown from the client's account.\n3. Re-evaluate the counterclaim hints above against the client's fuller instructions — confirm, expand, or dismiss each one with reasons in "counterclaim_detected".`
         : '';
 
+      // ── Phase 3B: Counterclaim / defence-calibrated instruction ──────────
       const counterclaimInstruction = isDefendantWithSPA
         ? `COUNTERCLAIM EVALUATION (${partyB} path — theory-aware): The served process already surfaced counterclaim hints (listed above). Now that you have the client's full instructions, assess whether those hints ripen into a viable counterclaim. A counterclaim requires: (a) an independent cause of action, (b) arising from the same transaction or occurrence, (c) seeking affirmative relief — not merely a defence. Set "counterclaim_detected.flag" to true if one is confirmed, and write a 1–2 sentence "summary" identifying who brings it, against whom, and the cause of action. If the hints do not ripen, set flag to false and include a brief explanation in summary.`
-        : `COUNTERCLAIM DETECTION: Where this is a civil matter, actively assess whether the facts disclose a viable counterclaim — an independent cause of action arising from the same transaction or facts (available to the opposing side, or to our client if we act for the defendant) that could be raised as a cross-class under the applicable Rules of Civil Procedure. A counterclaim is distinct from a mere defence or set-off: it seeks affirmative relief in its own right, not merely a denial of liability. Set "counterclaim_detected.flag" to true only where one is reasonably disclosed on the facts, and write a one-to-two sentence "counterclaim_detected.summary" stating who would bring it, against whom, and the cause of action. Do not fabricate a counterclaim where the facts do not support one — if this is not a civil matter, or no counterclaim is disclosed, set "flag" to false and omit "summary".`;
+        : `COUNTERCLAIM DETECTION: Where this is a civil matter, actively assess whether the facts disclose a viable counterclaim — an independent cause of action arising from the same transaction or facts that could be raised as a cross-claim under the applicable Rules of Civil Procedure. A counterclaim seeks affirmative relief, not merely a denial. Set "counterclaim_detected.flag" to true only where one is reasonably disclosed, and write a 1–2 sentence "counterclaim_detected.summary" stating who would bring it, against whom, and the cause of action. If not a civil matter or no counterclaim is disclosed, set flag to false.`;
 
-      const raw = await withRetry(() => callClaude({
-        system: `You are a trial intelligence extraction engine for Nigerian litigation.\nExtract structured intelligence from the raw case facts provided by the user.\nRole-aware: the lawyer acts for the ${role}.\nCase context: ${caseCtx}${spaTheoryBlock}\n\n${counterclaimInstruction}\n\nOutput ONLY valid JSON — no markdown fences, no preamble, no explanation. Exactly this structure:\n{\n  "timeline": [{"date":"...","event":"...","significance":"..."}],\n  "established_facts": ["..."],\n  "disputed_areas": ["..."],\n  "legal_issues": ["..."],\n  "evidence_mentioned": ["..."],\n  "gaps_identified": ["..."],\n  "initial_risks": [{"risk":"...","severity":"HIGH|MEDIUM|LOW"}],\n  "counterclaim_detected": {"flag": true|false, "summary": "..."}\n}\n\nRules:\n- Every string value must be properly escaped. Never use unescaped double quotes inside string values.\n- Use single quotes or rephrase if quoting speech — never raw double quotes inside JSON strings.\n- Output ONLY the JSON object. Nothing before it, nothing after it.`,
+      // ── Phase 3A: Role-calibrated extraction instruction ─────────────────
+      const isCommencing = !isReceivingSide;
+      const roleCalibration = isCommencing
+        ? `ROLE CALIBRATION — CLAIMANT/COMMENCING SIDE:
+You act for the party commencing this matter. Extract with a claimant's lens:
+— Elements to prove: for each legal issue, identify what the claimant must establish and the standard of proof
+— Evidence strength: which established facts directly support each element
+— Gaps that must be filled before filing — any missing link that defeats an element
+— Risks that could defeat the claim at trial or on a preliminary objection`
+        : `ROLE CALIBRATION — DEFENDANT/RECEIVING SIDE:
+You act for the party served with this process. Extract with a defendant's lens:
+— Elements to attack: for each legal issue, identify where the claimant's proof is weakest
+— Admitted vs. disputed: separate facts the client can concede from those to contest
+— Positive defences available from the facts — not just denial but affirmative grounds
+— Preliminary objection angles: procedural gaps in how the claimant commenced`;
+
+      // ── Phase 3C: Missing law instruction ────────────────────────────────
+      const missingLawInstruction = `LAWS NEEDED (Phase 3C — mandatory):
+After completing your extraction, identify every statute, rule of court, or binding authority you needed to reason about this case that was NOT present in the library context above.
+Name each one specifically — not "limitation law" but the exact title, e.g. "Limitation Law of Delta State Cap 107 Laws of Delta State 2006" or "Order 3 Rule 2 High Court (Civil Procedure) Rules of Lagos State 2019".
+State precisely why each is needed for this specific analysis.
+Return them in the "laws_needed" array. If all needed laws were present in the library, return an empty array.`;
+
+      // ── Library query hint — built from confirmed pre-entry context + case context ──
+      const libraryQueryHint = [
+        preEntryCtx?.cause_of_action,
+        preEntryCtx?.court_intended ?? activeCase.court,
+        activeCase.matter_track,
+        isCommencing ? 'limitation period conditions precedent originating process' : 'service validity jurisdiction preliminary objection defence',
+        rawFacts.slice(0, 300),
+      ].filter(Boolean).join(' ').slice(0, 600);
+
+      const { text: raw } = await withRetry(() => callClaude({
+        system: `You are a trial intelligence extraction engine for Nigerian litigation.\nExtract structured intelligence from the raw case facts provided by the user.\nRole-aware: the lawyer acts for the ${role}.\nCase context: ${caseCtx}${preEntryCtx ? `\n\nPRE-ENTRY CONTEXT (confirmed before facts intake):\nCause of Action / Matter Type: ${preEntryCtx.cause_of_action}\nCourt Intended: ${preEntryCtx.court_intended}\nParties: ${preEntryCtx.parties_summary}` : ''}${spaTheoryBlock}\n\n${roleCalibration}\n\n${counterclaimInstruction}\n\n${missingLawInstruction}\n\nOutput ONLY valid JSON — no markdown fences, no preamble, no explanation. Exactly this structure:\n{\n  "timeline": [{"date":"...","event":"...","significance":"..."}],\n  "established_facts": ["..."],\n  "disputed_areas": ["..."],\n  "legal_issues": ["..."],\n  "evidence_mentioned": ["..."],\n  "gaps_identified": ["..."],\n  "initial_risks": [{"risk":"...","severity":"HIGH|MEDIUM|LOW"}],\n  "counterclaim_detected": {"flag": true|false, "summary": "..."},\n  "laws_needed": [{"name":"exact statutory citation","reason":"why needed for this specific analysis"}]\n}\n\nRules:\n- Reason from library sources first. Where a library source directly answers a legal question, cite it as "[Library: <title>]" in the relevant extracted string.\n- laws_needed must list ONLY laws absent from the library — not laws that were retrieved. If the library covered everything, return an empty array.\n- Every string value must be properly escaped. Never use unescaped double quotes inside string values.\n- Use single quotes or rephrase if quoting speech — never raw double quotes inside JSON strings.\n- Output ONLY the JSON object. Nothing before it, nothing after it.`,
         userMsg: isDefendantWithSPA
           ? `SERVED PROCESS (already analysed — use the OPPONENT THEORY block from the system prompt; do not re-extract theory from this):\n\n${spaResult!.process_text}\n\n──────────────────────────────────────\nCLIENT INSTRUCTIONS / DEFENDANT'S ACCOUNT:\n\n${rawFacts}`
           : `RAW FACTS / CLIENT NARRATION:\n\n${rawFacts}`,
         maxTokens: 5000,
-        skipLibrary: true,
+        matter_track: activeCase.matter_track,
+        counsel_role: activeCase.counsel_role,
+        libraryOpts: {
+          queryHint: libraryQueryHint,
+          topK: 12,
+          threshold: 0.68,
+        },
       }));
 
       let cleaned = raw.trim();
@@ -418,7 +523,10 @@ ${partyBPlural}: ${activeCase.defendants.map(d => d.name).filter(Boolean).join('
       if (start === -1 || end === -1) throw new Error('No JSON object found in response. Please try again.');
       cleaned = cleaned.slice(start, end + 1);
 
-      let ext: ExtractionResult & { counterclaim_detected?: CounterclaimDetectedResult };
+      let ext: ExtractionResult & {
+        counterclaim_detected?: CounterclaimDetectedResult;
+        laws_needed?: Array<{ name: string; reason: string }>;
+      };
       try {
         ext = JSON.parse(cleaned);
       } catch {
@@ -432,15 +540,43 @@ ${partyBPlural}: ${activeCase.defendants.map(d => d.name).filter(Boolean).join('
       // Split counterclaim_detected out — it lives as a sibling of `extraction`
       // on intelligence_data (Phase 6A-ii), not nested inside it, even though
       // the AI returns both in the same Step 2 JSON blob.
-      const { counterclaim_detected: ccRaw, ...extractionOnly } = ext;
+      const { counterclaim_detected: ccRaw, laws_needed: lawsRaw, ...extractionOnly } = ext;
       const counterclaim: CounterclaimDetectedResult =
         ccRaw && typeof ccRaw.flag === 'boolean'
           ? { flag: ccRaw.flag, ...(ccRaw.summary ? { summary: ccRaw.summary } : {}) }
           : { flag: false };
 
+      // ── Phase 3C — Missing Law Detection ──────────────────────────────────
+      // Merge newly flagged laws into the persistent Laws Needed list.
+      // De-duplicate by name (case-insensitive) to avoid double entries across
+      // multiple extraction runs. Unresolved existing entries are preserved.
+      const now = new Date().toISOString();
+      const newEntries: LawsNeededEntry[] = (lawsRaw ?? [])
+        .filter(e => e.name && e.name.trim().length > 3)
+        .map(e => ({
+          name:       e.name.trim(),
+          reason:     e.reason?.trim() ?? 'Needed for extraction analysis',
+          flagged_by: 'Phase 3A Extraction',
+          flagged_at: now,
+        }));
+
+      const existingNames = new Set(
+        lawsNeeded.map(e => e.name.toLowerCase().trim())
+      );
+      const dedupedNew = newEntries.filter(
+        e => !existingNames.has(e.name.toLowerCase().trim())
+      );
+      const updatedLawsNeeded = [...lawsNeeded, ...dedupedNew];
+      setLawsNeeded(updatedLawsNeeded);
+
       setExtraction(extractionOnly);
       setCounterclaimDetected(counterclaim);
-      advance(2, { extraction: extractionOnly, rawFacts, counterclaim_detected: counterclaim });
+      advance(2, {
+        extraction:            extractionOnly,
+        rawFacts,
+        counterclaim_detected: counterclaim,
+        laws_needed:           updatedLawsNeeded,
+      });
       // Step 2b fires automatically — non-blocking (does not await)
       runCommencementAudit(extractionOnly);
       // Phase 2E — Theory Clash Synthesis fires automatically on defendant+SPA path (non-blocking)
@@ -1696,6 +1832,170 @@ Rules:
   }
 
   // ─────────────────────────────────────────────────────────────────────────
+  // STAGE 0C — Commencing Side Pre-Entry Prompt (Phase 1C)
+  // Fires once before raw facts on the commencing pipeline.
+  // Three questions: cause of action / matter type, court intended, parties.
+  // Saves to pre_entry_context. Advances to Stage 1. Never repeats.
+  // ─────────────────────────────────────────────────────────────────────────
+  function Stage0C() {
+    const [coa,     setCoa]     = React.useState(preEntryCtx?.cause_of_action ?? activeCase.court ? '' : '');
+    const [court,   setCourt]   = React.useState(preEntryCtx?.court_intended   ?? activeCase.court ?? '');
+    const [parties, setParties] = React.useState(preEntryCtx?.parties_summary  ?? (() => {
+      const a = activeCase.claimants.map(c => c.name).filter(Boolean).join(', ');
+      const b = activeCase.defendants.map(d => d.name).filter(Boolean).join(', ');
+      if (a || b) return `${partyA}: ${a || 'Not named'}. ${partyB}: ${b || 'Not named'}.`;
+      return '';
+    })());
+    const [saving,  setSaving]  = React.useState(false);
+
+    const canConfirm = coa.trim().length > 3 && court.trim().length > 3 && parties.trim().length > 3;
+
+    async function confirmPreEntry() {
+      if (!canConfirm) return;
+      setSaving(true);
+      const ctx: PreEntryContext = {
+        cause_of_action: coa.trim(),
+        court_intended:  court.trim(),
+        parties_summary: parties.trim(),
+        confirmed_at:    new Date().toISOString(),
+      };
+      setPreEntryCtx(ctx);
+      advance(1, { pre_entry_context: ctx });
+      setSaving(false);
+    }
+
+    const inputStyle: React.CSSProperties = {
+      width: '100%', boxSizing: 'border-box',
+      background: '#07070f', border: '1px solid #2a2a48',
+      borderRadius: 6, padding: '10px 12px',
+      fontSize: 13, color: '#c8c8e8',
+      fontFamily: "'Times New Roman', Times, serif",
+      outline: 'none', resize: 'vertical' as const,
+      lineHeight: 1.6,
+    };
+    const labelStyle: React.CSSProperties = {
+      fontSize: 9, color: '#6060a0',
+      fontFamily: "'Times New Roman', Times, serif",
+      letterSpacing: '.12em', textTransform: 'uppercase' as const,
+      fontWeight: 700, marginBottom: 5, display: 'block',
+    };
+    const purposeStyle: React.CSSProperties = {
+      fontSize: 11, color: '#404060',
+      fontFamily: "'Times New Roman', Times, serif",
+      lineHeight: 1.55, marginBottom: 10,
+    };
+
+    return (
+      <div style={{ animation: 'fadeUp .3s ease' }}>
+        {/* Header */}
+        <div style={{ marginBottom: 28 }}>
+          <p style={{ fontSize: 10, color: '#4040a0', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.16em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 4 }}>
+            Phase 1C · Commencing Side Pre-Entry
+          </p>
+          <h2 style={{ fontSize: 22, color: '#111111', fontFamily: "'Times New Roman', Times, serif", fontWeight: 300, marginBottom: 8 }}>
+            Seed the Pipeline
+          </h2>
+          <p style={{ fontSize: 13, color: '#606080', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.7, maxWidth: 560 }}>
+            Three questions. Your answers seed every downstream library query with precise context from the first call —
+            so the engine knows exactly what statutes, rules of court, and authorities to retrieve before you enter the facts.
+            Confirm once. Never asked again.
+          </p>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 22, maxWidth: 620 }}>
+
+          {/* Q1 — Cause of Action / Matter Type */}
+          <div>
+            <label style={labelStyle}>Question 1 — Cause of Action / Matter Type</label>
+            <p style={purposeStyle}>
+              What is the nature of the claim we are commencing? Name the cause of action and the broad subject matter.
+              The more specific you are, the more precisely the library can retrieve limitation rules, conditions precedent, and the applicable procedural chain.
+            </p>
+            <textarea
+              rows={3}
+              placeholder="e.g. Breach of contract — failure to pay under a construction sub-contract. Or: Negligence / personal injury arising from a road traffic accident."
+              value={coa}
+              onChange={e => setCoa(e.target.value)}
+              style={inputStyle}
+            />
+          </div>
+
+          {/* Q2 — Court Intended */}
+          <div>
+            <label style={labelStyle}>Question 2 — Court Intended</label>
+            <p style={purposeStyle}>
+              Which court do we intend to file in? Include state and division if applicable.
+              This determines jurisdiction rules, filing requirements, pre-action protocol, and originating process type retrieved from the library.
+            </p>
+            <input
+              type="text"
+              placeholder="e.g. Delta State High Court, Asaba Division. Or: Federal High Court, Lagos Division. Or: National Industrial Court, Abuja."
+              value={court}
+              onChange={e => setCourt(e.target.value)}
+              style={{ ...inputStyle, resize: undefined }}
+            />
+          </div>
+
+          {/* Q3 — Parties */}
+          <div>
+            <label style={labelStyle}>Question 3 — Parties</label>
+            <p style={purposeStyle}>
+              Briefly identify each party: name and whether individual or corporate. Include any special status relevant to jurisdiction or service
+              (e.g. government body, foreign company, minor).
+            </p>
+            <textarea
+              rows={3}
+              placeholder={`e.g. ${partyA}: Eze Construction Ltd (corporate, Nigerian). ${partyB}: Okonkwo Holdings Ltd (corporate, Nigerian). Or note if a party is a government ministry, agency, or foreign entity.`}
+              value={parties}
+              onChange={e => setParties(e.target.value)}
+              style={inputStyle}
+            />
+          </div>
+
+          {/* Confirm button */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, paddingTop: 4 }}>
+            <button
+              onClick={confirmPreEntry}
+              disabled={!canConfirm || saving}
+              style={{
+                background: canConfirm ? '#1a1a40' : '#0d0d1a',
+                border: `1px solid ${canConfirm ? '#4040a0' : '#1e1e30'}`,
+                borderRadius: 6, padding: '10px 24px',
+                fontSize: 12, color: canConfirm ? '#c8c8e8' : '#3a3a58',
+                fontFamily: "'Times New Roman', Times, serif",
+                fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase',
+                cursor: canConfirm ? 'pointer' : 'not-allowed',
+                transition: 'border-color .15s, background .15s',
+              }}
+            >
+              {saving ? 'Saving…' : 'Confirm & Proceed to Facts ›'}
+            </button>
+            {!canConfirm && (
+              <p style={{ fontSize: 11, color: '#3a3a58', fontFamily: "'Times New Roman', Times, serif" }}>
+                All three fields required
+              </p>
+            )}
+          </div>
+
+          {/* Why this matters */}
+          <div style={{ background: '#07070f', border: '1px solid #141428', borderRadius: 8, padding: '14px 16px', marginTop: 4 }}>
+            <p style={{ fontSize: 9, color: '#303060', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 6 }}>
+              Why This Matters
+            </p>
+            <p style={{ fontSize: 12, color: '#404060', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.7 }}>
+              Without this context, the library must wait until the raw facts are entered before it knows what to query.
+              With it, the engine can front-load retrieval of the correct limitation period, conditions precedent, originating process rules,
+              and pre-action protocol for this specific court and cause of action — so every downstream call reasons from verified sources,
+              not training memory.
+            </p>
+          </div>
+
+        </div>
+      </div>
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
   // STAGE 0 — Entry Path Selector (Phase 2A) — Defendant side only
   // ─────────────────────────────────────────────────────────────────────────
   function Stage0() {
@@ -2350,7 +2650,10 @@ Rules:
     );
   }
 
-  // STAGE 1 — Raw Facts
+  // ─────────────────────────────────────────────────────────────────────────
+  // STAGE 1 — Phase 2A: Raw Facts Intake
+  // Human input only. No AI until the extract button is pressed.
+  // Phase 2B (Process Context Banner) fires inside this stage for receiving side.
   // ─────────────────────────────────────────────────────────────────────────
   function Stage1() {
     const isDefendantWithSPA = isReceivingSide && !!spaResult;
@@ -2358,7 +2661,7 @@ Rules:
       <div style={{ animation: 'fadeUp .3s ease' }}>
         <div style={{ marginBottom: 20 }}>
           <p style={{ fontSize: 10, color: T.text, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.16em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 4 }}>
-            Step 1 of 5 · {isDefendantWithSPA ? 'Client Instructions' : 'Raw Facts'}
+            Phase 2A · Step 1 of 5 · {isDefendantWithSPA ? 'Client Instructions' : 'Raw Facts Intake'}
           </p>
           <h2 style={{ fontSize: 22, color: '#111111', fontFamily: "'Times New Roman', Times, serif", fontWeight: 300, marginBottom: 6 }}>
             {isDefendantWithSPA ? `${partyB}'s Account & Instructions` : 'Enter the Complete Case Narrative'}
@@ -2371,95 +2674,219 @@ Rules:
           </p>
         </div>
 
-        {/* Phase 2D — Theory context banner for defendant SPA path */}
+        {/* ── Phase 2B — Process Context Banner (receiving side only) ────────────
+            Persistent. Displayed above the facts textarea so the lawyer writes
+            the client's account knowing exactly what the opponent's process
+            disclosed. The two accounts are never siloed. Grand Build Plan §2B. */}
         {isDefendantWithSPA && spaResult && (() => {
           const spa = spaResult;
           const poGrounds = spa.preliminary_objection_grounds ?? [];
-          const fatalCount = poGrounds.filter(g => g.rank === 'FATAL_SUSTAINABLE').length;
-          const verdictCfg: Record<string, { bg: string; bdr: string; col: string; icon: string }> = {
-            CLEAN:   { bg: '#07100a', bdr: '#1a3020', col: '#40b068', icon: '✓' },
-            DEFECTS: { bg: '#100e00', bdr: '#2a2000', col: '#c08030', icon: '⚠' },
-            FATAL:   { bg: '#100808', bdr: '#2a1818', col: '#c05050', icon: '✗' },
+          const fatalCount = poGrounds.filter((g: { rank: string }) => g.rank === 'FATAL_SUSTAINABLE').length;
+          const verdictCfg: Record<string, { bg: string; bdr: string; col: string; headerBdr: string; icon: string }> = {
+            CLEAN:   { bg: '#06100a', bdr: '#183020', col: '#40b068', headerBdr: '#1a3828', icon: '✓' },
+            DEFECTS: { bg: '#0e0c00', bdr: '#262000', col: '#c08030', headerBdr: '#2a2208', icon: '⚠' },
+            FATAL:   { bg: '#0e0606', bdr: '#281818', col: '#c05050', headerBdr: '#2a1818', icon: '✗' },
           };
-          const vc = verdictCfg[spa.spa_verdict ?? 'CLEAN'];
+          const vc = verdictCfg[spa.spa_verdict ?? 'CLEAN'] ?? verdictCfg.CLEAN;
+
+          const statusPill = (label: string, value: string, good: boolean | null) => (
+            <div style={{ background: '#080810', border: '1px solid #141428', borderRadius: 4, padding: '6px 10px', flexShrink: 0 }}>
+              <p style={{ fontSize: 8, color: '#383858', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.1em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 3 }}>{label}</p>
+              <p style={{ fontSize: 11, fontFamily: "'Times New Roman', Times, serif", fontWeight: 700,
+                color: good === true ? '#40b068' : good === false ? '#c05050' : '#c08030' }}>
+                {value}
+              </p>
+            </div>
+          );
 
           return (
-            <div style={{ background: vc.bg, border: `1px solid ${vc.bdr}`, borderRadius: 8, padding: '14px 16px', marginBottom: 14 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
-                <p style={{ fontSize: 9, color: vc.col, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 700 }}>
-                  Phase 1B SPA Loaded · {partyA} Theory Active
-                </p>
-                <span style={{ marginLeft: 'auto', fontSize: 8, color: vc.col, fontFamily: "'Times New Roman', Times, serif", fontWeight: 700, letterSpacing: '.1em', background: vc.bg, border: `1px solid ${vc.bdr}`, padding: '2px 8px', borderRadius: 2 }}>
-                  {vc.icon} {spa.spa_verdict ?? 'CLEAN'}
-                </span>
-                {fatalCount > 0 && (
-                  <span style={{ fontSize: 8, color: '#c05050', fontFamily: "'Times New Roman', Times, serif", fontWeight: 700, letterSpacing: '.1em', background: '#1a0808', border: '1px solid #401818', padding: '2px 8px', borderRadius: 2 }}>
-                    {fatalCount} FATAL PO
-                  </span>
-                )}
-              </div>
+            <div style={{ background: vc.bg, border: `1px solid ${vc.bdr}`, borderRadius: 10, marginBottom: 16, overflow: 'hidden' }}>
 
-              {/* Claimant theory */}
-              <p style={{ fontSize: 12, color: '#a0c8a8', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.65, marginBottom: 10 }}>
-                {spa.claimant_theory}
-              </p>
-
-              {/* Mini status row: Service / Jurisdiction / Conditions / Limitation */}
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: spaResult.counterclaim_hints.length > 0 ? 10 : 0 }}>
-                {spa.service_validity && (
-                  <div style={{ background: '#0a0a12', border: '1px solid #1a1a28', borderRadius: 4, padding: '5px 10px' }}>
-                    <p style={{ fontSize: 8, color: '#3a3a52', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.08em', textTransform: 'uppercase', marginBottom: 2 }}>Service</p>
-                    <p style={{ fontSize: 11, color: spa.service_validity.status === 'VALID' ? '#40b068' : spa.service_validity.status === 'DEFECTIVE' ? '#c05050' : '#c08030', fontFamily: "'Times New Roman', Times, serif", fontWeight: 600 }}>
-                      {spa.service_validity.status}
-                    </p>
-                  </div>
-                )}
-                {spa.jurisdiction_analysis && (
-                  <div style={{ background: '#0a0a12', border: '1px solid #1a1a28', borderRadius: 4, padding: '5px 10px' }}>
-                    <p style={{ fontSize: 8, color: '#3a3a52', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.08em', textTransform: 'uppercase', marginBottom: 2 }}>Jurisdiction</p>
-                    <p style={{ fontSize: 11, color: spa.jurisdiction_analysis.status === 'ESTABLISHED' ? '#40b068' : spa.jurisdiction_analysis.status === 'DOUBTFUL' ? '#c05050' : '#c08030', fontFamily: "'Times New Roman', Times, serif", fontWeight: 600 }}>
-                      {spa.jurisdiction_analysis.status}
-                    </p>
-                  </div>
-                )}
-                {spa.conditions_precedent && (
-                  <div style={{ background: '#0a0a12', border: '1px solid #1a1a28', borderRadius: 4, padding: '5px 10px' }}>
-                    <p style={{ fontSize: 8, color: '#3a3a52', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.08em', textTransform: 'uppercase', marginBottom: 2 }}>Conditions Pre.</p>
-                    <p style={{ fontSize: 11, color: spa.conditions_precedent.status === 'SATISFIED' ? '#40b068' : spa.conditions_precedent.status === 'UNSATISFIED' ? '#c05050' : '#c08030', fontFamily: "'Times New Roman', Times, serif", fontWeight: 600 }}>
-                      {spa.conditions_precedent.status}{spa.conditions_precedent.fatal ? ' · FATAL' : ''}
-                    </p>
-                  </div>
-                )}
-                {spa.limitation_analysis && (
-                  <div style={{ background: '#0a0a12', border: '1px solid #1a1a28', borderRadius: 4, padding: '5px 10px' }}>
-                    <p style={{ fontSize: 8, color: '#3a3a52', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.08em', textTransform: 'uppercase', marginBottom: 2 }}>Limitation</p>
-                    <p style={{ fontSize: 11, color: spa.limitation_analysis.defence_available ? '#40b068' : spa.limitation_analysis.status === 'EXPIRED' ? '#40b068' : spa.limitation_analysis.status === 'UNCLEAR' ? '#c08030' : '#c05050', fontFamily: "'Times New Roman', Times, serif", fontWeight: 600 }}>
-                      {spa.limitation_analysis.defence_available ? 'DEFENCE AVAILABLE' : spa.limitation_analysis.status}
-                    </p>
-                  </div>
-                )}
-                {poGrounds.length > 0 && (
-                  <div style={{ background: fatalCount > 0 ? '#1a0808' : '#0a0a12', border: `1px solid ${fatalCount > 0 ? '#401818' : '#1a1a28'}`, borderRadius: 4, padding: '5px 10px' }}>
-                    <p style={{ fontSize: 8, color: '#3a3a52', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.08em', textTransform: 'uppercase', marginBottom: 2 }}>PO Grounds</p>
-                    <p style={{ fontSize: 11, color: fatalCount > 0 ? '#c05050' : '#c08030', fontFamily: "'Times New Roman', Times, serif", fontWeight: 600 }}>
-                      {poGrounds.length} ({fatalCount} fatal)
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {spaResult.counterclaim_hints.length > 0 && (
-                <div style={{ borderTop: `1px solid ${vc.bdr}`, paddingTop: 8 }}>
-                  <p style={{ fontSize: 9, color: '#60c888', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 4 }}>
-                    {spaResult.counterclaim_hints.length} {activeCase.counsel_role === 'respondent_side' ? 'Cross-Petition' : activeCase.counsel_role === 'frep_respondent' ? 'Preliminary Objection' : 'Counterclaim'} Hint{spaResult.counterclaim_hints.length > 1 ? 's' : ''} — Will Be Re-Evaluated Against Client Instructions
+              {/* ── Header bar ────────────────────────────────────────────────── */}
+              <div style={{ padding: '12px 18px', borderBottom: `1px solid ${vc.headerBdr}`, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 14, flexShrink: 0 }}>📋</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: 9, color: vc.col, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.16em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 2 }}>
+                    Phase 2B · {partyA} Process Context — Active While You Write
                   </p>
-                  {spaResult.counterclaim_hints.map((h: string, i: number) => (
-                    <p key={i} style={{ fontSize: 11, color: '#608870', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.6, marginBottom: 2 }}>
-                      {i + 1}. {h}
-                    </p>
-                  ))}
+                  <p style={{ fontSize: 11, color: '#606080', fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic' }}>
+                    {spa.process_type} · Write {partyB}'s account with the opponent's case visible above
+                  </p>
                 </div>
-              )}
+                <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                  <span style={{ fontSize: 9, color: vc.col, fontFamily: "'Times New Roman', Times, serif", fontWeight: 700, letterSpacing: '.1em', background: vc.bg, border: `1px solid ${vc.bdr}`, padding: '3px 9px', borderRadius: 3 }}>
+                    {vc.icon} {spa.spa_verdict ?? 'CLEAN'}
+                  </span>
+                  {fatalCount > 0 && (
+                    <span style={{ fontSize: 9, color: '#c05050', fontFamily: "'Times New Roman', Times, serif", fontWeight: 700, letterSpacing: '.1em', background: '#1a0808', border: '1px solid #3a1818', padding: '3px 9px', borderRadius: 3 }}>
+                      {fatalCount} FATAL PO
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* ── Body ──────────────────────────────────────────────────────── */}
+              <div style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+                {/* Section A — Opponent Theory */}
+                <div>
+                  <p style={{ fontSize: 9, color: '#5050a0', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 8 }}>
+                    A · {partyA} Legal Theory
+                  </p>
+                  <p style={{ fontSize: 13, color: '#a8b8e8', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.75, paddingLeft: 12, borderLeft: `3px solid ${vc.bdr}` }}>
+                    {spa.claimant_theory}
+                  </p>
+                </div>
+
+                {/* Section B — Claims Identified */}
+                {spa.claims_identified.length > 0 && (
+                  <div>
+                    <p style={{ fontSize: 9, color: '#5050a0', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 8 }}>
+                      B · Claims &amp; Relief Sought ({spa.claims_identified.length})
+                    </p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                      {spa.claims_identified.map((c: string, i: number) => (
+                        <div key={i} style={{ fontSize: 12, color: '#8898c8', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.65, paddingLeft: 14, borderLeft: '2px solid #1e1e38', position: 'relative' }}>
+                          <span style={{ position: 'absolute', left: 4, top: 0, fontSize: 9, color: '#3a3a68', fontFamily: "'Times New Roman', Times, serif", fontWeight: 700 }}>{i + 1}</span>
+                          {c}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Section C — Factual Allegations Against Our Client */}
+                {spa.factual_allegations.length > 0 && (
+                  <div>
+                    <p style={{ fontSize: 9, color: '#a06030', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 8 }}>
+                      C · Allegations Against {partyB} — Address Each in Your Account Below
+                    </p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                      {spa.factual_allegations.map((a: string, i: number) => (
+                        <div key={i} style={{ fontSize: 12, color: '#b89060', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.65, paddingLeft: 14, borderLeft: '2px solid #2a1808', position: 'relative' }}>
+                          <span style={{ position: 'absolute', left: 4, top: 0, fontSize: 9, color: '#503010', fontFamily: "'Times New Roman', Times, serif", fontWeight: 700 }}>{i + 1}</span>
+                          {a}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Section D — Procedural Status Pills */}
+                <div>
+                  <p style={{ fontSize: 9, color: '#404060', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 8 }}>
+                    D · Procedural Analysis
+                  </p>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    {spa.process_type_analysis && statusPill(
+                      'Process Type',
+                      spa.process_type_analysis.correct ? 'CORRECT' : 'DEFECTIVE',
+                      spa.process_type_analysis.correct,
+                    )}
+                    {spa.service_validity && statusPill(
+                      'Service',
+                      spa.service_validity.status,
+                      spa.service_validity.status === 'VALID' ? true : spa.service_validity.status === 'DEFECTIVE' ? false : null,
+                    )}
+                    {spa.jurisdiction_analysis && statusPill(
+                      'Jurisdiction',
+                      spa.jurisdiction_analysis.status,
+                      spa.jurisdiction_analysis.status === 'ESTABLISHED' ? true : spa.jurisdiction_analysis.status === 'DOUBTFUL' ? false : null,
+                    )}
+                    {spa.conditions_precedent && statusPill(
+                      'Conditions Pre.',
+                      `${spa.conditions_precedent.status}${spa.conditions_precedent.fatal ? ' · FATAL' : ''}`,
+                      spa.conditions_precedent.status === 'SATISFIED' ? true : spa.conditions_precedent.status === 'UNSATISFIED' ? false : null,
+                    )}
+                    {spa.limitation_analysis && statusPill(
+                      'Their Limitation',
+                      spa.limitation_analysis.defence_available ? 'DEFENCE AVAIL.' : spa.limitation_analysis.status,
+                      spa.limitation_analysis.status === 'EXPIRED' || spa.limitation_analysis.defence_available ? true
+                        : spa.limitation_analysis.status === 'UNCLEAR' ? null : false,
+                    )}
+                    {poGrounds.length > 0 && statusPill(
+                      'PO Grounds',
+                      `${poGrounds.length} (${fatalCount} fatal)`,
+                      fatalCount > 0 ? true : null,
+                    )}
+                  </div>
+
+                  {/* Process type defect detail */}
+                  {spa.process_type_analysis && !spa.process_type_analysis.correct && spa.process_type_analysis.defect && (
+                    <p style={{ fontSize: 11, color: '#c07070', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.6, marginTop: 8, paddingLeft: 12, borderLeft: '2px solid #3a1818', fontStyle: 'italic' }}>
+                      Process defect: {spa.process_type_analysis.defect}
+                    </p>
+                  )}
+
+                  {/* Service defects */}
+                  {spa.service_validity && (spa.service_validity.defects ?? []).length > 0 && (
+                    <div style={{ marginTop: 8 }}>
+                      {(spa.service_validity.defects ?? []).map((d: string, i: number) => (
+                        <p key={i} style={{ fontSize: 11, color: '#c07070', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.6, paddingLeft: 12, borderLeft: '2px solid #3a1818', fontStyle: 'italic', marginBottom: 3 }}>
+                          Service: {d}
+                        </p>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Section E — Preliminary Objection Grounds */}
+                {poGrounds.length > 0 && (
+                  <div>
+                    <p style={{ fontSize: 9, color: fatalCount > 0 ? '#c05050' : '#8060a0', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 8 }}>
+                      E · Preliminary Objection Grounds ({poGrounds.length})
+                    </p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {poGrounds.map((g: { rank: string; ground: string; basis: string }, i: number) => {
+                        const rankCfg: Record<string, { col: string; bg: string; bdr: string; label: string }> = {
+                          FATAL_SUSTAINABLE: { col: '#c05050', bg: '#100808', bdr: '#2a1818', label: 'FATAL' },
+                          TACTICAL:         { col: '#c08030', bg: '#0e0c00', bdr: '#242008', label: 'TACTICAL' },
+                          WEAK:             { col: '#606080', bg: '#0a0a10', bdr: '#181828', label: 'WEAK' },
+                        };
+                        const rc = rankCfg[g.rank] ?? rankCfg.WEAK;
+                        return (
+                          <div key={i} style={{ background: rc.bg, border: `1px solid ${rc.bdr}`, borderRadius: 6, padding: '10px 12px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                              <span style={{ fontSize: 8, color: rc.col, fontFamily: "'Times New Roman', Times, serif", fontWeight: 700, letterSpacing: '.1em', background: rc.bg, border: `1px solid ${rc.bdr}`, padding: '2px 7px', borderRadius: 2 }}>
+                                {rc.label}
+                              </span>
+                              <p style={{ fontSize: 12, color: '#c8c8e0', fontFamily: "'Times New Roman', Times, serif", fontWeight: 700 }}>{g.ground}</p>
+                            </div>
+                            <p style={{ fontSize: 11, color: '#606080', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.6 }}>{g.basis}</p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Section F — Counterclaim / Cross-Petition Hints */}
+                {spa.counterclaim_hints.length > 0 && (
+                  <div>
+                    <p style={{ fontSize: 9, color: '#30a060', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 8 }}>
+                      F · {activeCase.counsel_role === 'respondent_side' ? 'Cross-Petition' : activeCase.counsel_role === 'frep_respondent' ? 'PO Opportunity' : 'Counterclaim'} Hints ({spa.counterclaim_hints.length}) — Will Be Re-Evaluated Against Your Account
+                    </p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      {spa.counterclaim_hints.map((h: string, i: number) => (
+                        <p key={i} style={{ fontSize: 12, color: '#508868', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.65, paddingLeft: 14, borderLeft: '2px solid #183828', position: 'relative' }}>
+                          <span style={{ position: 'absolute', left: 4, top: 0, fontSize: 9, color: '#284830', fontFamily: "'Times New Roman', Times, serif", fontWeight: 700 }}>{i + 1}</span>
+                          {h}
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Instruction line */}
+                <div style={{ borderTop: `1px solid ${vc.headerBdr}`, paddingTop: 12 }}>
+                  <p style={{ fontSize: 11, color: '#505070', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.65, fontStyle: 'italic' }}>
+                    The {partyA}'s case is fully visible above. Now enter {partyB}'s complete account below —
+                    address each allegation in Section C, explain what is admitted and what is disputed,
+                    and add any instructions on a counterclaim. The engine will clash both accounts in extraction.
+                  </p>
+                </div>
+
+              </div>
             </div>
           );
         })()}
@@ -3638,7 +4065,24 @@ Rules:
 
           <TIESteps />
 
-          {stage === 0   && <Stage0 />}
+          {stage === 0   && isReceivingSide  && <Stage0 />}
+          {stage === 0   && !isReceivingSide && <Stage0C />}
+          {/* Pre-entry context confirmed banner — shows on Stage 1+ commencing side */}
+          {stage >= 1 && !isReceivingSide && preEntryCtx && (
+            <div style={{ background: '#07070f', border: '1px solid #141428', borderRadius: 7, padding: '10px 14px', marginBottom: 16, display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+              <span style={{ fontSize: 14, flexShrink: 0, marginTop: 1 }}>🎯</span>
+              <div>
+                <p style={{ fontSize: 8, color: '#303060', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 4 }}>
+                  Phase 1C · Pre-Entry Context Confirmed
+                </p>
+                <p style={{ fontSize: 11, color: '#5050a0', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.6 }}>
+                  <strong style={{ color: '#6060b0' }}>{preEntryCtx.cause_of_action}</strong>
+                  {' · '}{preEntryCtx.court_intended}
+                  {' · '}{preEntryCtx.parties_summary}
+                </p>
+              </div>
+            </div>
+          )}
           {stage === 0.5 && <Stage0_5 />}
           {stage === 1   && <Stage1 />}
           {stage === 2   && <Stage2 />}
