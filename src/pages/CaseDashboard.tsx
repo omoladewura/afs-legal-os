@@ -61,7 +61,7 @@ import { PartyLabelsProvider } from '@/components/PartyLabelsContext';
 import { T } from '@/constants/tokens';
 import { saveCase } from '@/storage/helpers';
 import { maybeCompressIntelligence } from '@/services/compressIntelligence';
-import type { Case, DashTabId } from '@/types';
+import type { Case, DashTabId, MatterTrack, CounselRole } from '@/types';
 import {
   MATTER_TRACK_LABELS,
   COUNSEL_ROLE_LABELS,
@@ -126,6 +126,8 @@ interface EngineContentProps {
   onSaveAppeal:  (data: unknown) => Promise<void>;
   onSaveInherit: (data: unknown) => Promise<void>;
   onSetDashTab:  (tab: DashTabId) => void;
+  /** Phase 1A — Role Gate: persists matter_track + counsel_role to case when gate confirms */
+  onSaveRole:    (track: MatterTrack, role: CounselRole) => Promise<void>;
 }
 
 function EngineContent({
@@ -135,6 +137,7 @@ function EngineContent({
   onSaveAppeal,
   onSaveInherit,
   onSetDashTab,
+  onSaveRole,
 }: EngineContentProps) {
   switch (tabId) {
     // Phase 6 — New consolidated engine shells
@@ -142,7 +145,7 @@ function EngineContent({
     case 'strategy_hub':       return <StrategyHub          activeCase={activeCase} />;
     case 'written_address':   return <WrittenAddressEngine activeCase={activeCase} />;
     // Retained engines — untouched
-    case 'intelligence': return <IntelligenceEngine activeCase={activeCase} onSave={onSaveIntel} />;
+    case 'intelligence': return <IntelligenceEngine activeCase={activeCase} onSave={onSaveIntel} onSaveRole={onSaveRole} />;
     case 'appeal':       return <AppealEngine       activeCase={activeCase} onSave={onSaveAppeal} />;
     case 'docket':       return <CaseDocketTab      activeCase={activeCase} />;
     case 'evidence':     return <EvidenceVault      activeCase={activeCase} />;
@@ -221,6 +224,15 @@ export function CaseDashboard() {
 
   const onSaveInherit = useCallback(async (data: unknown) => {
     const patch = { inheritance_data: data as Case['inheritance_data'] };
+    updateActiveCase(patch);
+    await saveCase({ ...activeCase, ...patch });
+  }, [activeCase, updateActiveCase]);
+
+  // ── Phase 1A — Role Gate persist handler ─────────────────────────────────
+  // Called by IntelligenceEngine.RoleGate when counsel confirms track + role.
+  // Persists to IndexedDB and syncs the app store so roleGateActive clears.
+  const onSaveRole = useCallback(async (track: MatterTrack, role: CounselRole) => {
+    const patch = { matter_track: track, counsel_role: role };
     updateActiveCase(patch);
     await saveCase({ ...activeCase, ...patch });
   }, [activeCase, updateActiveCase]);
@@ -621,6 +633,7 @@ export function CaseDashboard() {
             onSaveAppeal={onSaveAppeal}
             onSaveInherit={onSaveInherit}
             onSetDashTab={setDashTab}
+            onSaveRole={onSaveRole}
           />
         </Suspense>
       </ErrorBoundary>
