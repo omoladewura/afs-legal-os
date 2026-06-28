@@ -707,6 +707,17 @@ export interface CaseTheoryScoreBreakdown {
   total:                    number;  // 0–100
 }
 
+/**
+ * Phase 8D — one pipeline phase's contribution to the library query log.
+ * Recorded at lock time from the IntelligenceEngine's accumulated query state.
+ */
+export interface LibraryQueryPhaseEntry {
+  phase:       string;    // e.g. "3A Extraction", "4A Commencement Audit", "8A Package"
+  query_hint:  string;    // the hint string sent to the library
+  retrieved:   boolean;   // did the library return results?
+  source_note: string;    // e.g. "12 sources retrieved" or "No results — engine flagged gap"
+}
+
 export interface CaseTheoryRecord {
   core_proposition: string;   // One sentence. The single thing that if proved wins.
   elements:         CaseTheoryElement[];
@@ -716,6 +727,51 @@ export interface CaseTheoryRecord {
   narrative_theme:  string;   // Human story for the judge, non-legal language
   gap_report:       CaseTheoryGapItem[];
   score_breakdown:  CaseTheoryScoreBreakdown;
+
+  /**
+   * Phase 8D — Library Query Log.
+   * Carried into the locked record at Theory Lock time. Every source consulted
+   * during the Intelligence Engine pipeline, every gap flagged (laws the engine
+   * ran without), and the query hints used for each phase.
+   * Downstream engines (CrossExamEngine, FinalWrittenAddressEngine,
+   * ApplicationsEngine, MotionEngine) inherit this log so they know the
+   * evidentiary foundation of every proposition in the package and can extend
+   * it with their own phase-specific library queries rather than re-running
+   * the full pipeline from scratch.
+   */
+  library_query_log?: LibraryQueryLog;
+
+  /**
+   * Phase 8D — back-reference to the Intelligence Package this record was
+   * locked from. Allows downstream engines to surface the full narrative
+   * package (via intPkg) alongside the structured theory when the locked
+   * record is the only thing they receive.
+   */
+  intelligence_package_ref?: string;   // ISO timestamp of the package lock
+
+  /**
+   * Phase 8D — lock version at the time this record was generated.
+   * Mirrors case_theory_version on the Case record so downstream engines
+   * can detect when a theory re-lock has occurred and invalidate stale work.
+   */
+  lock_version?: number;
+}
+
+/**
+ * Phase 8D — Library Query Log.
+ * Accumulated across the full Intelligence Engine pipeline and carried into
+ * the locked CaseTheoryRecord. Downstream engines read this to understand
+ * what the Intelligence Engine already consulted and what gaps remain open —
+ * they extend the log with their own phase-specific entries rather than
+ * re-running the full pipeline.
+ */
+export interface LibraryQueryLog {
+  /** Phases that contributed to this log, in order of execution. */
+  phases: LibraryQueryPhaseEntry[];
+  /** Laws flagged as needed but not retrieved — unresolved at lock time. */
+  open_gaps: Array<{ name: string; reason: string; flagged_by: string }>;
+  /** ISO timestamp when this log was assembled at Theory Lock. */
+  assembled_at: string;
 }
 
 /** One entry in the unlock log — recorded every time a locked theory is unlocked. */
