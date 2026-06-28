@@ -8,7 +8,7 @@
  *   - intelBlock  : formatted string injected into every AI system prompt
  *   - hasIntel    : whether any intelligence data exists
  *   - counselBlock: formatted counsel instructions (if set)
- *   - fullContext : intelBlock + counselBlock combined — pass to AI calls
+ *   - fullContext : intelBlock + counselBlock + libraryLogBlock combined — pass to AI calls
  *
  * Phase 3 — Scoped Intelligence
  * ──────────────────────────────
@@ -31,9 +31,37 @@
  * Scope is applied to intelBlock only. counselBlock is always included in
  * full and issues; omitted in facts (counsel strategy is not needed for
  * procedural tasks).
+ *
+ * Phase 10 — Downstream Library Log Inheritance
+ * ───────────────────────────────────────────────
+ * When a locked CaseTheoryRecord exists on the case, fullContext carries
+ * the library_query_log assembled at Theory Lock time. This tells every
+ * downstream engine:
+ *   (a) which library sources grounded every proposition in the package
+ *   (b) which laws the engine ran without (open_gaps) — so downstream
+ *       engines do not reason as if those gaps were filled
+ *   (c) which phases contributed to the log, in order of execution
+ *
+ * Downstream engines inherit this log and extend it with their own
+ * phase-specific library queries rather than re-running the full pipeline.
+ *
+ * The libraryLogBlock is appended to fullContext when:
+ *   - scope is 'full' (drafting engines that must reason from verified sources)
+ *   - a locked theory exists with a non-empty library_query_log
+ *
+ * The libraryLogBlock is omitted when:
+ *   - scope is 'facts' or 'issues' (procedural / research tasks)
+ *   - no locked theory exists, or the log is empty
+ *
+ * Blind Spot Gate Overrides — Phase 6C
+ * ──────────────────────────────────────
+ * If the locked theory carries any overridden fatal findings (from Phase 6C),
+ * those overrides are surfaced in libraryLogBlock so downstream engines know
+ * they are proceeding on a case where counsel consciously accepted a flagged
+ * risk. They do not re-litigate the override — they note it and proceed.
  */
 
-import type { Case } from '@/types';
+import type { Case, CaseTheoryRecord, LibraryQueryLog } from '@/types';
 
 interface IntelligenceData {
   rawFacts?:         string;
@@ -44,6 +72,25 @@ interface IntelligenceData {
   gaps_identified?:  string[];
   initial_risks?:    Array<{ risk: string; severity: string }>;
   timeline?:         Array<{ date: string; event: string; significance?: string }>;
+  // Phase 3C — open laws gaps
+  laws_needed?: Array<{
+    name:       string;
+    reason:     string;
+    flagged_by: string;
+    resolved?:  boolean;
+  }>;
+  // Phase 6C — blind spot gate overrides
+  blind_spot_gate?: {
+    entries: Array<{
+      finding_index:    number;
+      decision:         'addressed' | 'overridden' | 'noted';
+      override_reason?: string;
+      decided_at:       string;
+    }>;
+    cleared_at: string;
+  };
+  // Phase 8C — Devil's Advocate (surfaced to downstream engines)
+  devils_advocate?: string;
 }
 
 export type IntelligenceScope = 'facts' | 'issues' | 'full';
@@ -58,7 +105,16 @@ export interface IntelOutput {
   /** Counsel instructions block — inject after intelBlock */
   counselBlock: string;
 
-  /** Full context = intelBlock + counselBlock — use this in AI calls */
+  /**
+   * Phase 10 — Library Query Log block.
+   * Non-empty only when scope === 'full' AND a locked theory with a
+   * library_query_log exists. Downstream engines inject this to understand
+   * the evidentiary foundation of every proposition in the package and
+   * which laws the engine ran without.
+   */
+  libraryLogBlock: string;
+
+  /** Full context = intelBlock + counselBlock + inheritanceBlock + libraryLogBlock */
   fullContext: string;
 
   /** Raw intelligence data fields for components that need direct access */
@@ -66,8 +122,112 @@ export interface IntelOutput {
 }
 
 /**
+ * Formats the library_query_log from a locked CaseTheoryRecord into a
+ * prompt block for downstream engines. Called only when scope === 'full'.
+ *
+ * The block tells the downstream engine:
+ *   1. What library sources were consulted during the Intelligence pipeline
+ *   2. What gaps remain open (laws the engine ran without at lock time)
+ *   3. What Phase 6C blind spot overrides counsel accepted
+ *
+ * This is the core of Phase 10 — the handoff that makes every downstream
+ * engine aware of the Intelligence Engine's evidentiary foundation without
+ * requiring it to re-run the full pipeline.
+ */
+function buildLibraryLogBlock(
+  theory:   CaseTheoryRecord,
+  intel:    IntelligenceData,
+): string {
+  const log: LibraryQueryLog | undefined = theory.library_query_log;
+
+  // Nothing to inject if no log was assembled at lock time
+  if (!log || (log.phases.length === 0 && log.open_gaps.length === 0)) return '';
+
+  const lines: string[] = [
+    '',
+    '═══════════════════════════════════════',
+    'INTELLIGENCE ENGINE — LIBRARY QUERY LOG (Phase 10 Inheritance)',
+    '═══════════════════════════════════════',
+    'This log records every library source consulted during the Intelligence',
+    'Engine pipeline and every gap that was open at Theory Lock time.',
+    'Reason from the sources named here. Do not assume gaps were filled.',
+    '',
+  ];
+
+  // ── Phases consulted ──────────────────────────────────────────────────────
+  if (log.phases.length > 0) {
+    lines.push('── LIBRARY PHASES CONSULTED ──');
+    log.phases.forEach(p => {
+      const status = p.retrieved ? '✓' : '○';
+      lines.push(`${status} ${p.phase}: ${p.source_note}`);
+    });
+    lines.push('');
+  }
+
+  // ── Open gaps — laws the engine ran without ────────────────────────────────
+  const openGaps = log.open_gaps ?? [];
+  // Also pull any unresolved entries from intel.laws_needed that may not have
+  // made it into the log at lock time (edge case: laws flagged after lock)
+  const intelOpenLaws = (intel.laws_needed ?? []).filter(l => !l.resolved);
+
+  // Deduplicate by name
+  const allGaps = [...openGaps];
+  intelOpenLaws.forEach(l => {
+    if (!allGaps.find(g => g.name === l.name)) {
+      allGaps.push({ name: l.name, reason: l.reason, flagged_by: l.flagged_by });
+    }
+  });
+
+  if (allGaps.length > 0) {
+    lines.push('── OPEN GAPS — LAWS NOT IN LIBRARY AT LOCK TIME ──');
+    lines.push('⚑ The engine is running without the following statutes.');
+    lines.push('  Do NOT reason as if these laws were available. Note the gap explicitly');
+    lines.push('  in any analysis that would depend on them.');
+    lines.push('');
+    allGaps.forEach(g => {
+      lines.push(`  ⚑ ${g.name}`);
+      lines.push(`    Needed for: ${g.reason}`);
+      lines.push(`    Flagged by: ${g.flagged_by}`);
+      lines.push('');
+    });
+  } else {
+    lines.push('── GAPS ──');
+    lines.push('No open gaps at lock time. Library covered all flagged requirements.');
+    lines.push('');
+  }
+
+  // ── Phase 6C — Blind Spot Gate overrides ─────────────────────────────────
+  const overrides = (intel.blind_spot_gate?.entries ?? [])
+    .filter(e => e.decision === 'overridden' && e.override_reason);
+
+  if (overrides.length > 0) {
+    lines.push('── BLIND SPOT GATE — COUNSEL OVERRIDES (Phase 6C) ──');
+    lines.push('⚠ The following fatal findings were overridden by counsel.');
+    lines.push('  Do not re-litigate these decisions. Proceed with awareness of the accepted risk.');
+    lines.push('');
+    overrides.forEach((o, i) => {
+      lines.push(`  ⚠ Override ${i + 1} (Finding #${o.finding_index + 1})`);
+      lines.push(`    Counsel reason: ${o.override_reason}`);
+      lines.push(`    Accepted at: ${new Date(o.decided_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`);
+      lines.push('');
+    });
+  }
+
+  // ── Lock metadata ──────────────────────────────────────────────────────────
+  lines.push(`Log assembled: ${new Date(log.assembled_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`);
+  if (theory.lock_version) {
+    lines.push(`Theory lock version: ${theory.lock_version}`);
+  }
+  lines.push('');
+
+  return lines.join('\n');
+}
+
+/**
  * Extracts and formats all intelligence from activeCase.intelligence_data
  * plus counsel instructions from activeCase.counsel_instructions.
+ * Phase 10: also injects the library query log from the locked CaseTheoryRecord
+ * into fullContext when scope === 'full'.
  *
  * Usage:
  *   // Full context (default — drafting engines):
@@ -90,7 +250,7 @@ export function useIntelligence(
     intel.intPkg ||
     intel.rawFacts ||
     (intel.established_facts?.length ?? 0) > 0 ||
-    intel.digest
+    (intel as any).digest
   );
 
   // ── Intelligence Block ────────────────────────────────────────────────────
@@ -116,10 +276,10 @@ export function useIntelligence(
     parts.push('');
   }
 
-  if (intel.digest) {
+  if ((intel as any).digest) {
     // ── Digest path (Phase 5) — compressed prose replaces raw arrays ─────
     parts.push('── INTELLIGENCE DIGEST ──');
-    parts.push(intel.digest);
+    parts.push((intel as any).digest);
     parts.push('');
 
     // Always include the full intPkg alongside the digest when present —
@@ -248,11 +408,32 @@ export function useIntelligence(
     inheritanceBlock = lines.join('\n');
   }
 
+  // ── Phase 10 — Library Query Log Inheritance ──────────────────────────────
+  // Only injected when:
+  //   (a) scope === 'full' — drafting engines that reason from verified sources
+  //   (b) the case has a locked theory with a library_query_log
+  //
+  // Procedural engines ('facts') and research engines ('issues') do not receive
+  // the log — they do not need to know what statutes the Intelligence Engine
+  // consulted; they need only the facts and legal issues respectively.
+  let libraryLogBlock = '';
+  if (
+    scope === 'full' &&
+    activeCase?.case_theory_locked &&
+    activeCase?.case_theory_structured
+  ) {
+    libraryLogBlock = buildLibraryLogBlock(
+      activeCase.case_theory_structured as CaseTheoryRecord,
+      intel,
+    );
+  }
+
   return {
     hasIntel,
     intelBlock,
     counselBlock,
-    fullContext: intelBlock + counselBlock + inheritanceBlock,
+    libraryLogBlock,
+    fullContext: intelBlock + counselBlock + inheritanceBlock + libraryLogBlock,
     raw: intel,
   };
 }
