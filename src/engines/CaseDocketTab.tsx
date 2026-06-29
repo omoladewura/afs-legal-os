@@ -1,24 +1,19 @@
 /**
  * AFS Advocates — CaseDocketTab
  *
- * Full docket management engine: entries timeline, BUTS briefing, manual
- * compress, AI limitation tracker, deadline engine, and hearing calendar.
+ * Docket management engine: entries timeline, BUTS briefing, manual
+ * compress, AI limitation tracker.
  *
- * Sub-tabs:
- *   Entries   — docket entry form + timeline
- *   Deadlines — DeadlineEngine (limitation periods, filing dates)
- *   Calendar  — HearingCalendar (monthly grid + upcoming list)
+ * Phase B3: Deadlines sub-tab, Calendar sub-tab, and sub-tab toggle UI removed.
+ * Flat single view — Entries timeline only.
  *
  * All persistence goes through storage/helpers (IndexedDB via Dexie).
- * The Case object on activeCase.recent_entries is the live source of truth
- * for this tab; deadlines are loaded from the deadlines table separately.
  */
 
 import React, { useState, useRef, useEffect } from 'react';
 import { useAppStore } from '@/state/appStore';
 import {
   loadEntries, saveEntry, deleteEntry as dbDeleteEntry,
-  loadDeadlines, saveDeadline, deleteDeadline as dbDeleteDeadline,
   saveCase, loadCase,
 } from '@/storage/helpers';
 import { uid } from '@/utils';
@@ -26,8 +21,7 @@ import { callClaude, withRetry } from '@/services/api';
 import { indexCaseChunk } from '@/services/caseRag';
 import { T } from '@/constants/tokens';
 import { CASE_DOC_TYPES, CASE_STATUSES, STATUS_COLORS } from '@/constants/dashboard';
-import { DeadlineEngine, HearingCalendar } from '@/engines/DeadlineCalendarTrackers';
-import type { Case, DocketEntry, Deadline } from '@/types';
+import type { Case, DocketEntry } from '@/types';
 import { TypeDeleteModal } from '@/components/common/ui';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -138,9 +132,6 @@ interface Props {
 export function CaseDocketTab({ activeCase }: Props) {
   const { updateActiveCase } = useAppStore();
 
-  // ── Sub-tab ───────────────────────────────────────────────────────────────
-  const [subTab, setSubTab] = useState<'entries' | 'deadlines' | 'calendar'>('entries');
-
   // ── Delete confirmation modal ─────────────────────────────────────────────
   const [deleteModal, setDeleteModal] = useState<{ id: string; label: string } | null>(null);
 
@@ -171,25 +162,15 @@ export function CaseDocketTab({ activeCase }: Props) {
   // ── Compress ──────────────────────────────────────────────────────────────
   const [compL, setCompL] = useState(false);
 
-  // ── Deadlines ─────────────────────────────────────────────────────────────
-  const [deadlines,  setDeadlines]  = useState<Deadline[]>([]);
-  const [limitL,     setLimitL]     = useState(false);
-  const [limitErr,   setLimitErr]   = useState('');
-
-  // ── Load entries + deadlines on mount / case change ───────────────────────
+  // ── Load entries on mount / case change ───────────────────────────────────
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setFromCache(false);
     const start = Date.now();
-    Promise.all([
-      loadEntries(activeCase.id),
-      loadDeadlines(activeCase.id),
-    ]).then(([ents, dls]) => {
+    loadEntries(activeCase.id).then(ents => {
       if (cancelled) return;
       setEntries(ents);
-      setDeadlines(dls);
-      // Phase 2B — flag when data likely came from IndexedDB (fast return or offline)
       setFromCache(!navigator.onLine || (Date.now() - start) < 200);
       setLoading(false);
     });
@@ -366,62 +347,6 @@ Provide a structured briefing:
     } catch { /* silent */ }
   }
 
-  // ── Deadline CRUD ─────────────────────────────────────────────────────────
-  async function addDeadline(dl: Deadline) {
-    const withCase = { ...dl, caseId: activeCase.id };
-    await saveDeadline(withCase);
-    setDeadlines(prev => [...prev, withCase].sort((a, b) => a.date.localeCompare(b.date)));
-  }
-
-  async function removeDeadline(id: string) {
-    await dbDeleteDeadline(id);
-    setDeadlines(prev => prev.filter(d => d.id !== id));
-  }
-
-  async function updateDeadlineStatus(id: string, status: string) {
-    const dl = deadlines.find(d => d.id === id);
-    if (!dl) return;
-    const updated = { ...dl, status };
-    await saveDeadline(updated);
-    setDeadlines(prev => prev.map(d => d.id === id ? updated : d));
-  }
-
-  // ── AI Limitation Tracker ─────────────────────────────────────────────────
-  async function runLimitationTracker() {
-    setLimitL(true); setLimitErr('');
-    const today = new Date().toISOString().slice(0, 10);
-    const limitRoleLabel = activeCase.counsel_role
-      ? ({ claimant_side: 'Claimant Side', defendant_side: 'Defendant Side', prosecution: 'Prosecution', defence: 'Defence' }[activeCase.counsel_role] ?? activeCase.role ?? '')
-      : (activeCase.role ?? '');
-    const limitTrackLabel = activeCase.matter_track === 'criminal' ? 'Criminal' : 'Civil';
-    const caseCtx = `Case: ${activeCase.caseName}\nTrack: ${limitTrackLabel}\nRole: ${limitRoleLabel}\nCourt: ${activeCase.court || 'Not specified'}\nDate commenced: ${activeCase.dateCommenced || 'Not specified'}\nClaims/facts: ${activeCase.intelligence_data?.facts || activeCase.intelligence_data?.legal_issues || 'Not provided'}`;
-    try {
-      const raw = await withRetry(() => callClaude({
-        system: 'You are a Nigerian litigation expert. Return only valid JSON arrays. No markdown, no backticks, no preamble.',
-        userMsg: `Analyse this case and identify ALL applicable limitation periods and critical deadlines under Nigerian law.\n\n${caseCtx}\n\nReturn a JSON array. Each object: title (string), type (one of: "Limitation Period","Filing Deadline","Appeal Window","Compliance Date"), date (ISO date YYYY-MM-DD calculated from today ${today}), notes (cite statute and section). If insufficient facts, return [{"title":"Insufficient facts — run Intelligence Engine first","type":"Custom","date":"${today}","notes":"Please run the Trial Intelligence Engine to provide case facts before using the AI Limitation Tracker."}]. ONLY the JSON array.`,
-        maxTokens: 1200,
-      }));
-      const cleaned = raw.replace(/^```json|^```|```$/gm, '').trim();
-      const arr = JSON.parse(cleaned);
-      if (!Array.isArray(arr)) throw new Error('Not an array');
-      const newDeadlines: Deadline[] = arr.map((d: { title?: string; type?: string; date?: string; notes?: string }) => ({
-        id:           uid(),
-        label:        d.title || 'Untitled',
-        type:         d.type  || 'Limitation Period',
-        date:         d.date  || today,
-        notes:        d.notes || '',
-        status:       'Pending',
-        aiGenerated:  true,
-        caseId:       activeCase.id,
-      }));
-      await Promise.all(newDeadlines.map(d => saveDeadline(d)));
-      setDeadlines(prev => [...prev, ...newDeadlines].sort((a, b) => a.date.localeCompare(b.date)));
-    } catch (e: unknown) {
-      setLimitErr('Could not identify limitation periods. Please ensure the Intelligence Engine has been run. Error: ' + (e as Error).message);
-    }
-    setLimitL(false);
-  }
-
   // ─────────────────────────────────────────────────────────────────────────
   // RENDER
   // ─────────────────────────────────────────────────────────────────────────
@@ -462,46 +387,10 @@ Provide a structured briefing:
         />
       )}
 
-      {/* ── Sub-tab navigation ── */}
-      <div style={{ display: 'flex', gap: 3, marginBottom: 20, background: '#050508', border: '1px solid #111120', borderRadius: 7, padding: 3 }}>
-        {([
-          { id: 'entries',   label: 'Entries',   icon: '§' },
-          { id: 'deadlines', label: 'Deadlines', icon: '⏱' },
-          { id: 'calendar',  label: 'Calendar',  icon: '◫' },
-        ] as const).map(sub => {
-          const isActive = subTab === sub.id;
-          const urgentDl = sub.id === 'deadlines' && deadlines.some(d =>
-            d.status !== 'Dismissed' &&
-            Math.round((new Date(d.date + 'T00:00:00').getTime() - Date.now()) / 86400000) <= 7
-          );
-          return (
-            <button
-              key={sub.id}
-              onClick={() => setSubTab(sub.id)}
-              style={{
-                flex: 1, background: isActive ? '#0d0d1c' : 'transparent',
-                border: `1px solid ${isActive ? T.gold : 'transparent'}`,
-                color: isActive ? T.gold : T.mute,
-                borderRadius: 5, padding: '7px 12px', fontSize: 10,
-                fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer',
-                letterSpacing: '.06em', textTransform: 'uppercase', fontWeight: 600,
-                transition: 'all .2s', display: 'flex', alignItems: 'center',
-                justifyContent: 'center', gap: 6,
-              }}>
-              <span style={{ opacity: .7 }}>{sub.icon}</span>
-              {sub.label}
-              {urgentDl && (
-                <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#c05050', display: 'inline-block', animation: 'glow 1.5s ease infinite' }} />
-              )}
-            </button>
-          );
-        })}
-      </div>
-
       {/* ══════════════════════════════════════════════════════════════════════
-          ENTRIES SUB-TAB
+          ENTRIES
       ═══════════════════════════════════════════════════════════════════════ */}
-      {subTab === 'entries' && (
+      <>
         <>
           {/* Action row */}
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 18, paddingBottom: 16, borderBottom: `1px solid ${T.bdr}` }}>
@@ -752,32 +641,6 @@ Provide a structured briefing:
             </div>
           )}
         </>
-      )}
-
-      {/* ══════════════════════════════════════════════════════════════════════
-          DEADLINES SUB-TAB
-      ═══════════════════════════════════════════════════════════════════════ */}
-      {subTab === 'deadlines' && (
-        <DeadlineEngine
-          deadlines={deadlines}
-          onAdd={addDeadline}
-          onDelete={removeDeadline}
-          onUpdateStatus={updateDeadlineStatus}
-          onAITrack={runLimitationTracker}
-          limitL={limitL}
-          limitErr={limitErr}
-        />
-      )}
-
-      {/* ══════════════════════════════════════════════════════════════════════
-          CALENDAR SUB-TAB
-      ═══════════════════════════════════════════════════════════════════════ */}
-      {subTab === 'calendar' && (
-        <HearingCalendar
-          entries={entries}
-          deadlines={deadlines}
-        />
-      )}
     </div>
   );
 }

@@ -3,7 +3,10 @@
  *
  * The strategic cockpit. Aggregates every module into one operational view:
  * Strategic Posture · Witness Command Map · Evidence Coverage
- * Contradictions · Risk Alerts · Opponent Strategy · Hearing Readiness · Judicial Notes
+ * Contradictions · Risk Alerts · Opponent Strategy
+ *
+ * Phase B6: Hearing Readiness Board and Judicial Notes panels removed.
+ * Analytical equivalent of Judge Tendencies lives in CaseTrackers → Judge/Court.
  *
  * Phase 3D: Appellate Vulnerabilities panel removed — logic merged into
  * Intelligence Engine Step 5b (intelligence_data.risk_verdict.appellate_narrative).
@@ -13,15 +16,7 @@
  * 'synthesis' tab now sits where that panel used to be.
  *
  * All data is read from IndexedDB (Dexie via loadBlindSpot). WarRoom-owned
- * state (opponent strategy AI output, judicial notes) is persisted to Dexie
- * via saveBlindSpot. Cross-engine read-only keys (risk scores, BriefMe,
- * ArgumentBuilder, authority library, console posture) still use localStorage
- * as the write-side lives in other engines — do not migrate here in isolation.
- *
- * Props:
- *   activeCase — the loaded Case object from the store
- *
- * setDashTab is obtained from useAppStore directly (no prop drilling).
+ * state (opponent strategy AI output) is persisted to Dexie via saveBlindSpot.
  */
 
 import { useState, useEffect } from 'react';
@@ -40,12 +35,6 @@ import { useCaseContext } from '@/hooks/useCaseContext';
 
 interface Props {
   activeCase: Case;
-}
-
-interface JudicialNote {
-  id:   number;
-  text: string;
-  ts:   string;
 }
 
 interface WitnessEntry {
@@ -73,10 +62,7 @@ interface RiskScores {
   [key: string]: number | unknown;
 }
 
-// ── localStorage helpers (cross-engine read-only — data owned by other engines) ─
-// These keys are written by other engines (AICopilot, BriefMe, ArgumentBuilder,
-// FinalWrittenAddressEngine, RiskAnalytics). WarRoom only reads them for the
-// Hearing Readiness Board. Do not migrate here without migrating the write-side.
+// ── localStorage helpers (cross-engine read-only) ────────────────────────────
 
 function readLS<T>(key: string, fallback: T): T {
   try {
@@ -88,15 +74,12 @@ function readLS<T>(key: string, fallback: T): T {
 }
 
 // ── Dexie helpers for WarRoom-owned state ────────────────────────────────────
-// afs_wr_opp and afs_wr_judicial are authored/generated inside WarRoom and
-// must survive offline, PWA reinstall, and storage eviction.
 
 async function wrLoad<T>(caseId: string, key: string, def: T): Promise<T> {
   const result = await loadBlindSpot<T>(caseId, `wr_${key}`, undefined as any);
   if (result !== null && result !== undefined) return result;
-  // One-shot migration from localStorage
   try {
-    const lsKey = key === 'opp' ? `afs_wr_opp_${caseId}` : `afs_wr_judicial_${caseId}`;
+    const lsKey = `afs_wr_opp_${caseId}`;
     const ls = localStorage.getItem(lsKey);
     if (ls) {
       const parsed = JSON.parse(ls) as T;
@@ -112,7 +95,7 @@ async function wrSave(caseId: string, key: string, val: unknown): Promise<void> 
   await saveBlindSpot(caseId, `wr_${key}`, val);
 }
 
-// ── Case context builder (mirrors buildCaseContext from original) ──────────────
+// ── Case context builder ──────────────────────────────────────────────────────
 
 function buildCtx(c: Case): string {
   const intel = c.intelligence_data || {};
@@ -120,7 +103,6 @@ function buildCtx(c: Case): string {
   if (c.caseName)      parts.push('Case: ' + c.caseName);
   if (c.court)         parts.push('Court: ' + c.court);
   if (c.suitNo)        parts.push('Suit No: ' + c.suitNo);
-  // V2: prefer counsel_role + matter_track; fall back to legacy role
   if (c.counsel_role)  parts.push('Counsel Role: ' + c.counsel_role);
   if (c.matter_track)  parts.push('Matter Track: ' + c.matter_track);
   else if (c.role)     parts.push('Our Role: ' + c.role);
@@ -139,14 +121,12 @@ function buildCtx(c: Case): string {
 // ── PANEL DEFINITIONS ─────────────────────────────────────────────────────────
 
 const PANELS = [
-  { id: 'posture',       icon: '⚡', label: 'Strategic Posture'      },
-  { id: 'witnesses',     icon: '👁', label: 'Witness Command'        },
-  { id: 'evidence',      icon: '📁', label: 'Evidence Coverage'      },
-  { id: 'contradictions',icon: '⚔', label: 'Contradictions'         },
-  { id: 'risks',         icon: '■', label: 'Risk Alerts'            },
-  { id: 'opponent',      icon: '◈', label: 'Opponent Strategy'      },
-  { id: 'hearing',       icon: '⚖', label: 'Hearing Readiness'      },
-  { id: 'judicial',      icon: '§', label: 'Judicial Notes'         },
+  { id: 'posture',        icon: '⚡', label: 'Strategic Posture' },
+  { id: 'witnesses',      icon: '👁', label: 'Witness Command'   },
+  { id: 'evidence',       icon: '📁', label: 'Evidence Coverage' },
+  { id: 'contradictions', icon: '⚔', label: 'Contradictions'    },
+  { id: 'risks',          icon: '■', label: 'Risk Alerts'       },
+  { id: 'opponent',       icon: '◈', label: 'Opponent Strategy' },
 ] as const;
 
 type PanelId = (typeof PANELS)[number]['id'];
@@ -236,7 +216,6 @@ export function WarRoom({ activeCase }: Props) {
   const { setDashTab } = useAppStore();
   const caseId = activeCase.id;
   const intel  = activeCase.intelligence_data || {};
-  const appeal = activeCase.appeal_data || {};
 
   // ── Cross-module data loaded from IndexedDB ───────────────────────────────
   const [witnesses,      setWitnesses]      = useState<WitnessEntry[]>([]);
@@ -260,20 +239,17 @@ export function WarRoom({ activeCase }: Props) {
     loadEvidenceMeta(caseId).then(setEvMeta);
   }, [caseId]);
 
-  // ── Risk scores remain on localStorage (migrated in Fix #5) ──────────────
+  // ── Risk scores ───────────────────────────────────────────────────────────
   const riskScores = readLS<RiskScores | null>(`risk_${caseId}_scores`, null);
 
-  // ── AI panel state (persisted to Dexie via wrSave) ──────────────────────────
-  const [oppStrategy,   setOppStrategy]   = useState<string>('');
-  const [judicialLog,   setJudicialLog]   = useState<JudicialNote[]>([]);
-  const [judicialNote,  setJudicialNote]  = useState('');
+  // ── AI panel state ────────────────────────────────────────────────────────
+  const [oppStrategy, setOppStrategy] = useState<string>('');
 
   useEffect(() => {
     wrLoad<string>(caseId, 'opp', '').then(setOppStrategy);
-    wrLoad<JudicialNote[]>(caseId, 'judicial', []).then(setJudicialLog);
   }, [caseId]);
 
-  // ── Loading state per panel key ───────────────────────────────────────────
+  // ── Loading / error state per panel ──────────────────────────────────────
   const [loading, setLoading] = useState<Record<string, boolean>>({});
   const [errors,  setErrors]  = useState<Record<string, string>>({});
 
@@ -333,7 +309,6 @@ export function WarRoom({ activeCase }: Props) {
   ];
 
   const ctx = buildCtx(activeCase);
-  // Role-aware system prompt — used as base for all WarRoom AI panels
   const { fullContext } = useCaseContext(activeCase, { query: activeCase?.caseName ?? '', engine: 'WarRoom' });
   const roleSystem = buildRoleSystemPrompt(activeCase.matter_track, activeCase.counsel_role) + fullContext;
 
@@ -594,7 +569,7 @@ export function WarRoom({ activeCase }: Props) {
           </div>
         )}
 
-        {topRisks.length > 0 ? (
+        {topRisks.length > 0 && (
           <div>
             <div style={{ fontSize: 10, color: '#404060', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 8 }}>
               Top Risk Dimensions (from Risk Analytics)
@@ -612,7 +587,7 @@ export function WarRoom({ activeCase }: Props) {
               </div>
             ))}
           </div>
-        ) : !allClear ? null : null}
+        )}
 
         {allClear && (
           <div style={{ textAlign: 'center', padding: '10px 0' }}>
@@ -627,7 +602,6 @@ export function WarRoom({ activeCase }: Props) {
     );
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
   // ─────────────────────────────────────────────────────────────────────────
   // PANEL: OPPONENT STRATEGY
   // ─────────────────────────────────────────────────────────────────────────
@@ -656,128 +630,6 @@ export function WarRoom({ activeCase }: Props) {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // PANEL: HEARING READINESS
-  // ─────────────────────────────────────────────────────────────────────────
-
-  function renderHearing() {
-    // Next hearing from docket entries
-    const entries = activeCase.recent_entries || [];
-    const futureHearings = entries
-      .filter(e => {
-        if (!e.nextAdjournedDate) return false;
-        const d = new Date(e.nextAdjournedDate); d.setHours(0, 0, 0, 0);
-        return d >= today;
-      })
-      .sort((a, b) => new Date(a.nextAdjournedDate).getTime() - new Date(b.nextAdjournedDate).getTime());
-    const nextHearing = futureHearings[0];
-
-    const savedBriefMe = readLS<string | null>(`afs_bm_${caseId}`, null);
-    const savedArgs    = readLS<unknown[]>(`afs_ab_${caseId}`, []);
-    const aveLibrary   = readLS<unknown[]>(`ave_${caseId}_library`, []);
-
-    const checks = [
-      { label: 'Witnesses confirmed and proofed',  done: allWitnesses.some(w => /proof|ready/i.test(w.preparationStatus || '')) },
-      { label: 'Documents in Evidence Vault',      done: evMeta.length > 0 },
-      { label: 'Arguments prepared (Argument Builder)', done: savedArgs.length > 0 },
-      { label: 'Deadlines reviewed',               done: activeDl.length > 0 },
-      { label: 'Authorities validated',            done: aveLibrary.length > 0 },
-      { label: 'Risk assessment complete',         done: !!riskScores },
-      { label: 'Brief Me briefing generated',      done: !!savedBriefMe },
-    ];
-    const doneCount = checks.filter(c => c.done).length;
-
-    return (
-      <PanelWrap title="Hearing Readiness Board" icon="⚖">
-        {nextHearing ? (
-          <div style={{ background: '#080814', border: '1px solid #1a1a2a', borderRadius: 5, padding: '10px 14px', marginBottom: 14 }}>
-            <div style={{ fontSize: 9, color: '#505080', fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.12em', textTransform: 'uppercase', marginBottom: 4 }}>Next Hearing</div>
-            <div style={{ fontSize: 14, color: '#a0a0d0', fontFamily: "'Times New Roman', Times, serif" }}>{nextHearing.docTitle || 'Hearing'}</div>
-            <div style={{ fontSize: 11, color: '#606080', fontFamily: "'Times New Roman', Times, serif", marginTop: 2 }}>
-              {new Date(nextHearing.nextAdjournedDate + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-            </div>
-          </div>
-        ) : (
-          <div style={{ background: '#ffffff', border: '1px solid #141420', borderRadius: 5, padding: '8px 14px', marginBottom: 14 }}>
-            <span style={{ fontSize: 11, color: '#303040', fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic' }}>No upcoming hearings in docket</span>
-          </div>
-        )}
-
-        <div style={{ marginBottom: 10 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-            <span style={{ fontSize: 10, color: T.dim, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.1em', textTransform: 'uppercase' }}>Readiness</span>
-            <span style={{ fontSize: 12, color: doneCount === checks.length ? '#50c070' : doneCount > 4 ? '#d09030' : '#e05050', fontFamily: "'Times New Roman', Times, serif" }}>
-              {doneCount}/{checks.length}
-            </span>
-          </div>
-          {checks.map((ch, i) => (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '5px 0', borderBottom: '1px solid #0e0e18' }}>
-              <span style={{ fontSize: 13, color: ch.done ? '#50c070' : '#303040', flexShrink: 0 }}>{ch.done ? '✓' : '○'}</span>
-              <span style={{ fontSize: 11, color: ch.done ? '#708060' : '#505060', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.4 }}>{ch.label}</span>
-            </div>
-          ))}
-        </div>
-        <button onClick={() => setDashTab('briefme')} style={{ marginTop: 8, background: 'transparent', border: '1px solid #1e1e30', color: '#505070', borderRadius: 4, padding: '5px 14px', fontSize: 10, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', width: '100%' }}>
-          Generate Brief Me Briefing ›
-        </button>
-      </PanelWrap>
-    );
-  }
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // PANEL: JUDICIAL NOTES
-  // ─────────────────────────────────────────────────────────────────────────
-
-  function renderJudicial() {
-    function addNote() {
-      if (!judicialNote.trim()) return;
-      const note: JudicialNote = { id: Date.now(), text: judicialNote.trim(), ts: new Date().toISOString() };
-      const updated = [...judicialLog, note];
-      setJudicialLog(updated);
-      setJudicialNote('');
-      wrSave(caseId, 'judicial', updated);
-    }
-    function delNote(id: number) {
-      const updated = judicialLog.filter(n => n.id !== id);
-      setJudicialLog(updated);
-      wrSave(caseId, 'judicial', updated);
-    }
-    return (
-      <PanelWrap title="Judicial Notes" icon="§">
-        <p style={{ fontSize: 11, color: T.dim, fontFamily: "'Times New Roman', Times, serif", marginBottom: 12, fontStyle: 'italic' }}>
-          Record the court's rulings, judicial temperament, admissions, and directions. These feed appellate analysis.
-        </p>
-        <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
-          <textarea
-            value={judicialNote}
-            onChange={e => setJudicialNote(e.target.value)}
-            placeholder="e.g. Court refused to admit Exhibit D — ground: secondary evidence. Ruled against us on jurisdiction but reserved ruling for record. Judge appeared skeptical of PW1 testimony."
-            rows={3}
-            style={{ flex: 1, background: '#070710', border: '1px solid #141424', borderRadius: 4, color: '#c0bcb4', fontSize: 11, fontFamily: "'Times New Roman', Times, serif", padding: '8px 10px', resize: 'vertical', outline: 'none', lineHeight: 1.65 }}
-          />
-          <button onClick={addNote} style={{ background: 'transparent', border: '1px solid #2a2a4a', color: '#6060a0', borderRadius: 4, padding: '8px 14px', fontSize: 11, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer', alignSelf: 'flex-start', flexShrink: 0 }}>
-            Add
-          </button>
-        </div>
-        {judicialLog.length === 0 ? (
-          <p style={{ fontSize: 12, color: '#252535', fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic' }}>No judicial notes yet.</p>
-        ) : (
-          <div>
-            {[...judicialLog].reverse().map(n => (
-              <div key={n.id} style={{ background: '#ffffff', border: '1px solid #101020', borderRadius: 4, padding: '10px 12px', marginBottom: 8, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 11, color: '#b0acaa', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.65, whiteSpace: 'pre-wrap' }}>{n.text}</div>
-                  <div style={{ fontSize: 9, color: '#252535', fontFamily: 'monospace', marginTop: 5 }}>{new Date(n.ts).toLocaleString('en-GB')}</div>
-                </div>
-                <button onClick={() => delNote(n.id)} style={{ background: 'transparent', border: 'none', color: '#303040', cursor: 'pointer', fontSize: 13, flexShrink: 0, padding: '0 4px' }}>✕</button>
-              </div>
-            ))}
-          </div>
-        )}
-      </PanelWrap>
-    );
-  }
-
-  // ─────────────────────────────────────────────────────────────────────────
   // PANEL ROUTER
   // ─────────────────────────────────────────────────────────────────────────
 
@@ -788,8 +640,6 @@ export function WarRoom({ activeCase }: Props) {
     contradictions: renderContradictions,
     risks:          renderRisks,
     opponent:       renderOpponent,
-    hearing:        renderHearing,
-    judicial:       renderJudicial,
   };
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -813,7 +663,7 @@ export function WarRoom({ activeCase }: Props) {
         </p>
       </div>
 
-      {/* ── Deep-link: Case Theory lives in Trial Engine → Theory Brief tab (Phase 0D fix) ── */}
+      {/* ── Deep-link: Case Theory lives in Trial Engine → Theory Brief tab ── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 0 18px 24px', flexWrap: 'wrap' }}>
         <span style={{ fontSize: 10, color: T.dim, fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic' }}>
           Looking for Case Theory? Author and lock it in →
