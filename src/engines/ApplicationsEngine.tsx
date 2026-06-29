@@ -1,9 +1,9 @@
 // Build Plan v2 — Phase 10 complete. 20 June 2026.
+// Phase 4 integrity audit complete. 29 June 2026.
 // getLawSync wiring: Phase 10C (getJurisdictionDeltaSync → buildDraftSystemPrompt Layer 2).
 // Clone Draft: Phases 10D (data layer) + 10E (UI — clone button, modal, clone notice).
 // Phase 10F-ii integration smoke test: PASS (20 x checks, zero TypeScript errors).
-// Phase 10F-iii: PromptPreview removed. CrossExamEngine stub retained — Check 4
-//   (live production + real-case test) not yet confirmed; re-run deletion gate when ready.
+// PromptPreview removed. CrossExamEngine stub retained pending Check 4 (live production test).
 
 /**
  * AFS Legal OS V2 — Applications Engine (Phase 1 Rebuild)
@@ -56,48 +56,8 @@ import {
 import { unlockCaseTheory, saveCaseTheory, lockCaseTheory } from '@/storage/helpers';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CASE THEORY — Light injection helper (Phase 9D)
-// Core proposition only — lighter than FinalWrittenAddress injection.
-// Used in appTypes where needsCaseTheory: true.
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * @deprecated Phase 10B — superseded by Layer 4 of buildDraftSystemPrompt.
- * All call sites now route through buildDraftSystemPrompt. Retained here
- * as a named reference in case any engine outside ApplicationsEngine still
- * imports this function. Safe to delete once confirmed unused across the codebase.
- */
-function buildLightTheoryInjection(theory: CaseTheoryRecord): string {
-  const base = `CASE THEORY CONTEXT (relevant to this application):
-Core Proposition: ${theory.core_proposition}
-This application must be argued in a manner consistent with and advancing this proposition.
-
-`;
-
-  // Phase 10 — surface open library gaps so the Applications engine does not
-  // argue from statutes that were absent from the library at lock time.
-  // Uses only open_gaps (not the full phase log) — light injection for
-  // applications, which need the gap warning but not the full audit trail.
-  const openGaps = theory.library_query_log?.open_gaps ?? [];
-  if (openGaps.length === 0) return base;
-
-  const gapLines: string[] = [
-    '── LIBRARY GAPS (Phase 10 Inheritance) ──',
-    '⚑ The following statutes were absent from the library at Theory Lock.',
-    '  Do not rely on them. Mark any argument that would depend on them with',
-    '  [LIBRARY GAP: <statute name>].',
-    '',
-  ];
-  openGaps.forEach(g => {
-    gapLines.push(`  ⚑ ${g.name}`);
-  });
-  gapLines.push('');
-
-  return base + gapLines.join('\n') + '\n';
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// PHASE 10B — PROMPT CONSOLIDATION
+// PROMPT CONSOLIDATION — buildDraftSystemPrompt (Phase 10B)
+// Case theory injection (Phase 9D) is Layer 4 of this function.
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface BuildDraftSystemPromptParams {
@@ -216,7 +176,7 @@ type AppStatus       = 'Drafting' | 'Filed' | 'Served' | 'Awaiting Hearing' | 'H
 type ApplicationRole = 'mover' | 'respondent';
 
 // Mover track sub-tabs
-type MoverSubTab = 'supporting_affidavit' | 'written_address' | 'opposing_response' | 'further_better' | 'reply_law';
+type MoverSubTab = 'originating_process' | 'supporting_affidavit' | 'written_address' | 'opposing_response' | 'further_better' | 'reply_law';
 // Respondent track sub-tabs
 type RespondentSubTab = 'counter_affidavit' | 'written_address_opp' | 'further_better_resp';
 
@@ -302,6 +262,8 @@ interface AppFacts {
 interface Stage3Data {
   applicationRole:     ApplicationRole | null;
   // Mover track
+  origProcessContext:  string; // Tab 0 — Originating Summons/Application paper itself (questions/grounds/reliefs), counsel instructions
+  origProcessDraft:    string; // Tab 0 — drafted Originating Summons/Application
   supportingAffidavitDraft: string; // Tab 1 — Supporting Affidavit pre-draft
   // Mover FB supplement fields
   supplementInstructions:   string;
@@ -414,6 +376,14 @@ export const APP_TYPES: AppTypeConfig[] = [
   { id: 'civil_summary_judgment', label: 'Summary Judgment', icon: '⚖', track: 'civil',
     package: ['Motion on Notice', 'Supporting Affidavit', 'Written Address in Support', 'List of Authorities'],
     hint: 'Summary judgment where defendant has no real or bona fide defence — Ord 11 or equivalent. Address each purported defence and why it fails.',
+    needsCaseTheory: true },
+  { id: 'civil_originating_summons', label: 'Originating Summons', icon: '📜', track: 'civil',
+    package: ['Originating Summons', 'Affidavit in Support', 'Written Address in Support', 'List of Authorities'],
+    hint: 'Paper-trial originating process for questions of law or document construction unlikely to involve disputed facts — no pleadings, decided on affidavit evidence and written address alone. Questions for determination must be answerable as legal propositions; each question needs a corresponding relief. Opposition uses the Counter-Affidavit / Written Address in Opposition tabs below.',
+    needsCaseTheory: true },
+  { id: 'civil_originating_application', label: 'Originating Application', icon: '📑', track: 'civil',
+    package: ['Originating Application', 'Affidavit in Support', 'Written Address in Support', 'List of Authorities'],
+    hint: 'Paper-trial originating process under rules that prescribe "Originating Application" rather than Originating Summons (e.g. NICN, FCT Civil Procedure) — same paper-trial logic: affidavit evidence and written address, no pleadings or oral trial. Opposition uses the Counter-Affidavit / Written Address in Opposition tabs below.',
     needsCaseTheory: true },
   // Criminal
   { id: 'crim_bail', label: 'Bail Application', icon: '🔓', track: 'criminal',
@@ -1031,8 +1001,9 @@ function IssueBuilder({
   // Phase 9D — light theory injection when appType.needsCaseTheory is true
   const { theory: issueTheory, hasTheory: issueHasTheory } = useCaseTheory(activeCase.id);
   // Phase 10C — jurisdiction delta, resolved once per render and reused by generateIssue and assembleAddress.
+  // Named issueBuilderLawDelta to distinguish from the memoized lawDelta in the main ApplicationsEngine component.
   const jurisdiction = (activeCase as any).jurisdiction ?? activeCase.court ?? '';
-  const lawDelta = getJurisdictionDeltaSync(appType.label, jurisdiction);
+  const issueBuilderLawDelta = getJurisdictionDeltaSync(appType.label, jurisdiction);
   const [editingId,       setEditingId]       = useState<string | null>(null);
   const [draftIssue,      setDraftIssue]      = useState<ArgumentIssue | null>(null);
   const [statuteChunks,   setStatuteChunks]   = useState<StatuteChunk[]>([]);
@@ -1148,7 +1119,7 @@ What the case must decide: [required ratio/holding in one sentence]
 
     // ── Assemble system prompt via buildDraftSystemPrompt (Phase 10B)
     // Layer 1: systemCtx (role + intelligence)
-    // Layer 2: lawDelta — wired via getJurisdictionDeltaSync (Phase 10C)
+    // Layer 2: issueBuilderLawDelta — wired via getJurisdictionDeltaSync (Phase 10C)
     // Layer 3: template skeleton (foundTemplate from lookup above, or null)
     // Layer 4: theory — gated on needsCaseTheory + locked theory
     // Layer 5: per-call instruction
@@ -1157,7 +1128,7 @@ What the case must decide: [required ratio/holding in one sentence]
       appType,
       template:        foundTemplate,
       theory:          appType.needsCaseTheory && issueHasTheory && issueTheory ? issueTheory : null,
-      lawDelta,
+      lawDelta:        issueBuilderLawDelta,
       callInstruction: 'You are drafting one issue of a Written Address for a Nigerian court. NEVER invent case citations. Use [RESEARCH NEEDED] blocks for uncertain authority.',
     });
 
@@ -1222,7 +1193,7 @@ ${draft}`;
 
     const skeleton = await ask({
       system: 'You extract reusable argument skeletons from completed Nigerian legal drafts. Return only the skeleton — no preamble, no explanation.',
-      userMsg: strippingPrompt.replace('${draft}', draft),
+      userMsg: strippingPrompt,
       maxTokens: 2000,
     });
 
@@ -1302,7 +1273,7 @@ ${facts.keyFacts ? 'Key Facts: ' + facts.keyFacts : ''}
         appType,
         template:  null,   // assembleAddress merges pre-drafted issues — no skeleton needed
         theory:    appType.needsCaseTheory && issueHasTheory && issueTheory ? issueTheory : null,
-        lawDelta,
+        lawDelta:  issueBuilderLawDelta,
       }),
       userMsg: prompt, maxTokens: 3500,
       libraryOpts: { queryHint: `${appType.label} written address Nigerian court procedure`, topK: 8 },
@@ -1633,21 +1604,6 @@ ${facts.keyFacts ? 'Key Facts: ' + facts.keyFacts : ''}
   );
 }
 
-// ── Shared: Further & Better Affidavit builder ─────────────────────────────
-
-interface FBBuilderProps {
-  activeCase:        Case;
-  appType:           AppTypeConfig;
-  facts:             AppFacts;
-  ownAffidavitLabel: string;   // "Supporting Affidavit" | "Counter-Affidavit"
-  otherAffidavitIn:  string;   // the opposing affidavit text
-  fbGrounds:         FBGround[];
-  onFBGroundsChange: (v: FBGround[]) => void;
-  fbDraft:           string;
-  onFBDraftChange:   (v: string) => void;
-  systemCtx:         string;
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // MOVER FB PARA EDITOR — inline single-para form for moverFBParaResponses
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1756,201 +1712,6 @@ function RespFCParaEditor({ onSave }: { onSave: (p: AffidavitParaResponse) => vo
   );
 }
 
-function FBBuilder({
-  activeCase, appType, facts, ownAffidavitLabel, otherAffidavitIn,
-  fbGrounds, onFBGroundsChange, fbDraft, onFBDraftChange, systemCtx,
-}: FBBuilderProps) {
-  const { ask, loading, error } = useAI(activeCase);
-  const [editGround, setEditGround] = useState<FBGround | null>(null);
-  const [editingId,  setEditingId]  = useState<string | null>(null);
-
-  function startNew() {
-    setEditGround({ id: uid(), basis: 'own_affidavit', paraRef: '', paraText: '', newFact: '', exhibit: '' });
-    setEditingId(null);
-  }
-  function startEdit(g: FBGround) { setEditGround({ ...g }); setEditingId(g.id); }
-  function cancelEdit() { setEditGround(null); setEditingId(null); }
-  function removeGround(id: string) { onFBGroundsChange(fbGrounds.filter(g => g.id !== id)); }
-
-  function saveGround() {
-    if (!editGround || !editGround.paraRef.trim()) return;
-    if (editingId) { onFBGroundsChange(fbGrounds.map(g => g.id === editingId ? editGround : g)); }
-    else { onFBGroundsChange([...fbGrounds, editGround]); }
-    setEditGround(null); setEditingId(null);
-  }
-
-  async function generateFB() {
-    if (!fbGrounds.length) return;
-    const groundBlocks = fbGrounds.map((g, i) => {
-      const ref = g.basis === 'own_affidavit'
-        ? `Paragraph${g.paraRef.includes(',') ? 's' : ''} ${g.paraRef} of our ${ownAffidavitLabel}`
-        : `Paragraph${g.paraRef.includes(',') ? 's' : ''} ${g.paraRef} of opposing counsel's affidavit`;
-      return `Ground ${i + 1}:
-Basis: ${ref}
-What that paragraph says: ${g.paraText}
-New fact / response: ${g.newFact}
-${g.exhibit ? 'Exhibit: ' + g.exhibit : ''}`;
-    }).join('\n\n');
-
-    const prompt = `Draft a Further and Better Affidavit for a ${appType.label} in a Nigerian court.
-
-CASE: ${activeCase.caseName} | COURT: ${activeCase.court} | SUIT: ${activeCase.suitNo || '[TBA]'}
-TRACK: ${activeCase.matter_track ?? 'civil'}
-DEPONENT: ${facts.deponent || 'the deponent'}
-
-BACKGROUND:
-This Further and Better Affidavit is filed pursuant to and in addition to the ${ownAffidavitLabel} already filed in support of / in this application.
-${otherAffidavitIn ? 'The opposing party has filed a Counter-Affidavit. Portions of it are addressed below.' : ''}
-
-GROUNDS FOR THIS FURTHER AND BETTER AFFIDAVIT:
-${groundBlocks}
-
-DRAFTING RULES — MANDATORY:
-1. Opening paragraph must: identify the deponent, state their capacity, reference the original ${ownAffidavitLabel} by filing date (if known) or as "the ${ownAffidavitLabel} already filed herein", and state the purpose of this further affidavit.
-2. Each ground becomes one or more numbered paragraphs. Each paragraph must explicitly state its connection:
-   - If premised on the ${ownAffidavitLabel}: "Further and better stating paragraph [X] of our ${ownAffidavitLabel}, I state that..."
-   - If responding to the Counter-Affidavit: "As to paragraph [X] of the Counter-Affidavit deposed to by [deponent], I say that the same is false/misleading/incomplete in that..."
-3. New facts stated in first-person deponent voice. Present tense where appropriate, past tense for past events.
-4. Exhibits: "There is now produced and shown to me marked Exhibit [X] a copy of [document description]."
-5. Correct jurat: "Sworn to at _____ this ___ day of ______ 20__ / Before me: ___________ Commissioner for Oaths / Notary Public"
-6. Heading: "FURTHER AND BETTER AFFIDAVIT" — with full court heading, case name, suit number, parties.
-7. Do not introduce facts unrelated to the grounds listed above.
-8. Do not introduce legal argument — this is an affidavit, not a written address.
-
-Draft the Further and Better Affidavit now:`;
-
-    const result = await ask({
-      system: systemCtx + '\nYou are drafting a Further and Better Affidavit for a Nigerian court. This is a sworn document — no legal argument, only facts. Every paragraph must have a clear basis (premised on own affidavit or responding to counter-affidavit paragraph). Use correct Nigerian affidavit format.',
-      userMsg: prompt, maxTokens: 2500,
-    });
-    if (result) onFBDraftChange(result.trim());
-  }
-
-  const basisOptions: { value: FBGround['basis']; label: string }[] = [
-    { value: 'own_affidavit',     label: `Premised on our ${ownAffidavitLabel}` },
-    { value: 'counter_affidavit', label: "Responding to Counter-Affidavit paragraph(s)" },
-  ];
-
-  return (
-    <div>
-      <div style={{ fontSize: 12, color: '#808098', marginBottom: 18, lineHeight: 1.6 }}>
-        A Further and Better Affidavit must be premised on specific paragraphs of your own affidavit (to expand or add exhibits)
-        or must directly respond to specific paragraphs of the opposing Counter-Affidavit (to deny or correct facts).
-        Add each ground separately below.
-      </div>
-
-      {error && <ErrorBlock message={error} />}
-
-      {/* Ground list */}
-      {fbGrounds.length > 0 && (
-        <div style={{ marginBottom: 20 }}>
-          {fbGrounds.map((g, i) => (
-            <div key={g.id} style={{ background: '#080814', border: '1px solid #1e1e34', borderRadius: 7, padding: '14px 16px', marginBottom: 10, display: 'flex', gap: 12, justifyContent: 'space-between' }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 12, color: '#4090d0', fontWeight: 600, marginBottom: 4 }}>
-                  Ground {i + 1} — {g.basis === 'own_affidavit' ? `Our ${ownAffidavitLabel} ¶${g.paraRef}` : `Counter-Affidavit ¶${g.paraRef}`}
-                </div>
-                {g.exhibit && <div style={{ fontSize: 11, color: '#c09040' }}>Exhibit: {g.exhibit}</div>}
-                <div style={{ fontSize: 12, color: '#808098', marginTop: 2 }}>{g.newFact.slice(0, 80)}{g.newFact.length > 80 ? '…' : ''}</div>
-              </div>
-              <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                <button onClick={() => startEdit(g)}
-                  style={{ background: 'transparent', border: '1px solid #2a2a40', color: '#808098', borderRadius: 4, padding: '4px 10px', fontSize: 11, cursor: 'pointer', fontFamily: "\'Times New Roman\', Times, serif" }}>Edit</button>
-                <button onClick={() => removeGround(g.id)}
-                  style={{ background: 'transparent', border: 'none', color: '#503030', cursor: 'pointer', fontSize: 16 }}>✕</button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Ground editor */}
-      {editGround ? (
-        <div style={{ background: '#080814', border: '1px solid #c0904030', borderRadius: 8, padding: '18px 20px', marginBottom: 20 }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: '#f0ece0', marginBottom: 16 }}>
-            {editingId ? 'Edit Ground' : 'New Ground'}
-          </div>
-
-          <div style={{ marginBottom: 14 }}>
-            <SLabel text="Basis of this ground" />
-            <div style={{ display: 'flex', gap: 8 }}>
-              {basisOptions.map(opt => (
-                <button key={opt.value} onClick={() => setEditGround(p => p ? { ...p, basis: opt.value } : p)}
-                  style={{
-                    background: editGround.basis === opt.value ? '#0a1020' : 'transparent',
-                    border: `1px solid ${editGround.basis === opt.value ? '#4090d0' : '#282840'}`,
-                    color: editGround.basis === opt.value ? '#4090d0' : '#505068',
-                    borderRadius: 5, padding: '7px 14px', fontSize: 12, cursor: 'pointer',
-                    fontFamily: "\'Times New Roman\', Times, serif",
-                  }}>
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div style={{ marginBottom: 12 }}>
-            <SLabel text={`Paragraph number(s) in the ${editGround.basis === 'own_affidavit' ? `${ownAffidavitLabel}` : 'Counter-Affidavit'} being referenced`} />
-            <TA value={editGround.paraRef} onChange={v => setEditGround(p => p ? { ...p, paraRef: v } : p)}
-              placeholder="e.g. 5 / or 5, 6 and 7" rows={1} />
-          </div>
-
-          <div style={{ marginBottom: 12 }}>
-            <SLabel text="What those paragraph(s) say (brief summary)" />
-            <TA value={editGround.paraText} onChange={v => setEditGround(p => p ? { ...p, paraText: v } : p)}
-              placeholder={editGround.basis === 'own_affidavit'
-                ? "e.g. Paragraph 5 states that the claimant paid the sum of ₦5,000,000 on 3 March 2024 but does not exhibit the payment receipt"
-                : "e.g. Paragraph 5 of the Counter-Affidavit alleges that the defendant never received the goods, which is false"}
-              rows={3} />
-          </div>
-
-          <div style={{ marginBottom: 12 }}>
-            <SLabel text={editGround.basis === 'own_affidavit' ? "New fact or exhibit being introduced (what this ground adds)" : "Your response — the true facts"} />
-            <TA value={editGround.newFact} onChange={v => setEditGround(p => p ? { ...p, newFact: v } : p)}
-              placeholder={editGround.basis === 'own_affidavit'
-                ? "e.g. The receipt was omitted from the original affidavit. A copy of the receipt is now exhibited hereto as Exhibit C"
-                : "e.g. The defendant received the goods on 5 March 2024 as evidenced by the delivery note signed by the defendant's store manager now exhibited as Exhibit D"}
-              rows={4} />
-          </div>
-
-          <div style={{ marginBottom: 16 }}>
-            <SLabel text="Exhibit label (if any)" />
-            <TA value={editGround.exhibit} onChange={v => setEditGround(p => p ? { ...p, exhibit: v } : p)}
-              placeholder="e.g. Exhibit C (continue from the original affidavit's exhibit sequence)"
-              rows={1} />
-          </div>
-
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <Btn label={editingId ? '✓ Update Ground' : '✓ Save Ground'} onClick={saveGround} accent="#c09040" off={!editGround.paraRef.trim() || !editGround.newFact.trim()} />
-            <button onClick={cancelEdit}
-              style={{ background: 'none', border: 'none', color: '#505068', cursor: 'pointer', fontSize: 12, fontFamily: "\'Times New Roman\', Times, serif" }}>Cancel</button>
-          </div>
-        </div>
-      ) : (
-        <div style={{ marginBottom: 20 }}>
-          <Btn label="+ Add Ground" onClick={startNew} accent="#c09040" />
-        </div>
-      )}
-
-      {/* Draft & output */}
-      {fbGrounds.length > 0 && !editGround && (
-        <div style={{ borderTop: '1px solid #181828', paddingTop: 20 }}>
-          {fbDraft && (
-            <div style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 11, color: '#40a060', marginBottom: 8 }}>✓ Further and Better Affidavit drafted</div>
-              <div style={{ background: '#06060f', border: '1px solid #1a1a2e', borderRadius: 8, padding: '16px 18px', lineHeight: 1.85, fontSize: 13, maxHeight: 360, overflowY: 'auto' }}>
-                <Md text={fbDraft} />
-              </div>
-            </div>
-          )}
-          <Btn label={fbDraft ? '↻ Re-draft Further & Better Affidavit' : '✍ Draft Further & Better Affidavit'}
-            onClick={generateFB} loading={loading} accent="#c09040" />
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ── Full Stage 3 component ─────────────────────────────────────────────────
 
 interface ArgBuilderProps {
@@ -1978,7 +1739,7 @@ function ArgumentBuilderStage({ activeCase, appType, facts, stage3, onStage3, on
   // called once a role was picked — a different hook count between renders,
   // which is a Rules-of-Hooks violation and throws React error #310 the
   // instant the user selects Mover or Respondent.
-  const [moverTab,     setMoverTab]     = useState<MoverSubTab>('supporting_affidavit');
+  const [moverTab,     setMoverTab]     = useState<MoverSubTab>((appType.id === 'civil_originating_summons' || appType.id === 'civil_originating_application') ? 'originating_process' : 'supporting_affidavit');
   const [respondentTab, setRespondentTab] = useState<RespondentSubTab>('counter_affidavit');
   const [editPara,    setEditPara]    = useState<AffidavitParaResponse | null>(null);
   const [editParaId,  setEditParaId]  = useState<string | null>(null);
@@ -2063,7 +1824,7 @@ function ArgumentBuilderStage({ activeCase, appType, facts, stage3, onStage3, on
   const [respDetecting,      setRespDetecting]      = useState(false);
   const [respDetectError,    setRespDetectError]    = useState<string | null>(null);
   const [respDetectedTheory, setRespDetectedTheory] = useState<DetectedOpponentTheory | null>(null);
-  const [respDetectSource,   setRespDetectSource]   = useState<'affidavit' | 'written_address' | null>(null);
+  const [respDetectSource,   setRespDetectSource]   = useState<'affidavit' | null>(null);
   const [respMerging,        setRespMerging]        = useState(false);
   const [respMergeMsg,       setRespMergeMsg]       = useState<string | null>(null);
   // Phase 3D — controls whether the full TheoryMergePanel is open
@@ -2071,13 +1832,8 @@ function ArgumentBuilderStage({ activeCase, appType, facts, stage3, onStage3, on
   // Respondent's own "mover theory" view — same hook, same caseId, just aliased for clarity
   const { theory: respCaseTheory, locked: respTheoryLocked, reload: reloadRespTheory } = useCaseTheory(activeCase.id);
 
-  async function runRespDetection(source: 'affidavit' | 'written_address') {
-    // For respondent track, the "written_address" source means the applicant's
-    // originating motion / written address (distinct from stage3.writtenAddressIn
-    // which is the mover's copy of opposing response). We reuse applicantAffidavit
-    // for affidavit source; for written_address we use writtenAddressIn as the
-    // applicant's motion document — field label updated in UI below.
-    const text = source === 'affidavit' ? stage3.applicantAffidavit : stage3.writtenAddressIn;
+  async function runRespDetection(source: 'affidavit') {
+    const text = stage3.applicantAffidavit;
     if (!text.trim()) return;
     setRespDetecting(true);
     setRespDetectError(null);
@@ -2143,7 +1899,9 @@ function ArgumentBuilderStage({ activeCase, appType, facts, stage3, onStage3, on
   const role = stage3.applicationRole;
 
   // ── Tab definitions
+  const isOriginatingType = appType.id === 'civil_originating_summons' || appType.id === 'civil_originating_application';
   const moverTabs: { id: MoverSubTab; label: string; locked?: boolean }[] = [
+    ...(isOriginatingType ? [{ id: 'originating_process' as MoverSubTab, label: `📜 ${appType.label}` }] : []),
     { id: 'supporting_affidavit', label: '✍ Supporting Affidavit' },
     { id: 'written_address',    label: `⚖ Written Address in Support (${stage3.issues.length} issue${stage3.issues.length !== 1 ? 's' : ''})` },
     { id: 'opposing_response',  label: '📥 Opposing Response' },
@@ -2171,6 +1929,52 @@ function ArgumentBuilderStage({ activeCase, appType, facts, stage3, onStage3, on
     if (editParaId) { onStage3({ ...stage3, paraResponses: stage3.paraResponses.map(p => p.id === editParaId ? editPara : p) }); }
     else { onStage3({ ...stage3, paraResponses: [...stage3.paraResponses, editPara] }); }
     setEditPara(null); setEditParaId(null);
+  }
+
+  async function generateOriginatingProcess() {
+    const reliefs  = facts.autoReliefs  || facts.reliefSought  || '';
+    const grounds  = facts.autoGrounds  || facts.grounds       || '';
+    const keyFacts = facts.autoKeyFacts || facts.keyFacts      || '';
+    const intPkgStr = String(activeCase.intelligence_data?.intPkg ?? '').slice(0, 3000);
+    const docLabel = appType.label; // "Originating Summons" or "Originating Application"
+    const prompt = `Draft a complete ${docLabel} in correct Nigerian court form. This is a paper-trial originating process — there are no pleadings; the matter is decided on affidavit evidence and written address alone.
+
+CASE: ${activeCase.caseName} | COURT: ${activeCase.court} | SUIT: ${activeCase.suitNo || '[TBA]'}
+TRACK: ${activeCase.matter_track ?? 'civil'}
+
+${intPkgStr ? 'INTELLIGENCE PACKAGE (vetted facts — do not contradict):\n' + intPkgStr + '\n' : ''}
+RELIEFS SOUGHT:
+${reliefs}
+
+GROUNDS / STATUTORY BASIS:
+${grounds}
+
+KEY FACTS / SUBJECT MATTER:
+${keyFacts}
+
+${facts.additionalContext ? 'ADDITIONAL CONTEXT:\n' + facts.additionalContext + '\n' : ''}
+${stage3.origProcessContext ? 'COUNSEL INSTRUCTIONS:\n' + stage3.origProcessContext + '\n' : ''}
+
+${docLabel.toUpperCase()} RULES — MANDATORY:
+1. Full Nigerian court heading: IN THE [COURT NAME] / HOLDEN AT [LOCATION] / SUIT NO: [NUMBER OR "TO BE ASSIGNED"] / BETWEEN: [APPLICANT] — Applicant AND [RESPONDENT] — Respondent
+2. "IN THE MATTER OF" line identifying the statute, instrument, or subject matter to be construed or determined
+3. Body: "Let [Respondent / all persons concerned] take notice that this Court will be moved on an application by the Applicant for the determination of the following questions and the grant of the following reliefs:"
+4. QUESTIONS FOR DETERMINATION — numbered. Each question MUST be a legal proposition answerable without resolving disputed facts (no question may ask the court to find a fact in dispute).
+5. RELIEFS SOUGHT — numbered, with each relief corresponding to a question above (declarations, orders, costs).
+6. GROUNDS — the statutory or common-law basis for jurisdiction and for each question, including the enabling rule authorising commencement by ${docLabel}.
+7. "AND TAKE NOTICE that the Applicant will rely on the Affidavit in Support filed herewith and such further affidavit(s) and Written Address as may be filed."
+8. Solicitor's endorsement: Drawn and filed by [Counsel], [Firm], [Address], [Date]
+9. Flag any missing particulars as [COUNSEL TO SUPPLY: description].
+
+Draft the complete ${docLabel} now:`;
+
+    const result = await ask({
+      system: systemCtx + `\nYou are drafting a ${docLabel} for a Nigerian court — a paper-trial originating process decided on affidavit evidence and written address, with no pleadings and no oral trial. Questions for determination must be legal propositions, not disputed facts.`,
+      userMsg: prompt,
+      maxTokens: 1500,
+      libraryOpts: { queryHint: `${docLabel} Nigeria questions for determination`, topK: 4 },
+    });
+    if (result) onStage3({ ...stage3, origProcessDraft: result.trim() });
   }
 
   async function generateSupportingAffidavit() {
@@ -2423,6 +2227,57 @@ Draft the Reply on Points of Law now:`;
             </button>
           ))}
         </div>
+
+        {/* Tab 0 — Originating Summons / Originating Application (paper-trial originating process itself) */}
+        {moverTab === 'originating_process' && (
+          <div>
+            <div style={{ fontSize: 12, color: '#808098', marginBottom: 18, lineHeight: 1.65 }}>
+              The {appType.label} is the <strong style={{ color: '#c0c0d8' }}>originating process itself</strong> — questions for determination, reliefs, and grounds. This is a paper-trial document: no pleadings, decided on affidavit evidence and written address alone. Each question must be a legal proposition, not a disputed fact.
+            </div>
+
+            {error && <ErrorBlock message={error} />}
+
+            {(facts.autoKeyFacts || facts.keyFacts) && (
+              <div style={{ background: '#06060f', border: '1px solid #1a1a2e', borderRadius: 7, padding: '12px 16px', marginBottom: 18 }}>
+                <div style={{ fontSize: 11, color: '#4090d0', fontWeight: 700, marginBottom: 8 }}>KEY FACTS (from Stage 2)</div>
+                <div style={{ fontSize: 12, color: '#9090a8', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
+                  {(facts.autoKeyFacts || facts.keyFacts).slice(0, 600)}{(facts.autoKeyFacts || facts.keyFacts).length > 600 ? '…' : ''}
+                </div>
+              </div>
+            )}
+
+            <div style={{ marginBottom: 14 }}>
+              <SLabel text="Counsel Instructions (questions for determination, reliefs, statutory basis — anything not captured above)" />
+              <TA value={stage3.origProcessContext}
+                onChange={v => onStage3({ ...stage3, origProcessContext: v })}
+                placeholder="e.g. Question 1: Whether Clause 7 of the Agreement dated [date] entitles the Applicant to... ; Relief 1: A declaration that...; Enabling rule: Order X Rule Y of the [Court] Civil Procedure Rules." rows={6} />
+            </div>
+
+            {stage3.origProcessDraft && (
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 11, color: '#40a060', marginBottom: 8 }}>✓ {appType.label} drafted</div>
+                <div style={{ background: '#06060f', border: '1px solid #1a1a2e', borderRadius: 8, padding: '18px 20px', lineHeight: 1.85, fontSize: 13, maxHeight: 400, overflowY: 'auto' }}>
+                  <Md text={stage3.origProcessDraft} />
+                </div>
+                <div style={{ marginTop: 10 }}>
+                  <TA value={stage3.origProcessDraft}
+                    onChange={v => onStage3({ ...stage3, origProcessDraft: v })} rows={12} />
+                </div>
+              </div>
+            )}
+
+            <Btn label={stage3.origProcessDraft ? `↻ Re-draft ${appType.label}` : `📜 Draft ${appType.label}`}
+              onClick={generateOriginatingProcess} loading={loading}
+              off={!facts.autoKeyFacts && !facts.keyFacts && !facts.autoReliefs && !facts.reliefSought && !stage3.origProcessContext.trim() && !activeCase.intelligence_data}
+              accent="#4090d0" />
+
+            {!facts.autoKeyFacts && !facts.keyFacts && !stage3.origProcessContext.trim() && !activeCase.intelligence_data && (
+              <div style={{ marginTop: 10, fontSize: 11, color: '#806040' }}>
+                ← Go back to Stage 2 and auto-derive or enter key facts, or add counsel instructions above, first
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Tab 1 — Supporting Affidavit */}
         {moverTab === 'supporting_affidavit' && (
@@ -2772,14 +2627,8 @@ Draft the Reply on Points of Law now:`;
                             <div style={{ fontSize: 12, color: '#808098', marginTop: 4, lineHeight: 1.5 }}>{p.paraText.slice(0, 80)}{p.paraText.length > 80 ? '…' : ''}</div>
                             {p.response && <div style={{ fontSize: 12, color: '#c0c0d8', marginTop: 4, fontStyle: 'italic' }}>{p.response.slice(0, 100)}{p.response.length > 100 ? '…' : ''}</div>}
                           </div>
-                          <div style={{ display: 'flex', gap: 6, flexShrink: 0, marginLeft: 12 }}>
-                            <button onClick={() => {
-                              const updated = stage3.moverFBParaResponses.map((r, i) => i === idx ? { ...r, _editing: true } : r);
-                              onStage3({ ...stage3, moverFBParaResponses: updated });
-                            }} style={{ background: 'transparent', border: '1px solid #2a2a40', color: '#808098', borderRadius: 4, padding: '4px 10px', fontSize: 11, cursor: 'pointer', fontFamily: "'Times New Roman', Times, serif" }}>Edit</button>
-                            <button onClick={() => onStage3({ ...stage3, moverFBParaResponses: stage3.moverFBParaResponses.filter((_, i) => i !== idx) })}
-                              style={{ background: 'transparent', border: 'none', color: '#503030', cursor: 'pointer', fontSize: 16 }}>✕</button>
-                          </div>
+                          <button onClick={() => onStage3({ ...stage3, moverFBParaResponses: stage3.moverFBParaResponses.filter((_, i) => i !== idx) })}
+                            style={{ background: 'transparent', border: 'none', color: '#503030', cursor: 'pointer', fontSize: 16, marginLeft: 12 }}>✕</button>
                         </div>
                       </div>
                     ))}
@@ -3445,6 +3294,25 @@ function ApplicationsTracker({ caseId }: { caseId: string }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// DEFAULT_STAGE3 — single source of truth for Stage3Data initial/reset state.
+// Declared at module scope so useState and resetWorkflow both reference the
+// same object, preventing silent divergence when new fields are added.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const DEFAULT_STAGE3: Stage3Data = {
+  applicationRole: null, origProcessContext: '', origProcessDraft: '', supportingAffidavitDraft: '', supplementInstructions: '', supplementExhibits: '',
+  issues: [], writtenAddress: '', opposingFiled: false,
+  counterAffidavitIn: '', writtenAddressIn: '', fbGrounds: [], furtherBetterDraft: '',
+  replyLawPoints: '', replyLawDraft: '', furtherBetterTrigger: null, moverFBParaResponses: [],
+  motionPaperIn: '', applicantWrittenAddressIn: '',
+  applicantAffidavit: '', paraResponses: [],
+  respondentNewFacts: '', respondentDeponent: '', respondentExhibits: '',
+  counterAffidavitDraft: '', respIssues: [], writtenAddressOpp: '',
+  respOpposingFiled: false, leaveObtained: false, applicantFBIn: '',
+  respFCParaResponses: [], respFCDraft: '',
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 // MAIN COMPONENT
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -3498,38 +3366,7 @@ export function ApplicationsEngine({ activeCase }: Props) {
   } | null>(null);
 
   // Stage 3 — all mover + respondent state in one object
-  const [stage3, setStage3] = useState<Stage3Data>({
-    applicationRole:      null,
-    supportingAffidavitDraft: '',
-    supplementInstructions: '',
-    supplementExhibits:   '',
-    issues:               [],
-    writtenAddress:       '',
-    opposingFiled:        false,
-    counterAffidavitIn:   '',
-    writtenAddressIn:     '',
-    fbGrounds:            [],
-    furtherBetterDraft:   '',
-    replyLawPoints:       '',
-    replyLawDraft:        '',
-    furtherBetterTrigger: null,
-    moverFBParaResponses: [],
-    motionPaperIn:             '',
-    applicantWrittenAddressIn: '',
-    applicantAffidavit:   '',
-    paraResponses:        [],
-    respondentNewFacts:   '',
-    respondentDeponent:   '',
-    respondentExhibits:   '',
-    counterAffidavitDraft:'',
-    respIssues:           [],
-    writtenAddressOpp:    '',
-    respOpposingFiled:    false,
-    leaveObtained:        false,
-    applicantFBIn:        '',
-    respFCParaResponses:  [],
-    respFCDraft:          '',
-  });
+  const [stage3, setStage3] = useState<Stage3Data>({ ...DEFAULT_STAGE3 });
 
   // Stage 4
   const [generated, setGenerated] = useState('');
@@ -3810,19 +3647,6 @@ Extract and return ONLY a JSON object with no preamble or markdown:
     if (selectedRecord?.id === id) setSelectedRecord(null);
   }, [history, selectedRecord]);
 
-  const DEFAULT_STAGE3: Stage3Data = {
-    applicationRole: null, supportingAffidavitDraft: '', supplementInstructions: '', supplementExhibits: '',
-    issues: [], writtenAddress: '', opposingFiled: false,
-    counterAffidavitIn: '', writtenAddressIn: '', fbGrounds: [], furtherBetterDraft: '',
-    replyLawPoints: '', replyLawDraft: '', furtherBetterTrigger: null, moverFBParaResponses: [],
-    motionPaperIn: '', applicantWrittenAddressIn: '',
-    applicantAffidavit: '', paraResponses: [],
-    respondentNewFacts: '', respondentDeponent: '', respondentExhibits: '',
-    counterAffidavitDraft: '', respIssues: [], writtenAddressOpp: '',
-    respOpposingFiled: false, leaveObtained: false, applicantFBIn: '',
-    respFCParaResponses: [], respFCDraft: '',
-  };
-
   const resetWorkflow = useCallback(() => {
     setStage(1); setSelectedType(null); setCustomTypeText('');
     setFacts({ ...DEFAULT_FACTS }); setStage3({ ...DEFAULT_STAGE3 });
@@ -3847,6 +3671,8 @@ Extract and return ONLY a JSON object with no preamble or markdown:
       ...s,
       ...rec.stage3,
       // Explicit hydration — ensure mover draft fields survive round-trip
+      origProcessContext:       rec.stage3.origProcessContext       ?? s.origProcessContext,
+      origProcessDraft:         rec.stage3.origProcessDraft         ?? s.origProcessDraft,
       supportingAffidavitDraft: rec.stage3.supportingAffidavitDraft ?? s.supportingAffidavitDraft,
       supplementInstructions:   rec.stage3.supplementInstructions   ?? s.supplementInstructions,
       supplementExhibits:       rec.stage3.supplementExhibits       ?? s.supplementExhibits,
@@ -3867,7 +3693,7 @@ Extract and return ONLY a JSON object with no preamble or markdown:
     return t.track === trackFilter;
   });
   const canGoToStage2 = !!selectedType;
-  const canGoToStage3 = canGoToStage2 && !!stage3.applicationRole && !!(facts.reliefSought.trim() || facts.grounds.trim() || facts.autoReliefs.trim() || facts.motionPaperIn?.trim());
+  const canGoToStage3 = canGoToStage2 && !!stage3.applicationRole && !!(facts.reliefSought.trim() || facts.grounds.trim() || facts.autoReliefs.trim() || stage3.motionPaperIn.trim());
   const stageLabels   = ['Type', 'Facts', 'Arguments', 'Assemble', 'Track'];
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -3922,8 +3748,8 @@ Extract and return ONLY a JSON object with no preamble or markdown:
             {([1, 2, 3, 4, 5] as const).map((n, i) => (
               <React.Fragment key={n}>
                 <div
-                  style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: n < stage ? 'pointer' : 'default' }}
-                  onClick={() => { if (n < stage) setStage(n); }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: (n <= stage || (n === 5 && !!generated)) ? 'pointer' : 'default' }}
+                  onClick={() => { if (n <= stage || (n === 5 && !!generated)) setStage(n); }}
                 >
                   <StepBadge n={n} active={stage === n} done={stage > n} />
                   <span style={{ fontSize: 11, color: stage >= n ? '#c8c0b0' : '#404058' }}>{stageLabels[i]}</span>
@@ -4377,8 +4203,13 @@ Extract and return ONLY a JSON object with no preamble or markdown:
           <ArgumentTemplateManager
             activeCase={activeCase}
             onApplyDraft={(draft) => {
-              // stub — handler wired in Phase 2D-ii
-              console.log('[2D-i] onApplyDraft stub received draft:', draft.slice(0, 120));
+              // Phase 2D-i: navigate to the New Application tab and seed the
+              // mover written address with the selected template draft so counsel
+              // can review, edit, and re-assemble without re-running the full
+              // issue-by-issue flow from scratch.
+              setStage3(s => ({ ...s, writtenAddress: draft }));
+              setMainTab('new');
+              setStage(3);
             }}
           />
         </div>
@@ -4548,6 +4379,7 @@ Extract and return ONLY a JSON object with no preamble or markdown:
         </div>
       </div>
     )}
+    </div>
     </>
   );
 }
