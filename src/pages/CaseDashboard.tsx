@@ -61,8 +61,7 @@ import { PartyLabelsProvider } from '@/components/PartyLabelsContext';
 import { T } from '@/constants/tokens';
 import { saveCase } from '@/storage/helpers';
 import { maybeCompressIntelligence } from '@/services/compressIntelligence';
-// Phase 9 — Checklist Sidebar (case-level, engine-independent)
-import { ChecklistSidebar } from '@/components/ChecklistSidebar';
+
 import type { Case, DashTabId, MatterTrack, CounselRole } from '@/types';
 import {
   MATTER_TRACK_LABELS,
@@ -234,13 +233,6 @@ export function CaseDashboard() {
   // ── Phase 1A — Role Gate persist handler ─────────────────────────────────
   // Called by IntelligenceEngine.RoleGate when counsel confirms track + role.
   // Persists to IndexedDB and syncs the app store so roleGateActive clears.
-  // Phase 9 — Checklist Sidebar save handler. Persists checklist_ticks
-  // (and any other arbitrary Case patch) without touching intelligence_data.
-  const onSaveCase = useCallback(async (patch: Partial<Case>) => {
-    updateActiveCase(patch);
-    await saveCase({ ...activeCase, ...patch });
-  }, [activeCase, updateActiveCase]);
-
   const onSaveRole = useCallback(async (track: MatterTrack, role: CounselRole) => {
     const patch = { matter_track: track, counsel_role: role };
     updateActiveCase(patch);
@@ -271,10 +263,6 @@ export function CaseDashboard() {
   const counselRole  = activeCase.counsel_role;
   const posConfig    = counselRole ? ROLE_POSITION_CONFIG[counselRole] : null;
   const quickActions = counselRole ? ROLE_QUICK_ACTIONS[counselRole] : null;
-
-  // ── Dynamic Next Action — loaded from docket + deadlines ─────────────────
-  // Phase 9 — Checklist Sidebar open state
-  const [checklistOpen, setChecklistOpen] = useState(false);
 
   const [dashEntries,   setDashEntries]   = useState<DocketEntry[]>([]);
   const [dashDeadlines, setDashDeadlines] = useState<Deadline[]>([]);
@@ -536,65 +524,6 @@ export function CaseDashboard() {
           </div>
         )}
 
-        {/* ── Phase 9 — Checklist trigger ─────────────────────────────────── */}
-        <div style={{ marginTop: 10, display: 'flex', justifyContent: 'flex-end' }}>
-          <button
-            onClick={() => setChecklistOpen(true)}
-            title="Open Case Checklist — Phase 9"
-            style={{
-              background:    '#ffffff',
-              border:        '1px solid #cccccc',
-              borderRadius:  3,
-              color:         '#444444',
-              padding:       '5px 13px',
-              fontSize:      11,
-              fontFamily:    "'Times New Roman', Times, serif",
-              cursor:        'pointer',
-              letterSpacing: '.03em',
-              display:       'flex',
-              alignItems:    'center',
-              gap:           6,
-              transition:    'all .15s',
-            }}
-            onMouseEnter={e => {
-              (e.currentTarget as HTMLElement).style.background = '#f5f5f5';
-              (e.currentTarget as HTMLElement).style.borderColor = '#aaaaaa';
-            }}
-            onMouseLeave={e => {
-              (e.currentTarget as HTMLElement).style.background = '#ffffff';
-              (e.currentTarget as HTMLElement).style.borderColor = '#cccccc';
-            }}
-          >
-            ☑ Checklist
-            {/* Fatal-incomplete badge */}
-            {(() => {
-              const intel = activeCase.intelligence_data as any;
-              const ticks = (activeCase as any).checklist_ticks ?? {};
-              // Count fatal fundamentals not yet ticked
-              const fatalIds = ['9a_conflict','9a_kyc','9a_retainer','9a_demand_or_process','9a_authority'];
-              const openFatals = fatalIds.filter(id => !ticks[id]?.ticked).length;
-              const openLaws = (intel?.laws_needed ?? []).filter((e: any) => !e.resolved).length;
-              const total = openFatals + openLaws;
-              if (total === 0) return null;
-              return (
-                <span style={{
-                  background:   '#c03030',
-                  color:        '#ffffff',
-                  fontSize:     8,
-                  fontFamily:   "'Times New Roman', Times, serif",
-                  fontWeight:   700,
-                  borderRadius: 8,
-                  padding:      '1px 5px',
-                  minWidth:     14,
-                  textAlign:    'center',
-                  lineHeight:   '14px',
-                }}>
-                  {total}
-                </span>
-              );
-            })()}
-          </button>
-        </div>
       </div>
 
       {/* ── Tab bar — originating-process-filtered ──────────────────────────── */}
@@ -710,13 +639,6 @@ export function CaseDashboard() {
           />
         </Suspense>
       </ErrorBoundary>
-      {/* ── Phase 9 — Checklist Sidebar ─────────────────────────────────── */}
-      <ChecklistSidebar
-        activeCase={activeCase}
-        onSave={onSaveCase}
-        open={checklistOpen}
-        onClose={() => setChecklistOpen(false)}
-      />
     </div>
     </PartyLabelsProvider>
   );
