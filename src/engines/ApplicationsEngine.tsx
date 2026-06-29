@@ -4379,7 +4379,6 @@ Extract and return ONLY a JSON object with no preamble or markdown:
         </div>
       </div>
     )}
-    </div>
     </>
   );
 }
