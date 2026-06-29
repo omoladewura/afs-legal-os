@@ -391,7 +391,6 @@ Provide a structured briefing:
           ENTRIES
       ═══════════════════════════════════════════════════════════════════════ */}
       <>
-        <>
           {/* Action row */}
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 18, paddingBottom: 16, borderBottom: `1px solid ${T.bdr}` }}>
             {/* BUTS button */}
