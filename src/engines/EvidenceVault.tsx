@@ -33,7 +33,6 @@ import {
   loadEvidenceFile,
   deleteEvidenceFile,
   saveMediaItem,
-  saveMediaAsTemplate,
   loadCaseMedia,
   loadGlobalMedia,
   deleteMediaItem,
@@ -454,7 +453,6 @@ export function EvidenceVault({ activeCase }: Props) {
   const [mediaSearchQ,  setMediaSearchQ]  = useState('');
   const [mediaPreview,  setMediaPreview]  = useState<MediaLibraryItem | null>(null);
   const [mediaDeleteId, setMediaDeleteId] = useState<string | null>(null);
-  const [rowPromoting,  setRowPromoting]  = useState<Record<string, boolean>>({});
 
   // ── Phase 8B — quick paste/upload capture for the Media Library ─────────────
   // Independent of the categorised Document Upload flow above (UploadPanel /
@@ -465,45 +463,6 @@ export function EvidenceVault({ activeCase }: Props) {
   // global media into this view lands in Phase 8E.
   const [quickMedia,    setQuickMedia]    = useState<MediaLibraryItem | null>(null);
   const [quickMediaErr, setQuickMediaErr] = useState('');
-  const [promoting,     setPromoting]     = useState(false);
-
-  /**
-   * Phase 8E — promotes a media item (by id) to global/template scope and
-   * keeps the merged `mediaItems` list in sync in place, rather than
-   * re-querying both tables. Shared by the quick-paste toast's "Save as
-   * Template" button and the per-row action in the merged Media Library
-   * list below.
-   */
-  const promoteToTemplate = useCallback(async (id: string) => {
-    const updated = await saveMediaAsTemplate(id);
-    if (updated) {
-      setMediaItems(prev => prev.map(m => (m.id === id ? updated : m)));
-      setQuickMedia(qm => (qm && qm.id === id ? updated : qm));
-    }
-    return updated;
-  }, []);
-
-  /**
-   * Phase 8C — "Save as Template", from the quick-paste toast. Flips the
-   * just-saved item's scope to 'global' and clears its caseId, in place.
-   * The same row then becomes available to every matter via the global
-   * Asset Library (Phase 8D) and stays visible right here too (Phase 8E).
-   */
-  async function handleSaveAsTemplate() {
-    if (!quickMedia || quickMedia.scope === 'global') return;
-    setPromoting(true);
-    const updated = await promoteToTemplate(quickMedia.id);
-    if (!updated) setQuickMediaErr('Could not save as template — please try again.');
-    setPromoting(false);
-  }
-
-  /** Phase 8E — "Save as Template" from a row in the merged Media Library list. */
-  async function handleRowSaveAsTemplate(id: string) {
-    setRowPromoting(p => ({ ...p, [id]: true }));
-    const updated = await promoteToTemplate(id);
-    setRowPromoting(p => ({ ...p, [id]: false }));
-    if (!updated) alert('Could not save as template — please try again.');
-  }
 
   const captureQuickMedia = useCallback(async (file: File) => {
     setQuickMediaErr('');
@@ -779,7 +738,7 @@ export function EvidenceVault({ activeCase }: Props) {
         </button>
       </div>
 
-      {/* Phase 8B/8C — quick paste capture, saved to media_library; "Save as Template" flips it to scope:'global' */}
+      {/* Phase 8B — quick paste capture, saved to media_library */}
       {(quickMedia || quickMediaErr) && (
         <div style={{
           background: quickMediaErr ? '#1a0808' : '#08140c',
@@ -793,18 +752,10 @@ export function EvidenceVault({ activeCase }: Props) {
             </p>
           ) : (
             <p style={{ fontSize: 12, color: '#60a878', fontFamily: "'Times New Roman', Times, serif" }}>
-              {quickMedia!.scope === 'global'
-                ? <>🌐 Saved as global template: {quickMedia!.filename} ({fmtSize(quickMedia!.fileSize)}) — available across every matter.</>
-                : <>✅ Saved to Case Media Library: {quickMedia!.filename} ({fmtSize(quickMedia!.fileSize)})</>}
+              <>✅ Saved to Case Media Library: {quickMedia!.filename} ({fmtSize(quickMedia!.fileSize)})</>
             </p>
           )}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-            {quickMedia && quickMedia.scope === 'case' && (
-              <button onClick={handleSaveAsTemplate} disabled={promoting}
-                style={{ background: 'transparent', border: '1px solid #1a3a26', color: '#60a878', borderRadius: 3, padding: '4px 10px', fontSize: 10, fontFamily: "'Times New Roman', Times, serif", cursor: promoting ? 'not-allowed' : 'pointer', opacity: promoting ? .5 : 1, letterSpacing: '.03em' }}>
-                {promoting ? 'Saving…' : 'Save as Template'}
-              </button>
-            )}
             <button onClick={() => { setQuickMedia(null); setQuickMediaErr(''); }}
               style={{ background: 'transparent', border: '1px solid #1a1a2a', color: T.mute, borderRadius: 3, padding: '4px 9px', fontSize: 10, cursor: 'pointer' }}>
               ✕
@@ -979,10 +930,8 @@ export function EvidenceVault({ activeCase }: Props) {
                   <MediaRow
                     key={it.id}
                     item={it}
-                    promoting={!!rowPromoting[it.id]}
                     onPreview={setMediaPreview}
                     onDelete={setMediaDeleteId}
-                    onSaveAsTemplate={handleRowSaveAsTemplate}
                   />
                 ))}
               </div>
@@ -998,10 +947,8 @@ export function EvidenceVault({ activeCase }: Props) {
       {mediaPreview && (
         <MediaPreviewModal
           item={mediaPreview}
-          promoting={!!rowPromoting[mediaPreview.id]}
           onClose={() => setMediaPreview(null)}
           onDelete={setMediaDeleteId}
-          onSaveAsTemplate={handleRowSaveAsTemplate}
         />
       )}
 
@@ -1063,13 +1010,11 @@ function ThumbnailLoader({ itemId, fileType, caseId }: { itemId: string; fileTyp
 
 interface MediaRowProps {
   item:             MediaLibraryItem;
-  promoting:        boolean;
   onPreview:        (item: MediaLibraryItem) => void;
   onDelete:         (id: string) => void;
-  onSaveAsTemplate: (id: string) => void;
 }
 
-function MediaRow({ item, promoting, onPreview, onDelete, onSaveAsTemplate }: MediaRowProps) {
+function MediaRow({ item, onPreview, onDelete }: MediaRowProps) {
   const isImage  = item.fileType.startsWith('image/');
   const src      = isImage ? (item.data.startsWith('data:') ? item.data : `data:${item.fileType};base64,${item.data}`) : null;
   const isGlobal = item.scope === 'global';
@@ -1095,12 +1040,6 @@ function MediaRow({ item, promoting, onPreview, onDelete, onSaveAsTemplate }: Me
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-        {!isGlobal && (
-          <button onClick={e => { e.stopPropagation(); onSaveAsTemplate(item.id); }} disabled={promoting}
-            style={{ background: 'transparent', border: '1px solid #1a3a26', color: '#60a878', borderRadius: 3, padding: '5px 9px', fontSize: 9, cursor: promoting ? 'not-allowed' : 'pointer', opacity: promoting ? .5 : 1, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.03em' }}>
-            {promoting ? 'Saving…' : 'Save as Template'}
-          </button>
-        )}
         <button onClick={e => { e.stopPropagation(); onPreview(item); }}
           style={{ background: 'transparent', border: '1px solid #1a1a2e', color: T.mute, borderRadius: 3, padding: '5px 9px', fontSize: 10, cursor: 'pointer', fontFamily: "'Times New Roman', Times, serif" }}>
           Open
@@ -1120,13 +1059,11 @@ function MediaRow({ item, promoting, onPreview, onDelete, onSaveAsTemplate }: Me
 
 interface MediaPreviewModalProps {
   item:             MediaLibraryItem;
-  promoting:        boolean;
   onClose:          () => void;
   onDelete:         (id: string) => void;
-  onSaveAsTemplate: (id: string) => void;
 }
 
-function MediaPreviewModal({ item, promoting, onClose, onDelete, onSaveAsTemplate }: MediaPreviewModalProps) {
+function MediaPreviewModal({ item, onClose, onDelete }: MediaPreviewModalProps) {
   const src      = item.data.startsWith('data:') ? item.data : `data:${item.fileType};base64,${item.data}`;
   const isImage  = item.fileType.startsWith('image/');
   const isPdf    = item.fileType === 'application/pdf';
@@ -1189,12 +1126,6 @@ function MediaPreviewModal({ item, promoting, onClose, onDelete, onSaveAsTemplat
         )}
 
         <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
-          {!isGlobal && (
-            <button onClick={() => onSaveAsTemplate(item.id)} disabled={promoting}
-              style={{ background: 'transparent', border: '1px solid #1a3a26', color: '#60a878', borderRadius: 4, padding: '8px 16px', fontSize: 11, cursor: promoting ? 'not-allowed' : 'pointer', opacity: promoting ? .5 : 1, fontFamily: "'Times New Roman', Times, serif", letterSpacing: '.03em' }}>
-              {promoting ? 'Saving…' : 'Save as Template'}
-            </button>
-          )}
           <button onClick={() => onDelete(item.id)}
             style={{ background: 'transparent', border: '1px solid #2a1010', color: '#a06060', borderRadius: 4, padding: '8px 16px', fontSize: 11, cursor: 'pointer', fontFamily: "'Times New Roman', Times, serif" }}>
             Remove

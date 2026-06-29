@@ -1,15 +1,15 @@
 /**
  * AFS Advocates — CaseTrackers Engine
  *
- * Five intelligence modules retained after Phase 4Ci:
+ * Three analytical intelligence modules:
  * 1. Witness Management
  * 2. Opposing Counsel Profiler
  * 3. Judge / Court Tendencies
- * 4. Client Communication Log
- * 5. Interlocutory Applications Tracker
  *
  * Conflict Checker → moved to intelligence_data.conflict_scan (Phase 4A/4B)
  * Settlement Tracker + BATNA → moved to intelligence_data.risk_verdict (Phase 4B.ii)
+ * Client Comms Log → removed (secretary work, not legal intelligence)
+ * Interlocutory Applications Tracker → removed (status checklist; ApplicationsEngine drafts, Docket logs)
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -53,29 +53,6 @@ interface JudgeData {
   proceduralStrictness: string;
   receptionToAuthorities: string;
   whatToAvoid: string;
-  notes: string;
-}
-
-interface CommEntry {
-  id: string;
-  type: string;
-  summary: string;
-  instructions: string;
-  date: string;
-  flagged: boolean;
-}
-
-interface InterlockApp {
-  id: string;
-  title: string;
-  mover: 'ours' | 'opposing';
-  type: string;
-  reliefSought: string;
-  filingDate: string;
-  hearingDate: string;
-  status: string;
-  outcome: string;
-  affectsMainSuit: boolean;
   notes: string;
 }
 
@@ -497,254 +474,6 @@ General principles where specifics are unknown. Be practical — this is court i
   );
 }
 
-// ── 6. CLIENT COMMUNICATION LOG ──────────────────────────────────────────────
-
-function BSComms({ caseId }: { caseId: string }) {
-  const [comms, setComms] = useState<CommEntry[]>([]);
-  const [ready, setReady] = useState(false);
-  const [type, setType] = useState('Call');
-  const [summary, setSummary] = useState('');
-  const [instructions, setInstructions] = useState('');
-  const [filter, setFilter] = useState('All');
-
-  useEffect(() => {
-    loadBlindSpot<CommEntry[]>(caseId, 'comms', []).then(d => {
-      setComms(d); setReady(true);
-    });
-  }, [caseId]);
-
-  function save(list: CommEntry[]) {
-    setComms(list);
-    saveBlindSpot(caseId, 'comms', list);
-  }
-
-  function addComm() {
-    if (!summary.trim()) return;
-    const c: CommEntry = { id: uid(), type, summary, instructions, date: new Date().toISOString(), flagged: false };
-    save([c, ...comms]);
-    setSummary(''); setInstructions('');
-  }
-
-  function toggleFlag(id: string) {
-    save(comms.map(c => c.id === id ? { ...c, flagged: !c.flagged } : c));
-  }
-
-  function deleteComm(id: string) {
-    if (!confirm('Delete this log entry?')) return;
-    save(comms.filter(c => c.id !== id));
-  }
-
-  const TYPES = ['Call', 'Meeting', 'Email', 'Letter', 'WhatsApp', 'Instructions', 'Update', 'Other'];
-  const filtered = filter === 'All' ? comms : filter === 'Flagged' ? comms.filter(c => c.flagged) : comms.filter(c => c.type === filter);
-
-  if (!ready) return <LoadingBlock label="Loading…" />;
-
-  return (
-    <div>
-      <BSSection title="💬 Client Communication Log — What Was Said, What Was Instructed">
-        <p style={{ fontSize: 13, color: T.mute, fontFamily: 'Inter,sans-serif', lineHeight: 1.7, marginBottom: 14 }}>
-          This log protects you from client disputes about what was agreed, what advice was given, and what was instructed. Record everything material.
-        </p>
-        <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr', gap: 10, alignItems: 'end' }}>
-          <div>
-            <label style={{ fontSize: 10, color: '#5a5a72', fontFamily: 'Inter,sans-serif', letterSpacing: '.1em', textTransform: 'uppercase', fontWeight: 600, display: 'block', marginBottom: 5 }}>Type</label>
-            <select value={type} onChange={e => setType(e.target.value)}
-              style={{ width: '100%', background: T.bg, border: '1px solid #cccccc', borderRadius: 5, color: T.text, padding: '10px 12px', fontSize: 14, fontFamily: "'Times New Roman', Times, serif", outline: 'none' }}>
-              {TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-            </select>
-          </div>
-          <BSInput label="Summary of Communication" value={summary} onChange={setSummary} placeholder="What was discussed, what advice was given, what was communicated to the client" />
-        </div>
-        <BSInput label="Instructions Given by Client (if any)" value={instructions} onChange={setInstructions} placeholder="What the client specifically instructed. 'Client authorised us to proceed with settlement at X.'" multiline rows={2} />
-        <div style={{ marginTop: 10 }}>
-          <BSBtn onClick={addComm} small disabled={!summary.trim()}>Log Communication</BSBtn>
-        </div>
-      </BSSection>
-
-      <BSSection title={`Communication Log (${comms.length} entries)`}>
-        <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }}>
-          {['All', 'Flagged', ...TYPES].map(f => (
-            <button key={f} onClick={() => setFilter(f)}
-              style={{ fontSize: 10, padding: '4px 10px', borderRadius: 3, border: `1px solid ${filter === f ? T.gold : '#cccccc'}`, background: filter === f ? '#0d0d1c' : 'transparent', color: filter === f ? T.gold : '#404050', cursor: 'pointer', fontFamily: 'Inter,sans-serif', fontWeight: 600, letterSpacing: '.04em' }}>
-              {f}
-            </button>
-          ))}
-        </div>
-        {filtered.length === 0 && <p style={{ fontSize: 13, color: T.mute, fontFamily: 'Inter,sans-serif' }}>No entries{filter !== 'All' ? ` matching "${filter}"` : ''} yet.</p>}
-        {filtered.map(c => (
-          <div key={c.id} style={{ background: c.flagged ? '#0d0a00' : '#070710', border: `1px solid ${c.flagged ? '#3a2808' : '#eeeeee'}`, borderRadius: 5, padding: '12px 16px', marginBottom: 8 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <span style={{ fontSize: 10, fontFamily: 'Inter,sans-serif', fontWeight: 600, letterSpacing: '.06em', color: '#444444', textTransform: 'uppercase' }}>{c.type}</span>
-                <span style={{ fontSize: 11, color: '#303040', fontFamily: 'Inter,sans-serif' }}>{new Date(c.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
-                {c.flagged && <span style={{ fontSize: 9, color: '#444444', fontFamily: 'Inter,sans-serif', fontWeight: 600, letterSpacing: '.08em' }}>★ FLAGGED</span>}
-              </div>
-              <div style={{ display: 'flex', gap: 6 }}>
-                <button onClick={() => toggleFlag(c.id)} style={{ fontSize: 11, background: 'transparent', border: '1px solid #cccccc', color: T.mute, borderRadius: 3, padding: '3px 8px', cursor: 'pointer' }}>★</button>
-                <button onClick={() => deleteComm(c.id)} style={{ fontSize: 11, background: 'transparent', border: '1px solid #2a1010', color: '#604040', borderRadius: 3, padding: '3px 8px', cursor: 'pointer' }}>✕</button>
-              </div>
-            </div>
-            <div style={{ fontSize: 15, color: T.text, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.75, marginBottom: c.instructions ? 8 : 0 }}>{c.summary}</div>
-            {c.instructions && (
-              <div style={{ fontSize: 13, color: '#9a8a6a', fontFamily: "'Times New Roman', Times, serif", fontStyle: 'italic', borderTop: '1px solid #151515', paddingTop: 7, marginTop: 7 }}>
-                <span style={{ fontSize: 10, fontFamily: 'Inter,sans-serif', fontWeight: 600, letterSpacing: '.06em', color: '#504030', textTransform: 'uppercase', fontStyle: 'normal', marginRight: 8 }}>Instructions</span>
-                {c.instructions}
-              </div>
-            )}
-          </div>
-        ))}
-      </BSSection>
-    </div>
-  );
-}
-
-// ── 7. INTERLOCUTORY APPLICATIONS TRACKER ────────────────────────────────────
-
-function BSInterlocutory({ caseId, activeCase, fullContext }: { caseId: string; activeCase: Case; fullContext: string }) {
-  const [apps, setApps] = useState<InterlockApp[]>([]);
-  const [ready, setReady] = useState(false);
-  const [selected, setSelected] = useState<string | null>(null);
-  const [form, setForm] = useState<InterlockApp | null>(null);
-  const ai = useAI();
-
-  useEffect(() => {
-    loadBlindSpot<InterlockApp[]>(caseId, 'interlocutory', []).then(d => {
-      setApps(d); setReady(true);
-    });
-  }, [caseId]);
-
-  function save(list: InterlockApp[]) {
-    setApps(list);
-    saveBlindSpot(caseId, 'interlocutory', list);
-  }
-
-  function addApp() {
-    const a: InterlockApp = {
-      id: uid(), title: '', mover: 'ours', type: 'Motion on Notice',
-      reliefSought: '', filingDate: '', hearingDate: '', status: 'Pending',
-      outcome: '', affectsMainSuit: false, notes: '',
-    };
-    const list = [...apps, a];
-    save(list); setForm(a); setSelected(a.id); ai.setResult('');
-  }
-
-  function updateA(id: string, field: keyof InterlockApp, val: unknown) {
-    const list = apps.map(a => a.id === id ? { ...a, [field]: val } : a);
-    save(list); setForm(list.find(a => a.id === id) ?? null);
-  }
-
-  function deleteA(id: string) {
-    save(apps.filter(a => a.id !== id));
-    setSelected(null); setForm(null);
-  }
-
-  async function analyseApp() {
-    if (!form) return;
-    const prompt = `You are a senior Nigerian litigation advocate. Analyse this interlocutory application.
-
-CASE: ${activeCase.caseName || 'Unnamed'} (${activeCase.counsel_role ? activeCase.counsel_role.replace(/_/g,' ') : (activeCase.role || '')} | ${activeCase.matter_track || 'civil'})
-APPLICATION: ${form.title || 'Not titled'}
-MOVER: ${form.mover === 'ours' ? 'We are moving' : 'Opposing party is moving'}
-TYPE: ${form.type}
-RELIEF SOUGHT: ${form.reliefSought || 'Not specified'}
-STATUS: ${form.status}
-OUTCOME SO FAR: ${form.outcome || 'None recorded'}
-AFFECTS MAIN SUIT: ${form.affectsMainSuit ? 'Yes' : 'No'}
-
-Advise:
-1. STRATEGIC SIGNIFICANCE — How important is this application to the main suit?
-2. CURRENT POSTURE ASSESSMENT — Based on the status and outcome so far, where do we stand?
-3. NEXT STEPS — The immediate actions required on this application
-4. RISKS IF WE LOSE — What happens to the main suit if this application goes against us?
-5. AUTHORITIES — Key Nigerian cases and procedural rules governing this type of application
-6. WHAT TO WATCH — The landmine on this application that most lawyers miss
-
-Be precise.`;
-    await ai.run(prompt, 1000, `You are a senior Nigerian litigation counsel specialising in interlocutory applications and procedural strategy. Apply Nigerian court rules, relevant case law, and procedural jurisprudence.` + fullContext);
-  }
-
-  const STATUSES = ['Pending', 'Filed', 'Heard', 'Adjourned', 'Granted', 'Dismissed', 'Withdrawn', 'Appealed'];
-  const APP_TYPES = ['Motion on Notice', 'Ex-Parte Application', 'Substantive Motion', 'Preliminary Objection', 'Application to Strike Out', 'Application to Amend', 'Application for Adjournment', 'Application for Stay', 'Other'];
-  const STATUS_COL: Record<string, string> = { Pending: '#5a5a72', Filed: '#3a6090', Heard: '#7a6030', Adjourned: '#5a4020', Granted: '#306050', Dismissed: '#6a2020', Withdrawn: '#404050', Appealed: '#5a3080' };
-
-  if (!ready) return <LoadingBlock label="Loading…" />;
-
-  return (
-    <div style={{ display: 'grid', gridTemplateColumns: '230px 1fr', gap: 18, alignItems: 'start' }}>
-      <div>
-        <BSSection title="Applications">
-          {apps.length === 0 && <p style={{ fontSize: 13, color: T.mute, fontFamily: 'Inter,sans-serif' }}>No applications tracked yet.</p>}
-          {apps.map(a => (
-            <div key={a.id} onClick={() => { setSelected(a.id); setForm(a); ai.setResult(''); }}
-              style={{ background: selected === a.id ? '#0d0d1c' : '#070710', border: `1px solid ${selected === a.id ? T.gold : '#eeeeee'}`, borderRadius: 5, padding: '9px 12px', marginBottom: 6, cursor: 'pointer' }}>
-              <div style={{ fontSize: 13, color: T.text, fontFamily: "'Times New Roman', Times, serif", fontWeight: 500, marginBottom: 3 }}>{a.title || 'Unnamed Application'}</div>
-              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                <span style={{ fontSize: 9, fontFamily: 'Inter,sans-serif', fontWeight: 600, letterSpacing: '.05em', color: STATUS_COL[a.status] || T.mute, textTransform: 'uppercase' }}>{a.status}</span>
-                <span style={{ fontSize: 10, color: '#303040', fontFamily: 'Inter,sans-serif' }}>{a.mover === 'ours' ? 'We move' : 'Opp. moves'}</span>
-              </div>
-            </div>
-          ))}
-          <div style={{ marginTop: 10 }}><BSBtn onClick={addApp} small variant="ghost">+ Add Application</BSBtn></div>
-        </BSSection>
-      </div>
-
-      <div>
-        {!form ? (
-          <div style={{ textAlign: 'center', padding: '60px 24px', color: T.mute, fontFamily: 'Inter,sans-serif', fontSize: 13 }}>Select or add an application to track.</div>
-        ) : (
-          <BSSection title={form.title || 'New Application'}>
-            <BSInput label="Application Title" value={form.title} onChange={v => updateA(form.id, 'title', v)} placeholder="e.g. Motion for Interlocutory Injunction to restrain..." />
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
-              <div>
-                <label style={{ fontSize: 10, color: '#5a5a72', fontFamily: 'Inter,sans-serif', letterSpacing: '.1em', textTransform: 'uppercase', fontWeight: 600, display: 'block', marginBottom: 5 }}>Mover</label>
-                <select value={form.mover} onChange={e => updateA(form.id, 'mover', e.target.value)}
-                  style={{ width: '100%', background: T.bg, border: '1px solid #cccccc', borderRadius: 5, color: T.text, padding: '10px 10px', fontSize: 13, fontFamily: "'Times New Roman', Times, serif", outline: 'none' }}>
-                  <option value="ours">We Move</option>
-                  <option value="opposing">Opp. Moves</option>
-                </select>
-              </div>
-              <div>
-                <label style={{ fontSize: 10, color: '#5a5a72', fontFamily: 'Inter,sans-serif', letterSpacing: '.1em', textTransform: 'uppercase', fontWeight: 600, display: 'block', marginBottom: 5 }}>Status</label>
-                <select value={form.status} onChange={e => updateA(form.id, 'status', e.target.value)}
-                  style={{ width: '100%', background: T.bg, border: '1px solid #cccccc', borderRadius: 5, color: T.text, padding: '10px 10px', fontSize: 13, fontFamily: "'Times New Roman', Times, serif", outline: 'none' }}>
-                  {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
-              </div>
-              <div>
-                <label style={{ fontSize: 10, color: '#5a5a72', fontFamily: 'Inter,sans-serif', letterSpacing: '.1em', textTransform: 'uppercase', fontWeight: 600, display: 'block', marginBottom: 5 }}>Type</label>
-                <select value={form.type} onChange={e => updateA(form.id, 'type', e.target.value)}
-                  style={{ width: '100%', background: T.bg, border: '1px solid #cccccc', borderRadius: 5, color: T.text, padding: '10px 10px', fontSize: 13, fontFamily: "'Times New Roman', Times, serif", outline: 'none' }}>
-                  {APP_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                </select>
-              </div>
-            </div>
-            <BSInput label="Relief Sought" value={form.reliefSought} onChange={v => updateA(form.id, 'reliefSought', v)} placeholder="The specific prayer(s) in the application" multiline rows={2} />
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              <BSInput label="Filing Date" value={form.filingDate} onChange={v => updateA(form.id, 'filingDate', v)} placeholder="DD/MM/YYYY" />
-              <BSInput label="Hearing Date" value={form.hearingDate} onChange={v => updateA(form.id, 'hearingDate', v)} placeholder="DD/MM/YYYY" />
-            </div>
-            <BSInput label="Outcome / Ruling" value={form.outcome} onChange={v => updateA(form.id, 'outcome', v)} placeholder="Court's ruling or current position on this application" multiline rows={2} />
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-              <input type="checkbox" id={`afs_affects_${form.id}`} checked={!!form.affectsMainSuit}
-                onChange={e => updateA(form.id, 'affectsMainSuit', e.target.checked)}
-                style={{ accentColor: T.gold, width: 14, height: 14 }} />
-              <label htmlFor={`afs_affects_${form.id}`} style={{ fontSize: 13, color: T.mute, fontFamily: 'Inter,sans-serif', cursor: 'pointer' }}>
-                This application directly affects the main suit
-              </label>
-            </div>
-            <BSInput label="Notes" value={form.notes} onChange={v => updateA(form.id, 'notes', v)} placeholder="Arguments made, parties' positions, documents filed" multiline rows={2} />
-            <div style={{ display: 'flex', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
-              <BSBtn onClick={analyseApp} disabled={ai.loading}>AI Application Analysis →</BSBtn>
-              <BSBtn onClick={() => deleteA(form.id)} variant="danger" small>Delete</BSBtn>
-            </div>
-            <BSAIBlock loading={ai.loading} result={ai.result} error={ai.error} />
-          </BSSection>
-        )}
-      </div>
-    </div>
-  );
-}
-
 // ── MAIN COMPONENT ───────────────────────────────────────────────────────────
 
 interface Props {
@@ -752,11 +481,9 @@ interface Props {
 }
 
 const SUB_TABS = [
-  { id: 'witnesses',      icon: '👁',  label: 'Witnesses' },
-  { id: 'counsel',        icon: '⚔',  label: 'Opp. Counsel' },
-  { id: 'judge',          icon: '⚖',  label: 'Judge / Court' },
-  { id: 'comms',          icon: '💬',  label: 'Client Comms' },
-  { id: 'interlocutory',  icon: '📋',  label: 'Interlocutory' },
+  { id: 'witnesses', icon: '👁', label: 'Witnesses' },
+  { id: 'counsel',   icon: '⚔', label: 'Opp. Counsel' },
+  { id: 'judge',     icon: '⚖', label: 'Judge / Court' },
 ] as const;
 
 type SubTab = typeof SUB_TABS[number]['id'];
@@ -786,11 +513,9 @@ export function CaseTrackers({ activeCase }: Props) {
       </div>
 
       {/* Module content */}
-      {sub === 'witnesses'     && <BSWitnesses     caseId={caseId} activeCase={activeCase} fullContext={fullContext} />}
-      {sub === 'counsel'       && <BSCounsel       caseId={caseId} activeCase={activeCase} fullContext={fullContext} />}
-      {sub === 'judge'         && <BSJudge         caseId={caseId} activeCase={activeCase} fullContext={fullContext} />}
-      {sub === 'comms'         && <BSComms         caseId={caseId} />}
-      {sub === 'interlocutory' && <BSInterlocutory caseId={caseId} activeCase={activeCase} fullContext={fullContext} />}
+      {sub === 'witnesses' && <BSWitnesses caseId={caseId} activeCase={activeCase} fullContext={fullContext} />}
+      {sub === 'counsel'   && <BSCounsel   caseId={caseId} activeCase={activeCase} fullContext={fullContext} />}
+      {sub === 'judge'     && <BSJudge     caseId={caseId} activeCase={activeCase} fullContext={fullContext} />}
     </div>
   );
 }

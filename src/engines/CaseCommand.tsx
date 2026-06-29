@@ -2,26 +2,16 @@
  * AFS Legal OS — Case Command Engine (Phase 1)
  *
  * Single scrollable command centre for every case.
- * Absorbs: CaseOverview · AlertsEngine · ProceduralTimeline · ComplianceEngine
- *   (Compliance Audit §4 now reads intelligence_data.commencement_audit,
- *    Risk Score §5 now reads intelligence_data.risk_verdict — Phase 3C)
- *    produced by Intelligence Engine Step 2b — see Phase 2. ComplianceEngine.tsx
- *    itself was deleted Phase 2C; its Affidavit Checker sub-module — which
- *    doesn't fit the auto-run-once pipeline pattern — lives on standalone
- *    in AffidavitChecker.tsx, mounted below the audit display.)
+ * Absorbs: CaseOverview · ProceduralTimeline · ComplianceEngine
+ *   (Risk Score reads intelligence_data.risk_verdict — Phase 3C
+ *    produced by Intelligence Engine Step 2b — see Phase 2.)
  * Replaces tab: `overview`
  *
- * Seven sections rendered top-to-bottom (no sub-tabs):
+ * Four sections rendered top-to-bottom (no sub-tabs):
  *   1. Position Strip      — case name, role badge, track, court, suit number
  *   2. Next Action         — dynamic, role + stage aware
  *   3. Stage Timeline      — procedural chain, completed / current / upcoming
- *   4. Compliance Audit    — rule-based checklist against current stage
- *   5. Risk Score          — 8-dimension scores + FILE/NEGOTIATE/SETTLE/WALK_AWAY
- *   6. Alerts              — computed statutory deadlines from docket anchors
- *   7. Quick Actions       — role-specific action buttons routing to other tabs
- *
- * Logic is untouched from the absorbed engines — components are imported
- * directly and rendered inside this shell.
+ *   4. Risk Score          — 8-dimension scores + FILE/NEGOTIATE/SETTLE/WALK_AWAY
  */
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
@@ -30,8 +20,6 @@ import { useAppStore } from '@/state/appStore';
 import {
   loadEntries,
   loadDeadlines,
-  loadEvidenceMeta,
-  loadArgVersions,
   saveCase,
 } from '@/storage/helpers';
 import {
@@ -43,7 +31,7 @@ import { computeNextAction } from '@/utils/nextAction';
 import { extractAnchors } from '@/utils/dateExtractor';
 import { computePeriods, periodStatusConfig, type ComputedPeriod } from '@/utils/periodComputer';
 import { Md } from '@/components/common/ui';
-import type { Case, DocketEntry, Deadline, EvidenceItem, ArgumentVersion, CounselRole } from '@/types';
+import type { Case, DocketEntry, Deadline } from '@/types';
 import type { DashTabId } from '@/types';
 import {
   MATTER_TRACK_LABELS,
@@ -53,9 +41,7 @@ import {
 } from '@/types';
 
 // Absorbed engines — logic untouched, rendered inside new shell
-import { AlertsEngine }        from '@/engines/AlertsEngine';
 import { ProceduralTimeline }  from '@/engines/ProceduralTimeline';
-import { AffidavitChecker }    from '@/engines/AffidavitChecker';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DESIGN TOKENS (local)
@@ -91,19 +77,13 @@ type SectionId =
   | 'position'
   | 'next_action'
   | 'timeline'
-  | 'compliance'
-  | 'risk'
-  | 'alerts'
-  | 'quick_actions';
+  | 'risk';
 
 const SECTIONS: Array<{ id: SectionId; label: string; icon: string }> = [
   { id: 'position',     label: 'Position',    icon: '◈' },
   { id: 'next_action',  label: 'Next Action', icon: '→' },
   { id: 'timeline',     label: 'Timeline',    icon: '◦' },
-  { id: 'compliance',   label: 'Compliance',  icon: '⚙' },
   { id: 'risk',         label: 'Risk Score',  icon: '■' },
-  { id: 'alerts',       label: 'Alerts',      icon: '⏰' },
-  { id: 'quick_actions',label: 'Actions',     icon: '⚡' },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -144,38 +124,6 @@ function getUrgency(deadlines: Deadline[]): { label: string; color: string; coun
 // ROLE-SPECIFIC QUICK ACTIONS
 // ─────────────────────────────────────────────────────────────────────────────
 
-function getRoleQuickActions(
-  counselRole: CounselRole | undefined,
-  accent: string,
-): Array<{ label: string; icon: string; tab: DashTabId; hint: string }> {
-  if (!counselRole) {
-    return [
-      { label: 'Run Intelligence', icon: '⚡', tab: 'intelligence', hint: '5-step AI pipeline' },
-      { label: 'Add Docket Entry', icon: '⚖', tab: 'docket',       hint: 'Log a filing or order' },
-      { label: 'Brief Me Now',     icon: '🎯', tab: 'strategy_hub' as DashTabId, hint: 'Pre-hearing brief' },
-      { label: 'Upload Evidence',  icon: '📁', tab: 'evidence',     hint: 'Add to vault' },
-      { label: 'War Room',         icon: '⬛', tab: 'strategy_hub' as DashTabId, hint: 'Strategic cockpit' },
-    ];
-  }
-
-  const base: Array<{ label: string; icon: string; tab: DashTabId; hint: string }> = [
-    { label: 'Run Intelligence', icon: '⚡', tab: 'intelligence',       hint: 'AI case analysis' },
-    { label: 'Add Docket Entry', icon: '⚖', tab: 'docket',             hint: 'Log a filing or order' },
-    { label: 'Brief Me Now',     icon: '🎯', tab: 'strategy_hub' as DashTabId, hint: 'Pre-hearing brief' },
-    { label: 'Upload Evidence',  icon: '📁', tab: 'evidence',           hint: 'Add to vault' },
-    { label: 'Written Address',  icon: '✍',  tab: 'written_address' as DashTabId,   hint: 'Draft final address' },
-    { label: 'AI Copilot',       icon: '✦',  tab: 'copilot',           hint: 'Role-aware chat' },
-  ];
-
-  const roleExtras: Partial<Record<CounselRole, Array<{ label: string; icon: string; tab: DashTabId; hint: string }>>> = {
-    claimant_side:  [{ label: 'Enforcement', icon: '→', tab: 'enforcement', hint: 'Execute judgment' }],
-    defendant_side: [{ label: 'Applications',icon: '§', tab: 'applications',hint: 'Strike out / stay' }],
-    prosecution:    [{ label: 'Prosecution',  icon: '⚖',tab: 'prosecution_case', hint: 'Prosecution case' }],
-    defence:        [{ label: 'No-Case',      icon: '◦',tab: 'no_case',     hint: 'No-case submission' }],
-  };
-
-  return [...base, ...(roleExtras[counselRole] ?? [])];
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SUB-COMPONENTS
@@ -250,103 +198,11 @@ function Empty({ label, action }: { label: string; action?: { label: string; onC
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// COMMENCEMENT AUDIT DISPLAY (Phase 2C)
-// Read-only render of intelligence_data.commencement_audit — the audit itself
-// runs in IntelligenceEngine Step 2b (auto-fires after extraction). This panel
-// just surfaces the persisted result; it never calls the AI itself. Mirrors
-// the visual pattern of IntelligenceEngine's own CommencementAuditPanel.
-// ─────────────────────────────────────────────────────────────────────────────
-
-function CommencementAuditDisplay({
-  activeCase,
-  onRunIntelligence,
-}: {
-  activeCase: Case;
-  onRunIntelligence: () => void;
-}) {
-  const audit = activeCase.intelligence_data?.commencement_audit;
-
-  if (!audit) {
-    return (
-      <Empty
-        label="No commencement audit yet — runs automatically after Intelligence Engine extraction (Step 2b)."
-        action={{ label: 'Run Intelligence →', onClick: onRunIntelligence }}
-      />
-    );
-  }
-
-  const statusCfg = {
-    CLEAR:     { bg: '#071810', bdr: '#1a4028', col: '#40b068', icon: '✓' },
-    RISK:      { bg: '#1a1000', bdr: '#3a2800', col: '#c08030', icon: '⚠' },
-    DEFECTIVE: { bg: '#1a0808', bdr: '#401818', col: '#c05050', icon: '✗' },
-  } as const;
-  const sc = statusCfg[audit.status];
-
-  return (
-    <div style={{
-      background: '#0a0a14', border: `1px solid ${sc.bdr}`,
-      borderRadius: 8, padding: '16px 20px',
-      borderLeft: `3px solid ${sc.col}`,
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-        <span style={{ fontSize: 9, color: T.mute, fontFamily: SERIF, letterSpacing: '.1em' }}>
-          Last run {fmtDate(audit.run_at)}
-        </span>
-        <span style={{
-          marginLeft: 'auto', background: sc.bg, border: `1px solid ${sc.bdr}`, color: sc.col,
-          fontSize: 8, padding: '2px 8px', borderRadius: 2, fontFamily: SERIF,
-          letterSpacing: '.1em', fontWeight: 700,
-        }}>
-          {sc.icon} {audit.status}
-        </span>
-      </div>
-
-      <p style={{ fontSize: 13, color: sc.col, fontFamily: SERIF, lineHeight: 1.6, marginBottom: 10 }}>
-        {audit.summary}
-      </p>
-
-      {(audit.limitation_expiry || audit.service_valid !== undefined) && (
-        <div style={{ display: 'flex', gap: 16, marginBottom: 12, flexWrap: 'wrap' }}>
-          {audit.limitation_expiry && (
-            <div style={{ background: '#0d0d18', border: '1px solid #1a1a28', borderRadius: 5, padding: '7px 12px' }}>
-              <span style={{ fontSize: 8, color: T.mute, fontFamily: SERIF, letterSpacing: '.1em', textTransform: 'uppercase', display: 'block', marginBottom: 2 }}>
-                Limitation Expiry
-              </span>
-              <span style={{ fontSize: 12, color: '#d0d0e0', fontFamily: SERIF }}>
-                {audit.limitation_expiry}
-              </span>
-            </div>
-          )}
-          {audit.service_valid !== undefined && (
-            <div style={{ background: '#0d0d18', border: '1px solid #1a1a28', borderRadius: 5, padding: '7px 12px' }}>
-              <span style={{ fontSize: 8, color: T.mute, fontFamily: SERIF, letterSpacing: '.1em', textTransform: 'uppercase', display: 'block', marginBottom: 2 }}>
-                Service Valid
-              </span>
-              <span style={{ fontSize: 12, color: audit.service_valid ? '#40b068' : '#c05050', fontFamily: SERIF }}>
-                {audit.service_valid ? 'Yes' : 'No / Unclear'}
-              </span>
-            </div>
-          )}
-        </div>
-      )}
-
-      <details style={{ cursor: 'pointer' }}>
-        <summary style={{ fontSize: 10, color: T.mute, fontFamily: SERIF, letterSpacing: '.08em', userSelect: 'none', outline: 'none', listStyle: 'none', display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span>▸</span> View full audit findings
-        </summary>
-        <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #131320' }}>
-          <Md text={audit.findings} />
-        </div>
-      </details>
-    </div>
-  );
-}
-// ─────────────────────────────────────────────────────────────────────────────
 // RISK VERDICT DISPLAY (Phase 3C)
 // Read-only render of intelligence_data.risk_verdict — produced by
 // IntelligenceEngine Step 5b (auto-fires after package generation). This panel
 // never calls the AI itself; it surfaces the persisted result and appellate
-// narrative. Mirrors the CommencementAuditDisplay pattern.
+// narrative.
 // ─────────────────────────────────────────────────────────────────────────────
 
 type RiskVerdict = 'FILE' | 'NEGOTIATE' | 'SETTLE' | 'WALK_AWAY';
@@ -952,59 +808,6 @@ function NextActionSection({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SECTION 7 — QUICK ACTIONS
-// ─────────────────────────────────────────────────────────────────────────────
-
-function QuickActionsSection({
-  activeCase, onNavigate,
-}: {
-  activeCase: Case; onNavigate: (tab: DashTabId) => void;
-}) {
-  const counselRole = activeCase.counsel_role;
-  const roleAccent  = counselRole ? COUNSEL_ROLE_COLORS[counselRole].col : '#888888';
-  const actions     = getRoleQuickActions(counselRole, roleAccent);
-
-  return (
-    <Card id="quick_actions">
-      <SectionLabel id="quick_actions" icon="⚡" title="Quick Actions" />
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
-        gap: 8,
-      }}>
-        {actions.map(a => (
-          <button
-            key={a.tab}
-            onClick={() => onNavigate(a.tab)}
-            style={{
-              background:   `${roleAccent}0a`,
-              border:       `1px solid ${roleAccent}25`,
-              borderRadius: 7, padding: '12px 14px',
-              textAlign: 'left', cursor: 'pointer',
-              transition: 'all .15s',
-            }}
-            onMouseEnter={e => {
-              (e.currentTarget as HTMLElement).style.background  = `${roleAccent}18`;
-              (e.currentTarget as HTMLElement).style.borderColor = `${roleAccent}55`;
-            }}
-            onMouseLeave={e => {
-              (e.currentTarget as HTMLElement).style.background  = `${roleAccent}0a`;
-              (e.currentTarget as HTMLElement).style.borderColor = `${roleAccent}25`;
-            }}
-          >
-            <div style={{ fontSize: 14, marginBottom: 5 }}>{a.icon}</div>
-            <div style={{ fontSize: 13, color: roleAccent, fontFamily: SERIF, fontWeight: 600, marginBottom: 2 }}>
-              {a.label}
-            </div>
-            <div style={{ fontSize: 10, color: T.mute, fontFamily: SERIF }}>{a.hint}</div>
-          </button>
-        ))}
-      </div>
-    </Card>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // INHERITED MATTER BANNER — Phase 3
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1219,17 +1022,7 @@ export function CaseCommand({ activeCase }: Props) {
         <ProceduralTimeline activeCase={activeCase} />
       </Card>
 
-      {/* ── §4 Compliance Audit (commencement_audit display + AffidavitChecker) ── */}
-      <Card id="compliance">
-        <SectionLabel id="compliance" icon="⚙" title="Compliance Audit" />
-        <CommencementAuditDisplay
-          activeCase={activeCase}
-          onRunIntelligence={() => navigate('intelligence')}
-        />
-        <AffidavitChecker activeCase={activeCase} />
-      </Card>
-
-      {/* ── §5 Risk Score (risk_verdict from Intelligence Step 5b) ─────────── */}
+      {/* ── §4 Risk Score (risk_verdict from Intelligence Step 5b) ─────────── */}
       <Card id="risk">
         <SectionLabel id="risk" icon="■" title="Risk Score" />
         <RiskVerdictDisplay
@@ -1237,15 +1030,6 @@ export function CaseCommand({ activeCase }: Props) {
           onRunIntelligence={() => navigate('intelligence')}
         />
       </Card>
-
-      {/* ── §6 Alerts (AlertsEngine absorbed) ───────────────────────────── */}
-      <Card id="alerts">
-        <SectionLabel id="alerts" icon="⏰" title="Alerts" />
-        <AlertsEngine activeCase={activeCase} />
-      </Card>
-
-      {/* ── §7 Quick Actions ─────────────────────────────────────────────── */}
-      <QuickActionsSection activeCase={activeCase} onNavigate={navigate} />
 
     </div>
   );
