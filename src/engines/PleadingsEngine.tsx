@@ -411,69 +411,6 @@ function daysSince(dateStr:string):number|null {
   return Math.floor((Date.now()-d.getTime())/(1000*60*60*24));
 }
 
-// ─── PLEADING TRACKER ────────────────────────────────────────────────────────
-function PleadingTracker({items,onUpdate,accent}:{items:PleadingItem[];onUpdate:(items:PleadingItem[])=>void;accent:string}) {
-  const [newType,setNewType]=useState('');
-  const [newSide,setNewSide]=useState<'ours'|'theirs'>('ours');
-  const [newDate,setNewDate]=useState('');
-  const [newStatus,setNewStatus]=useState('Filed');
-  const [newNotes,setNewNotes]=useState('');
-  const add=()=>{
-    if(!newType.trim()) return;
-    onUpdate([...items,{id:`pl_${Date.now()}`,type:newType.trim(),side:newSide,filedDate:newDate,status:newStatus,notes:newNotes}]);
-    setNewType('');setNewDate('');setNewNotes('');
-  };
-  const remove=(id:string)=>onUpdate(items.filter(i=>i.id!==id));
-  const updateStatus=(id:string,status:string)=>onUpdate(items.map(i=>i.id===id?{...i,status}:i));
-  return (
-    <div>
-      {items.length>0&&(
-        <div style={{marginBottom:20}}>
-          {items.map(item=>(
-            <div key={item.id} style={{background:'#ffffff',border:'1px solid #cccccc',borderRadius:8,padding:'14px 16px',marginBottom:10,display:'flex',alignItems:'flex-start',gap:14}}>
-              <div style={{flex:1}}>
-                <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6,flexWrap:'wrap'}}>
-                  <span style={{fontSize:13,color:T.text,fontFamily:"'Times New Roman', Times, serif",fontWeight:600}}>{item.type}</span>
-                  <span style={{fontSize:10,color:item.side==='ours'?accent:'#888',fontFamily:"'Times New Roman', Times, serif",letterSpacing:'.04em'}}>{item.side==='ours'?'(our filing)':'(opposing)'}</span>
-                  <StatusBadge status={item.status}/>
-                  {item.filedDate&&<span style={{fontSize:10,color:T.mute,fontFamily:"'Times New Roman', Times, serif"}}>{item.filedDate}</span>}
-                </div>
-                {item.notes&&<p style={{fontSize:12,color:T.sub,fontFamily:"'Times New Roman', Times, serif",margin:0,lineHeight:1.5}}>{item.notes}</p>}
-              </div>
-              <div style={{display:'flex',gap:6,flexShrink:0}}>
-                <select value={item.status} onChange={e=>updateStatus(item.id,e.target.value)} style={{background:'#08080e',border:'1px solid #cccccc',borderRadius:4,padding:'4px 8px',color:T.mute,fontSize:11,fontFamily:"'Times New Roman', Times, serif",cursor:'pointer'}}>
-                  {['Filed','Received','Overdue','Pending','Settled'].map(s=><option key={s} value={s}>{s}</option>)}
-                </select>
-                <button onClick={()=>remove(item.id)} style={{background:'transparent',border:'1px solid #2a0808',color:'#804040',fontSize:11,borderRadius:4,padding:'4px 8px',cursor:'pointer',fontFamily:"'Times New Roman', Times, serif"}}>×</button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-      <div style={{background:'#08080e',border:`1px solid ${accent}20`,borderRadius:8,padding:'16px 18px'}}>
-        <SectionTitle text="Add Pleading Entry" accent={accent}/>
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
-          <div><Label text="Pleading Type"/><Input value={newType} onChange={setNewType} placeholder="e.g. Statement of Claim"/></div>
-          <div><Label text="Date Filed / Received"/><Input type="date" value={newDate} onChange={setNewDate}/></div>
-          <div>
-            <Label text="Filed By"/>
-            <select value={newSide} onChange={e=>setNewSide(e.target.value as 'ours'|'theirs')} style={{background:'#08080e',border:'1px solid #cccccc',borderRadius:6,padding:'8px 12px',color:T.fg,fontSize:13,fontFamily:"'Times New Roman', Times, serif",outline:'none',cursor:'pointer',width:'100%'}}>
-              <option value="ours">Our Side</option><option value="theirs">Opposing Side</option>
-            </select>
-          </div>
-          <div>
-            <Label text="Status"/>
-            <select value={newStatus} onChange={e=>setNewStatus(e.target.value)} style={{background:'#08080e',border:'1px solid #cccccc',borderRadius:6,padding:'8px 12px',color:T.fg,fontSize:13,fontFamily:"'Times New Roman', Times, serif",outline:'none',cursor:'pointer',width:'100%'}}>
-              {['Filed','Received','Overdue','Pending','Settled'].map(s=><option key={s} value={s}>{s}</option>)}
-            </select>
-          </div>
-        </div>
-        <div style={{marginBottom:12}}><Label text="Notes"/><Input value={newNotes} onChange={setNewNotes} placeholder="Optional notes"/></div>
-        <Btn label="Add Entry" onClick={add} accent={accent} off={!newType.trim()}/>
-      </div>
-    </div>
-  );
-}
 // ─── ORIGINATING PROCESS DRAFTER (Claimant / Writ track) ────────────────────
 const PROCESS_TYPES=[
   {id:'writ_of_summons',label:'Writ of Summons',desc:'Standard originating process for most civil claims. Endorsement sets out cause of action and reliefs.'},
@@ -618,13 +555,12 @@ function SoCDrafter({data,onSave,accent,ai,systemCtx}:{data:SavedData;onSave:(d:
 // ─── SOD MONITOR ─────────────────────────────────────────────────────────────
 function SoDMonitor({data,onSave,accent,ai,systemCtx,serviceDate,onServiceDateChange,sodFiled,onSodFiledChange}:{data:SavedData;onSave:(d:Partial<SavedData>)=>void;accent:string;ai:ReturnType<typeof useAI>;systemCtx:string;serviceDate:string;onServiceDateChange:(v:string)=>void;sodFiled:boolean;onSodFiledChange:(v:boolean)=>void}) {
   const [sodReceivedDate,setSodReceivedDate]=useState(data.sodReceivedDate??'');
-  const [pleadingItems,setPleadingItems]=useState<PleadingItem[]>(data.pleadingItems??[]);
   const [advice,setAdvice]=useState('');
   const {ask,loading,error}=ai;
   const days=daysSince(serviceDate);
   const defaultAvailable=!sodFiled&&days!==null&&days>=30;
   const defaultRisk=!sodFiled&&days!==null&&days>=21&&days<30;
-  const save=(patch:Partial<SavedData>)=>onSave({serviceDate,sodReceivedDate,sodFiled,pleadingItems,...patch});
+  const save=(patch:Partial<SavedData>)=>onSave({serviceDate,sodReceivedDate,sodFiled,...patch});
   const getAdvice=useCallback(async()=>{
     const aCase=(window as any).__afsActiveCase;
     const {partyA,partyB}=getPartyLabels(aCase);
@@ -662,10 +598,6 @@ function SoDMonitor({data,onSave,accent,ai,systemCtx,serviceDate,onServiceDateCh
       <div style={{marginBottom:24}}><Btn label="Get Procedural Advice" onClick={getAdvice} loading={loading} accent={accent} off={!serviceDate}/></div>
       {error&&<ErrorBlock message={error}/>}
       {advice&&<ResultBlock title="Procedural Advice — Default Position" content={advice} onClear={()=>setAdvice('')} accent={accent}/>}
-      <div style={{marginTop:28}}>
-        <SectionTitle text="Pleadings Tracker" accent={accent}/>
-        <PleadingTracker items={pleadingItems} onUpdate={items=>{setPleadingItems(items);save({pleadingItems:items});}} accent={accent}/>
-      </div>
     </div>
   );
 }
@@ -892,8 +824,7 @@ function ReplyToSoDDrafter({data,onSave,accent,ai,systemCtx}:{data:SavedData;onS
 function ReplyMonitor({data,onSave,accent}:{data:SavedData;onSave:(d:Partial<SavedData>)=>void;accent:string}) {
   const [replyReceived,setReplyReceived]=useState(data.replyReceived??false);
   const [replyDate,setReplyDate]=useState(data.replyDate??'');
-  const [pleadingItems,setPleadingItems]=useState<PleadingItem[]>(data.defPleadingItems??[]);
-  const save=(patch:Partial<SavedData>)=>onSave({replyReceived,replyDate,defPleadingItems:pleadingItems,...patch});
+  const save=(patch:Partial<SavedData>)=>onSave({replyReceived,replyDate,...patch});
   const daysAwaiting=!replyReceived?daysSince(data.sodReceivedDate??''):null;
   return (
     <div>
@@ -914,8 +845,6 @@ function ReplyMonitor({data,onSave,accent}:{data:SavedData;onSave:(d:Partial<Sav
         {replyReceived&&<div><Label text="Date Reply Received"/><Input type="date" value={replyDate} onChange={v=>{setReplyDate(v);save({replyDate:v});}}/></div>}
       </div>
       <div style={{marginTop:24}}>
-        <SectionTitle text="Pleadings Tracker" accent={accent}/>
-        <PleadingTracker items={pleadingItems} onUpdate={items=>{setPleadingItems(items);save({defPleadingItems:items});}} accent={accent}/>
         <p style={{fontSize:13,color:T.sub,fontFamily:"'Times New Roman', Times, serif",margin:0,lineHeight:1.7}}>Under Nigerian High Court Rules, pleadings close after the Statement of Defence (or Reply if filed). Once pleadings are closed, the matter proceeds to the Case Management Conference (CMC).</p>
       </div>
     </div>

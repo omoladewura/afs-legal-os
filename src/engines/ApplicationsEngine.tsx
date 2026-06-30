@@ -15,10 +15,9 @@
  *   Stage 2 — Application Facts    : Parties, relief, grounds, affidavit facts
  *   Stage 3 — Argument Builder     : Issue-by-issue IRAC → Written Address + Reply sub-tab
  *   Stage 4 — Assemble Package     : One AI call builds full document package
- *   Stage 5 — Applications Tracker : Status log for every application in the matter
  *
  * Statute RAG fires automatically at Stage 3. Intelligence context injected throughout.
- * Storage: saveBlindSpot `applications_v2_${caseId}` + `app_tracker_${caseId}`.
+ * Storage: saveBlindSpot `applications_v2_${caseId}`.
  * Worker D1: PUT /application | GET /applications?caseId=x | DELETE /application?id=x
  */
 
@@ -169,10 +168,9 @@ function buildDraftSystemPrompt({
 
 interface Props { activeCase: Case; }
 
-type MainTab         = 'new' | 'tracker' | 'templates';
-type Stage           = 1 | 2 | 3 | 4 | 5;
+type MainTab         = 'new' | 'templates';
+type Stage           = 1 | 2 | 3 | 4;
 type TrackFilter     = 'all' | 'civil' | 'criminal' | 'appeal' | 'frep' | 'matrimonial';
-type AppStatus       = 'Drafting' | 'Filed' | 'Served' | 'Awaiting Hearing' | 'Heard' | 'Granted' | 'Refused' | 'Withdrawn';
 type ApplicationRole = 'mover' | 'respondent';
 
 // Mover track sub-tabs
@@ -310,18 +308,7 @@ interface ApplicationRecord {
   createdAt: string;
 }
 
-interface TrackerEntry {
-  id:          string;
-  appType:     string;
-  filedDate:   string;
-  hearingDate: string;
-  status:      AppStatus;
-  ruling:      string;
-  notes:       string;
-}
-
 interface SavedData    { history: ApplicationRecord[]; }
-interface TrackerData  { entries: TrackerEntry[]; }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // APPLICATION TYPE CATALOGUE
@@ -581,9 +568,7 @@ const DEFAULT_FACTS: AppFacts = {
 };
 
 const MODULE      = 'applications_v2';
-const TRACKER_MOD = 'app_tracker';
 const WORKER_URL   = 'https://afs-legal-rag.sobamboadeshupo.workers.dev';
-const APP_STATUSES: AppStatus[] = ['Drafting', 'Filed', 'Served', 'Awaiting Hearing', 'Heard', 'Granted', 'Refused', 'Withdrawn'];
 
 // ─────────────────────────────────────────────────────────────────────────────
 // WORKER HELPERS
@@ -712,28 +697,6 @@ function MandatoryNotice() {
   );
 }
 
-function StatusBadge({ status }: { status: AppStatus }) {
-  const map: Record<AppStatus, string> = {
-    Drafting:          '#8060c0',
-    Filed:             '#4090d0',
-    Served:            '#40a0c0',
-    'Awaiting Hearing':'#c09030',
-    Heard:             '#c09030',
-    Granted:           '#40a860',
-    Refused:           '#c05050',
-    Withdrawn:         '#505068',
-  };
-  const col = map[status] ?? '#606070';
-  return (
-    <span style={{
-      fontSize: 9, color: col, border: `1px solid ${col}40`, borderRadius: 3,
-      padding: '1px 6px', fontFamily: "'Times New Roman', Times, serif",
-      letterSpacing: '.06em', textTransform: 'uppercase', fontWeight: 700,
-    }}>
-      {status}
-    </span>
-  );
-}
 
 function StatuteChunksPanel({ chunks, error }: { chunks: StatuteChunk[]; error?: string }) {
   const [expanded, setExpanded] = useState(false);
@@ -3169,131 +3132,6 @@ Draft the Reply on Points of Law now:`;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// STAGE 5 — APPLICATIONS TRACKER
-// ─────────────────────────────────────────────────────────────────────────────
-
-function ApplicationsTracker({ caseId }: { caseId: string }) {
-  const [entries, setEntries] = useState<TrackerEntry[]>([]);
-  const [loaded,  setLoaded]  = useState(false);
-  const [newType,    setNewType]    = useState('');
-  const [newFiled,   setNewFiled]   = useState('');
-  const [newHearing, setNewHearing] = useState('');
-  const [newStatus,  setNewStatus]  = useState<AppStatus>('Drafting');
-  const [newNotes,   setNewNotes]   = useState('');
-
-  useEffect(() => {
-    loadBlindSpot<TrackerData>(caseId, TRACKER_MOD, { entries: [] })
-      .then(d => { setEntries(d.entries ?? []); setLoaded(true); });
-  }, [caseId]);
-
-  async function persist(updated: TrackerEntry[]) {
-    setEntries(updated);
-    await saveBlindSpot(caseId, TRACKER_MOD, { entries: updated });
-  }
-
-  function addEntry() {
-    if (!newType.trim()) return;
-    persist([...entries, {
-      id: uid(), appType: newType, filedDate: newFiled,
-      hearingDate: newHearing, status: newStatus, ruling: '', notes: newNotes,
-    }]);
-    setNewType(''); setNewFiled(''); setNewHearing(''); setNewNotes(''); setNewStatus('Drafting');
-  }
-
-  const allTypes = [
-    'Motion on Notice', 'Motion Ex Parte', 'Bail Application', 'Preliminary Objection',
-    'Injunction', 'Stay of Proceedings', 'Stay of Execution', 'Default Judgment',
-    'Strike Out', 'Security for Costs', 'Extension of Time', 'Extension of Time to Appeal',
-    'Regularise Records', 'Quash Charge', 'Opposition to Motion', 'Other',
-  ];
-
-  if (!loaded) return <div style={{ color: '#505068', fontSize: 13, padding: '24px 0', textAlign: 'center' }}>Loading tracker…</div>;
-
-  return (
-    <div>
-      {entries.length === 0 && (
-        <div style={{ background: '#080814', border: '1px solid #1e1e34', borderRadius: 8, padding: '20px', marginBottom: 20, textAlign: 'center' }}>
-          <p style={{ fontSize: 13, color: '#505068', fontFamily: "'Times New Roman', Times, serif", margin: 0 }}>No applications tracked yet. Add one below.</p>
-        </div>
-      )}
-
-      {entries.map(entry => (
-        <div key={entry.id} style={{ background: '#080814', border: '1px solid #1e1e34', borderRadius: 8, padding: '16px 18px', marginBottom: 10 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 10 }}>
-            <div style={{ flex: 1 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 6 }}>
-                <span style={{ fontSize: 14, color: '#f0ece0', fontFamily: "'Times New Roman', Times, serif", fontWeight: 600 }}>{entry.appType}</span>
-                <StatusBadge status={entry.status} />
-              </div>
-              <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-                {entry.filedDate   && <span style={{ fontSize: 11, color: '#808098' }}>Filed: {entry.filedDate}</span>}
-                {entry.hearingDate && <span style={{ fontSize: 11, color: '#808098' }}>Hearing: {entry.hearingDate}</span>}
-              </div>
-              {entry.notes   && <p style={{ fontSize: 12, color: '#a0a0b8', fontFamily: "'Times New Roman', Times, serif", margin: '6px 0 0', lineHeight: 1.5 }}>{entry.notes}</p>}
-              {entry.ruling  && <p style={{ fontSize: 12, color: '#4090d0', fontFamily: "'Times New Roman', Times, serif", margin: '6px 0 0' }}>Ruling: {entry.ruling}</p>}
-            </div>
-            <button onClick={() => { if (!confirm('Remove?')) return; persist(entries.filter(e => e.id !== entry.id)); }}
-              style={{ background: 'transparent', border: '1px solid #2a0808', color: '#804040', fontSize: 11, borderRadius: 4, padding: '4px 8px', cursor: 'pointer', fontFamily: "'Times New Roman', Times, serif", flexShrink: 0 }}>
-              ×
-            </button>
-          </div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-            <select value={entry.status} onChange={e => persist(entries.map(en => en.id === entry.id ? { ...en, status: e.target.value as AppStatus } : en))}
-              style={{ background: '#0a0a14', border: '1px solid #2a2a40', borderRadius: 4, padding: '4px 8px', color: '#c0c0d8', fontSize: 11, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer' }}>
-              {APP_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
-            <input value={entry.ruling} onChange={e => persist(entries.map(en => en.id === entry.id ? { ...en, ruling: e.target.value } : en))}
-              placeholder="Ruling / outcome…"
-              style={{ background: '#0a0a14', border: '1px solid #2a2a40', borderRadius: 4, padding: '4px 10px', color: '#e8e4d8', fontSize: 11, fontFamily: "'Times New Roman', Times, serif", outline: 'none', flex: 1, minWidth: 140 }} />
-          </div>
-        </div>
-      ))}
-
-      {/* Add form */}
-      <div style={{ background: '#080814', border: '1px solid #4090d020', borderRadius: 8, padding: '18px 20px', marginTop: 8 }}>
-        <div style={{ fontSize: 11, color: '#4090d0', letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 14, borderBottom: '1px solid #4090d020', paddingBottom: 8 }}>
-          Add Application to Tracker
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
-          <div>
-            <SLabel text="Application Type" />
-            <select value={allTypes.includes(newType) || !newType ? newType : '_other'} onChange={e => setNewType(e.target.value === '_other' ? '' : e.target.value)}
-              style={{ width: '100%', background: '#0a0a14', border: '1px solid #2a2a40', borderRadius: 6, padding: '8px 12px', color: newType ? '#e8e4d8' : '#505068', fontSize: 13, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer' }}>
-              <option value="">Select type…</option>
-              {allTypes.map(t => <option key={t} value={t}>{t}</option>)}
-            </select>
-          </div>
-          <div>
-            <SLabel text="Status" />
-            <select value={newStatus} onChange={e => setNewStatus(e.target.value as AppStatus)}
-              style={{ width: '100%', background: '#0a0a14', border: '1px solid #2a2a40', borderRadius: 6, padding: '8px 12px', color: '#e8e4d8', fontSize: 13, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer' }}>
-              {APP_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
-          </div>
-          <div>
-            <SLabel text="Date Filed" />
-            <input type="date" value={newFiled} onChange={e => setNewFiled(e.target.value)}
-              style={{ width: '100%', background: '#0a0a14', border: '1px solid #2a2a40', borderRadius: 6, padding: '8px 12px', color: '#e8e4d8', fontSize: 13, fontFamily: "'Times New Roman', Times, serif", boxSizing: 'border-box', outline: 'none' }} />
-          </div>
-          <div>
-            <SLabel text="Hearing Date" />
-            <input type="date" value={newHearing} onChange={e => setNewHearing(e.target.value)}
-              style={{ width: '100%', background: '#0a0a14', border: '1px solid #2a2a40', borderRadius: 6, padding: '8px 12px', color: '#e8e4d8', fontSize: 13, fontFamily: "'Times New Roman', Times, serif", boxSizing: 'border-box', outline: 'none' }} />
-          </div>
-        </div>
-        <div style={{ marginBottom: 12 }}>
-          <SLabel text="Notes" />
-          <input value={newNotes} onChange={e => setNewNotes(e.target.value)}
-            placeholder="Optional notes, adjourn date, outcome…"
-            style={{ width: '100%', background: '#0a0a14', border: '1px solid #2a2a40', borderRadius: 6, padding: '8px 12px', color: '#e8e4d8', fontSize: 13, fontFamily: "'Times New Roman', Times, serif", boxSizing: 'border-box', outline: 'none' }} />
-        </div>
-        <Btn label="Add to Tracker" onClick={addEntry} accent="#4090d0" off={!newType.trim()} />
-      </div>
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // DEFAULT_STAGE3 — single source of truth for Stage3Data initial/reset state.
 // Declared at module scope so useState and resetWorkflow both reference the
 // same object, preventing silent divergence when new fields are added.
@@ -3694,7 +3532,7 @@ Extract and return ONLY a JSON object with no preamble or markdown:
   });
   const canGoToStage2 = !!selectedType;
   const canGoToStage3 = canGoToStage2 && !!stage3.applicationRole && !!(facts.reliefSought.trim() || facts.grounds.trim() || facts.autoReliefs.trim() || stage3.motionPaperIn.trim());
-  const stageLabels   = ['Type', 'Facts', 'Arguments', 'Assemble', 'Track'];
+  const stageLabels   = ['Type', 'Facts', 'Arguments', 'Assemble'];
 
   // ─────────────────────────────────────────────────────────────────────────
   // RENDER
@@ -3727,8 +3565,8 @@ Extract and return ONLY a JSON object with no preamble or markdown:
 
       {/* Main tabs */}
       <div style={{ display: 'flex', gap: 4, marginBottom: 24, borderBottom: '1px solid #181828' }}>
-        {([['new', '⚡ New Application'], ['tracker', '📋 Tracker'], ['templates', '🗂 Templates']] as const).map(([id, label]) => (
-          <button key={id} onClick={() => { setMainTab(id as MainTab); if (id === 'tracker') setSelectedRecord(null); }}
+        {([['new', '⚡ New Application'], ['templates', '🗂 Templates']] as const).map(([id, label]) => (
+          <button key={id} onClick={() => setMainTab(id as MainTab)}
             style={{
               background: mainTab === id ? '#181828' : 'transparent',
               color: mainTab === id ? '#f0ece0' : '#505068',
@@ -3745,16 +3583,16 @@ Extract and return ONLY a JSON object with no preamble or markdown:
         <div>
           {/* Stage progress bar */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 28 }}>
-            {([1, 2, 3, 4, 5] as const).map((n, i) => (
+            {([1, 2, 3, 4] as const).map((n, i) => (
               <React.Fragment key={n}>
                 <div
-                  style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: (n <= stage || (n === 5 && !!generated)) ? 'pointer' : 'default' }}
-                  onClick={() => { if (n <= stage || (n === 5 && !!generated)) setStage(n); }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: n <= stage ? 'pointer' : 'default' }}
+                  onClick={() => { if (n <= stage) setStage(n); }}
                 >
                   <StepBadge n={n} active={stage === n} done={stage > n} />
                   <span style={{ fontSize: 11, color: stage >= n ? '#c8c0b0' : '#404058' }}>{stageLabels[i]}</span>
                 </div>
-                {i < 4 && <div style={{ flex: 1, height: 1, background: stage > n ? '#4090d0' : '#181828' }} />}
+                {i < 3 && <div style={{ flex: 1, height: 1, background: stage > n ? '#4090d0' : '#181828' }} />}
               </React.Fragment>
             ))}
           </div>
@@ -4181,19 +4019,6 @@ Extract and return ONLY a JSON object with no preamble or markdown:
               )}
             </div>
           )}
-
-          {/* ── STAGE 5 — Tracker (accessible via stage bar click) ── */}
-          {stage === 5 && (
-            <div>
-              <div style={{ fontSize: 15, fontWeight: 700, color: '#f0ece0', marginBottom: 6 }}>
-                <StepBadge n={5} active={true} /> &nbsp; Applications Tracker
-              </div>
-              <div style={{ fontSize: 12, color: '#808098', marginBottom: 18 }}>
-                Track every application filed in this matter — status, dates, rulings.
-              </div>
-              <ApplicationsTracker caseId={activeCase.id} />
-            </div>
-          )}
         </div>
       )}
 
@@ -4212,16 +4037,6 @@ Extract and return ONLY a JSON object with no preamble or markdown:
               setStage(3);
             }}
           />
-        </div>
-      )}
-
-      {/* ══ TRACKER TAB ══ */}
-      {mainTab === 'tracker' && (
-        <div>
-          <div style={{ fontSize: 14, color: '#808098', marginBottom: 20, lineHeight: 1.6 }}>
-            Track every application filed in this matter. Update status as proceedings advance.
-          </div>
-          <ApplicationsTracker caseId={activeCase.id} />
 
           {/* Saved drafts */}
           {historyLoaded && history.length > 0 && (
