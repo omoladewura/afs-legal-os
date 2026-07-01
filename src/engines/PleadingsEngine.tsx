@@ -26,6 +26,7 @@ import { getPartyLabels } from '@/utils/getPartyLabels';
 import { loadBlindSpot, saveBlindSpot, loadMatrimonialData } from '@/storage/helpers';
 import type { MatrimonialCaseData } from '@/matrimonial/types';
 import { Md, ErrorBlock } from '@/components/common/ui';
+import { ClauseBankPicker } from './ClauseBank';
 import { COUNSEL_ROLE_COLORS } from '@/types';
 
 interface Props { activeCase: Case; }
@@ -313,12 +314,18 @@ function Btn({label,onClick,loading=false,accent='#4090d0',off=false}:{label:str
 }
 
 function ResultBlock({title,content,onClear,accent='#4090d0'}:{title:string;content:string;onClear:()=>void;accent?:string}) {
+  function saveToBank() {
+    import('./ClauseBank').then(({ saveFragment }) => {
+      saveFragment({ text: content, type: 'submission', courtLevel: 'any', matterTrack: 'any', sourceLabel: title });
+    });
+  }
   return (
     <div style={{marginTop:18,background:'#08080e',border:`1px solid ${accent}30`,borderRadius:8,padding:'18px 20px'}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
         <span style={{fontSize:10,color:accent,fontFamily:"'Times New Roman', Times, serif",letterSpacing:'.12em',textTransform:'uppercase',fontWeight:700}}>{title}</span>
         <div style={{display:'flex',gap:10}}>
           <button onClick={()=>navigator.clipboard?.writeText(content)} style={{background:'transparent',border:`1px solid ${accent}30`,color:accent,fontSize:11,cursor:'pointer',fontFamily:"'Times New Roman', Times, serif",borderRadius:4,padding:'3px 10px'}}>copy</button>
+          <button onClick={saveToBank} style={{background:'transparent',border:`1px solid ${T.bdr}`,color:T.mute,fontSize:11,cursor:'pointer',fontFamily:"'Times New Roman', Times, serif",borderRadius:4,padding:'3px 10px'}}>📚 save</button>
           <button onClick={onClear} style={{background:'transparent',border:'none',color:T.mute,fontSize:11,cursor:'pointer',fontFamily:"'Times New Roman', Times, serif"}}>clear ×</button>
         </div>
       </div>
@@ -526,6 +533,7 @@ function WitnessStatementDrafter({data,onSave,accent,ai,systemCtx}:{data:SavedDa
 function SoCDrafter({data,onSave,accent,ai,systemCtx}:{data:SavedData;onSave:(d:Partial<SavedData>)=>void;accent:string;ai:ReturnType<typeof useAI>;systemCtx:string}) {
   const [context,setContext]=useState(data.socContext??'');
   const [draft,setDraft]=useState(data.socDraft??'');
+  const [showClausePicker,setShowClausePicker]=useState(false);
   const {ask,loading,error}=ai;
   const aCaseForGate=(window as any).__afsActiveCase;
   const hasIntel=!!buildIntelligenceBlock(aCaseForGate);
@@ -547,6 +555,8 @@ function SoCDrafter({data,onSave,accent,ai,systemCtx}:{data:SavedData;onSave:(d:
       <p style={{fontSize:13,color:T.sub,fontFamily:"'Times New Roman', Times, serif",marginBottom:18,lineHeight:1.6}}>Provide the material facts, parties, cause of action, and reliefs sought. The AI drafts a complete Statement of Claim in Nigerian High Court format.</p>
       <div style={{marginBottom:16}}><Label text="Case Facts, Parties & Reliefs Sought"/><Textarea value={context} onChange={setContext} rows={8} placeholder={hasIntel?'Add any facts not captured by the Intelligence Engine above.':'Set out the material facts: who the parties are, what happened, the cause of action, and every relief you are seeking. Include relevant dates and amounts.'}/></div>
       <Btn label="Draft Statement of Claim" onClick={run} loading={loading} accent={accent} off={!context.trim()&&!hasIntel}/>
+      <button onClick={()=>setShowClausePicker(true)} style={{marginLeft:8,background:'none',border:`1px solid ${T.bdr}`,color:T.dim,borderRadius:4,padding:'6px 14px',fontSize:12,cursor:'pointer',fontFamily:"'Times New Roman', Times, serif"}}>📚 Pull from Clause Bank</button>
+      {showClausePicker&&<ClauseBankPicker matterTrack="civil" onClose={()=>setShowClausePicker(false)} onPull={(text)=>setContext(c=>c?`${c}\n\n${text}`:text)}/>}
       {error&&<ErrorBlock message={error}/>}
       {draft&&<ResultBlock title="Statement of Claim — Draft" content={draft} onClear={()=>{setDraft('');onSave({socDraft:''}); }} accent={accent}/>}
     </div>
@@ -684,6 +694,7 @@ function DefaultFlag({data,onSave,accent,ai,systemCtx,serviceDate,onServiceDateC
 function SoDDrafter({data,onSave,accent,ai,systemCtx,ccIntel}:{data:SavedData;onSave:(d:Partial<SavedData>)=>void;accent:string;ai:ReturnType<typeof useAI>;systemCtx:string;ccIntel?:CounterclaimIntel}) {
   const [context,setContext]=useState(data.sodContext??'');
   const [draft,setDraft]=useState(data.sodDraft??'');
+  const [showClausePicker,setShowClausePicker]=useState(false);
   const {ask,loading,error}=ai;
   const aCaseForGate=(window as any).__afsActiveCase;
   const hasIntel=!!buildIntelligenceBlock(aCaseForGate);
@@ -706,6 +717,8 @@ function SoDDrafter({data,onSave,accent,ai,systemCtx,ccIntel}:{data:SavedData;on
       <p style={{fontSize:13,color:T.sub,fontFamily:"'Times New Roman', Times, serif",marginBottom:18,lineHeight:1.6}}>Provide the claimant's allegations, available defences, admissions, and whether a counterclaim is warranted.</p>
       <div style={{marginBottom:16}}><Label text="Claimant's Allegations, Available Defences & Admissions"/><Textarea value={context} onChange={setContext} rows={8} placeholder={hasIntel?'Add any facts not captured by the Intelligence Engine above.':"Summarise the SoC allegations paragraph by paragraph, what is admitted, what is denied, and what affirmative defences apply."}/></div>
       <Btn label="Draft Statement of Defence" onClick={run} loading={loading} accent={accent} off={!context.trim()&&!hasIntel}/>
+      <button onClick={()=>setShowClausePicker(true)} style={{marginLeft:8,background:'none',border:`1px solid ${T.bdr}`,color:T.dim,borderRadius:4,padding:'6px 14px',fontSize:12,cursor:'pointer',fontFamily:"'Times New Roman', Times, serif"}}>📚 Pull from Clause Bank</button>
+      {showClausePicker&&<ClauseBankPicker matterTrack="civil" onClose={()=>setShowClausePicker(false)} onPull={(text)=>setContext(c=>c?`${c}\n\n${text}`:text)}/>}
       {error&&<ErrorBlock message={error}/>}
       {draft&&<ResultBlock title="Statement of Defence — Draft" content={draft} onClear={()=>{setDraft('');onSave({sodDraft:''});}} accent={accent}/>}
       {ccIntel?.flag&&(
@@ -761,6 +774,7 @@ function CounterclaimBuilder({data,onSave,accent,ai,systemCtx,ccIntel}:{data:Sav
 function PreliminaryObjDrafter({data,onSave,accent,ai,systemCtx}:{data:SavedData;onSave:(d:Partial<SavedData>)=>void;accent:string;ai:ReturnType<typeof useAI>;systemCtx:string}) {
   const [context,setContext]=useState(data.objectionContext??'');
   const [draft,setDraft]=useState(data.objectionDraft??'');
+  const [showClausePicker,setShowClausePicker]=useState(false);
   const {ask,loading,error}=ai;
   const aCaseForGate=(window as any).__afsActiveCase;
   const hasIntel=!!buildIntelligenceBlock(aCaseForGate);
@@ -780,6 +794,8 @@ function PreliminaryObjDrafter({data,onSave,accent,ai,systemCtx}:{data:SavedData
       <p style={{fontSize:13,color:T.sub,fontFamily:"'Times New Roman', Times, serif",marginBottom:18,lineHeight:1.6}}>Describe the case and suspected procedural defects. The AI will assess all objection grounds and draft the Notice and Points of Argument.</p>
       <div style={{marginBottom:16}}><Label text="Case Facts, Originating Process Details & Suspected Defects"/><Textarea value={context} onChange={setContext} rows={7} placeholder={hasIntel?'Add any facts not captured by the Intelligence Engine above.':"Describe: claimant's cause of action, originating process used, court seized, relevant dates (when cause arose, when writ filed), and any apparent procedural irregularities."}/></div>
       <Btn label="Analyse Grounds & Draft Objection" onClick={run} loading={loading} accent={accent} off={!context.trim()&&!hasIntel}/>
+      <button onClick={()=>setShowClausePicker(true)} style={{marginLeft:8,background:'none',border:`1px solid ${T.bdr}`,color:T.dim,borderRadius:4,padding:'6px 14px',fontSize:12,cursor:'pointer',fontFamily:"'Times New Roman', Times, serif"}}>📚 Pull from Clause Bank</button>
+      {showClausePicker&&<ClauseBankPicker matterTrack="civil" onClose={()=>setShowClausePicker(false)} onPull={(text)=>setContext(c=>c?`${c}\n\n${text}`:text)}/>}
       {error&&<ErrorBlock message={error}/>}
       {draft&&<ResultBlock title="Preliminary Objection — Grounds & Draft" content={draft} onClear={()=>{setDraft('');onSave({objectionDraft:''});}} accent={accent}/>}
     </div>

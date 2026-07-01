@@ -41,6 +41,7 @@ import {
   type StatuteChunk,
 } from '@/services/statuteRag';
 import { ArgumentTemplateManager } from './ArgumentTemplateManager';
+import { ClauseBankPicker } from './ClauseBank';
 import { db } from '@/storage/db';
 import type { ArgumentTemplate } from '@/storage/db';
 import { getJurisdictionDeltaSync } from '@/law/registry';
@@ -969,6 +970,7 @@ function IssueBuilder({
   const issueBuilderLawDelta = getJurisdictionDeltaSync(appType.label, jurisdiction);
   const [editingId,       setEditingId]       = useState<string | null>(null);
   const [draftIssue,      setDraftIssue]      = useState<ArgumentIssue | null>(null);
+  const [showClausePicker, setShowClausePicker] = useState(false);
   const [statuteChunks,   setStatuteChunks]   = useState<StatuteChunk[]>([]);
   const [statuteRagError, setStatuteRagError] = useState('');
   const [ragFetching,     setRagFetching]     = useState(false);
@@ -1339,11 +1341,22 @@ ${facts.keyFacts ? 'Key Facts: ' + facts.keyFacts : ''}
               onClick={generateIssue} loading={loading} accent="#4090d0" off={!draftIssue.issue.trim()} />
             <Btn label={editingId ? '✓ Update Issue' : '✓ Save Issue'}
               onClick={saveIssue} accent="#40a060" off={!draftIssue.issue.trim()} />
+            <button onClick={() => setShowClausePicker(true)}
+              style={{ background: 'none', border: '1px solid #303050', color: '#6060a0', borderRadius: 4, padding: '6px 14px', fontSize: 12, cursor: 'pointer', fontFamily: "'Times New Roman', Times, serif" }}>
+              📚 Pull from Clause Bank
+            </button>
             <button onClick={cancelEdit}
               style={{ background: 'none', border: 'none', color: '#505068', cursor: 'pointer', fontSize: 12, fontFamily: "\'Times New Roman\', Times, serif" }}>
               Cancel
             </button>
           </div>
+
+          {showClausePicker && (
+            <ClauseBankPicker
+              onClose={() => setShowClausePicker(false)}
+              onPull={(text) => setDraftIssue(p => p ? { ...p, application: p.application ? `${p.application}\n\n${text}` : text } : p)}
+            />
+          )}
         </div>
       ) : (
         <div style={{ marginBottom: 20 }}>

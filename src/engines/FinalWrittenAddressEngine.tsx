@@ -13,6 +13,7 @@ import { loadArgVersions, saveArgVersion, deleteArgVersion, loadBlindSpot, saveB
 import { getLawSync } from '@/law/registry';
 import { Md, Spinner, ErrorBlock, CaseTheoryBanner } from '@/components/common/ui';
 import { copyToClipboard, uid } from '@/utils';
+import { ClauseBankPicker } from './ClauseBank';
 import {
   FAIR_HEARING_REFERENCE,
   CIVIL_FWA_SEQUENCE,
@@ -488,6 +489,7 @@ function CivilDrafterTab({ activeCase, onDraftSaved }: {
   ]);
   const [extraCtx,    setExtraCtx]    = useState('');
   const [draft,       setDraft]       = useState('');
+  const [showClausePicker, setShowClausePicker] = useState(false);
   const [ragFetching, setRagFetching] = useState(false);
   const [ragError,    setRagError]    = useState('');
 
@@ -745,6 +747,22 @@ Produce the complete Final Written Address now.`;
           label="Draft Final Written Address"
           accent={ACC}
         />
+        <button
+          onClick={() => setShowClausePicker(true)}
+          style={{
+            marginTop: 8, background: 'none', border: `1px solid ${T.bdr}`,
+            color: T.dim, borderRadius: 4, padding: '6px 14px', fontSize: 12,
+            cursor: 'pointer', fontFamily: "'Times New Roman', Times, serif",
+          }}
+        >
+          📚 Pull from Clause Bank
+        </button>
+        {showClausePicker && (
+          <ClauseBankPicker
+            onClose={() => setShowClausePicker(false)}
+            onPull={(text) => setExtraCtx(c => c ? `${c}\n\n${text}` : text)}
+          />
+        )}
         {error && <ErrorBlock message={error} />}
       </div>
 
@@ -764,6 +782,17 @@ Produce the complete Final Written Address now.`;
               fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer',
             }}>
               Copy
+            </button>
+            <button onClick={() => {
+              const sel = window.getSelection()?.toString() || '';
+              const text = sel.trim() || draft;
+              if (text) { import('./ClauseBank').then(({ saveFragment }) => { saveFragment({ text, type: 'submission', courtLevel: 'any', matterTrack: 'any' }); }); }
+            }} style={{
+              background: 'transparent', border: `1px solid ${T.bdr}`,
+              color: T.dim, borderRadius: 5, padding: '6px 16px',
+              fontSize: 11, fontFamily: "'Times New Roman', Times, serif", cursor: 'pointer',
+            }}>
+              📚 Save to Clause Bank
             </button>
             <button onClick={() => { setDraft(''); onDraftSaved(''); }} style={{
               background: 'transparent', border: '1px solid #301818',
