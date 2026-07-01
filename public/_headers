@@ -1,5 +1,31 @@
+# Cloudflare Pages custom headers
+# Fixes: deployed changes not showing until browsing data cleared / incognito.
+#
+# Root cause was two-layer caching:
+#   1. index.html was cacheable, so browsers/edge kept serving the old HTML
+#      shell (which references old JS/CSS bundle hashes).
+#   2. sw.js was cacheable, so browsers never even fetched the *new* service
+#      worker script (which is what would have purged old caches on activate).
+#
+# Rule: the two "entry point" files (index.html, sw.js) must NEVER be cached.
+# Hashed build assets (JS/CS with content hash in filename) CAN be cached
+# forever safely, since a new build always produces a new filename.
+
+# Never cache the HTML shell — always revalidate so new deploys are seen
+/index.html
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/*.html
+  Cache-Control: no-cache, no-store, must-revalidate
+
+# Never cache the service worker script itself — browsers must always
+# re-fetch this to detect a new SW_VERSION and trigger cache eviction
+/sw.js
+  Cache-Control: no-cache
+
+# Hashed static assets (Vite outputs content-hashed filenames) — safe to
+# cache forever, since any change produces a new filename automatically.
+# Adjust this path if your Vite build output folder differs from /assets/*
+# — check your dist/ folder after a build to confirm.
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
-
-/*
-  Cache-Control: no-cache, no-store, must-revalidate

@@ -1,13 +1,9 @@
 /**
- * AFS Legal OS — Service Worker
+ * Legal OS — Service Worker
  *
  * Phase 9A — Offline Mode + Install to Home Screen.
- *
- * Builds on top of the original push-only handler at the bottom of this
- * file (unchanged) rather than replacing it — that was the only thing
- * registering this script before now (AlertsEngine's notification opt-in
- * flow; see Phase 9B, which moves the `register()` call to app boot so
- * shell caching here doesn't depend on anyone granting notifications).
+ * Phase 9E — Background push infrastructure.
+ * Phase 9F — Deploy-safe cache versioning (fixes stale-build bug).
  *
  * STRATEGY
  *  - App shell (HTML, JS, CSS, Google Fonts) → cache-first, populated at
@@ -30,18 +26,25 @@
  *    so a Cloudflare Pages redeploy doesn't leave anyone stuck on stale
  *    cached JS pointing at asset hashes that no longer exist on origin.
  *
- * SW_VERSION must be bumped on any deploy that changes shell assets
- * (JS/CSS/HTML) so the old cache gets evicted on activate. It does not
- * need to change for backend-only / Worker-side changes.
+ * ⚠️ SW_VERSION MUST BE BUMPED ON EVERY DEPLOY THAT TOUCHES SHELL ASSETS
+ * (any JS/CSS/HTML change). It does NOT need to change for backend-only /
+ * Worker-side changes. This is the #1 cause of "my deploy doesn't show up
+ * until I clear browsing data / use incognito" — if you forget to bump
+ * this, `activate` has nothing to purge and everyone stays on the old
+ * cached shell indefinitely.
+ *
+ * Bump pattern: 'v1' → 'v2' → 'v3' ... on every shell-touching deploy.
  */
 
-const SW_VERSION   = 'v1';
-const SHELL_CACHE  = `afs-shell-${SW_VERSION}`;
+const SW_VERSION  = 'v2'; // ← bumped from v1. BUMP THIS AGAIN NEXT SHELL DEPLOY.
+const SHELL_CACHE = `afs-shell-${SW_VERSION}`;
 
 // ── install — pre-warm the one URL we know ahead of time ───────────────────
 self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(SHELL_CACHE).then(cache => cache.add('/')).catch(() => { /* offline first install — fine, fetch handler fills the cache in as the app runs */ })
+    caches.open(SHELL_CACHE)
+      .then(cache => cache.add('/'))
+      .catch(() => { /* offline first install — fine, fetch handler fills the cache in as the app runs */ })
   );
   self.skipWaiting();
 });
@@ -63,9 +66,9 @@ self.addEventListener('fetch', event => {
   if (request.method !== 'GET') return; // Worker calls are POST — never intercept those, let them fail/succeed on the network directly
 
   const url = new URL(request.url);
-  const isWorker = url.hostname.endsWith('.workers.dev');
-  const isFontCdn = url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com';
-  const isShellAsset = url.origin === self.location.origin || isFontCdn;
+  const isWorker      = url.hostname.endsWith('.workers.dev');
+  const isFontCdn      = url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com';
+  const isShellAsset   = url.origin === self.location.origin || isFontCdn;
 
   // Worker API — network-first. Case data should be as fresh as possible
   // whenever there's a connection; only fall back to cache when offline.
@@ -111,14 +114,14 @@ self.addEventListener('fetch', event => {
 /**
  * Phase 9E — Background push infrastructure.
  *
- * Upgrades to the push handler:
+ * Push handler:
  *  - Richer payload support: severity, caseId, tab, actionUrl
  *  - Badge icon uses /icon-192.png (Phase 9C asset) instead of /favicon.ico
  *  - Notification actions: "Open" deep-link (shows case + tab) and "Dismiss"
  *  - Notification tag is severity-prefixed so CRITICAL alerts don't collapse
  *    into LOW ones when multiple arrive while the app is backgrounded
  *
- * New: notificationclick handler
+ * notificationclick handler
  *  - Tapping the notification (or its "Open" action) focuses an existing
  *    app window or opens a new one, and deep-links to the right case tab
  *    by setting the hash the app reads on load.
@@ -147,9 +150,9 @@ self.addEventListener('push', e => {
     icon,
     badge,
     tag,
-    renotify:          true,
+    renotify:           true,
     requireInteraction: severity === 'CRITICAL' || severity === 'HIGH',
-    data:              { actionUrl },
+    data:               { actionUrl },
     actions: [
       { action: 'open',    title: 'Open'    },
       { action: 'dismiss', title: 'Dismiss' },
