@@ -1,43 +1,29 @@
 /**
  * AFS Advocates — Settings Panel
+ * Phase C2
  *
- * Admin screen for library management.
- * Accessible via the settings icon in SiteNav.
- *
- * Controls:
- *   - Process New Documents — triggers /ingest on the Worker
- *   - Library stats (documents processed, vectors live)
- *   - Failed files list (if any)
+ * Lean settings screen. After C2 restructure:
+ *   - Legal Library (RAG ingest) → removed, lives at /admin by URL only
+ *   - LawRegistry               → removed, promoted to its own nav tab (LawRegistryPage)
+ *   - Legal Intelligence Monitor → stays, upgraded with docket cross-reference
+ *   - Clause Bank               → stays (added in C1)
+ *   - System info               → stays
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAppStore } from '@/state/appStore';
 import { T, S } from '@/constants/tokens';
-import { LawRegistry } from '@/components/LawRegistry';
+import { ClauseBank } from '@/engines/ClauseBank';
 import { AUTH_TOKEN as RAW_AUTH_TOKEN } from '@/services/api';
+import { db } from '@/storage/db';
+import type { Case } from '@/types';
 
-const WORKER_URL  = 'https://afs-legal-rag.sobamboadeshupo.workers.dev';
 const MONITOR_URL = 'https://afs-monitor-worker.sobamboadeshupo.workers.dev';
 const AUTH_TOKEN  = `Bearer ${RAW_AUTH_TOKEN}`;
 
-interface IngestSummary {
-  total_in_library: number;
-  already_done:     number;
-  processed_now:    number;
-  failed:           number;
-}
-
-interface IngestResult {
-  ok:        boolean;
-  elapsed_s?: string;
-  message?:  string;
-  summary?:  IngestSummary;
-  processed?: string[];
-  failed?:   { key: string; reason: string }[];
-  error?:    string;
-}
-
-// ── Phase H — Legal Intelligence Monitor ─────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// TYPES
+// ─────────────────────────────────────────────────────────────────────────────
 
 type AlertType   = 'new_judgment' | 'new_statute' | 'overruled' | 'repealed';
 type AlertStatus = 'unreviewed' | 'dismissed' | 'downloaded';
@@ -51,6 +37,8 @@ interface MonitorAlert {
   alertType:   AlertType;
   status:      AlertStatus;
   detectedAt:  string;
+  /** Populated client-side by docket cross-reference — not from the worker */
+  affectedCases?: AffectedCase[];
 }
 
 interface MonitorStats {
@@ -62,63 +50,135 @@ interface MonitorStats {
   whitelist:       string[];
 }
 
+interface AffectedCase {
+  id:       string;
+  caseName: string;
+  suitNo:   string;
+  /** Short excerpt showing where the match was found */
+  matchIn:  string;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DOCKET CROSS-REFERENCE
+// Search all local cases for mentions of an overruled/repealed document title.
+// Searches: caseName, suitNo, intelligence_data.intPkg, compressed_summary,
+// intelligence_data.legal_issues, intelligence_data.facts.
+// ─────────────────────────────────────────────────────────────────────────────
+
+function extractKeywords(docTitle: string): string[] {
+  // Strip common noise words; keep proper nouns and significant terms
+  const stopwords = new Set([
+    'v', 'vs', 'and', 'or', 'the', 'of', 'in', 'for', 'a', 'an',
+    'to', 'at', 'by', 'on', 'with', 'ltd', 'limited', 'nigeria',
+    'nigerian', 'federal', 'state', 'republic', 'attorney', 'general',
+  ]);
+  return docTitle
+    .toLowerCase()
+    .replace(/[()[\]{}.,;:'"!?]/g, ' ')
+    .split(/\s+/)
+    .filter(w => w.length > 2 && !stopwords.has(w));
+}
+
+async function crossReferenceAlerts(alerts: MonitorAlert[]): Promise<MonitorAlert[]> {
+  // Only process overruled and repealed alerts — these are the ones that can
+  // invalidate existing work product on open cases.
+  const dangerous = alerts.filter(a =>
+    a.alertType === 'overruled' || a.alertType === 'repealed'
+  );
+  if (dangerous.length === 0) return alerts;
+
+  let allCases: Case[] = [];
+  try {
+    allCases = await db.cases.toArray();
+  } catch {
+    // db.cases unavailable — cross-reference silently skipped
+    return alerts;
+  }
+
+  return alerts.map(alert => {
+    if (alert.alertType !== 'overruled' && alert.alertType !== 'repealed') {
+      return alert;
+    }
+
+    const keywords = extractKeywords(alert.docTitle);
+    if (keywords.length === 0) return alert;
+
+    const affectedCases: AffectedCase[] = [];
+
+    for (const c of allCases) {
+      // Build a searchable corpus from all text fields that would reference authorities
+      const corpus: Array<{ text: string; label: string }> = [
+        { text: c.caseName ?? '',          label: 'case name' },
+        { text: c.suitNo ?? '',            label: 'suit number' },
+        { text: c.compressed_summary ?? '', label: 'docket summary' },
+        { text: c.intelligence_data?.intPkg ?? '',       label: 'intelligence package' },
+        { text: c.intelligence_data?.legal_issues ?? '', label: 'legal issues' },
+        { text: c.intelligence_data?.facts ?? '',        label: 'facts' },
+        { text: c.intelligence_data?.rawFacts ?? '',     label: 'raw facts' },
+      ];
+
+      let matchLabel = '';
+      for (const { text, label } of corpus) {
+        if (!text) continue;
+        const lower = text.toLowerCase();
+        const hits = keywords.filter(kw => lower.includes(kw));
+        // Require at least 2 keyword matches to avoid false positives on
+        // single common words (e.g. "Abacha" alone could match many cases)
+        if (hits.length >= Math.min(2, keywords.length)) {
+          matchLabel = label;
+          break;
+        }
+      }
+
+      if (matchLabel) {
+        affectedCases.push({
+          id:       c.id,
+          caseName: c.caseName,
+          suitNo:   c.suitNo ?? '',
+          matchIn:  matchLabel,
+        });
+      }
+    }
+
+    return { ...alert, affectedCases };
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// COMPONENT
+// ─────────────────────────────────────────────────────────────────────────────
+
 export function SettingsPanel() {
   const { setView } = useAppStore();
 
-  const [ingesting,    setIngesting]    = useState(false);
-  const [result,       setResult]       = useState<IngestResult | null>(null);
-  const [showFailed,   setShowFailed]   = useState(false);
-  const [showDone,     setShowDone]     = useState(false);
+  const [monAlerts,   setMonAlerts]   = useState<MonitorAlert[]>([]);
+  const [monStats,    setMonStats]    = useState<MonitorStats | null>(null);
+  const [monLoading,  setMonLoading]  = useState(false);
+  const [monRunning,  setMonRunning]  = useState(false);
+  const [monError,    setMonError]    = useState('');
+  const [monActionId, setMonActionId] = useState('');
+  const [monExpanded, setMonExpanded] = useState(false);
 
-  // ── Phase H — Legal Intelligence Monitor state ───────────────────────────
-  const [monAlerts,      setMonAlerts]      = useState<MonitorAlert[]>([]);
-  const [monStats,       setMonStats]       = useState<MonitorStats | null>(null);
-  const [monLoading,     setMonLoading]     = useState(false);
-  const [monRunning,     setMonRunning]     = useState(false);
-  const [monError,       setMonError]       = useState('');
-  const [monActionId,    setMonActionId]    = useState('');  // alert id with pending action
-  const [monExpanded,    setMonExpanded]    = useState(false);
-  const [lawExpanded,    setLawExpanded]    = useState(false);
+  // Run cross-reference whenever alerts change
+  useEffect(() => {
+    if (monAlerts.length === 0) return;
+    crossReferenceAlerts(monAlerts).then(setMonAlerts);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [monAlerts.length]);
 
-  async function runIngest() {
-    setIngesting(true);
-    setResult(null);
-    setShowFailed(false);
-    setShowDone(false);
-
-    try {
-      const res = await fetch(`${WORKER_URL}/ingest`, {
-        method:  'POST',
-        headers: {
-          'Content-Type':  'application/json',
-          'Authorization': AUTH_TOKEN,
-        },
-      });
-      const data: IngestResult = await res.json();
-      setResult(data);
-    } catch (err) {
-      setResult({
-        ok:    false,
-        error: err instanceof Error ? err.message : 'Network error — check connection and try again.',
-      });
-    } finally {
-      setIngesting(false);
-    }
-  }
-
-  // ── Phase H — Monitor functions ────────────────────────────────────────────
+  // ── Monitor network functions ───────────────────────────────────────────────
 
   async function loadMonitorAlerts() {
     setMonLoading(true);
     setMonError('');
     try {
-      const res = await fetch(`${MONITOR_URL}/monitor/alerts?status=unreviewed`, {
+      const res  = await fetch(`${MONITOR_URL}/monitor/alerts?status=unreviewed`, {
         headers: { Authorization: AUTH_TOKEN },
       });
-      const data = await res.json() as { ok: boolean; alerts: MonitorAlert[]; unreviewedCount: number };
+      const data = await res.json() as { ok: boolean; alerts: MonitorAlert[] };
       if (data.ok) setMonAlerts(data.alerts ?? []);
       else setMonError('Failed to load alerts.');
-    } catch (e) {
+    } catch {
       setMonError('Cannot reach monitor worker. Deploy afs-monitor-worker first.');
     }
     setMonLoading(false);
@@ -126,14 +186,12 @@ export function SettingsPanel() {
 
   async function loadMonitorStats() {
     try {
-      const res = await fetch(`${MONITOR_URL}/monitor/stats`, {
+      const res  = await fetch(`${MONITOR_URL}/monitor/stats`, {
         headers: { Authorization: AUTH_TOKEN },
       });
       const data = await res.json() as MonitorStats & { ok: boolean };
       if (data.ok) setMonStats(data);
-    } catch {
-      // non-fatal — worker may not be deployed yet
-    }
+    } catch { /* non-fatal */ }
   }
 
   async function runManualScan() {
@@ -144,7 +202,7 @@ export function SettingsPanel() {
         method: 'POST',
         headers: { Authorization: AUTH_TOKEN },
       });
-      const data = await res.json() as { ok: boolean; stats: MonitorStats };
+      const data = await res.json() as { ok: boolean };
       if (data.ok) {
         await loadMonitorStats();
         await loadMonitorAlerts();
@@ -159,8 +217,7 @@ export function SettingsPanel() {
     setMonActionId(id);
     try {
       await fetch(`${MONITOR_URL}/monitor/alerts/${id}/dismiss`, {
-        method: 'POST',
-        headers: { Authorization: AUTH_TOKEN },
+        method: 'POST', headers: { Authorization: AUTH_TOKEN },
       });
       setMonAlerts(prev => prev.filter(a => a.id !== id));
     } catch { /* non-fatal */ }
@@ -170,16 +227,12 @@ export function SettingsPanel() {
   async function downloadAlert(id: string) {
     setMonActionId(id);
     try {
-      const res = await fetch(`${MONITOR_URL}/monitor/alerts/${id}/download`, {
-        method: 'POST',
-        headers: { Authorization: AUTH_TOKEN },
+      const res  = await fetch(`${MONITOR_URL}/monitor/alerts/${id}/download`, {
+        method: 'POST', headers: { Authorization: AUTH_TOKEN },
       });
       const data = await res.json() as { ok: boolean; message?: string };
-      if (data.ok) {
-        setMonAlerts(prev => prev.filter(a => a.id !== id));
-      } else {
-        alert(data.message ?? 'Download failed. Add document to R2 manually then reprocess.');
-      }
+      if (data.ok) setMonAlerts(prev => prev.filter(a => a.id !== id));
+      else alert(data.message ?? 'Download failed. Add to R2 manually then reprocess.');
     } catch { /* non-fatal */ }
     setMonActionId('');
   }
@@ -189,12 +242,16 @@ export function SettingsPanel() {
   }
 
   function alertTypeLabel(t: AlertType): { label: string; color: string; bg: string } {
-    if (t === 'overruled') return { label: 'Overruled',    color: '#8a1a1a', bg: '#fbeaea' };
-    if (t === 'repealed')  return { label: 'Repealed',     color: '#7a4a00', bg: '#fdf3e0' };
-    if (t === 'new_statute') return { label: 'New Statute', color: '#1a4a8a', bg: '#edf3fb' };
-    return { label: 'New Judgment', color: '#1a5a30', bg: '#e8f5ee' };
+    if (t === 'overruled')   return { label: 'Overruled',    color: '#8a1a1a', bg: '#fbeaea' };
+    if (t === 'repealed')    return { label: 'Repealed',     color: '#7a4a00', bg: '#fdf3e0' };
+    if (t === 'new_statute') return { label: 'New Statute',  color: '#1a4a8a', bg: '#edf3fb' };
+    return                          { label: 'New Judgment', color: '#1a5a30', bg: '#e8f5ee' };
   }
 
+  // Count alerts that have affected open cases (for the badge)
+  const docketHits = monAlerts.filter(a => a.affectedCases && a.affectedCases.length > 0).length;
+
+  // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
     <div style={{
@@ -203,7 +260,7 @@ export function SettingsPanel() {
       fontFamily: "'Times New Roman', Times, serif",
     }}>
 
-      {/* Back button */}
+      {/* Back */}
       <button
         onClick={() => setView('home')}
         style={{
@@ -217,190 +274,18 @@ export function SettingsPanel() {
         ← Back
       </button>
 
-      {/* Title */}
       <h1 style={{ ...S.h1, marginTop: 0 }}>Settings</h1>
 
-      {/* ── Library Management ── */}
+      {/* ── Legal Intelligence Monitor ── */}
       <section style={{
         background: T.card, border: `1px solid ${T.bdr}`,
         borderRadius: 8, padding: 24, marginBottom: 24,
       }}>
-        <h2 style={{ ...S.h2, marginTop: 0 }}>Legal Library</h2>
-
-        <p style={{ ...S.p, marginBottom: 20 }}>
-          Upload PDFs to R2 via the Cloudflare dashboard, then tap the button
-          below to process new documents into the knowledge base. All engines
-          will have access immediately after processing completes.
-        </p>
-
-        {/* Process button */}
-        <button
-          onClick={runIngest}
-          disabled={ingesting}
-          style={ingesting ? S.btnOff : S.btn}
-        >
-          {ingesting ? 'Processing — please wait…' : 'Process New Documents'}
-        </button>
-
-        {/* In-progress notice */}
-        {ingesting && (
-          <p style={{
-            ...S.hint, marginTop: 14, textAlign: 'center',
-            fontStyle: 'italic',
-          }}>
-            Extracting text, chunking, and embedding your documents.
-            This may take a minute for large batches. Do not close the app.
-          </p>
-        )}
-
-        {/* Result */}
-        {result && !ingesting && (
-          <div style={{ marginTop: 24 }}>
-
-            {/* Error state */}
-            {!result.ok && (
-              <div style={{
-                background: '#fff5f5', border: '1px solid #ffcccc',
-                borderRadius: 6, padding: 16,
-              }}>
-                <p style={{ ...S.p, color: '#cc0000', margin: 0 }}>
-                  ✗ {result.error || 'Processing failed. Check Worker logs in Cloudflare dashboard.'}
-                </p>
-              </div>
-            )}
-
-            {/* Success state */}
-            {result.ok && (
-              <>
-                {/* Plain message (e.g. nothing to do) */}
-                {result.message && !result.summary && (
-                  <p style={{ ...S.p, color: T.mute, fontStyle: 'italic' }}>
-                    {result.message}
-                  </p>
-                )}
-
-                {/* Summary grid */}
-                {result.summary && (
-                  <div style={{
-                    display: 'grid', gridTemplateColumns: '1fr 1fr',
-                    gap: 12, marginBottom: 20,
-                  }}>
-                    {[
-                      { label: 'In Library',       value: result.summary.total_in_library },
-                      { label: 'Already Processed', value: result.summary.already_done },
-                      { label: 'Processed Now',     value: result.summary.processed_now },
-                      { label: 'Failed',            value: result.summary.failed },
-                    ].map(({ label, value }) => (
-                      <div key={label} style={{
-                        background: '#ffffff', border: `1px solid ${T.bdr}`,
-                        borderRadius: 6, padding: '12px 16px',
-                      }}>
-                        <div style={{
-                          fontSize: 11, color: T.mute, textTransform: 'uppercase',
-                          letterSpacing: '.08em', marginBottom: 4,
-                          fontFamily: "'Times New Roman', Times, serif",
-                        }}>
-                          {label}
-                        </div>
-                        <div style={{
-                          fontSize: 22, fontWeight: 700, color: T.text,
-                          fontFamily: "'Times New Roman', Times, serif",
-                        }}>
-                          {value}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Elapsed */}
-                {result.elapsed_s && (
-                  <p style={{ ...S.hint, marginBottom: 16 }}>
-                    Completed in {result.elapsed_s}s
-                  </p>
-                )}
-
-                {/* Processed files toggle */}
-                {result.processed && result.processed.length > 0 && (
-                  <div style={{ marginBottom: 12 }}>
-                    <button
-                      onClick={() => setShowDone(v => !v)}
-                      style={{
-                        background: 'none', border: 'none',
-                        color: T.mute, fontSize: 13, cursor: 'pointer',
-                        fontFamily: "'Times New Roman', Times, serif",
-                        padding: 0, textDecoration: 'underline',
-                      }}
-                    >
-                      {showDone ? '▾' : '▸'} {result.processed.length} document{result.processed.length !== 1 ? 's' : ''} processed successfully
-                    </button>
-                    {showDone && (
-                      <ul style={{ marginTop: 8, paddingLeft: 0, listStyle: 'none' }}>
-                        {result.processed.map(key => (
-                          <li key={key} style={{
-                            ...S.p, margin: '4px 0',
-                            color: '#006600', fontSize: 13,
-                          }}>
-                            ✓ {key}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                )}
-
-                {/* Failed files toggle */}
-                {result.failed && result.failed.length > 0 && (
-                  <div>
-                    <button
-                      onClick={() => setShowFailed(v => !v)}
-                      style={{
-                        background: 'none', border: 'none',
-                        color: '#cc0000', fontSize: 13, cursor: 'pointer',
-                        fontFamily: "'Times New Roman', Times, serif",
-                        padding: 0, textDecoration: 'underline',
-                      }}
-                    >
-                      {showFailed ? '▾' : '▸'} {result.failed.length} document{result.failed.length !== 1 ? 's' : ''} failed — tap to see details
-                    </button>
-                    {showFailed && (
-                      <div style={{ marginTop: 10 }}>
-                        {result.failed.map(({ key, reason }) => (
-                          <div key={key} style={{
-                            background: '#fff5f5', border: '1px solid #ffcccc',
-                            borderRadius: 5, padding: '10px 14px', marginBottom: 8,
-                          }}>
-                            <p style={{ ...S.p, margin: 0, fontWeight: 600, fontSize: 13 }}>
-                              {key}
-                            </p>
-                            <p style={{ ...S.hint, margin: '4px 0 0', fontSize: 13 }}>
-                              {reason}
-                            </p>
-                          </div>
-                        ))}
-                        <p style={{ ...S.hint, marginTop: 10 }}>
-                          For scanned files: run OCR first (Google Drive trick or iLovePDF),
-                          re-upload to R2, then process again.
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        )}
-      </section>
-
-      {/* ── Phase H — Legal Intelligence Monitor ── */}
-      <section style={{
-        background: T.card, border: `1px solid ${T.bdr}`,
-        borderRadius: 8, padding: 24,
-      }}>
-        {/* Header row with badge */}
+        {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <h2 style={{ ...S.h2, marginTop: 0, marginBottom: 0 }}>Legal Intelligence Monitor</h2>
+            {/* Red badge: unreviewed alerts */}
             {monAlerts.length > 0 && (
               <span style={{
                 background: '#cc0000', color: '#fff',
@@ -410,6 +295,20 @@ export function SettingsPanel() {
                 letterSpacing: '.04em',
               }}>
                 {monAlerts.length}
+              </span>
+            )}
+            {/* Amber badge: alerts with docket hits */}
+            {docketHits > 0 && (
+              <span style={{
+                background: '#b85c00', color: '#fff',
+                fontSize: 11, fontWeight: 700,
+                padding: '2px 7px', borderRadius: 10,
+                fontFamily: "'Times New Roman', Times, serif",
+                letterSpacing: '.04em',
+              }}
+                title={`${docketHits} overruled/repealed judgment${docketHits > 1 ? 's' : ''} referenced in your open cases`}
+              >
+                ⚠ {docketHits} case{docketHits > 1 ? 's' : ''} affected
               </span>
             )}
           </div>
@@ -431,7 +330,8 @@ export function SettingsPanel() {
 
         <p style={{ ...S.hint, marginBottom: monExpanded ? 16 : 0 }}>
           Monitors whitelisted legal sources daily at 02:00 UTC. Detects new judgments,
-          statutes, repeals, and overruled cases. Nothing is downloaded without your approval.
+          statutes, repeals, and overruled cases. Overruled and repealed alerts are
+          automatically cross-referenced against your open case dockets.
         </p>
 
         {monExpanded && (
@@ -439,9 +339,9 @@ export function SettingsPanel() {
             {/* Stats strip */}
             {monStats && (
               <div style={{
-                display: 'flex', gap: 20, flexWrap: 'wrap',
-                marginBottom: 16, fontSize: 12,
-                color: T.mute, fontFamily: "'Times New Roman', Times, serif",
+                display: 'flex', gap: 20, flexWrap: 'wrap', marginBottom: 16,
+                fontSize: 12, color: T.mute,
+                fontFamily: "'Times New Roman', Times, serif",
               }}>
                 <span>Last run: {monStats.lastRunAt ? new Date(monStats.lastRunAt).toLocaleString() : 'Never'}</span>
                 <span>Sources scanned: {monStats.sourcesScanned}</span>
@@ -492,19 +392,24 @@ export function SettingsPanel() {
               </div>
             )}
 
-            {/* Alert list */}
+            {/* Empty state */}
             {monAlerts.length === 0 && !monLoading && !monError && (
               <p style={{ ...S.hint, color: T.mute }}>
                 No unreviewed alerts. Click Scan Now to check sources, or wait for the daily 02:00 UTC cron.
               </p>
             )}
 
+            {/* Alert list */}
             {monAlerts.map(alert => {
-              const tag = alertTypeLabel(alert.alertType);
+              const tag       = alertTypeLabel(alert.alertType);
               const isPending = monActionId === alert.id;
+              const isDangerous = alert.alertType === 'overruled' || alert.alertType === 'repealed';
+              const hasHits   = isDangerous && alert.affectedCases && alert.affectedCases.length > 0;
+
               return (
                 <div key={alert.id} style={{
-                  background: '#ffffff', border: `1px solid ${T.bdr}`,
+                  background: '#ffffff',
+                  border: `1px solid ${hasHits ? '#c07040' : T.bdr}`,
                   borderRadius: 6, padding: '14px 16px', marginBottom: 10,
                 }}>
                   {/* Title row */}
@@ -512,8 +417,7 @@ export function SettingsPanel() {
                     <span style={{
                       background: tag.bg, color: tag.color,
                       border: `1px solid ${tag.color}33`,
-                      fontSize: 10, fontWeight: 700,
-                      padding: '2px 8px', borderRadius: 3,
+                      fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 3,
                       fontFamily: "'Times New Roman', Times, serif",
                       letterSpacing: '.06em', whiteSpace: 'nowrap', flexShrink: 0,
                     }}>
@@ -521,8 +425,7 @@ export function SettingsPanel() {
                     </span>
                     <span style={{
                       fontSize: 13, color: T.text,
-                      fontFamily: "'Times New Roman', Times, serif",
-                      lineHeight: 1.5,
+                      fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.5,
                     }}>
                       {alert.docTitle}
                     </span>
@@ -531,11 +434,66 @@ export function SettingsPanel() {
                   {/* Meta */}
                   <div style={{
                     fontSize: 11, color: T.mute,
-                    fontFamily: "'Times New Roman', Times, serif",
-                    marginBottom: 12,
+                    fontFamily: "'Times New Roman', Times, serif", marginBottom: 12,
                   }}>
                     {alert.sourceLabel} · Detected {new Date(alert.detectedAt).toLocaleDateString()}
                   </div>
+
+                  {/* ── Docket cross-reference panel ── */}
+                  {isDangerous && (
+                    <div style={{
+                      background: hasHits ? '#fdf5ee' : '#f8f8f6',
+                      border: `1px solid ${hasHits ? '#e0b080' : T.bdrL}`,
+                      borderRadius: 5, padding: '10px 12px', marginBottom: 12,
+                    }}>
+                      {hasHits ? (
+                        <>
+                          <p style={{
+                            fontSize: 11, fontWeight: 700, color: '#8a4400',
+                            fontFamily: "'Times New Roman', Times, serif", marginBottom: 8,
+                          }}>
+                            ⚠ Referenced in {alert.affectedCases!.length} open case{alert.affectedCases!.length > 1 ? 's' : ''} — review before dismissing
+                          </p>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                            {alert.affectedCases!.map(c => (
+                              <div key={c.id} style={{
+                                display: 'flex', justifyContent: 'space-between',
+                                alignItems: 'center', gap: 10,
+                              }}>
+                                <div>
+                                  <span style={{
+                                    fontSize: 12, color: T.text,
+                                    fontFamily: "'Times New Roman', Times, serif",
+                                  }}>
+                                    {c.caseName}
+                                  </span>
+                                  {c.suitNo && (
+                                    <span style={{ fontSize: 11, color: T.mute, marginLeft: 8, fontFamily: "'Times New Roman', Times, serif" }}>
+                                      {c.suitNo}
+                                    </span>
+                                  )}
+                                  <span style={{
+                                    fontSize: 10, color: '#b06030', marginLeft: 8,
+                                    fontFamily: "'Times New Roman', Times, serif",
+                                    fontStyle: 'italic',
+                                  }}>
+                                    found in {c.matchIn}
+                                  </span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </>
+                      ) : (
+                        <p style={{
+                          fontSize: 11, color: T.mute,
+                          fontFamily: "'Times New Roman', Times, serif", margin: 0,
+                        }}>
+                          ✓ Not found in any open case docket on this device.
+                        </p>
+                      )}
+                    </div>
+                  )}
 
                   {/* Actions */}
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -582,14 +540,10 @@ export function SettingsPanel() {
               );
             })}
 
-            {/* Whitelist info */}
-            <div style={{
-              marginTop: 16,
-              borderTop: `1px solid ${T.bdrL}`,
-              paddingTop: 14,
-            }}>
+            {/* Whitelist */}
+            <div style={{ marginTop: 16, borderTop: `1px solid ${T.bdrL}`, paddingTop: 14 }}>
               <p style={{ ...S.hint, fontSize: 11, color: T.mute, marginBottom: 6 }}>
-                Whitelisted sources (hardcoded — cannot be overridden):
+                Whitelisted sources (hardcoded):
               </p>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                 {[
@@ -598,8 +552,7 @@ export function SettingsPanel() {
                 ].map(domain => (
                   <span key={domain} style={{
                     background: '#f0f0ee', border: `1px solid ${T.bdr}`,
-                    borderRadius: 3, fontSize: 10,
-                    padding: '2px 8px', color: T.dim,
+                    borderRadius: 3, fontSize: 10, padding: '2px 8px', color: T.dim,
                     fontFamily: "'Times New Roman', Times, serif",
                   }}>
                     {domain}
@@ -611,66 +564,13 @@ export function SettingsPanel() {
         )}
       </section>
 
-      {/* ── Law Registry ── */}
+      {/* ── Clause Bank ── */}
       <section style={{
         background: T.card, border: `1px solid ${T.bdr}`,
-        borderRadius: 8, padding: 24, marginTop: 24,
+        borderRadius: 8, padding: 24, marginBottom: 24,
       }}>
-        {/* Header row */}
-        <div style={{
-          display: 'flex', alignItems: 'center',
-          justifyContent: 'space-between', marginBottom: 12,
-        }}>
-          <h2 style={{ ...S.h2, marginTop: 0, marginBottom: 0 }}>Law Registry</h2>
-          <button
-            onClick={() => setLawExpanded(v => !v)}
-            style={{
-              background: 'none', border: `1px solid ${T.bdr}`,
-              borderRadius: 4, padding: '5px 14px',
-              fontSize: 12, cursor: 'pointer', color: T.dim,
-              fontFamily: "'Times New Roman', Times, serif",
-            }}
-          >
-            {lawExpanded ? '▾ Hide' : '▸ Show'}
-          </button>
-        </div>
-
-        <p style={{ ...S.hint, marginBottom: lawExpanded ? 20 : 0 }}>
-          All procedural deadlines and legal assertions in one place. Override any
-          period without a deploy — changes take effect immediately in IndexedDB.
-          Every change is logged with a mandatory reason.
-        </p>
-
-        {lawExpanded && <LawRegistry />}
-      </section>
-
-      {/* ── System Info ── */}
-      <section style={{
-        background: T.card, border: `1px solid ${T.bdr}`,
-        borderRadius: 8, padding: 24,
-      }}>
-        <h2 style={{ ...S.h2, marginTop: 0 }}>System</h2>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {[
-            { label: 'Worker',   value: 'afs-legal-rag.sobamboadeshupo.workers.dev' },
-            { label: 'Database', value: 'afs-legal-meta (D1)' },
-            { label: 'Storage',  value: 'afs-legal-library (R2)' },
-            { label: 'Vectors',  value: 'afs-legal-library (Vectorize)' },
-          ].map(({ label, value }) => (
-            <div key={label} style={{ display: 'flex', gap: 12, alignItems: 'baseline' }}>
-              <span style={{
-                fontSize: 12, color: T.mute, minWidth: 72,
-                textTransform: 'uppercase', letterSpacing: '.06em',
-                fontFamily: "'Times New Roman', Times, serif",
-              }}>
-                {label}
-              </span>
-              <span style={{ fontSize: 13, color: T.dim, fontFamily: "'Times New Roman', Times, serif" }}>
-                {value}
-              </span>
-            </div>
-          ))}
-        </div>
+        <h2 style={{ ...S.h2, marginTop: 0 }}>Clause Bank</h2>
+        <ClauseBank />
       </section>
 
     </div>
