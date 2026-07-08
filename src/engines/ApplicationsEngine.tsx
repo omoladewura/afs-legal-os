@@ -13,7 +13,7 @@
  *
  *   Stage 1 — Application Type     : Quick-fill type picker (civil/criminal/appeal)
  *   Stage 2 — Application Facts    : Parties, relief, grounds, affidavit facts
- *   Stage 3 — Argument Builder     : Issue-by-issue IRAC → Written Address + Reply sub-tab
+ *   Stage 3 — Argument Builder     : Issue-by-issue Toulmin → Written Address + Reply sub-tab
  *   Stage 4 — Assemble Package     : One AI call builds full document package
  *
  * Statute RAG fires automatically at Stage 3. Intelligence context injected throughout.
@@ -27,7 +27,7 @@ import { T } from '@/constants/tokens';
 import { useAI } from '@/hooks/useAI';
 import { useIntelligence } from '@/hooks/useIntelligence';
 import { buildRoleSystemPrompt } from '@/utils/rolePrompt';
-import { loadBlindSpot, saveBlindSpot, uid, cloneApplicationToCase, loadAllCases } from '@/storage/helpers';
+import { loadBlindSpot, saveBlindSpot, uid, cloneApplicationToCase, loadAllCases, findRebuttalBank } from '@/storage/helpers';
 import { Md, ErrorBlock, TypeDeleteModal, CaseTheoryBanner } from '@/components/common/ui';
 import { useCaseTheory } from '@/hooks/useCaseTheory';
 import type { CaseTheoryRecord, CaseSummary } from '@/types';
@@ -217,12 +217,15 @@ export interface AppTypeConfig {
 }
 
 interface ArgumentIssue {
-  id:          string;
-  issue:       string;
-  rule:        string;
-  application: string;
-  conclusion:  string;
-  draft:       string;
+  id:           string;
+  claim:        string;
+  grounds:      string;
+  warrant:      string;
+  warrant_type: 'rule' | 'standard' | 'principle';
+  qualifier:    string;
+  rebuttal:     string;
+  conclusion:   string;
+  draft:        string;
 }
 
 // Paragraph-level response entry for counter-affidavit drafting
@@ -685,6 +688,116 @@ function TA({
   );
 }
 
+// Phase 2B — short single-line input, styled to match TA (used for `qualifier`).
+function SInput({
+  value, onChange, placeholder = '', disabled = false,
+}: {
+  value: string; onChange: (v: string) => void; placeholder?: string; disabled?: boolean;
+}) {
+  return (
+    <input
+      type="text"
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      placeholder={placeholder}
+      disabled={disabled}
+      style={{
+        width: '100%', background: '#0a0a14', border: '1px solid #1e1e34',
+        borderRadius: 6, padding: '9px 12px', color: '#e8e4d8', fontSize: 13,
+        fontFamily: "'Times New Roman', Times, serif",
+        boxSizing: 'border-box', outline: 'none',
+      }}
+    />
+  );
+}
+
+// Phase 2B — 3-option select, styled to match TA (used for `warrant_type`).
+function Sel({
+  value, onChange, options, disabled = false,
+}: {
+  value: string; onChange: (v: string) => void; options: { value: string; label: string }[]; disabled?: boolean;
+}) {
+  return (
+    <select
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      disabled={disabled}
+      style={{
+        width: '100%', background: '#0a0a14', border: '1px solid #1e1e34',
+        borderRadius: 6, padding: '9px 12px', color: '#e8e4d8', fontSize: 13,
+        fontFamily: "'Times New Roman', Times, serif",
+        boxSizing: 'border-box', outline: 'none',
+      }}
+    >
+      {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+    </select>
+  );
+}
+
+// Phase 2B — inline help text per warrant_type, per the build plan's Decision table.
+const WARRANT_TYPE_OPTIONS: { value: ArgumentIssue['warrant_type']; label: string }[] = [
+  { value: 'rule',      label: 'Rule' },
+  { value: 'standard',  label: 'Standard' },
+  { value: 'principle', label: 'Principle' },
+];
+const WARRANT_TYPE_HELP: Record<ArgumentIssue['warrant_type'], string> = {
+  rule:      'Strict if-then — the rule either applies on these facts or it doesn\'t.',
+  standard:  'Weighted balancing — several factors are weighed; no single one is dispositive.',
+  principle: 'Equitable conduct — conscience/fairness-based, not a fixed test.',
+};
+
+// Phase 2C — small colored pill showing warrant_type in issue list/summary views.
+const WARRANT_TYPE_BADGE_COLOR: Record<ArgumentIssue['warrant_type'], { bg: string; fg: string }> = {
+  rule:      { bg: '#132a1a', fg: '#40a060' },
+  standard:  { bg: '#182a3a', fg: '#4090d0' },
+  principle: { bg: '#2a1a30', fg: '#a060c0' },
+};
+function WarrantTypeBadge({ type }: { type: ArgumentIssue['warrant_type'] }) {
+  const c = WARRANT_TYPE_BADGE_COLOR[type] ?? WARRANT_TYPE_BADGE_COLOR.rule;
+  return (
+    <span style={{
+      display: 'inline-block', fontSize: 10, fontWeight: 700, letterSpacing: '.06em',
+      textTransform: 'uppercase', padding: '2px 8px', borderRadius: 10,
+      background: c.bg, color: c.fg,
+    }}>
+      {type.charAt(0).toUpperCase() + type.slice(1)}
+    </span>
+  );
+}
+
+// Phase 2C — an issue is "otherwise complete" once the four core Toulmin
+// fields are filled; rebuttal is the only field this checks as MISSING
+// (that's what triggers the Fragile flag, not what it requires present).
+function isIssueComplete(iss: ArgumentIssue): boolean {
+  return !!(iss.claim.trim() && iss.warrant.trim() && iss.grounds.trim() && iss.conclusion.trim());
+}
+
+// Phase 3A — defeasible branching. The base per-call task instruction (Layer 5)
+// stays constant across warrant types; this appends a framing directive so the
+// AI argues the issue in the register warrant_type actually calls for, instead
+// of always defaulting to strict rule-application language regardless of type.
+function warrantTypeFraming(warrantType: ArgumentIssue['warrant_type']): string {
+  switch (warrantType) {
+    case 'standard':
+      return 'This issue rests on a STANDARD warrant — a weighted balancing test, not a strict rule. Identify each relevant factor, weigh it against the facts on both sides, and reach a conclusion on the balance. Do NOT claim certainty or present the outcome as automatic — use language proportional to a balance of factors (e.g. "on balance", "the weight of the factors favours"), not "clearly" or "undoubtedly".';
+    case 'principle':
+      return "This issue rests on a PRINCIPLE warrant — an equitable, conduct-based standard, not a mechanical rule. Frame the argument around the parties' conduct and what conscience/fairness requires on these facts, rather than a fixed if-then test.";
+    case 'rule':
+    default:
+      return 'This issue rests on a RULE warrant — a strict if-then test. State the rule precisely, show plainly whether the facts satisfy it, and reach a definite conclusion without hedging.';
+  }
+}
+function FragileFlag() {
+  return (
+    <span style={{
+      display: 'inline-block', fontSize: 10, fontWeight: 700, letterSpacing: '.04em',
+      padding: '2px 8px', borderRadius: 10, background: '#3a1808', color: '#d08040',
+    }}>
+      ⚠ Fragile — no rebuttal
+    </span>
+  );
+}
+
 function MandatoryNotice() {
   return (
     <div style={{
@@ -939,7 +1052,7 @@ function TheoryMergePanel({
 // STAGE 3 — ARGUMENT BUILDER (dual-track: Mover / Respondent to Application)
 // ─────────────────────────────────────────────────────────────────────────────
 
-// ── Shared: issue-by-issue IRAC builder (used by both tracks) ────────────────
+// ── Shared: issue-by-issue Toulmin builder (used by both tracks) ─────────────
 
 interface IssueBuilderProps {
   activeCase:      Case;
@@ -962,6 +1075,9 @@ function IssueBuilder({
   templateBadge, onTemplateBadge,
 }: IssueBuilderProps) {
   const { ask, loading, error, clearError } = useAI(activeCase);
+  // Phase 4A — separate ask()/loading so rebuttal generation doesn't block or get blocked by the main draft call.
+  const { ask: rebuttalAsk } = useAI(activeCase);
+  const [rebuttalLoading, setRebuttalLoading] = useState(false);
   // Phase 9D — light theory injection when appType.needsCaseTheory is true
   const { theory: issueTheory, hasTheory: issueHasTheory } = useCaseTheory(activeCase.id);
   // Phase 10C — jurisdiction delta, resolved once per render and reused by generateIssue and assembleAddress.
@@ -995,7 +1111,7 @@ function IssueBuilder({
   const sideLabel = side === 'support' ? 'Written Address in Support' : 'Written Address in Opposition';
 
   function startNew() {
-    setDraftIssue({ id: uid(), issue: '', rule: '', application: '', conclusion: '', draft: '' });
+    setDraftIssue({ id: uid(), claim: '', grounds: '', warrant: '', warrant_type: 'rule', qualifier: '', rebuttal: '', conclusion: '', draft: '' });
     setEditingId(null);
   }
   function startEdit(iss: ArgumentIssue) { setDraftIssue({ ...iss }); setEditingId(iss.id); }
@@ -1034,10 +1150,10 @@ function IssueBuilder({
     }
     // ── RAG statute lookup (unchanged) ────────────────────────────────────
     let statuteSections = '';
-    if (isRagConfigured() && draftIssue.issue) {
+    if (isRagConfigured() && draftIssue.claim) {
       setRagFetching(true);
       const ragResult = await queryStatutes(
-        buildRagQuery({ argIssue: draftIssue.issue, argType: 'written_address_application', legalIssues: [draftIssue.issue], caseName: activeCase.caseName }),
+        buildRagQuery({ argIssue: draftIssue.claim, argType: 'written_address_application', legalIssues: [draftIssue.claim], caseName: activeCase.caseName }),
         { topK: 5 },
       );
       setRagFetching(false);
@@ -1053,10 +1169,10 @@ CASE: ${activeCase.caseName} | COURT: ${activeCase.court} | SUIT: ${activeCase.s
 TRACK: ${activeCase.matter_track ?? 'civil'} | ROLE: ${activeCase.counsel_role ?? 'claimant_side'}
 POSITION IN THIS APPLICATION: ${side === 'support' ? 'We filed this application — arguing in support' : 'We are opposing this application — arguing against it'}
 
-ISSUE: ${draftIssue.issue}
-RULE OF LAW: ${draftIssue.rule}
-APPLICATION TO FACTS: ${draftIssue.application}
-CONCLUSION: ${draftIssue.conclusion}
+CLAIM: ${draftIssue.claim}
+WARRANT: ${draftIssue.warrant}
+GROUNDS: ${draftIssue.grounds}
+${draftIssue.qualifier.trim() ? `QUALIFIER: ${draftIssue.qualifier.trim()} — hedge the conclusion accordingly; do not assert flatly beyond what this qualifier permits.\n` : ''}CONCLUSION: ${draftIssue.conclusion}
 
 APPLICATION FACTS:
 Relief Sought: ${facts.reliefSought}
@@ -1064,10 +1180,10 @@ Grounds: ${facts.grounds}
 Key Facts: ${facts.keyFacts}
 
 ${statuteSections ? 'VERIFIED STATUTE SECTIONS (cite directly — these are confirmed):\n' + statuteSections + '\n' : ''}
-
+${draftIssue.rebuttal.trim() ? `Anticipate and answer the following objection: ${draftIssue.rebuttal.trim()}\n` : ''}
 RULES:
-- IRAC: Issue heading → Rule → Application to Facts → Conclusion
-- ${statuteSections ? 'Cite provided statute sections directly.' : 'Cite statutes by name and section only — do not invent text.'}
+- Toulmin structure: Claim heading → Warrant (the rule/standard/principle relied on) → Grounds (facts supporting it) → Conclusion
+${draftIssue.rebuttal.trim() ? '- The objection above is not optional colour — include a paragraph that names it and answers it before the Conclusion.\n' : ''}- ${statuteSections ? 'Cite provided statute sections directly.' : 'Cite statutes by name and section only — do not invent text.'}
 - Cases you are CERTAIN exist: [Case Name] (Year) Court — [holding]
 - Cases you need but cannot verify — use EXACTLY:
 [RESEARCH NEEDED]
@@ -1094,17 +1210,172 @@ What the case must decide: [required ratio/holding in one sentence]
       template:        foundTemplate,
       theory:          appType.needsCaseTheory && issueHasTheory && issueTheory ? issueTheory : null,
       lawDelta:        issueBuilderLawDelta,
-      callInstruction: 'You are drafting one issue of a Written Address for a Nigerian court. NEVER invent case citations. Use [RESEARCH NEEDED] blocks for uncertain authority.',
+      callInstruction: [
+        'You are drafting one issue of a Written Address for a Nigerian court. NEVER invent case citations. Use [RESEARCH NEEDED] blocks for uncertain authority.',
+        warrantTypeFraming(draftIssue.warrant_type),
+      ].join('\n\n'),
     });
 
     const result = await ask({
       system: systemPrompt,
       userMsg: prompt, maxTokens: 2000,
-      libraryOpts: { queryHint: `${appType.label} ${draftIssue.issue} Nigerian court`, topK: 6 },
+      libraryOpts: { queryHint: `${appType.label} ${draftIssue.claim} Nigerian court`, topK: 6 },
     });
     if (result) {
       setDraftIssue(prev => prev ? { ...prev, draft: result.trim() } : prev);
       // 2D-ii — raise badge to parent only when a template was used
+      if (matchedTemplateBadge) onTemplateBadge?.(matchedTemplateBadge);
+    }
+  }
+
+  // Phase 5C — bank-first, AI-fills-gaps. Building the userMsg is shared between
+  // generateRebuttal() and generateIssueFast() (Phase 4D's combined-call path), so
+  // both benefit from the same known-defeaters lookup without duplicating the prompt.
+  async function buildRebuttalInstruction(): Promise<string> {
+    const bank = await findRebuttalBank(appType.label, jurisdiction);
+    const known = bank?.defeaters ?? [];
+    if (known.length === 0) {
+      return 'Identify the single strongest fact or doctrine that defeats this argument. Then state whether, and how, the Grounds above already answer it — or whether it remains unaddressed.';
+    }
+    // Bank-first: known defeaters must each be addressed or explicitly ruled out —
+    // not silently ignored. AI only adds something case-specific the bank misses.
+    return `KNOWN DEFEATERS FOR THIS APPLICATION TYPE (firm's rebuttal bank — for each one, state whether it applies on these facts and how the Grounds answer it, or explicitly rule it out as inapplicable):
+${known.map(d => `- ${d.defeater}${d.note ? ` — ${d.note}` : ''}`).join('\n')}
+
+After addressing every item above, identify any additional case-specific defeater the bank does not cover. If none, say so.`;
+  }
+
+  // Phase 4A — AI rebuttal generation. Mirrors runTheoryCheck's shape (senior counsel
+  // persona system prompt, single ask() call, result trimmed straight into state).
+  // Output lands in draftIssue.rebuttal, left editable — not auto-locked.
+  async function generateRebuttal() {
+    if (!draftIssue || !draftIssue.claim.trim() || !draftIssue.grounds.trim()) return;
+    setRebuttalLoading(true);
+    const instruction = await buildRebuttalInstruction();
+    const result = await rebuttalAsk({
+      system: 'You are senior counsel stress-testing a colleague\'s argument before a Nigerian court. Be exacting and adversarial in your analysis, not diplomatic.',
+      userMsg: `CLAIM: ${draftIssue.claim}
+GROUNDS: ${draftIssue.grounds}
+WARRANT: ${draftIssue.warrant || '[not yet supplied]'}
+WARRANT TYPE: ${draftIssue.warrant_type}
+
+${instruction} Be concise: address each point in a sentence or two, no headings, no restating the claim back.`,
+      maxTokens: 550,
+    });
+    setRebuttalLoading(false);
+    if (result) setDraftIssue(prev => prev ? { ...prev, rebuttal: result.trim() } : prev);
+  }
+
+  // Phase 4D — combined single-call alternative to (generateRebuttal → generateIssue).
+  // The plan flags the 2-call sequence as a possible latency problem on the phone-first
+  // Termux workflow and says to test both, pick on feel — not assume. This is that
+  // alternative: one ask() call producing rebuttal analysis + draft in two delimited
+  // parts, parsed apart client-side. Overwrites any existing rebuttal with a fresh one.
+  async function generateIssueFast() {
+    if (!draftIssue || !draftIssue.claim.trim() || !draftIssue.grounds.trim()) return;
+    setStatuteChunks([]); setStatuteRagError('');
+    onTemplateBadge?.(null);
+
+    let matchedTemplateBadge: { appType: string; jurisdiction: string } | null = null;
+    let foundTemplate: ArgumentTemplate | null = null;
+    try {
+      const tpl = await db.argument_templates.where({ appType: appType.label, jurisdiction }).first();
+      if (tpl) {
+        foundTemplate        = tpl ?? null;
+        matchedTemplateBadge = { appType: tpl.appType, jurisdiction: tpl.jurisdiction };
+      }
+    } catch { /* template lookup failure is non-fatal */ }
+
+    let statuteSections = '';
+    if (isRagConfigured() && draftIssue.claim) {
+      setRagFetching(true);
+      const ragResult = await queryStatutes(
+        buildRagQuery({ argIssue: draftIssue.claim, argType: 'written_address_application', legalIssues: [draftIssue.claim], caseName: activeCase.caseName }),
+        { topK: 5 },
+      );
+      setRagFetching(false);
+      if (!ragResult.skipped && ragResult.chunks.length > 0) {
+        setStatuteChunks(ragResult.chunks);
+        statuteSections = formatStatutesForPrompt(ragResult.chunks);
+      } else if (ragResult.error) { setStatuteRagError(ragResult.error); }
+    }
+
+    // Phase 5C — same bank-first lookup as generateRebuttal(), reused here so the
+    // fast combined-call path doesn't skip known defeaters just because it's the
+    // one-call variant.
+    const rebuttalInstruction = await buildRebuttalInstruction();
+
+    const prompt = `Draft one issue of a ${sideLabel} for a ${appType.label} in a Nigerian court.
+
+CASE: ${activeCase.caseName} | COURT: ${activeCase.court} | SUIT: ${activeCase.suitNo || '[TBA]'}
+TRACK: ${activeCase.matter_track ?? 'civil'} | ROLE: ${activeCase.counsel_role ?? 'claimant_side'}
+POSITION IN THIS APPLICATION: ${side === 'support' ? 'We filed this application — arguing in support' : 'We are opposing this application — arguing against it'}
+
+CLAIM: ${draftIssue.claim}
+WARRANT: ${draftIssue.warrant}
+GROUNDS: ${draftIssue.grounds}
+${draftIssue.qualifier.trim() ? `QUALIFIER: ${draftIssue.qualifier.trim()} — hedge the conclusion accordingly; do not assert flatly beyond what this qualifier permits.\n` : ''}CONCLUSION: ${draftIssue.conclusion}
+
+APPLICATION FACTS:
+Relief Sought: ${facts.reliefSought}
+Grounds: ${facts.grounds}
+Key Facts: ${facts.keyFacts}
+
+${statuteSections ? 'VERIFIED STATUTE SECTIONS (cite directly — these are confirmed):\n' + statuteSections + '\n' : ''}
+
+TWO-PART OUTPUT — produce both parts, in this exact order, with these exact markers:
+
+[REBUTTAL]
+As senior counsel stress-testing this argument: ${rebuttalInstruction} Be concise — address each point in a sentence or two, no headings.
+[/REBUTTAL]
+
+[DRAFT]
+Draft the issue itself using Toulmin structure: Claim heading → Warrant → Grounds → Conclusion.
+- Include a paragraph that names and answers the objection from the REBUTTAL section above before the Conclusion.
+- ${statuteSections ? 'Cite provided statute sections directly.' : 'Cite statutes by name and section only — do not invent text.'}
+- Cases you are CERTAIN exist: [Case Name] (Year) Court — [holding]
+- Cases you need but cannot verify — use EXACTLY:
+[RESEARCH NEEDED]
+Proposition: [one sentence — what this authority must establish]
+Area of law: [e.g. Contract / Land Law / Criminal Procedure / Evidence / Constitutional Law]
+Court level needed: [Supreme Court | Court of Appeal | High Court]
+LawPavilion search 1: [3–5 keyword phrase]
+LawPavilion search 2: [alternative angle]
+LawPavilion search 3: [narrower term of art]
+What the case must decide: [required ratio/holding in one sentence]
+[/RESEARCH NEEDED]
+- NEVER invent a case name, citation, year, volume, or law report.
+- Begin immediately with the issue heading.
+[/DRAFT]`;
+
+    const systemPrompt = buildDraftSystemPrompt({
+      systemCtx,
+      appType,
+      template:        foundTemplate,
+      theory:          appType.needsCaseTheory && issueHasTheory && issueTheory ? issueTheory : null,
+      lawDelta:        issueBuilderLawDelta,
+      callInstruction: [
+        'You are drafting one issue of a Written Address for a Nigerian court. NEVER invent case citations. Use [RESEARCH NEEDED] blocks for uncertain authority.',
+        warrantTypeFraming(draftIssue.warrant_type),
+        'Follow the two-part [REBUTTAL]/[DRAFT] marker format exactly — nothing before, between, or after outside those markers.',
+      ].join('\n\n'),
+    });
+
+    const result = await ask({
+      system: systemPrompt,
+      userMsg: prompt, maxTokens: 2500,
+      libraryOpts: { queryHint: `${appType.label} ${draftIssue.claim} Nigerian court`, topK: 6 },
+    });
+    if (result) {
+      const rebuttalMatch = result.match(/\[REBUTTAL\]([\s\S]*?)\[\/REBUTTAL\]/);
+      const draftMatch    = result.match(/\[DRAFT\]([\s\S]*?)\[\/DRAFT\]/);
+      setDraftIssue(prev => prev ? {
+        ...prev,
+        rebuttal: rebuttalMatch ? rebuttalMatch[1].trim() : prev.rebuttal,
+        // Fallback: if markers didn't come back cleanly, use the whole response as the draft
+        // rather than silently dropping it — better a malformed draft than a lost one.
+        draft: draftMatch ? draftMatch[1].trim() : result.trim(),
+      } : prev);
       if (matchedTemplateBadge) onTemplateBadge?.(matchedTemplateBadge);
     }
   }
@@ -1206,7 +1477,7 @@ ${draft}`;
   async function assembleAddress() {
     if (!issues.length) return;
     const issueBlocks = issues.map((iss, i) =>
-      `ISSUE ${i + 1}: ${iss.issue}\nRule: ${iss.rule}\nApplication: ${iss.application}\nConclusion: ${iss.conclusion}${iss.draft ? '\n\nDRAFTED ARGUMENT:\n' + iss.draft : ''}`
+      `CLAIM ${i + 1}: ${iss.claim}\nWarrant: ${iss.warrant}\nGrounds: ${iss.grounds}${iss.qualifier.trim() ? `\nQualifier: ${iss.qualifier.trim()} — hedge accordingly, do not assert flatly` : ''}\nConclusion: ${iss.conclusion}${iss.rebuttal.trim() && !iss.draft ? `\nObjection to anticipate and answer: ${iss.rebuttal.trim()}` : ''}${iss.draft ? '\n\nDRAFTED ARGUMENT:\n' + iss.draft : ''}`
     ).join('\n\n---\n\n');
 
     const prompt = `Assemble a complete ${sideLabel} for a ${appType.label} from these issue arguments.
@@ -1257,7 +1528,7 @@ ${facts.keyFacts ? 'Key Facts: ' + facts.keyFacts : ''}
       )}
 
       <div style={{ fontSize: 12, color: '#808098', marginBottom: 18, lineHeight: 1.6 }}>
-        Build the {sideLabel} issue by issue. Each issue uses IRAC — Issue → Rule → Application → Conclusion.
+        Build the {sideLabel} issue by issue. Each issue uses Toulmin structure — Claim → Warrant → Grounds → Conclusion.
         Statute RAG fires automatically. When all issues are ready, assemble into the full Written Address.
       </div>
 
@@ -1273,10 +1544,12 @@ ${facts.keyFacts ? 'Key Facts: ' + facts.keyFacts : ''}
               display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12,
             }}>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 13, color: '#4090d0', fontWeight: 600, marginBottom: 4 }}>
-                  Issue {i + 1}: {iss.issue || '(untitled)'}
+                <div style={{ fontSize: 13, color: '#4090d0', fontWeight: 600, marginBottom: 4, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
+                  <span>Issue {i + 1}: {iss.claim || '(untitled)'}</span>
+                  <WarrantTypeBadge type={iss.warrant_type} />
+                  {isIssueComplete(iss) && !iss.rebuttal.trim() && <FragileFlag />}
                 </div>
-                {iss.rule && <div style={{ fontSize: 12, color: '#808098', marginBottom: 2 }}>Rule: {iss.rule.slice(0, 80)}{iss.rule.length > 80 ? '…' : ''}</div>}
+                {iss.warrant && <div style={{ fontSize: 12, color: '#808098', marginBottom: 2 }}>Warrant: {iss.warrant.slice(0, 80)}{iss.warrant.length > 80 ? '…' : ''}</div>}
                 {iss.draft && <div style={{ fontSize: 11, color: '#40a060', marginTop: 4 }}>✓ Argument drafted</div>}
               </div>
               <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
@@ -1297,28 +1570,52 @@ ${facts.keyFacts ? 'Key Facts: ' + facts.keyFacts : ''}
             {editingId ? 'Edit Issue' : 'New Issue'}
           </div>
           <div style={{ marginBottom: 12 }}>
-            <SLabel text="Issue (legal question for determination)" />
-            <TA value={draftIssue.issue} onChange={v => setDraftIssue(p => p ? { ...p, issue: v } : p)}
+            <SLabel text="Claim (legal question for determination)" />
+            <TA value={draftIssue.claim} onChange={v => setDraftIssue(p => p ? { ...p, claim: v } : p)}
               placeholder="e.g. Whether the defendant's failure to file a defence within time entitles the claimant to judgment in default"
               rows={2} disabled={loading} />
           </div>
           <div style={{ marginBottom: 12 }}>
-            <SLabel text="Rule of Law (statute / principle)" />
-            <TA value={draftIssue.rule} onChange={v => setDraftIssue(p => p ? { ...p, rule: v } : p)}
+            <SLabel text="Warrant (statute / standard / principle relied on)" />
+            <TA value={draftIssue.warrant} onChange={v => setDraftIssue(p => p ? { ...p, warrant: v } : p)}
               placeholder="e.g. Order 8 Rule 7, Federal High Court (Civil Procedure) Rules 2019"
               rows={2} disabled={loading} />
           </div>
           <div style={{ marginBottom: 12 }}>
-            <SLabel text="Application to Facts" />
-            <TA value={draftIssue.application} onChange={v => setDraftIssue(p => p ? { ...p, application: v } : p)}
+            <SLabel text="Warrant Type" />
+            <Sel value={draftIssue.warrant_type} onChange={v => setDraftIssue(p => p ? { ...p, warrant_type: v as ArgumentIssue['warrant_type'] } : p)}
+              options={WARRANT_TYPE_OPTIONS} disabled={loading} />
+            <div style={{ fontSize: 11, color: '#606078', marginTop: 5, lineHeight: 1.5 }}>
+              {WARRANT_TYPE_HELP[draftIssue.warrant_type]}
+            </div>
+          </div>
+          <div style={{ marginBottom: 12 }}>
+            <SLabel text="Grounds (facts supporting the claim)" />
+            <TA value={draftIssue.grounds} onChange={v => setDraftIssue(p => p ? { ...p, grounds: v } : p)}
               placeholder="How the rule applies to the specific facts of this case…"
               rows={3} disabled={loading} />
+          </div>
+          <div style={{ marginBottom: 12 }}>
+            <SLabel text="Qualifier (optional)" />
+            <SInput value={draftIssue.qualifier} onChange={v => setDraftIssue(p => p ? { ...p, qualifier: v } : p)}
+              placeholder="e.g. presumptively, unless rebutted." disabled={loading} />
           </div>
           <div style={{ marginBottom: 16 }}>
             <SLabel text="Conclusion" />
             <TA value={draftIssue.conclusion} onChange={v => setDraftIssue(p => p ? { ...p, conclusion: v } : p)}
               placeholder="What the court is urged to find / do on this issue…"
               rows={2} disabled={loading} />
+          </div>
+          <div style={{ marginBottom: 16 }}>
+            <SLabel text="Rebuttal (strongest objection this claim must survive)" />
+            <TA value={draftIssue.rebuttal} onChange={v => setDraftIssue(p => p ? { ...p, rebuttal: v } : p)}
+              placeholder="e.g. Delay in bringing this application — counsel to fill in manually, or use Generate"
+              rows={2} disabled={loading} />
+            <div style={{ marginTop: 6 }}>
+              <Btn label="✨ AI-Generate Rebuttal" onClick={generateRebuttal}
+                accent="#8060c0" loading={rebuttalLoading}
+                off={!draftIssue.claim.trim() || !draftIssue.grounds.trim()} />
+            </div>
           </div>
 
           {isRagConfigured() && !ragFetching && (
@@ -1338,9 +1635,14 @@ ${facts.keyFacts ? 'Key Facts: ' + facts.keyFacts : ''}
 
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <Btn label={draftIssue.draft ? '↻ Re-generate' : '✍ Generate Argument'}
-              onClick={generateIssue} loading={loading} accent="#4090d0" off={!draftIssue.issue.trim()} />
+              onClick={generateIssue} loading={loading} accent="#4090d0" off={!draftIssue.claim.trim()} />
+            {/* Phase 4D — A/B alternative: rebuttal + draft in one call instead of two. Compare feel against
+                AI-Generate Rebuttal → Generate Argument above; keep whichever doesn't stall on your workflow. */}
+            <Btn label="⚡ Fast Draft (rebuttal + draft, 1 call)"
+              onClick={generateIssueFast} loading={loading} accent="#c08040"
+              off={!draftIssue.claim.trim() || !draftIssue.grounds.trim()} />
             <Btn label={editingId ? '✓ Update Issue' : '✓ Save Issue'}
-              onClick={saveIssue} accent="#40a060" off={!draftIssue.issue.trim()} />
+              onClick={saveIssue} accent="#40a060" off={!draftIssue.claim.trim()} />
             <button onClick={() => setShowClausePicker(true)}
               style={{ background: 'none', border: '1px solid #303050', color: '#6060a0', borderRadius: 4, padding: '6px 14px', fontSize: 12, cursor: 'pointer', fontFamily: "'Times New Roman', Times, serif" }}>
               📚 Pull from Clause Bank
@@ -1354,7 +1656,7 @@ ${facts.keyFacts ? 'Key Facts: ' + facts.keyFacts : ''}
           {showClausePicker && (
             <ClauseBankPicker
               onClose={() => setShowClausePicker(false)}
-              onPull={(text) => setDraftIssue(p => p ? { ...p, application: p.application ? `${p.application}\n\n${text}` : text } : p)}
+              onPull={(text) => setDraftIssue(p => p ? { ...p, grounds: p.grounds ? `${p.grounds}\n\n${text}` : text } : p)}
             />
           )}
         </div>
@@ -3362,7 +3664,7 @@ ASSEMBLY RULES — MANDATORY:
 6. Counter-Affidavit: paragraph-by-paragraph responses (admit/deny/not within knowledge) + respondent's new facts.
 7. Further Counter-Affidavit: caption must state leave of court was obtained; every paragraph references the Applicant's Further & Better paragraph it responds to.
 8. Further & Better Affidavit: every paragraph references the specific paragraph of the principal affidavit or counter-affidavit it is premised on or responding to.
-9. Written Address: Introduction → Issues for Determination → Arguments (IRAC) → Conclusion and Relief. ${isRespondent ? 'Urge court to REFUSE the application.' : 'Urge court to GRANT the application.'}
+9. Written Address: Introduction → Issues for Determination → Arguments (Toulmin: Claim → Warrant → Grounds → Conclusion) → Conclusion and Relief. ${isRespondent ? 'Urge court to REFUSE the application.' : 'Urge court to GRANT the application.'}
 10. Reply on Points of Law: responds ONLY to new legal points raised by opposing counsel — no new facts.
 11. Bail: community ties, flight risk, gravity of offence, health, dependants.
 12. Extension of time: account for every day of delay — Bowaje v Adediwura two-condition test.
@@ -3925,12 +4227,15 @@ Extract and return ONLY a JSON object with no preamble or markdown:
                               <button
                                 onClick={() => {
                                   const seeded: ArgumentIssue[] = oppExtractResult.issues_for_opposition.map((iss, i) => ({
-                                    id:          `resp_issue_${Date.now()}_${i}`,
-                                    issue:       iss,
-                                    rule:        '',
-                                    application: '',
-                                    conclusion:  '',
-                                    draft:       '',
+                                    id:           `resp_issue_${Date.now()}_${i}`,
+                                    claim:        iss,
+                                    grounds:      '',
+                                    warrant:      '',
+                                    warrant_type: 'rule',
+                                    qualifier:    '',
+                                    rebuttal:     '',
+                                    conclusion:   '',
+                                    draft:        '',
                                   }));
                                   setStage3(s => ({ ...s, respIssues: seeded }));
                                 }}

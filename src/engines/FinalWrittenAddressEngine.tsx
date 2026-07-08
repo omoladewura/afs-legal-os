@@ -50,6 +50,58 @@ const dimS: React.CSSProperties = {
 
 const ACC = '#4a7ed0';
 
+// Phase 2C — small colored pill showing warrant_type, and a red/amber flag
+// when rebuttal is empty on an otherwise-complete issue. Same styling as the
+// equivalent pills added in ApplicationsEngine's IssueBuilder.
+const WARRANT_TYPE_BADGE_COLOR: Record<'rule' | 'standard' | 'principle', { bg: string; fg: string }> = {
+  rule:      { bg: '#132a1a', fg: '#40a060' },
+  standard:  { bg: '#182a3a', fg: '#4090d0' },
+  principle: { bg: '#2a1a30', fg: '#a060c0' },
+};
+function WarrantTypeBadge({ type }: { type: 'rule' | 'standard' | 'principle' }) {
+  const c = WARRANT_TYPE_BADGE_COLOR[type] ?? WARRANT_TYPE_BADGE_COLOR.rule;
+  return (
+    <span style={{
+      display: 'inline-block', fontSize: 10, fontWeight: 700, letterSpacing: '.06em',
+      textTransform: 'uppercase', padding: '2px 8px', borderRadius: 10,
+      background: c.bg, color: c.fg,
+    }}>
+      {type.charAt(0).toUpperCase() + type.slice(1)}
+    </span>
+  );
+}
+function FragileFlag() {
+  return (
+    <span style={{
+      display: 'inline-block', fontSize: 10, fontWeight: 700, letterSpacing: '.04em',
+      padding: '2px 8px', borderRadius: 10, background: '#3a1808', color: '#d08040',
+    }}>
+      ⚠ Fragile — no rebuttal
+    </span>
+  );
+}
+function isIssueComplete(iss: { claim: string; warrant: string; grounds: string; conclusion: string }): boolean {
+  return !!(iss.claim.trim() && iss.warrant.trim() && iss.grounds.trim() && iss.conclusion.trim());
+}
+
+// Phase 3A — defeasible branching, per issue. Unlike ApplicationsEngine's
+// generateIssue() (one issue per call, so warrant_type can drive a single
+// Layer-5 system instruction), generate() here drafts every issue in one
+// call and issues can have different warrant_types — so the framing has to
+// travel inline with each issue block in issuesText rather than as one
+// top-level instruction.
+function warrantTypeFraming(warrantType: 'rule' | 'standard' | 'principle'): string {
+  switch (warrantType) {
+    case 'standard':
+      return 'weighted balancing test — weigh each relevant factor against the facts and reach a conclusion on the balance; do NOT claim certainty or present the outcome as automatic (use "on balance" / "the weight of the factors favours", not "clearly" / "undoubtedly")';
+    case 'principle':
+      return "equitable, conduct-based standard — frame the argument around the parties' conduct and what conscience/fairness requires, not a fixed if-then test";
+    case 'rule':
+    default:
+      return 'strict if-then test — state the rule precisely, show plainly whether the facts satisfy it, and reach a definite conclusion without hedging';
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // CASE THEORY INJECTION — Trial Engine Consolidation, Phase 9A
 //
@@ -465,11 +517,14 @@ function ProceduralBanner({ activeCase }: { activeCase: Case }) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface IssueEntry {
-  id:          string;
-  issue:       string;
-  rule:        string;
-  application: string;
-  conclusion:  string;
+  id:           string;
+  claim:        string;
+  grounds:      string;
+  warrant:      string;
+  warrant_type: 'rule' | 'standard' | 'principle';
+  qualifier:    string;
+  rebuttal:     string;
+  conclusion:   string;
 }
 
 function CivilDrafterTab({ activeCase, onDraftSaved }: {
@@ -477,6 +532,10 @@ function CivilDrafterTab({ activeCase, onDraftSaved }: {
   onDraftSaved: (draft: string) => void;
 }) {
   const { ask, loading, error } = useAI(activeCase);
+  // Phase 4A — separate ask() for rebuttal generation; per-issue loading since
+  // multiple IssueEntry rows exist at once (unlike ApplicationsEngine's single draftIssue).
+  const { ask: rebuttalAsk } = useAI(activeCase);
+  const [rebuttalLoadingId, setRebuttalLoadingId] = useState<string | null>(null);
   const { fullContext } = useCaseContext(activeCase, { query: activeCase?.caseName ?? '', engine: 'FinalWrittenAddress' });
   const labels = getPartyLabels(activeCase);
 
@@ -485,7 +544,7 @@ function CivilDrafterTab({ activeCase, onDraftSaved }: {
   const { theory, locked, score, hasTheory, loading: theoryLoading } = useCaseTheory(activeCase.id);
 
   const [issues,      setIssues]      = useState<IssueEntry[]>([
-    { id: uid(), issue: '', rule: '', application: '', conclusion: '' },
+    { id: uid(), claim: '', grounds: '', warrant: '', warrant_type: 'rule', qualifier: '', rebuttal: '', conclusion: '' },
   ]);
   const [extraCtx,    setExtraCtx]    = useState('');
   const [draft,       setDraft]       = useState('');
@@ -521,7 +580,7 @@ For each issue or major submission in the draft, state whether it advances the C
   }
 
   function addIssue() {
-    setIssues(prev => [...prev, { id: uid(), issue: '', rule: '', application: '', conclusion: '' }]);
+    setIssues(prev => [...prev, { id: uid(), claim: '', grounds: '', warrant: '', warrant_type: 'rule', qualifier: '', rebuttal: '', conclusion: '' }]);
   }
   function removeIssue(id: string) {
     setIssues(prev => prev.filter(i => i.id !== id));
@@ -530,8 +589,29 @@ For each issue or major submission in the draft, state whether it advances the C
     setIssues(prev => prev.map(i => i.id === id ? { ...i, [field]: val } : i));
   }
 
+  // Phase 4A — AI rebuttal generation. Mirrors runTheoryCheck's shape (senior counsel
+  // persona system prompt, single ask() call, result trimmed straight into state).
+  // Output lands in the issue's rebuttal field, left editable — not auto-locked.
+  async function generateRebuttal(id: string) {
+    const iss = issues.find(i => i.id === id);
+    if (!iss || !iss.claim.trim() || !iss.grounds.trim()) return;
+    setRebuttalLoadingId(id);
+    const result = await rebuttalAsk({
+      system: 'You are senior counsel stress-testing a colleague\'s argument before a Nigerian court. Be exacting and adversarial in your analysis, not diplomatic.',
+      userMsg: `CLAIM: ${iss.claim}
+GROUNDS: ${iss.grounds}
+WARRANT: ${iss.warrant || '[not yet supplied]'}
+WARRANT TYPE: ${iss.warrant_type}
+
+Identify the single strongest fact or doctrine that defeats this argument. Then state whether, and how, the Grounds above already answer it — or whether it remains unaddressed. Be concise: 3-5 sentences, no headings, no restating the claim back.`,
+      maxTokens: 400,
+    });
+    setRebuttalLoadingId(null);
+    if (result) updateIssue(id, 'rebuttal', result.trim());
+  }
+
   async function generate() {
-    const validIssues = issues.filter(i => i.issue.trim());
+    const validIssues = issues.filter(i => i.claim.trim());
     if (!validIssues.length) return;
 
     const isMatrimonial = activeCase.originating_process === 'petition_matrimonial';
@@ -540,7 +620,7 @@ For each issue or major submission in the draft, state whether it advances the C
     if (isRagConfigured()) {
       setRagFetching(true);
       setRagError('');
-      const ragQuery = validIssues.map(i => i.issue).join(' ');
+      const ragQuery = validIssues.map(i => i.claim).join(' ');
       try {
         const ragResult = await queryStatutes(ragQuery, { topK: 6 });
         if (!ragResult.skipped && ragResult.chunks.length > 0) {
@@ -554,11 +634,12 @@ For each issue or major submission in the draft, state whether it advances the C
     }
 
     const issuesText = validIssues.map((iss, i) => `
-ISSUE ${i + 1}: ${iss.issue}
-Rule of Law: ${iss.rule || '[counsel to supply]'}
-Application: ${iss.application || '[counsel to supply]'}
-Conclusion: ${iss.conclusion || '[counsel to supply]'}
-`).join('\n');
+CLAIM ${i + 1}: ${iss.claim}
+Warrant (${iss.warrant_type}): ${iss.warrant || '[counsel to supply]'}
+Argue this warrant as a ${warrantTypeFraming(iss.warrant_type)}.
+Grounds: ${iss.grounds || '[counsel to supply]'}
+${iss.qualifier.trim() ? `Qualifier: ${iss.qualifier.trim()} — hedge the conclusion accordingly; do not assert flatly beyond what this qualifier permits.\n` : ''}Conclusion: ${iss.conclusion || '[counsel to supply]'}
+${iss.rebuttal.trim() ? `Anticipate and answer the following objection before moving to the next issue: ${iss.rebuttal.trim()}\n` : ''}`).join('\n');
 
     // ── Matrimonial-specific prompt branch ────────────────────────────────
     const matrimonialData = (activeCase as any).matrimonial_data;
@@ -625,7 +706,7 @@ DEFENDANTS: ${activeCase.defendants?.map((p: any) => p.name).filter(Boolean).joi
 
 ${statuteSections ? `VERIFIED STATUTE SECTIONS FROM FIRM LIBRARY:\n${statuteSections}\n\nCite these directly and accurately. Format: Section [X], [Full Act Name].` : ''}
 
-ARGUMENT ISSUES (IRAC structure — counsel's pre-built framework):
+ARGUMENT ISSUES (Toulmin structure — counsel's pre-built framework):
 ${issuesText}
 
 ${extraCtx.trim() ? `COUNSEL'S ADDITIONAL NOTES:\n${extraCtx.trim()}` : ''}
@@ -635,7 +716,7 @@ ${RESEARCH_BLOCK_INSTRUCTION}
 FORMAT:
 - Cover heading: IN THE [COURT] / SUIT NO: [X] / BETWEEN: [PARTIES] / FINAL WRITTEN ADDRESS
 - Use ## for major sections, ### for argument sub-points
-- Apply IRAC within each issue (Issue → Rule → Application → Conclusion)
+- Apply Toulmin structure within each issue (Claim → Warrant → Grounds → Conclusion)
 - End with: CONCLUSION AND RELIEF SOUGHT
 - Sign-off block: Respectfully submitted, [Counsel], AFS Advocates
 
@@ -668,7 +749,7 @@ Produce the complete Final Written Address now.`;
       <div style={cardS}>
         <h3 style={hS}>{activeCase.originating_process === 'petition_matrimonial' ? 'Matrimonial — Final Written Address' : 'Civil / FREP — Final Written Address'}</h3>
         <p style={dimS}>
-          Build the argument issue by issue using IRAC. The engine drafts the complete
+          Build the argument issue by issue using Toulmin structure. The engine drafts the complete
           Final Written Address from your framework. Statute RAG fires automatically.
         </p>
 
@@ -677,10 +758,14 @@ Produce the complete Final Written Address now.`;
             background: '#06060e', border: '1px solid #1e1e30',
             borderRadius: 7, padding: '16px 18px', marginBottom: 12,
           }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <span style={{ fontSize: 10, color: ACC, fontFamily: "'Times New Roman', Times, serif", fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase' }}>
-                Issue {idx + 1}
-              </span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 10, color: ACC, fontFamily: "'Times New Roman', Times, serif", fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase' }}>
+                  Issue {idx + 1}
+                </span>
+                <WarrantTypeBadge type={iss.warrant_type} />
+                {isIssueComplete(iss) && !iss.rebuttal.trim() && <FragileFlag />}
+              </div>
               {issues.length > 1 && (
                 <button onClick={() => removeIssue(iss.id)} style={{
                   background: 'transparent', border: '1px solid #3a1a1a', color: '#804040',
@@ -692,7 +777,7 @@ Produce the complete Final Written Address now.`;
               )}
             </div>
             <div style={{ display: 'grid', gap: 10 }}>
-              {(['issue', 'rule', 'application', 'conclusion'] as const).map(field => (
+              {(['claim', 'warrant'] as const).map(field => (
                 <div key={field}>
                   <label style={labelS}>{field.charAt(0).toUpperCase() + field.slice(1)}</label>
                   <textarea
@@ -700,17 +785,96 @@ Produce the complete Final Written Address now.`;
                     value={iss[field]}
                     onChange={e => updateIssue(iss.id, field, e.target.value)}
                     placeholder={
-                      field === 'issue'       ? 'State the issue for determination — e.g. Whether the Defendant breached the contract by...' :
-                      field === 'rule'        ? 'State the rule of law — statute, principle, or authority to be proved' :
-                      field === 'application' ? 'Apply the rule to the facts of this case — cite evidence, exhibits, witnesses' :
-                                                'State the conclusion on this issue — what the court should find'
+                      field === 'claim' ? 'State the issue for determination — e.g. Whether the Defendant breached the contract by...' :
+                                          'State the warrant — the statute, standard, or principle that licenses the claim'
                     }
                   />
                 </div>
               ))}
+
+              {/* Phase 2B — warrant_type select, with inline help per option */}
+              <div>
+                <label style={labelS}>Warrant Type</label>
+                <select
+                  style={iS}
+                  value={iss.warrant_type}
+                  onChange={e => updateIssue(iss.id, 'warrant_type', e.target.value)}
+                >
+                  <option value="rule">Rule</option>
+                  <option value="standard">Standard</option>
+                  <option value="principle">Principle</option>
+                </select>
+                <div style={{ fontSize: 11, color: T.mute, marginTop: 5, lineHeight: 1.5 }}>
+                  {iss.warrant_type === 'rule'
+                    ? "Strict if-then — the rule either applies on these facts or it doesn't."
+                    : iss.warrant_type === 'standard'
+                    ? 'Weighted balancing — several factors are weighed; no single one is dispositive.'
+                    : 'Equitable conduct — conscience/fairness-based, not a fixed test.'}
+                </div>
+              </div>
+
+              <div>
+                <label style={labelS}>Grounds</label>
+                <textarea
+                  style={{ ...taS, minHeight: 60 }}
+                  value={iss.grounds}
+                  onChange={e => updateIssue(iss.id, 'grounds', e.target.value)}
+                  placeholder="State the grounds — the facts of this case that satisfy the warrant; cite evidence, exhibits, witnesses"
+                />
+              </div>
+
+              {/* Phase 2B — optional qualifier, short input rather than textarea */}
+              <div>
+                <label style={labelS}>Qualifier (optional)</label>
+                <input
+                  type="text"
+                  style={iS}
+                  value={iss.qualifier}
+                  onChange={e => updateIssue(iss.id, 'qualifier', e.target.value)}
+                  placeholder="e.g. presumptively, unless rebutted."
+                />
+              </div>
+
+              <div>
+                <label style={labelS}>Conclusion</label>
+                <textarea
+                  style={{ ...taS, minHeight: 60 }}
+                  value={iss.conclusion}
+                  onChange={e => updateIssue(iss.id, 'conclusion', e.target.value)}
+                  placeholder="State the conclusion on this issue — what the court should find"
+                />
+              </div>
+
+              {/* Phase 4A — rebuttal field with wired AI-generate button; gated on Claim + Grounds present (4C) */}
+              <div>
+                <label style={labelS}>Rebuttal (strongest objection this claim must survive)</label>
+                <textarea
+                  style={{ ...taS, minHeight: 60 }}
+                  value={iss.rebuttal}
+                  onChange={e => updateIssue(iss.id, 'rebuttal', e.target.value)}
+                  placeholder="e.g. Delay in bringing this application — counsel to fill in manually, or use Generate"
+                />
+                <div style={{ marginTop: 6 }}>
+                  <button
+                    onClick={() => generateRebuttal(iss.id)}
+                    disabled={rebuttalLoadingId === iss.id || !iss.claim.trim() || !iss.grounds.trim()}
+                    style={{
+                      background: 'transparent',
+                      border: `1px solid ${rebuttalLoadingId === iss.id || !iss.claim.trim() || !iss.grounds.trim() ? '#3a2a4a' : '#8060c0'}`,
+                      color: rebuttalLoadingId === iss.id || !iss.claim.trim() || !iss.grounds.trim() ? '#5a4a6a' : '#c0a0f0',
+                      borderRadius: 4, padding: '5px 12px', fontSize: 11,
+                      cursor: rebuttalLoadingId === iss.id || !iss.claim.trim() || !iss.grounds.trim() ? 'not-allowed' : 'pointer',
+                      fontFamily: "'Times New Roman', Times, serif",
+                    }}
+                  >
+                    {rebuttalLoadingId === iss.id ? '⟳ Generating…' : '✨ AI-Generate Rebuttal'}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         ))}
+
 
         <button onClick={addIssue} style={{
           background: 'transparent', border: `1px dashed ${ACC}50`, color: ACC,
@@ -743,7 +907,7 @@ Produce the complete Final Written Address now.`;
         <Btn
           onClick={generate}
           loading={loading}
-          disabled={!issues.some(i => i.issue.trim())}
+          disabled={!issues.some(i => i.claim.trim())}
           label="Draft Final Written Address"
           accent={ACC}
         />
