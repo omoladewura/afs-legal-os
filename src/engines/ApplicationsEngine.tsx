@@ -4,7 +4,7 @@
 // Clone Draft: Phases 10D (data layer) + 10E (UI — clone button, modal, clone notice).
 // Phase 10F-ii integration smoke test: PASS (20 x checks, zero TypeScript errors).
 // PromptPreview removed. CrossExamEngine stub retained pending Check 4 (live production test).
- 
+
 /**
  * AFS Legal OS V2 — Applications Engine (Phase 1 Rebuild)
  *
