@@ -147,6 +147,43 @@ export interface MediaLibraryItem {
   createdAt: string;            // ISO 8601
 }
 
+/**
+ * Rebuttal Bank — Toulmin Upgrade, Phase 5A.
+ *
+ * Same shape as ArgumentTemplate: a reusable, case-agnostic record keyed by
+ * (appType, jurisdiction), not scoped to any single case. Where a Template
+ * stores a reusable argument skeleton, this stores the known defeaters for
+ * that appType/jurisdiction combination — e.g. Interlocutory Injunction →
+ * clean hands, undue delay, non-disclosure of material facts, adequacy of
+ * damages.
+ *
+ * Deliberately empty of seed data at creation (Phase 5A is schema only).
+ * Per the build plan, do NOT hand-seed from memory — Phase 5B seeds this
+ * from what Phase 4's generateRebuttal() actually surfaces across 5–10 real
+ * issues, same discipline used building argument_templates originally.
+ * Phase 5C then makes rebuttal generation check this bank first and let AI
+ * generation fill any case-specific gaps the bank doesn't cover.
+ */
+export interface RebuttalBankDefeater {
+  defeater: string;   // e.g. "clean hands"
+  note:     string;   // optional short gloss on when/how it applies — '' if none yet
+  // Provenance — kept per-defeater (not per-record) because a real record will
+  // accumulate both kinds over time as Phase 4 harvesting supplements a starter set.
+  // 'seeded_unverified': entered from doctrine/hints already in the codebase, not
+  //   from a real generateRebuttal() run — treat as a suggestion to check, not settled.
+  // 'harvested': surfaced by generateRebuttal() on a real issue and added via Phase 5B.
+  source: 'seeded_unverified' | 'harvested';
+}
+
+export interface RebuttalBankRecord {
+  id:           string;                    // `${appType}::${jurisdiction}`
+  appType:      string;                    // e.g. "Interlocutory Injunction" — matches AppTypeConfig.label
+  jurisdiction: string;                    // e.g. "Delta State" | "FCT" | "Federal"
+  defeaters:    RebuttalBankDefeater[];    // known defeaters harvested from real Phase 4 output
+  created_at:   string;
+  updated_at:   string;
+}
+
 export class AfsDatabase extends Dexie {
   declare cases:              Table<Case,           string>;
   declare docket_entries:     Table<DocketEntry,    string>;
@@ -157,6 +194,7 @@ export class AfsDatabase extends Dexie {
   declare research:           Table<ResearchRecord, string>;
   declare arg_versions:       Table<ArgumentVersion & { caseId: string }, string>;
   declare argument_templates: Table<ArgumentTemplate, string>;
+  declare rebuttal_bank:      Table<RebuttalBankRecord, string>;
   declare draft_buffer:       Table<DraftBufferRecord, string>;
   declare media_library:      Table<MediaLibraryItem, string>;
   // Phase 3A — cross-examination tree tables
@@ -237,6 +275,13 @@ export class AfsDatabase extends Dexie {
     this.version(6).stores({
       cross_exam_trees:    '&id, caseId, witnessId, [caseId+witnessId], trialReady, generatedAt',
       cross_exam_sessions: '&id, caseId, witnessId, [caseId+witnessId], startedAt, endedAt',
+    });
+
+    // V7 — Toulmin Upgrade, Phase 5A. rebuttal_bank holds known defeaters per
+    // (appType, jurisdiction), same shape/indexing pattern as argument_templates
+    // (V3 above). Deliberately created empty — see RebuttalBankRecord doc comment.
+    this.version(7).stores({
+      rebuttal_bank: '&id, appType, jurisdiction',
     });
   }
 }

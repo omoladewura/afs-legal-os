@@ -15,7 +15,7 @@
 import { db } from './db';
 import type { Case, DocketEntry, Deadline, EvidenceItem, ArgumentVersion, CaseTheoryRecord, CaseTheoryHistoryEntry, CaseSummary, CloneableApplicationRecord } from '@/types';
 import type { MatrimonialCaseData, MExtractionResult } from '@/matrimonial/types';
-import type { BlindSpotRecord, ResearchRecord, ArgumentTemplate, DraftBufferRecord, MediaLibraryItem } from './db';
+import type { BlindSpotRecord, ResearchRecord, ArgumentTemplate, DraftBufferRecord, MediaLibraryItem, RebuttalBankRecord, RebuttalBankDefeater } from './db';
 import { AUTH_TOKEN } from '@/services/api';
 
 // ── Config ────────────────────────────────────────────────────────────────────
@@ -390,6 +390,161 @@ export async function saveBlindSpot(caseId: string, module: string, data: unknow
     console.error('[Storage] saveBlindSpot failed', e);
     return false;
   }
+}
+
+// ── Toulmin Migration (Build Plan Phase 1B) ────────────────────────────────────
+// The IRAC → Toulmin rename (issue→claim, application→grounds, rule→warrant,
+// plus new warrant_type/qualifier/rebuttal) only changes the ArgumentIssue
+// TypeScript shape and every in-repo call site. It does nothing for issues
+// that already exist as JSON inside `blind_spots` rows under module
+// 'applications_v2' — those are opaque data blobs (SavedData → history →
+// ApplicationRecord[] → stage3.issues[]) that Dexie/TypeScript never
+// re-validates against the new interface. A saved record still has
+// `{ issue, rule, application }` on disk until something rewrites it.
+//
+// This function is that one-time rewrite. It is:
+//  - Idempotent: an issue that already has a `claim` string is left as-is
+//    (only missing warrant_type/qualifier/rebuttal get backfilled), so it's
+//    safe to run more than once or on a partially-migrated case.
+//  - Dry-run by default: call with no args (or { apply: false }) to get a
+//    report of what WOULD change without writing anything. Pass
+//    { apply: true } once you've eyeballed the report — this matches the
+//    plan's "run against a copy of live data first, diff before/after
+//    counts" step; here the "copy" is just the dry-run pass against the
+//    real DB, since nothing is mutated until apply:true.
+//
+// Not handled here (deliberately out of scope for 1B):
+//  - `argument_templates.skeleton` — free-text markdown, not structured
+//    issue/rule/application fields. There's nothing to mechanically rename;
+//    any "Issue → Rule → Application" phrasing in old skeletons is prose
+//    counsel wrote, not a data field, and rewriting prose isn't a safe
+//    automated migration.
+//  - FinalWrittenAddressEngine's IssueEntry — its `issues` state is local-only
+//    React state (initialised fresh, never round-tripped through
+//    loadBlindSpot/saveBlindSpot), so there is no persisted old-shape data
+//    for it to migrate.
+
+interface ToulminMigrationReport {
+  dryRun:           boolean;
+  caseIdsAffected:  string[];
+  recordsScanned:   number;   // ApplicationRecord entries inspected
+  recordsChanged:   number;   // ApplicationRecord entries with >=1 issue touched
+  issuesScanned:    number;
+  issuesRenamed:    number;   // had old issue/rule/application keys, renamed
+  issuesBackfilled: number;   // already Toulmin-shaped, only missing defaults added
+  errors:           { caseId: string; error: string }[];
+}
+
+/** Renames one raw stored issue object (on a shallow copy) and reports what happened. */
+function migrateStoredIssue(raw: unknown): { issue: Record<string, unknown>; changed: boolean; renamed: boolean } {
+  if (!raw || typeof raw !== 'object') {
+    return { issue: (raw ?? {}) as Record<string, unknown>, changed: false, renamed: false };
+  }
+  const out: Record<string, unknown> = { ...(raw as Record<string, unknown>) };
+  let changed = false;
+  let renamed = false;
+
+  if (typeof out.claim !== 'string' && typeof out.issue === 'string') {
+    out.claim = out.issue;
+    delete out.issue;
+    changed = true; renamed = true;
+  }
+  if (typeof out.warrant !== 'string' && typeof out.rule === 'string') {
+    out.warrant = out.rule;
+    delete out.rule;
+    changed = true; renamed = true;
+  }
+  if (typeof out.grounds !== 'string' && typeof out.application === 'string') {
+    out.grounds = out.application;
+    delete out.application;
+    changed = true; renamed = true;
+  }
+
+  // Backfill new Toulmin-only fields with the documented defaults.
+  if (out.warrant_type === undefined) { out.warrant_type = 'rule'; changed = true; }
+  if (typeof out.qualifier !== 'string') { out.qualifier = ''; changed = true; }
+  if (typeof out.rebuttal !== 'string')  { out.rebuttal  = ''; changed = true; }
+
+  // Guard against any record that never had these as strings at all.
+  if (typeof out.claim !== 'string')    { out.claim = ''; changed = true; }
+  if (typeof out.grounds !== 'string')  { out.grounds = ''; changed = true; }
+  if (typeof out.warrant !== 'string')  { out.warrant = ''; changed = true; }
+
+  return { issue: out, changed, renamed };
+}
+
+/**
+ * One-time transform for existing `applications_v2_${caseId}` blind-spot
+ * records from IRAC (issue/rule/application) to Toulmin
+ * (claim/grounds/warrant + warrant_type/qualifier/rebuttal).
+ *
+ * Usage:
+ *   const report = await migrateToulminFields();               // dry run — inspect report
+ *   const report = await migrateToulminFields({ apply: true }); // actually write
+ */
+export async function migrateToulminFields(opts: { apply?: boolean } = {}): Promise<ToulminMigrationReport> {
+  const apply = opts.apply === true;
+  const report: ToulminMigrationReport = {
+    dryRun: !apply,
+    caseIdsAffected: [],
+    recordsScanned: 0,
+    recordsChanged: 0,
+    issuesScanned: 0,
+    issuesRenamed: 0,
+    issuesBackfilled: 0,
+    errors: [],
+  };
+
+  let rows: BlindSpotRecord[] = [];
+  try {
+    rows = await db.blind_spots.where('module').equals('applications_v2').toArray();
+  } catch (e) {
+    report.errors.push({ caseId: '(query)', error: e instanceof Error ? e.message : String(e) });
+    return report;
+  }
+
+  for (const row of rows) {
+    try {
+      const data = (row.data ?? {}) as { history?: unknown[] };
+      const history = Array.isArray(data.history) ? data.history : [];
+      let rowChanged = false;
+
+      const newHistory = history.map((rawRecord) => {
+        report.recordsScanned++;
+        const appRecord = rawRecord as Record<string, unknown>;
+        const stage3 = appRecord?.stage3 as Record<string, unknown> | undefined;
+        const issues = stage3?.issues;
+        if (!Array.isArray(issues)) return rawRecord;
+
+        let recordChanged = false;
+        const newIssues = issues.map((rawIssue) => {
+          report.issuesScanned++;
+          const { issue, changed, renamed } = migrateStoredIssue(rawIssue);
+          if (changed) {
+            recordChanged = true;
+            if (renamed) report.issuesRenamed++; else report.issuesBackfilled++;
+          }
+          return issue;
+        });
+
+        if (!recordChanged) return rawRecord;
+        rowChanged = true;
+        report.recordsChanged++;
+        return { ...appRecord, stage3: { ...stage3, issues: newIssues } };
+      });
+
+      if (rowChanged) {
+        report.caseIdsAffected.push(row.caseId);
+        if (apply) {
+          await db.blind_spots.put({ ...row, data: { ...data, history: newHistory } });
+        }
+      }
+    } catch (e) {
+      report.errors.push({ caseId: row.caseId, error: e instanceof Error ? e.message : String(e) });
+    }
+  }
+
+  return report;
 }
 
 // ── Research ──────────────────────────────────────────────────────────────────
@@ -834,6 +989,86 @@ export async function findArgumentTemplate(
   } catch (e) {
     console.error('[Storage] findArgumentTemplate failed', e);
     return null;
+  }
+}
+
+// ── Rebuttal Bank ─────────────────────────────────────────────────────────────
+// Toulmin Upgrade, Phase 5A schema / 5C access pattern. Same shape and lookup
+// pattern as Argument Templates directly above — global table, keyed by
+// (appType, jurisdiction), not scoped to a case.
+//
+// findRebuttalBank() is what Phase 5C's "check the bank first" merge logic
+// calls before generateRebuttal() runs, so it can hand the model known
+// defeaters to address-or-rule-out rather than rediscovering them each time.
+
+export async function findRebuttalBank(
+  appType: string,
+  jurisdiction: string,
+): Promise<RebuttalBankRecord | null> {
+  try {
+    if (!appType.trim() || !jurisdiction.trim()) return null;
+    const id = `${appType.trim()}::${jurisdiction.trim()}`;
+    return (await db.rebuttal_bank.get(id)) ?? null;
+  } catch (e) {
+    console.error('[Storage] findRebuttalBank failed', e);
+    return null;
+  }
+}
+
+export async function saveRebuttalBank(r: RebuttalBankRecord): Promise<boolean> {
+  try {
+    await db.rebuttal_bank.put(r);
+    return true;
+  } catch (e) {
+    console.error('[Storage] saveRebuttalBank failed', e);
+    return false;
+  }
+}
+
+export async function deleteRebuttalBank(id: string): Promise<boolean> {
+  try {
+    await db.rebuttal_bank.delete(id);
+    return true;
+  } catch (e) {
+    console.error('[Storage] deleteRebuttalBank failed', e);
+    return false;
+  }
+}
+
+/**
+ * Append defeaters to an existing bank record, or create one if none exists
+ * yet for this (appType, jurisdiction). Deduplicates by defeater text
+ * (case-insensitive) — a re-seed or re-harvest won't produce duplicate rows.
+ * This is the single write path both the starter set and real Phase 5B
+ * harvesting should use, so provenance (source: 'seeded_unverified' vs
+ * 'harvested') stays intact either way.
+ */
+export async function upsertRebuttalDefeaters(
+  appType: string,
+  jurisdiction: string,
+  defeaters: RebuttalBankDefeater[],
+): Promise<boolean> {
+  try {
+    const id = `${appType.trim()}::${jurisdiction.trim()}`;
+    const now = new Date().toISOString();
+    const existing = await db.rebuttal_bank.get(id);
+    const existingKeys = new Set((existing?.defeaters ?? []).map(d => d.defeater.trim().toLowerCase()));
+    const merged = [
+      ...(existing?.defeaters ?? []),
+      ...defeaters.filter(d => !existingKeys.has(d.defeater.trim().toLowerCase())),
+    ];
+    await db.rebuttal_bank.put({
+      id,
+      appType:    appType.trim(),
+      jurisdiction: jurisdiction.trim(),
+      defeaters:  merged,
+      created_at: existing?.created_at ?? now,
+      updated_at: now,
+    });
+    return true;
+  } catch (e) {
+    console.error('[Storage] upsertRebuttalDefeaters failed', e);
+    return false;
   }
 }
 
