@@ -158,6 +158,28 @@ function roleToNamespace(counselRole?: CounselRole, matterTrack?: MatterTrack): 
   return undefined;
 }
 
+// ── Global Style Directive ────────────────────────────────────────────────────
+//
+// Applies to every single call through this Worker, regardless of engine or
+// counsel role. Written once here instead of duplicated across 14 engine
+// prompts. This is the MOST stable content in the system prompt — it never
+// changes per-request — so it goes in FIRST, ahead of the client's own
+// cacheable block, with its own cache_control breakpoint. Anthropic supports
+// multiple breakpoints; this maximizes cache hits rather than competing with
+// the client block's.
+const STYLE_DIRECTIVE =
+  'WRITING STYLE — MANDATORY, applies to all output:\n' +
+  'Write like a competent Nigerian lawyer typing fast, not like a language model. ' +
+  'Cut AI-tell phrasing entirely: no "it\'s worth noting", "furthermore", ' +
+  '"in conclusion", "I hope this finds you well", no stacked hedges ' +
+  '("may potentially," "it could be argued that perhaps"), no restating the ' +
+  'question before answering, no summary recap at the end unless asked, no ' +
+  'em-dash-heavy sentence construction, no false enthusiasm. Say the thing ' +
+  'directly. Plain sentences. Use legal register where the document type ' +
+  'demands it (pleadings, notices, letters to court) — formal because the ' +
+  'form requires it, not because it sounds impressive. Everywhere else, ' +
+  'write the way a sharp human lawyer would text or draft in a hurry.';
+
 // ── Library Block Formatter ───────────────────────────────────────────────────
 
 interface VectorMatch {
@@ -250,6 +272,32 @@ async function ensureTables(env: Env): Promise<void> {
     id      TEXT PRIMARY KEY,
     case_id TEXT NOT NULL,
     data    TEXT NOT NULL
+  )`).run();
+  // Roadmap 1b — Contract Engine — Foundation.
+  // Keyed by contract_id, not case_id: the Contract Engine is a new
+  // top-level dashboard entry (5a), not nested inside an existing Case.
+  // Real field shape lives in src/contracts/types.ts (ClientPositionProfile),
+  // not in this SQL — same JSON-blob-in-D1 convention as the tables above.
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS client_position_profile (
+    id          TEXT PRIMARY KEY,
+    contract_id TEXT NOT NULL,
+    data        TEXT NOT NULL,
+    created_at  TEXT NOT NULL,
+    updated_at  TEXT NOT NULL
+  )`).run();
+  // Roadmap 1c — Contract Engine — Foundation.
+  // Shares contract_id with client_position_profile above (1b). jurisdiction
+  // is pulled out as its own column (not buried in data) so 2d's library
+  // lookup can filter/query by it directly without parsing JSON — every
+  // other field lives in data per the same JSON-blob convention. Real shape
+  // lives in src/contracts/types.ts (ContractClause).
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS contract_clauses (
+    id            TEXT PRIMARY KEY,
+    contract_id   TEXT NOT NULL,
+    jurisdiction  TEXT NOT NULL,
+    data          TEXT NOT NULL,
+    created_at    TEXT NOT NULL,
+    updated_at    TEXT NOT NULL
   )`).run();
   await env.DB.prepare(`CREATE TABLE IF NOT EXISTS push_subscriptions (
     endpoint    TEXT PRIMARY KEY,
@@ -390,14 +438,26 @@ function chunkStatute(text: string): string[] {
  * Derives jurisdiction, doc_type, doc_title, counsel_role, and matter_track
  * from the R2 key path.
  *
+ * Roadmap 1e — the top-level path segment is a {COUNTRY} placeholder, not a
+ * literal "NG". NG is simply the one country currently populated in the
+ * bucket — the convention itself was always generic (parts[0], whatever it
+ * is, below), so no document actually needs to move: NG/... already IS a
+ * valid instance of {COUNTRY}/.... This comment previously showed only NG
+ * examples, which read as if Nigeria were hardcoded; it wasn't, only the
+ * fallback default is (see jurisdiction below). Adding a second country
+ * later (e.g. Ghana) means uploading new files under GH/... — no rename of
+ * existing NG/... files, no code change.
+ *
  * Key conventions:
- *   NG/civil_claimant/HighCourtRules.pdf      → counsel_role: claimant_side, matter_track: civil
- *   NG/civil_defendant/HighCourtRules.pdf     → counsel_role: defendant_side, matter_track: civil
- *   NG/criminal_prosecution/ACJA2015.pdf      → counsel_role: prosecution, matter_track: criminal
- *   NG/criminal_defence/ACJA2015.pdf          → counsel_role: defence, matter_track: criminal
- *   NG/shared/EvidenceAct2011.pdf             → counsel_role: shared, matter_track: shared
- *   NG/Statutes/SomeAct.pdf                   → counsel_role: shared, matter_track: shared (legacy)
- *   NG/Authorities/SomeCase.pdf               → counsel_role: shared, matter_track: shared (legacy)
+ *   {COUNTRY}/civil_claimant/HighCourtRules.pdf      → counsel_role: claimant_side, matter_track: civil
+ *   {COUNTRY}/civil_defendant/HighCourtRules.pdf     → counsel_role: defendant_side, matter_track: civil
+ *   {COUNTRY}/criminal_prosecution/ACJA2015.pdf      → counsel_role: prosecution, matter_track: criminal
+ *   {COUNTRY}/criminal_defence/ACJA2015.pdf          → counsel_role: defence, matter_track: criminal
+ *   {COUNTRY}/shared/EvidenceAct2011.pdf             → counsel_role: shared, matter_track: shared
+ *   {COUNTRY}/Statutes/SomeAct.pdf                   → counsel_role: shared, matter_track: shared (legacy)
+ *   {COUNTRY}/Authorities/SomeCase.pdf               → counsel_role: shared, matter_track: shared (legacy)
+ *
+ * e.g. today: NG/civil_claimant/HighCourtRules.pdf
  */
 function parseKeyMetadata(key: string): {
   jurisdiction: string;
@@ -408,6 +468,9 @@ function parseKeyMetadata(key: string): {
   is_statute:   boolean;
 } {
   const parts        = key.split('/');
+  // Fallback only applies to malformed keys (< 3 path segments) — kept as
+  // 'NG' unchanged per 1e's "no logic change" scope. Every well-formed key
+  // already resolves jurisdiction dynamically from parts[0].
   const jurisdiction = parts.length >= 3 ? parts[0] : 'NG';
   const folderName   = parts.length >= 3 ? parts[1] : parts[0];
   const filename     = parts[parts.length - 1];
@@ -720,16 +783,23 @@ async function handleChat(req: Request, env: Env): Promise<Response> {
   // block, never before, and never itself carries cache_control.
   const rawSystem = body.system as string | Array<{ type: string; text: string; cache_control?: unknown }> | undefined;
 
+  const styleBlock = { type: 'text', text: STYLE_DIRECTIVE, cache_control: { type: 'ephemeral' } };
+
   let effectiveSystem: typeof rawSystem;
   if (Array.isArray(rawSystem)) {
     effectiveSystem = libraryBlock
-      ? [...rawSystem, { type: 'text', text: libraryBlock }]
-      : rawSystem;
+      ? [styleBlock, ...rawSystem, { type: 'text', text: libraryBlock }]
+      : [styleBlock, ...rawSystem];
   } else {
+    // Legacy string-system callers (AICopilot, EvidenceVault, SanMode,
+    // InheritanceMode, BillionsVoiceWidget) — style directive still applies,
+    // just concatenated as plain text since these callers don't use the
+    // content-block array form.
     const baseSystem = rawSystem ?? '';
+    const withStyle  = baseSystem ? `${STYLE_DIRECTIVE}\n\n${baseSystem}` : STYLE_DIRECTIVE;
     effectiveSystem = libraryBlock
-      ? `${libraryBlock}\n\n${baseSystem}`
-      : (baseSystem || undefined);
+      ? `${libraryBlock}\n\n${withStyle}`
+      : withStyle;
   }
 
   // ── Stream or one-shot ────────────────────────────────────────────────────
