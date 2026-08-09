@@ -36,6 +36,14 @@ import type {
   CrossExamTreeRecord,
   CrossExamSessionRecord,
 } from '@/types/crossExam';
+// Roadmap 1f — Contract Engine — Dexie mirror tables.
+// Real field shapes live in src/contracts/types.ts (1b/1c) — same convention
+// as the cross-exam import above: types stay in their domain module, this
+// file only wires them into Dexie tables/indexes.
+import type {
+  ClientPositionProfile,
+  ContractClause,
+} from '@/contracts/types';
 
 // ── Supplementary record types stored in their own tables ─────────────────────
 
@@ -200,6 +208,13 @@ export class AfsDatabase extends Dexie {
   // Phase 3A — cross-examination tree tables
   declare cross_exam_trees:    Table<CrossExamTreeRecord,    string>;
   declare cross_exam_sessions: Table<CrossExamSessionRecord, string>;
+  // Roadmap 1f — Contract Engine — Foundation.
+  // Dual-write mirrors of the D1 client_position_profile / contract_clauses
+  // tables (see workers/rag-worker/src/index.ts ensureTables()). Same
+  // pattern as cases/docket_entries: local table is the source of truth for
+  // offline use, D1 is synced in the background via storage/helpers.ts.
+  declare client_position_profile: Table<ClientPositionProfile, string>;
+  declare contract_clauses:        Table<ContractClause,        string>;
 
   constructor() {
     super('afs_legal_os');
@@ -282,6 +297,23 @@ export class AfsDatabase extends Dexie {
     // (V3 above). Deliberately created empty — see RebuttalBankRecord doc comment.
     this.version(7).stores({
       rebuttal_bank: '&id, appType, jurisdiction',
+    });
+
+    // V8 — Roadmap 1f. Contract Engine Dexie mirrors.
+    //
+    // client_position_profile: one row per contract (in practice), but
+    // primary-keyed by its own `id` rather than `contract_id` directly —
+    // matches the ClientPositionProfile shape (1b), which already carries
+    // both `id` and `contract_id`. Indexed by contract_id so
+    // loadClientPositionProfile() can look it up without a full scan.
+    //
+    // contract_clauses: many rows per contract. Indexed by contract_id
+    // (primary lookup), jurisdiction (mirrors the D1 column — 2d's library
+    // filter reads this directly, same reasoning as the D1 schema comment),
+    // and round_number (Negotiate Mode, 4a, needs "clauses at round N").
+    this.version(8).stores({
+      client_position_profile: '&id, contract_id, updated_at',
+      contract_clauses:        '&id, contract_id, jurisdiction, round_number, updated_at',
     });
   }
 }

@@ -16,6 +16,7 @@ import { db } from './db';
 import type { Case, DocketEntry, Deadline, EvidenceItem, ArgumentVersion, CaseTheoryRecord, CaseTheoryHistoryEntry, CaseSummary, CloneableApplicationRecord } from '@/types';
 import type { MatrimonialCaseData, MExtractionResult } from '@/matrimonial/types';
 import type { BlindSpotRecord, ResearchRecord, ArgumentTemplate, DraftBufferRecord, MediaLibraryItem, RebuttalBankRecord, RebuttalBankDefeater } from './db';
+import type { ClientPositionProfile, ContractClause } from '@/contracts/types';
 import { AUTH_TOKEN } from '@/services/api';
 
 // ── Config ────────────────────────────────────────────────────────────────────
@@ -1068,6 +1069,109 @@ export async function upsertRebuttalDefeaters(
     return true;
   } catch (e) {
     console.error('[Storage] upsertRebuttalDefeaters failed', e);
+    return false;
+  }
+}
+
+// ── Contract Engine — Client Position Profile (Roadmap 1f) ────────────────────
+// Dual-write, same shape as loadCases/saveCase/deleteCase above: D1 read-
+// through first (cross-device sync), IndexedDB write immediate + fallback
+// when the Worker is unreachable. One profile per contract_id in practice,
+// so load resolves to a single record (or null) rather than a list.
+
+export async function loadClientPositionProfile(contractId: string): Promise<ClientPositionProfile | null> {
+  const remote = await syncGet(`/client-position-profile?contractId=${encodeURIComponent(contractId)}`) as { profile?: ClientPositionProfile | null } | null;
+  if (remote?.profile) {
+    db.client_position_profile.put(remote.profile).catch(() => {});
+    return remote.profile;
+  }
+  try {
+    const rows = await db.client_position_profile.where('contract_id').equals(contractId).toArray();
+    return rows[0] ?? null;
+  } catch (e) {
+    console.error('[Storage] loadClientPositionProfile failed', e);
+    return null;
+  }
+}
+
+export async function saveClientPositionProfile(profile: ClientPositionProfile): Promise<boolean> {
+  try {
+    await db.client_position_profile.put(profile);
+    syncPut('/client-position-profile', profile);
+    return true;
+  } catch (e) {
+    console.error('[Storage] saveClientPositionProfile failed', e);
+    return false;
+  }
+}
+
+export async function deleteClientPositionProfile(id: string): Promise<boolean> {
+  try {
+    await db.client_position_profile.delete(id);
+    syncDelete(`/client-position-profile?id=${encodeURIComponent(id)}`);
+    return true;
+  } catch (e) {
+    console.error('[Storage] deleteClientPositionProfile failed', e);
+    return false;
+  }
+}
+
+// ── Contract Engine — Contract Clauses (Roadmap 1f) ────────────────────────────
+// Same dual-write pattern as loadEntries/saveEntry/deleteEntry above — many
+// rows per contract_id, ordered by clause_number so Draft/Review/Negotiate
+// UIs get a stable read order without re-sorting client-side.
+
+export async function loadContractClauses(contractId: string): Promise<ContractClause[]> {
+  const remote = await syncGet(`/contract-clauses?contractId=${encodeURIComponent(contractId)}`) as { clauses?: ContractClause[] } | null;
+  if (remote?.clauses && remote.clauses.length > 0) {
+    Promise.all(remote.clauses.map(c => db.contract_clauses.put(c))).catch(() => {});
+    return remote.clauses;
+  }
+  try {
+    return await db.contract_clauses
+      .where('contract_id').equals(contractId)
+      .sortBy('clause_number');
+  } catch (e) {
+    console.error('[Storage] loadContractClauses failed', e);
+    return [];
+  }
+}
+
+export async function saveContractClause(clause: ContractClause): Promise<boolean> {
+  try {
+    await db.contract_clauses.put(clause);
+    syncPut('/contract-clause', clause);
+    return true;
+  } catch (e) {
+    console.error('[Storage] saveContractClause failed', e);
+    return false;
+  }
+}
+
+export async function deleteContractClause(id: string): Promise<boolean> {
+  try {
+    await db.contract_clauses.delete(id);
+    syncDelete(`/contract-clause?id=${encodeURIComponent(id)}`);
+    return true;
+  } catch (e) {
+    console.error('[Storage] deleteContractClause failed', e);
+    return false;
+  }
+}
+
+/**
+ * Deletes every clause for a contract locally. No bulk D1 route exists yet
+ * for a cascade-on-parent-delete (mirrors the gap noted on deleteCase's
+ * `research`/`arg_versions` local-only cleanup) — a future contract-delete
+ * flow (5b) should loop deleteContractClause() per id if cloud cleanup is
+ * needed, same as deleteCase does for docket_entries/deadlines today.
+ */
+export async function deleteContractClausesForContract(contractId: string): Promise<boolean> {
+  try {
+    await db.contract_clauses.where('contract_id').equals(contractId).delete();
+    return true;
+  } catch (e) {
+    console.error('[Storage] deleteContractClausesForContract failed', e);
     return false;
   }
 }
