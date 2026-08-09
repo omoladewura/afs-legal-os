@@ -78,6 +78,22 @@ export interface LibraryMatch {
     statSection?: string;
     caseId?:     string;
     tags?:       string;
+    /**
+     * Roadmap 1d — Contract Engine — Foundation.
+     * Already written into every Vectorize vector's metadata at ingest time
+     * (workers/rag-worker/src/index.ts, parseKeyMetadata) and already
+     * rendered in the worker's own server-side formatLibraryBlock() — this
+     * client-side type/formatter just hadn't caught up. Schema/field only:
+     * no re-indexing, no change to what's stored, no touch to existing
+     * library documents.
+     *
+     * Currently country-level only (e.g. "NG"), derived from the top-level
+     * library folder segment. Shape matches the 1a Contract Engine decision:
+     * {COUNTRY} or {COUNTRY}-{STATE} once documents carry state-level tags.
+     * Usable today as a queryLibrary() filter key, e.g.
+     * queryLibrary(text, { filter: { jurisdiction: 'NG' } }).
+     */
+    jurisdiction?: string;
   };
 }
 
@@ -233,6 +249,7 @@ function formatLibraryBlock(matches: LibraryMatch[]): string {
     items.forEach((m, i) => {
       const md = m.metadata;
       lines.push(`${i + 1}. ${md.title}`);
+      if (md.jurisdiction) lines.push(`   Jurisdiction: ${md.jurisdiction}`);
       if (md.citation)    lines.push(`   Citation:  ${md.citation}`);
       if (md.court)       lines.push(`   Court:     ${md.court}${md.year ? ` (${md.year})` : ''}`);
       if (md.statSection) lines.push(`   Section:   ${md.statSection}`);
