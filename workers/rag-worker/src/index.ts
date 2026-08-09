@@ -64,6 +64,16 @@
  *   POST /evidence/file             — upload evidence file to R2
  *   GET  /evidence/file?id=x        — get evidence file from R2
  *   DELETE /evidence/file?id=x      — delete evidence file from R2
+ *
+ *   Roadmap 1f — Contract Engine dual-write (tables created in ensureTables
+ *   since 1b/1c; these are the routes that make the Dexie mirror's sync
+ *   calls do something instead of silently falling back to local-only):
+ *   GET  /client-position-profile?contractId=x — load the profile for a contract
+ *   PUT  /client-position-profile               — upsert a client position profile
+ *   DELETE /client-position-profile?id=x         — delete a client position profile
+ *   GET  /contract-clauses?contractId=x         — load all clauses for a contract
+ *   PUT  /contract-clause                        — upsert a contract clause
+ *   DELETE /contract-clause?id=x                 — delete a contract clause
  */
 
 export interface Env {
@@ -1283,6 +1293,87 @@ async function handleDeleteApplication(req: Request, env: Env): Promise<Response
   return json({ ok: true }, 200, origin);
 }
 
+// ── Contract Engine — Client Position Profile (Roadmap 1f) ────────────────────
+// One profile per contract_id in practice. GET resolves to the single most
+// recently updated row for that contract_id rather than a list, matching
+// what loadClientPositionProfile() in storage/helpers.ts expects back.
+
+async function handleGetClientPositionProfile(req: Request, env: Env): Promise<Response> {
+  const origin = req.headers.get('Origin') || '*';
+  await ensureTables(env);
+  const url        = new URL(req.url);
+  const contractId = url.searchParams.get('contractId');
+  if (!contractId) return json({ error: 'contractId is required' }, 400, origin);
+  const row = await env.DB.prepare(
+    'SELECT data FROM client_position_profile WHERE contract_id = ? ORDER BY updated_at DESC LIMIT 1'
+  ).bind(contractId).first();
+  const profile = row ? JSON.parse((row as Record<string, unknown>).data as string) : null;
+  return json({ profile }, 200, origin);
+}
+
+async function handlePutClientPositionProfile(req: Request, env: Env): Promise<Response> {
+  const origin = req.headers.get('Origin') || '*';
+  await ensureTables(env);
+  const body = await req.json() as { id?: string; contract_id?: string; created_at?: string };
+  if (!body.id || !body.contract_id) return json({ error: 'id and contract_id are required' }, 400, origin);
+  const now = new Date().toISOString();
+  await env.DB.prepare(
+    'INSERT OR REPLACE INTO client_position_profile (id, contract_id, data, created_at, updated_at) VALUES (?, ?, ?, ?, ?)'
+  ).bind(body.id, body.contract_id, JSON.stringify(body), body.created_at || now, now).run();
+  return json({ ok: true }, 200, origin);
+}
+
+async function handleDeleteClientPositionProfile(req: Request, env: Env): Promise<Response> {
+  const origin = req.headers.get('Origin') || '*';
+  await ensureTables(env);
+  const url = new URL(req.url);
+  const id  = url.searchParams.get('id');
+  if (!id) return json({ error: 'id is required' }, 400, origin);
+  await env.DB.prepare('DELETE FROM client_position_profile WHERE id = ?').bind(id).run();
+  return json({ ok: true }, 200, origin);
+}
+
+// ── Contract Engine — Contract Clauses (Roadmap 1f) ─────────────────────────────
+// Many rows per contract_id, ordered by clause_number so callers get a
+// stable read order matching draft/negotiate document flow.
+
+async function handleGetContractClauses(req: Request, env: Env): Promise<Response> {
+  const origin = req.headers.get('Origin') || '*';
+  await ensureTables(env);
+  const url        = new URL(req.url);
+  const contractId = url.searchParams.get('contractId');
+  if (!contractId) return json({ error: 'contractId is required' }, 400, origin);
+  const rows = await env.DB.prepare(
+    'SELECT data FROM contract_clauses WHERE contract_id = ? ORDER BY json_extract(data, "$.clause_number") ASC'
+  ).bind(contractId).all();
+  const clauses = (rows.results || []).map((r: Record<string, unknown>) => JSON.parse(r.data as string));
+  return json({ clauses }, 200, origin);
+}
+
+async function handlePutContractClause(req: Request, env: Env): Promise<Response> {
+  const origin = req.headers.get('Origin') || '*';
+  await ensureTables(env);
+  const body = await req.json() as { id?: string; contract_id?: string; jurisdiction?: string; created_at?: string };
+  if (!body.id || !body.contract_id || !body.jurisdiction) {
+    return json({ error: 'id, contract_id and jurisdiction are required' }, 400, origin);
+  }
+  const now = new Date().toISOString();
+  await env.DB.prepare(
+    'INSERT OR REPLACE INTO contract_clauses (id, contract_id, jurisdiction, data, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)'
+  ).bind(body.id, body.contract_id, body.jurisdiction, JSON.stringify(body), body.created_at || now, now).run();
+  return json({ ok: true }, 200, origin);
+}
+
+async function handleDeleteContractClause(req: Request, env: Env): Promise<Response> {
+  const origin = req.headers.get('Origin') || '*';
+  await ensureTables(env);
+  const url = new URL(req.url);
+  const id  = url.searchParams.get('id');
+  if (!id) return json({ error: 'id is required' }, 400, origin);
+  await env.DB.prepare('DELETE FROM contract_clauses WHERE id = ?').bind(id).run();
+  return json({ ok: true }, 200, origin);
+}
+
 // ── Phase 9F — Web Push Pipeline ─────────────────────────────────────────────
 //
 // Three endpoints complete the background push pipeline:
@@ -1684,6 +1775,15 @@ export default {
     if (method === 'POST'   && path === '/evidence/file')   return handleUploadEvidenceFile(req, env);
     if (method === 'GET'    && path === '/evidence/file')   return handleGetEvidenceFile(req, env);
     if (method === 'DELETE' && path === '/evidence/file')   return handleDeleteEvidenceFile(req, env);
+
+    // Roadmap 1f — Contract Engine dual-write
+    if (method === 'GET'    && path === '/client-position-profile') return handleGetClientPositionProfile(req, env);
+    if (method === 'PUT'    && path === '/client-position-profile') return handlePutClientPositionProfile(req, env);
+    if (method === 'DELETE' && path === '/client-position-profile') return handleDeleteClientPositionProfile(req, env);
+
+    if (method === 'GET'    && path === '/contract-clauses') return handleGetContractClauses(req, env);
+    if (method === 'PUT'    && path === '/contract-clause')  return handlePutContractClause(req, env);
+    if (method === 'DELETE' && path === '/contract-clause')  return handleDeleteContractClause(req, env);
 
     // Phase 9F — Web Push Pipeline
     if (method === 'GET'  && path === '/push/vapid-public-key') return handleGetVapidPublicKey(req, env);
