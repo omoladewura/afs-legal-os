@@ -70,7 +70,7 @@ export function HomePage() {
             lineHeight: 1.65,
             borderTop: '1px solid #cccccc', paddingTop: 10,
           }}>
-            Open a case to access the full litigation suite, or go straight to SAN Mode or Billions Voice.
+            Open a case to access the full litigation suite, or go straight to SAN Mode, the Contract Engine, or Billions Voice.
           </p>
         </div>
       </div>
@@ -108,6 +108,24 @@ export function HomePage() {
             <p style={cardTag}>Senior Advocate Navigator</p>
             <p style={cardTitle}>SAN Mode</p>
             <p style={cardDesc}>Strategic case analysis, argument sequencing, and judicial reasoning — the SAN lens on every issue.</p>
+          </div>
+          <div style={arrowCol}>→</div>
+        </button>
+
+        <div style={{ height: 1, background: '#cccccc' }} />
+
+        {/* Contract Engine */}
+        <button
+          onClick={() => setView('contracts')}
+          style={cardStyle}
+          onMouseEnter={e => (e.currentTarget.style.background = '#f5f5f3')}
+          onMouseLeave={e => (e.currentTarget.style.background = '#ffffff')}
+        >
+          <div style={iconCol}>§</div>
+          <div style={{ flex: 1 }}>
+            <p style={cardTag}>Draft · Review · Negotiate</p>
+            <p style={cardTitle}>Contract Engine</p>
+            <p style={cardDesc}>Draft new contracts, review ones handed to you, or track a negotiation — one clause register, knowledge-tier grounded throughout.</p>
           </div>
           <div style={arrowCol}>→</div>
         </button>
