@@ -30,6 +30,7 @@ import { CaseDocket } from '@/components/docket/CaseDocket';
 import { PasswordGate } from '@/pages/PasswordGate';
 import { HomePage } from '@/pages/HomePage';
 import { CaseDashboard } from '@/pages/CaseDashboard';
+import { ContractDashboard } from '@/pages/ContractDashboard';
 import { ResearchResolver } from '@/engines/ResearchResolver';
 import { SettingsPanel } from '@/pages/SettingsPanel';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
@@ -365,6 +366,7 @@ export function App() {
           {view === 'home'        && <HomePage />}
           {view === 'engine'      && <CaseDashboard />}
           {view === 'matrimonial' && <MatrimonialDashboard />}
+          {view === 'contracts'   && <ContractDashboard />}
           {view === 'resolver'    && <ResearchResolver onBack={() => setView('home')} />}
           {view === 'settings'    && <SettingsPanel />}
           {view === 'san'      && (
