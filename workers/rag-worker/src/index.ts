@@ -74,6 +74,19 @@
  *   GET  /contract-clauses?contractId=x         — load all clauses for a contract
  *   PUT  /contract-clause                        — upsert a contract clause
  *   DELETE /contract-clause?id=x                 — delete a contract clause
+ *
+ *   Roadmap 3a — Contract Engine Review Mode, full-text ingestion (PDF path
+ *   only — no docx yet). Stateless: reuses extractTextFromPDF() (already
+ *   defined above for /ingest's library pipeline) against an ad-hoc
+ *   uploaded contract PDF instead of an R2 library document. Nothing is
+ *   written to R2 or D1 by this route — it returns extracted text for the
+ *   caller (Review Mode) to hold in memory / pass to the next step.
+ *   POST /contract/extract-pdf   — body: raw PDF bytes. Returns { ok, text, char_count } or { ok:false, error }.
+ *
+ *   Roadmap 3b — Contract Engine Review Mode, full-text ingestion (docx).
+ *   New extractor (no prior code to reuse) — minimal from-scratch ZIP +
+ *   WordprocessingML reader, no npm dependency. Same stateless contract as 3a.
+ *   POST /contract/extract-docx  — body: raw .docx bytes. Returns { ok, text, char_count } or { ok:false, error }.
  */
 
 export interface Env {
@@ -375,6 +388,201 @@ function extractTextFromPDF(buffer: ArrayBuffer): string {
   } catch {
     return '';
   }
+}
+
+// ── Contract Engine Review Mode — Full-Text Ingestion (Roadmap 3a) ────────────
+// PDF path only, no docx yet (that's 3b). Reuses extractTextFromPDF() above —
+// same regex-based text-layer extractor the /ingest library pipeline uses —
+// against a contract PDF uploaded ad hoc for Review, rather than a library
+// document pulled from R2. Stateless: no R2 write, no D1 write. If extraction
+// comes back empty (scanned/image-only PDF with no text layer — a real gap
+// this extractor can't close), fail loudly with a 422 rather than silently
+// handing Review Mode an empty contract to "review".
+
+async function handleExtractContractPdf(req: Request, env: Env): Promise<Response> {
+  const origin = req.headers.get('Origin') || '*';
+
+  let buffer: ArrayBuffer;
+  try {
+    buffer = await req.arrayBuffer();
+  } catch {
+    return json({ ok: false, error: 'Could not read request body' }, 400, origin);
+  }
+
+  if (buffer.byteLength === 0) {
+    return json({ ok: false, error: 'Empty file' }, 400, origin);
+  }
+  const MAX_BYTES = 25 * 1024 * 1024;
+  if (buffer.byteLength > MAX_BYTES) {
+    return json({ ok: false, error: 'File too large — max 25 MB' }, 413, origin);
+  }
+
+  const text = extractTextFromPDF(buffer).trim();
+  if (text.length < 40) {
+    return json({
+      ok: false,
+      error: 'Could not extract readable text from this PDF — it may be a scanned image without a text layer. Try a text-based PDF, or paste the contract text directly.',
+    }, 422, origin);
+  }
+
+  return json({ ok: true, text, char_count: text.length }, 200, origin);
+}
+
+// ── DOCX Text Extraction (Roadmap 3b) ──────────────────────────────────────────
+// New — no existing extractor to reuse for docx (unlike 3a's PDF path, which
+// reused extractTextFromPDF from the /ingest pipeline). .docx is a ZIP
+// archive; the document body lives at word/document.xml as WordprocessingML.
+// No npm dependency is available in this Worker (no jszip/mammoth in
+// package.json, and this Worker has no package.json of its own), so this is
+// a minimal from-scratch ZIP local-file-header reader + WordprocessingML
+// text extractor, using the Workers runtime's built-in DecompressionStream
+// for the (near-universal) DEFLATE case.
+//
+// Deliberately narrow, matching the roadmap's step-sized scope:
+//   - Reads local file headers sequentially to find the word/document.xml
+//     entry. This covers the overwhelming majority of real .docx files
+//     (Word, Google Docs export, LibreOffice) which write entries without
+//     the streaming "data descriptor" flag.
+//   - Bails out cleanly (empty string → the handler's own 422) rather than
+//     guessing if it hits a data-descriptor-flagged entry or an
+//     unsupported compression method — a wrong guess here would silently
+//     hand Review Mode corrupted contract text, which is worse than a
+//     clear "couldn't read this file" error.
+//   - Pulls text only from <w:t> runs, using </w:p>, <w:tab/>, and <w:br/>
+//     as the only structural separators (paragraph break / tab / line
+//     break). Headers, footers, comments, and tracked-change markup live
+//     in separate zip entries this function never reads, so none of that
+//     leaks into the extracted body text.
+
+const ZIP_LOCAL_FILE_SIGNATURE = 0x04034b50;
+
+interface ZipLocalEntry {
+  name:             string;
+  compressionMethod: number;
+  compressedData:   Uint8Array;
+}
+
+/** Reads local file headers sequentially and returns the named entry's raw (still-compressed) bytes, or null. */
+function findZipEntry(bytes: Uint8Array, view: DataView, entryName: string): ZipLocalEntry | null {
+  let offset = 0;
+  while (offset + 30 <= bytes.length) {
+    if (view.getUint32(offset, true) !== ZIP_LOCAL_FILE_SIGNATURE) break;   // hit central directory or EOF
+
+    const generalPurposeFlag = view.getUint16(offset + 6, true);
+    const usesDataDescriptor = (generalPurposeFlag & 0x0008) !== 0;
+    const compressionMethod  = view.getUint16(offset + 8, true);
+    const compressedSize     = view.getUint32(offset + 18, true);
+    const nameLen             = view.getUint16(offset + 26, true);
+    const extraLen            = view.getUint16(offset + 28, true);
+
+    if (usesDataDescriptor) {
+      // Sizes aren't trustworthy in this header — this minimal parser
+      // doesn't scan forward for the data-descriptor signature. Bail.
+      return null;
+    }
+
+    const nameStart = offset + 30;
+    const name = new TextDecoder('utf-8').decode(bytes.subarray(nameStart, nameStart + nameLen));
+    const dataStart = nameStart + nameLen + extraLen;
+
+    if (name === entryName) {
+      return {
+        name,
+        compressionMethod,
+        compressedData: bytes.subarray(dataStart, dataStart + compressedSize),
+      };
+    }
+
+    offset = dataStart + compressedSize;
+  }
+  return null;
+}
+
+function decodeXmlEntities(s: string): string {
+  return s
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_, dec) => String.fromCharCode(parseInt(dec, 10)))
+    .replace(/&amp;/g, '&');   // must be last — other entities use literal '&' in their own escapes above
+}
+
+/** Extracts plain text from WordprocessingML (word/document.xml contents), preserving paragraph/tab/line breaks. */
+function wordprocessingMlToText(xml: string): string {
+  const tokenRegex = /<w:t(?:\s[^>]*)?>([\s\S]*?)<\/w:t>|<w:tab\b[^>]*\/>|<w:br\b[^>]*\/>|<\/w:p>/g;
+  const parts: string[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = tokenRegex.exec(xml)) !== null) {
+    const whole = m[0];
+    if (whole === '</w:p>')            parts.push('\n');
+    else if (whole.startsWith('<w:tab')) parts.push('\t');
+    else if (whole.startsWith('<w:br'))  parts.push('\n');
+    else                                 parts.push(decodeXmlEntities(m[1] ?? ''));
+  }
+  return parts.join('')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+/** Never throws — returns '' on any failure (bad zip, missing entry, unsupported compression, decompression failure). */
+async function extractTextFromDocx(buffer: ArrayBuffer): Promise<string> {
+  try {
+    const bytes = new Uint8Array(buffer);
+    const view  = new DataView(buffer);
+
+    const entry = findZipEntry(bytes, view, 'word/document.xml');
+    if (!entry) return '';
+
+    let xmlBytes: Uint8Array;
+    if (entry.compressionMethod === 0) {
+      // Stored — no compression.
+      xmlBytes = entry.compressedData;
+    } else if (entry.compressionMethod === 8) {
+      // DEFLATE — the standard case for real .docx files.
+      const stream = new Blob([entry.compressedData]).stream()
+        .pipeThrough(new DecompressionStream('deflate-raw'));
+      xmlBytes = new Uint8Array(await new Response(stream).arrayBuffer());
+    } else {
+      return '';   // unsupported compression method
+    }
+
+    const xml = new TextDecoder('utf-8').decode(xmlBytes);
+    return wordprocessingMlToText(xml);
+  } catch {
+    return '';
+  }
+}
+
+async function handleExtractContractDocx(req: Request, env: Env): Promise<Response> {
+  const origin = req.headers.get('Origin') || '*';
+
+  let buffer: ArrayBuffer;
+  try {
+    buffer = await req.arrayBuffer();
+  } catch {
+    return json({ ok: false, error: 'Could not read request body' }, 400, origin);
+  }
+
+  if (buffer.byteLength === 0) {
+    return json({ ok: false, error: 'Empty file' }, 400, origin);
+  }
+  const MAX_BYTES = 25 * 1024 * 1024;
+  if (buffer.byteLength > MAX_BYTES) {
+    return json({ ok: false, error: 'File too large — max 25 MB' }, 413, origin);
+  }
+
+  const text = (await extractTextFromDocx(buffer)).trim();
+  if (text.length < 40) {
+    return json({
+      ok: false,
+      error: 'Could not extract readable text from this .docx file — it may be corrupted, password-protected, or in an unsupported format. Try re-saving from Word, or paste the contract text directly.',
+    }, 422, origin);
+  }
+
+  return json({ ok: true, text, char_count: text.length }, 200, origin);
 }
 
 // ── Chunking ──────────────────────────────────────────────────────────────────
@@ -1784,6 +1992,11 @@ export default {
     if (method === 'GET'    && path === '/contract-clauses') return handleGetContractClauses(req, env);
     if (method === 'PUT'    && path === '/contract-clause')  return handlePutContractClause(req, env);
     if (method === 'DELETE' && path === '/contract-clause')  return handleDeleteContractClause(req, env);
+
+    // Roadmap 3a — Contract Engine Review Mode, full-text ingestion (PDF only)
+    if (method === 'POST'   && path === '/contract/extract-pdf') return handleExtractContractPdf(req, env);
+    // Roadmap 3b — Contract Engine Review Mode, full-text ingestion (docx)
+    if (method === 'POST'   && path === '/contract/extract-docx') return handleExtractContractDocx(req, env);
 
     // Phase 9F — Web Push Pipeline
     if (method === 'GET'  && path === '/push/vapid-public-key') return handleGetVapidPublicKey(req, env);
