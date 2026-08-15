@@ -1,37 +1,76 @@
 /**
  * AFS Legal OS — Contract Engine Dashboard
  *
- * Roadmap ref: 5a (Contract Engine — Dashboard Wiring)
+ * Roadmap ref: 5a (Contract Engine — Dashboard Wiring) + 5b (mode wiring)
  *
- * UI SHELL ONLY — no logic wired in yet. This gives the Contract Engine a
- * top-level entry point (reached from HomePage, same tier as SAN Mode and
- * Billions Voice) with a Draft / Review / Negotiate tab strip. Each tab
- * currently renders a placeholder panel.
+ * 5a gave this shell a Draft / Review / Negotiate tab strip with placeholder
+ * panels. 5b (this revision) wires the real modes in:
+ *   Draft     → ClientPositionProfileForm (2a) → Pass 0 (2b) → clause
+ *               register (2c) → knowledge tiers (2d) → research checklist
+ *               (2e) → flagging pass (2f)      — DraftModePanel
+ *   Review    → document ingest (3a/3b) → no-skim verification (3c) →
+ *               2d/2e/2f re-routed (3d)         — ReviewModePanel
+ *   Negotiate → round tracking (4a) → negotiate prompt/flow (4b)
+ *                                                — NegotiateModePanel
  *
  * Styled against src/constants/tokens.ts's white "newspaper" theme, same
  * as HomePage — not the stale dark-theme hex codes left over in some
  * older engine files (e.g. ResearchResolver.tsx), which predate T.
  *
- * 5b wires the real modes in:
- *   Draft     → ClientPositionProfileForm (2a) → Pass 0 (2b) → clause
- *               register (2c) → knowledge tiers (2d) → research checklist
- *               (2e) → flagging pass (2f)
- *   Review    → document ingest (3a/3b) → no-skim verification (3c) →
- *               2d/2e/2f re-routed (3d)
- *   Negotiate → round tracking (4a) → negotiate prompt/flow (4b)
+ * CURRENT-MATTER DECISION (deferred by 5a to 5b, resolved here): there is
+ * still no persisted "contract matter" registry (title, counterparty, list
+ * of past matters to reopen) anywhere in the roadmap — building one is a
+ * new roadmap item, not something to silently fold into this shell. What
+ * this shell needs in the meantime is just enough to make `contract_id`
+ * durable across a session and across the three tabs (they must all
+ * operate on the same matter). So: one "current matter" id, persisted in
+ * localStorage under `afs_contract_current_id`, shared by all three tabs.
+ * "Start New Matter" clears it and mints a fresh one — the old matter's
+ * data is untouched in D1/IndexedDB (same as every other contract_id),
+ * just no longer the one this shell points at. A real multi-matter
+ * registry with a picker is future work, not a 5b regression.
  *
- * Not part of this shell: a persisted "contract matter" registry (title,
- * counterparty, list of past matters to reopen). `contract_id` today is
- * just a string shared by ClientPositionProfile and ContractClause rows
- * (see contracts/types.ts) — deciding how a matter gets its id and how
- * counsel picks one back up belongs to 5b, not this shell.
+ * Client Position Profile (2a) is loaded once here, at the shell level, and
+ * passed down to all three panels — Draft edits/saves it, Review and
+ * Negotiate read it (for flagging-pass / negotiate-prompt context and the
+ * missing-profile warning) without each panel re-fetching it independently.
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAppStore } from '@/state/appStore';
 import { T } from '@/constants/tokens';
+import { uid } from '@/utils';
+import { loadClientPositionProfile } from '@/storage/helpers';
+import { DraftModePanel } from '@/contracts/DraftModePanel';
+import { ReviewModePanel } from '@/contracts/ReviewModePanel';
+import { NegotiateModePanel } from '@/contracts/NegotiateModePanel';
+import type { ClientPositionProfile } from '@/contracts/types';
 
 type ContractTabId = 'draft' | 'review' | 'negotiate';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CURRENT-MATTER ID — see file header for why this exists at this layer
+// ─────────────────────────────────────────────────────────────────────────────
+
+const CURRENT_MATTER_KEY = 'afs_contract_current_id';
+
+function getOrCreateCurrentMatterId(): string {
+  try {
+    const existing = localStorage.getItem(CURRENT_MATTER_KEY);
+    if (existing) return existing;
+    const fresh = uid();
+    localStorage.setItem(CURRENT_MATTER_KEY, fresh);
+    return fresh;
+  } catch {
+    return uid();
+  }
+}
+
+function startNewMatterId(): string {
+  const fresh = uid();
+  try { localStorage.setItem(CURRENT_MATTER_KEY, fresh); } catch { /* ignore */ }
+  return fresh;
+}
 
 const TABS: Array<{ id: ContractTabId; icon: string; label: string; sub: string }> = [
   { id: 'draft',     icon: '✍', label: 'Draft',     sub: 'Build a new contract' },
@@ -62,21 +101,14 @@ const TAB_COPY: Record<ContractTabId, { title: string; body: string }> = {
   },
 };
 
-function PlaceholderPanel({ tab }: { tab: ContractTabId }) {
+function ModeHeader({ tab }: { tab: ContractTabId }) {
   const copy = TAB_COPY[tab];
   return (
-    <div
-      style={{
-        background: T.card,
-        border: `1px solid ${T.bdr}`,
-        borderRadius: 6,
-        padding: '26px 24px',
-      }}
-    >
+    <div style={{ marginBottom: 16 }}>
       <p
         style={{
           fontSize: 10, color: T.text, fontFamily: "'Times New Roman', Times, serif",
-          letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 10,
+          letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 6,
         }}
       >
         {copy.title}
@@ -84,28 +116,11 @@ function PlaceholderPanel({ tab }: { tab: ContractTabId }) {
       <p
         style={{
           fontSize: 13, color: T.dim, fontFamily: "'Times New Roman', Times, serif",
-          lineHeight: 1.75, marginBottom: 18, maxWidth: 560,
+          lineHeight: 1.7, maxWidth: 560, margin: 0,
         }}
       >
         {copy.body}
       </p>
-      <div
-        style={{
-          display: 'inline-flex', alignItems: 'center', gap: 8,
-          background: '#ffffff', border: `1px solid ${T.bdr}`, borderRadius: 4,
-          padding: '7px 14px',
-        }}
-      >
-        <span style={{ fontSize: 11, color: T.warn }}>◌</span>
-        <span
-          style={{
-            fontSize: 11, color: T.warn, fontFamily: "'Times New Roman', Times, serif",
-            letterSpacing: '.04em',
-          }}
-        >
-          Not yet wired — coming in Roadmap 5b
-        </span>
-      </div>
     </div>
   );
 }
@@ -113,6 +128,29 @@ function PlaceholderPanel({ tab }: { tab: ContractTabId }) {
 export function ContractDashboard() {
   const { setView } = useAppStore();
   const [activeTab, setActiveTab] = useState<ContractTabId>('draft');
+
+  const [contractId, setContractId] = useState<string>(() => getOrCreateCurrentMatterId());
+  const [profile, setProfile] = useState<ClientPositionProfile | null>(null);
+  const [profileLoading, setProfileLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    setProfileLoading(true);
+    loadClientPositionProfile(contractId).then(p => {
+      if (cancelled) return;
+      setProfile(p);
+      setProfileLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, [contractId]);
+
+  function handleNewMatter() {
+    if (!confirm('Start a new matter? The current one stays saved and can be reopened by its contract id, but this shell will switch to a fresh, empty register.')) {
+      return;
+    }
+    setContractId(startNewMatterId());
+    setActiveTab('draft');
+  }
 
   return (
     <div style={{ animation: 'fadeUp .3s ease', maxWidth: 620, margin: '0 auto' }}>
@@ -153,6 +191,31 @@ export function ContractDashboard() {
         </div>
       </div>
 
+      {/* Current-matter strip — see file header for the 5b current-matter decision */}
+      <div style={{
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        marginBottom: 14, padding: '7px 12px', background: T.card,
+        border: `1px solid ${T.bdrL}`, borderRadius: 4,
+      }}>
+        <p style={{
+          fontSize: 10, color: T.mute, fontFamily: "'Times New Roman', Times, serif",
+          letterSpacing: '.04em', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis',
+        }}>
+          Matter <span style={{ color: T.dim }}>{contractId}</span>
+        </p>
+        <button
+          type="button"
+          onClick={handleNewMatter}
+          style={{
+            background: 'none', border: `1px solid ${T.bdr}`, color: T.dim,
+            borderRadius: 3, padding: '4px 10px', fontSize: 10, cursor: 'pointer',
+            fontFamily: "'Times New Roman', Times, serif", flexShrink: 0, marginLeft: 10,
+          }}
+        >
+          Start New Matter
+        </button>
+      </div>
+
       {/* Tab strip */}
       <div style={{
         display: 'flex', gap: 1, marginBottom: 18,
@@ -182,7 +245,38 @@ export function ContractDashboard() {
         ))}
       </div>
 
-      <PlaceholderPanel tab={activeTab} />
+      <ModeHeader tab={activeTab} />
+
+      <div
+        style={{
+          background: T.card,
+          border: `1px solid ${T.bdr}`,
+          borderRadius: 6,
+          padding: '20px 20px 22px',
+        }}
+      >
+        {profileLoading ? (
+          <p style={{ fontSize: 12, color: T.mute, fontFamily: "'Times New Roman', Times, serif" }}>
+            Loading matter…
+          </p>
+        ) : (
+          <>
+            {activeTab === 'draft' && (
+              <DraftModePanel
+                contractId={contractId}
+                profile={profile}
+                onProfileSaved={setProfile}
+              />
+            )}
+            {activeTab === 'review' && (
+              <ReviewModePanel contractId={contractId} profile={profile} />
+            )}
+            {activeTab === 'negotiate' && (
+              <NegotiateModePanel contractId={contractId} profile={profile} />
+            )}
+          </>
+        )}
+      </div>
 
       <p style={{
         marginTop: 32, fontSize: 11, color: T.mute, textAlign: 'center',
