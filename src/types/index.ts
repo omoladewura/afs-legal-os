@@ -1172,7 +1172,8 @@ export type AppView =
   | 'matrimonial' // matrimonial case workspace
   | 'resolver'    // Research Resolver standalone tool
   | 'san'         // SAN Mode standalone
-  | 'settings';   // Settings panel (library management, system info) 
+  | 'settings'    // Settings panel (library management, system info)
+  | 'contracts';  // Contract Engine — Draft/Review/Negotiate (Roadmap 5a), standalone like SAN
 
 export type DashTabId =
   | 'overview' | 'intelligence' | 'appeal' | 'builder' | 'docket'
