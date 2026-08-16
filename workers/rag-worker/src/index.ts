@@ -322,6 +322,22 @@ async function ensureTables(env: Env): Promise<void> {
     created_at    TEXT NOT NULL,
     updated_at    TEXT NOT NULL
   )`).run();
+  // Roadmap 7a — Article Generator.
+  // Table + migration only — no read/write helpers or routes wired here.
+  // 7b's topic selector is what actually queries this table (random +
+  // cross-area + no-repeat check against prior topics); this step just
+  // gives it somewhere to check against. `area` is pulled out as its own
+  // column (not buried in a JSON blob) specifically so 7b's no-repeat/
+  // cross-area check can filter by it directly, same reasoning as
+  // `jurisdiction` on contract_clauses (1c). No contract_id/case_id
+  // foreign key — article topics aren't scoped to a matter, they're a
+  // standalone log for the Article Generator across all of AFS Legal OS.
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS article_topics_log (
+    id         TEXT PRIMARY KEY,
+    topic      TEXT NOT NULL,
+    area       TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  )`).run();
   await env.DB.prepare(`CREATE TABLE IF NOT EXISTS push_subscriptions (
     endpoint    TEXT PRIMARY KEY,
     keys_auth   TEXT NOT NULL,
@@ -1582,6 +1598,41 @@ async function handleDeleteContractClause(req: Request, env: Env): Promise<Respo
   return json({ ok: true }, 200, origin);
 }
 
+// ── Article Generator — Article Topics Log (Roadmap 7a/7b) ─────────────────────
+// Append-only log, no delete route — 7b's no-repeat/cross-area check only
+// ever needs to read recent history and add to it. GET takes an optional
+// `limit` (defaults to 40) and returns newest-first, matching what 7b's
+// topicSelector wants for both the "recently used areas" and "recent
+// topics to avoid repeating" checks in one read. No contractId/caseId
+// scoping — this log is global across AFS Legal OS, per article_topics_log's
+// table comment in ensureTables().
+
+async function handleGetArticleTopicsLog(req: Request, env: Env): Promise<Response> {
+  const origin = req.headers.get('Origin') || '*';
+  await ensureTables(env);
+  const url   = new URL(req.url);
+  const limit = Math.min(Math.max(parseInt(url.searchParams.get('limit') || '40', 10) || 40, 1), 200);
+  const rows = await env.DB.prepare(
+    'SELECT id, topic, area, created_at FROM article_topics_log ORDER BY created_at DESC LIMIT ?'
+  ).bind(limit).all();
+  const entries = rows.results || [];
+  return json({ entries }, 200, origin);
+}
+
+async function handlePutArticleTopicLog(req: Request, env: Env): Promise<Response> {
+  const origin = req.headers.get('Origin') || '*';
+  await ensureTables(env);
+  const body = await req.json() as { id?: string; topic?: string; area?: string; created_at?: string };
+  if (!body.id || !body.topic || !body.area) {
+    return json({ error: 'id, topic and area are required' }, 400, origin);
+  }
+  const now = new Date().toISOString();
+  await env.DB.prepare(
+    'INSERT OR REPLACE INTO article_topics_log (id, topic, area, created_at) VALUES (?, ?, ?, ?)'
+  ).bind(body.id, body.topic, body.area, body.created_at || now).run();
+  return json({ ok: true }, 200, origin);
+}
+
 // ── Phase 9F — Web Push Pipeline ─────────────────────────────────────────────
 //
 // Three endpoints complete the background push pipeline:
@@ -1992,6 +2043,10 @@ export default {
     if (method === 'GET'    && path === '/contract-clauses') return handleGetContractClauses(req, env);
     if (method === 'PUT'    && path === '/contract-clause')  return handlePutContractClause(req, env);
     if (method === 'DELETE' && path === '/contract-clause')  return handleDeleteContractClause(req, env);
+
+    // Roadmap 7a/7b — Article Generator, article topics log
+    if (method === 'GET'    && path === '/article-topics-log') return handleGetArticleTopicsLog(req, env);
+    if (method === 'PUT'    && path === '/article-topic-log')  return handlePutArticleTopicLog(req, env);
 
     // Roadmap 3a — Contract Engine Review Mode, full-text ingestion (PDF only)
     if (method === 'POST'   && path === '/contract/extract-pdf') return handleExtractContractPdf(req, env);
