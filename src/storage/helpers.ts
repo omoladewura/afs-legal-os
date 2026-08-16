@@ -17,6 +17,7 @@ import type { Case, DocketEntry, Deadline, EvidenceItem, ArgumentVersion, CaseTh
 import type { MatrimonialCaseData, MExtractionResult } from '@/matrimonial/types';
 import type { BlindSpotRecord, ResearchRecord, ArgumentTemplate, DraftBufferRecord, MediaLibraryItem, RebuttalBankRecord, RebuttalBankDefeater } from './db';
 import type { ClientPositionProfile, ContractClause } from '@/contracts/types';
+import type { ArticleTopicLogEntry } from '@/articles/types';
 import { AUTH_TOKEN } from '@/services/api';
 
 // ── Config ────────────────────────────────────────────────────────────────────
@@ -1172,6 +1173,31 @@ export async function deleteContractClausesForContract(contractId: string): Prom
     return true;
   } catch (e) {
     console.error('[Storage] deleteContractClausesForContract failed', e);
+    return false;
+  }
+}
+
+// ── Article Generator — Article Topics Log (Roadmap 7a/7b) ─────────────────────
+// D1 only — no Dexie mirror table exists for this log (7a deliberately
+// created the D1 table only, "no other tables yet"; there is no matching
+// 1f-style Dexie step for the Article Generator on this roadmap). So unlike
+// every other pair of helpers in this file, there is no IndexedDB fallback
+// here: offline, loadArticleTopicsLog() returns [] and logArticleTopic()
+// silently no-ops (same as every syncGet/syncPut failure elsewhere), rather
+// than degrading to a local copy. Acceptable for a no-repeat/cross-area
+// check that's advisory, not data of record.
+
+export async function loadArticleTopicsLog(limit = 40): Promise<ArticleTopicLogEntry[]> {
+  const remote = await syncGet(`/article-topics-log?limit=${encodeURIComponent(String(limit))}`) as { entries?: ArticleTopicLogEntry[] } | null;
+  return remote?.entries ?? [];
+}
+
+export async function logArticleTopic(entry: ArticleTopicLogEntry): Promise<boolean> {
+  try {
+    await syncPut('/article-topic-log', entry);
+    return true;
+  } catch (e) {
+    console.error('[Storage] logArticleTopic failed', e);
     return false;
   }
 }
