@@ -70,7 +70,7 @@ export function HomePage() {
             lineHeight: 1.65,
             borderTop: '1px solid #cccccc', paddingTop: 10,
           }}>
-            Open a case to access the full litigation suite, or go straight to SAN Mode, the Contract Engine, or Billions Voice.
+            Open a case to access the full litigation suite, or go straight to SAN Mode, the Contract Engine, the Research Assistant, the Article Generator, or Billions Voice.
           </p>
         </div>
       </div>
@@ -126,6 +126,42 @@ export function HomePage() {
             <p style={cardTag}>Draft · Review · Negotiate</p>
             <p style={cardTitle}>Contract Engine</p>
             <p style={cardDesc}>Draft new contracts, review ones handed to you, or track a negotiation — one clause register, knowledge-tier grounded throughout.</p>
+          </div>
+          <div style={arrowCol}>→</div>
+        </button>
+
+        <div style={{ height: 1, background: '#cccccc' }} />
+
+        {/* Research Assistant */}
+        <button
+          onClick={() => setView('research')}
+          style={cardStyle}
+          onMouseEnter={e => (e.currentTarget.style.background = '#f5f5f3')}
+          onMouseLeave={e => (e.currentTarget.style.background = '#ffffff')}
+        >
+          <div style={iconCol}>◔</div>
+          <div style={{ flex: 1 }}>
+            <p style={cardTag}>Supo · One Query at a Time</p>
+            <p style={cardTitle}>Research Assistant</p>
+            <p style={cardDesc}>State a problem, get one grounded query and finding per turn, until Supo judges the question resolved.</p>
+          </div>
+          <div style={arrowCol}>→</div>
+        </button>
+
+        <div style={{ height: 1, background: '#cccccc' }} />
+
+        {/* Article Generator */}
+        <button
+          onClick={() => setView('articles')}
+          style={cardStyle}
+          onMouseEnter={e => (e.currentTarget.style.background = '#f5f5f3')}
+          onMouseLeave={e => (e.currentTarget.style.background = '#ffffff')}
+        >
+          <div style={iconCol}>✎</div>
+          <div style={{ flex: 1 }}>
+            <p style={cardTag}>Topic · Research · Draft</p>
+            <p style={cardTitle}>Article Generator</p>
+            <p style={cardDesc}>Supo picks a topic, researches it, and writes a copy-ready draft — dramatized, pre-AI rhythm, nothing published automatically.</p>
           </div>
           <div style={arrowCol}>→</div>
         </button>
