@@ -8,6 +8,8 @@
  *   'home'     → HomePage (3 entry points: Docket, SAN, Billions)
  *   'engine'   → CaseDashboard (active case workspace)
  *   'resolver' → ResearchResolver (standalone tool)
+ *   'research' → ResearchDashboard (Supo — standalone, Roadmap 6d)
+ *   'articles' → ArticleDashboard (Article Generator — standalone, Roadmap 7a–7d)
  *   'san'      → SanMode (standalone)
  *   'settings' → SettingsPanel (library management, system info)
  *
@@ -31,6 +33,8 @@ import { PasswordGate } from '@/pages/PasswordGate';
 import { HomePage } from '@/pages/HomePage';
 import { CaseDashboard } from '@/pages/CaseDashboard';
 import { ContractDashboard } from '@/pages/ContractDashboard';
+import { ResearchDashboard } from '@/pages/ResearchDashboard';
+import { ArticleDashboard } from '@/pages/ArticleDashboard';
 import { ResearchResolver } from '@/engines/ResearchResolver';
 import { SettingsPanel } from '@/pages/SettingsPanel';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
@@ -367,6 +371,8 @@ export function App() {
           {view === 'engine'      && <CaseDashboard />}
           {view === 'matrimonial' && <MatrimonialDashboard />}
           {view === 'contracts'   && <ContractDashboard />}
+          {view === 'research'    && <ResearchDashboard />}
+          {view === 'articles'    && <ArticleDashboard />}
           {view === 'resolver'    && <ResearchResolver onBack={() => setView('home')} />}
           {view === 'settings'    && <SettingsPanel />}
           {view === 'san'      && (
