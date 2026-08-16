@@ -1173,7 +1173,9 @@ export type AppView =
   | 'resolver'    // Research Resolver standalone tool
   | 'san'         // SAN Mode standalone
   | 'settings'    // Settings panel (library management, system info)
-  | 'contracts';  // Contract Engine — Draft/Review/Negotiate (Roadmap 5a), standalone like SAN
+  | 'contracts'   // Contract Engine — Draft/Review/Negotiate (Roadmap 5a), standalone like SAN
+  | 'research'    // Research Assistant — Supo single-prompt loop (Roadmap 6d), standalone like SAN/contracts
+  | 'articles';   // Article Generator — topic → research → draft (Roadmap 7a–7d), standalone like SAN/contracts/research
 
 export type DashTabId =
   | 'overview' | 'intelligence' | 'appeal' | 'builder' | 'docket'
